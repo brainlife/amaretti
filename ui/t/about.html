@@ -1,0 +1,48 @@
+<style>
+body {
+    background-color: #ddd;
+}
+</style>
+
+<div class="container">
+    <div class="center-block">
+        <img class="logo" src="{{logo_400_url}}"/>
+        <div class="form-group">
+            <button type="button" class="btn btn-danger btn-lg btn-block" ng-click="begin_iucas()">
+                <img src="images/trident.png"/>&nbsp;&nbsp;&nbsp;Login with IU Account
+            </button>
+        </div>
+        <div class="form-group">
+            <center>or</center>
+        </div>
+        <form ng-submit="submit()">
+            <!-- name="username" and name="password" isn't technically needed but it helps browser figures out what fields they are (autopopulate) -->
+            <div class="form-group">
+                <div class="input-group">
+                    <span class="input-group-addon"><i class="fa fa-envelope" style="width: 30px;"></i></span>
+                    <input class="form-control" name="username" type="text" placeholder="Username or Email" ng-model="userpass.username" ng-required="true"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    <span class="input-group-addon"><i class="fa fa-lock" style="width: 30px;"></i></span>
+                    <input class="form-control" name="password" type="password" placeholder="Password" ng-model="userpass.password" ng-required="true"/>
+                </div>
+            </div>
+            <div class="form-group">
+                <input class="btn btn-lg btn-block" type="submit" value="Log In"/>
+            </div>
+        </form>
+        <hr>
+        <center>First time here? &nbsp;&nbsp;<a href="#/register">Sign Up</a></center>
+        <br>
+        <center class="text-muted">
+            <a href="#/resetpass">Forgot Password?</a>
+        </center>
+        <!--
+        <pre ng-show="jwt_dump">{{jwt_dump}}</pre>
+        <p ng-show="!jwt_dump" class="muted">You are not logged in.</p>
+        -->
+    </div>
+</div>
+

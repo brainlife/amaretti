@@ -1,0 +1,24 @@
+{
+  "name": "sca",
+  "version": "0.0.0",
+  "description": "SCA sample portal",
+  "main": "index.js",
+  "dependencies": {
+    "express": "~4.13.3",
+    "winston": "~1.0.1",
+    "express-jwt": "~3.0.1",
+    "body-parser": "~1.13.3",
+    "morgan": "~1.6.1"
+  },
+  "devDependencies": {
+    "grunt-contrib-less": "~1.0.1",
+    "grunt": "~0.4.5",
+    "grunt-contrib-watch": "~0.6.1"
+  },
+  "scripts": {
+    "test": "mocha",
+    "start": "app.js"
+  },
+  "author": "",
+  "license": "BSD"
+}
