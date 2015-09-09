@@ -9,9 +9,11 @@ var app = angular.module('app', [
     'toaster',
     'angular-loading-bar',
     'angular-jwt',
-    'scaControllers' //contains searchControllers - others?
+    'ui.bootstrap',
+    'sca',
 ]);
 
+/*
 app.factory('redirector', ['$location', '$routeParams', function($location, $routeParams) {
     if($routeParams.redirect) {
         localStorage.setItem('post_auth_redirect', $routeParams.redirect);
@@ -34,6 +36,7 @@ app.factory('redirector', ['$location', '$routeParams', function($location, $rou
         }
     }
 }]);
+*/
 
 //show loading bar at the top
 app.config(['cfpLoadingBarProvider', function(cfpLoadingBarProvider) {
@@ -74,7 +77,6 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
     //console.dir($routeProvider);
 }]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', function($rootScope, $location, toaster, jwtHelper, appconf) {
     $rootScope.$on("$routeChangeStart", function(event, next, current) {
-        console.log("route changed from "+current+" to :"+next);
         //redirect to /login if user hasn't authenticated yet
         if(next.requiresLogin) {
             var jwt = localStorage.getItem(appconf.jwt_id);

@@ -8,10 +8,10 @@ var bodyParser = require('body-parser');
 
 var config = require('./config/config');
 
-var scaauth = require('sca-auth');
-var scaprofile = require('sca-profile');
+//var scaauth = require('sca-auth');
+//var scaprofile = require('sca-profile');
 
-scaauth.init(config.auth);
+//scaauth.init(config.auth);
 //scaprofile.init(config.profile);
 
 var app = express();
@@ -25,7 +25,7 @@ app.get('/health', function(req, res) {
     res.json({status: 'running'});
 });
 
-app.use('/auth', scaauth.router);
+//app.use('/auth', scaauth.router);
 //app.use('/profile', scaprofile.router);
 app.use(function(req, res, next) {
     var err = new Error('Not Found');
