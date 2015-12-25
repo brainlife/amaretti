@@ -1,48 +1,52 @@
-'use strict';
+#!/usr/bin/node
 
+//node
 var fs = require('fs');
+var path = require('path');
 
+//contrib
 var express = require('express');
-var jwt = require('express-jwt');
 var bodyParser = require('body-parser');
+var winston = require('winston');
+var expressWinston = require('express-winston');
+var compression = require('compression');
 
-var config = require('./config/config');
+//mine
+var config = require('./config');
+var logger = new winston.Logger(config.logger.winston);
+//var db = require('./models');
+//var migration = require('./migration');
+//var common = require('./common');
 
-//var scaauth = require('sca-auth');
-//var scaprofile = require('sca-profile');
-
-//scaauth.init(config.auth);
-//scaprofile.init(config.profile);
-
+//init express
 var app = express();
-
-//var jwtac = jwt({secret: config.auth.public_key});
-
+app.use(compression());
 app.use(bodyParser.json()); //parse application/json
-app.use(config.logger.express);
+app.use(expressWinston.logger(config.logger.winston));
 
-app.get('/health', function(req, res) {
-    res.json({status: 'running'});
-});
+app.use('/', require('./controllers'));
 
-//app.use('/auth', scaauth.router);
-//app.use('/profile', scaprofile.router);
-app.use(function(req, res, next) {
-    var err = new Error('Not Found');
-    err.status = 404;
-    next(err);
-});
+//error handling
+app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
-    console.dir(err);
+    logger.error(err);
+    logger.error(err.stack);
     res.status(err.status || 500);
-    res.json({message: err.message});
+    res.json({message: err.message, /*stack: err.stack*/}); //let's hide callstack for now
 });
 
-function start() {
-    var port = process.env.PORT || '8080';
-    app.listen(port);
-    console.log("Express server listening on port %d in %s mode", port, app.settings.env);
+process.on('uncaughtException', function (err) {
+    //TODO report this to somewhere!
+    logger.error((new Date).toUTCString() + ' uncaughtException:', err.message)
+    logger.error(err.stack)
+});
+
+exports.app = app;
+exports.start = function(cb) {
+    var port = process.env.PORT || config.express.port || '8081';
+    var host = process.env.HOST || config.express.host || 'localhost';
+    app.listen(port, host, function() {
+        logger.info("sca webui/api service running on %s:%d in %s mode", host, port, app.settings.env);
+    });
 }
 
-exports.start = start;
-exports.app = app;

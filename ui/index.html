@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html ng-app="app">
+<html ng-app="app" ng-controller="HeaderController as header">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -7,29 +7,26 @@
     <title>SCA Portal</title>
 
     <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/bootstrap.yeti.css">
-
-    <link rel="stylesheet" href="bower_components/fontawesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="bower_components/bootswatch/yeti/bootstrap.min.css">
     <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:400,700">
-
-    <link rel="stylesheet" href="bower_components/angular-ui-select/dist/select.min.css">
+    <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="bower_components/angular-loading-bar/build/loading-bar.min.css">
     <link rel="stylesheet" href="bower_components/angularjs-toaster/toaster.min.css">
     <link rel="stylesheet" href="bower_components/angular/angular-csp.css">
 
-    <link rel="stylesheet" href="https://soichi7.ppa.iu.edu/shared/css/style.css">
+    <link rel="stylesheet" href="../shared/css/style.css">
     <link rel="stylesheet" href="css/style.css">
-
 </head>
-<body ng-cloak>
+<body>
+    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
     <toaster-container toaster-options="{'position-class': 'toast-bottom-full-width'}"></toaster-container>
     <ng-view></ng-view><!-- <ng-view/> will cause route looping-->
+    <ng-include src="'t/footer.html'"></ng-include> <!--should this be part of view?-->
 
     <script src="bower_components/jquery/dist/jquery.min.js"></script><!--bootstrap requires jquery-->
     <script src="bower_components/angular/angular.min.js"></script>
     <script src="bower_components/angular-route/angular-route.min.js"></script>
     <script src="bower_components/angular-jwt/dist/angular-jwt.min.js"></script>
-    <script src="bower_components/angular-sanitize/angular-sanitize.min.js"></script>
     <script src="bower_components/angular-animate/angular-animate.min.js"></script>
     <script src="bower_components/angular-cookies/angular-cookies.min.js"></script>
     <script src="bower_components/angular-loading-bar/build/loading-bar.min.js"></script>
@@ -38,11 +35,11 @@
     <script src="bower_components/angular-bootstrap/ui-bootstrap.min.js"></script>
     <script src="bower_components/angular-bootstrap/ui-bootstrap-tpls.min.js"></script>
     <script src="bower_components/angularjs-toaster/toaster.min.js"></script>
-    <script src="bower_components/angular-load/angular-load.min.js"></script>
 
     <script src="config.js"></script>
+    <script src="../shared/config.js"></script> 
+    <script src="../shared/dist/shared.js"></script> 
 
-    <script src="https://soichi7.ppa.iu.edu/shared/shared.js"></script>
     <script src="js/app.js"></script>
     <script src="js/controllers.js"></script>
 </body>

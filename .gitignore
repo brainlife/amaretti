@@ -1,5 +1,9 @@
 nohup_grunt.out
 node_modules
 ui/bower_components
-config
+api/config
 ui/config.js
+logs
+*.log
+.grunt
+

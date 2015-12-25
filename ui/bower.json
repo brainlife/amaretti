@@ -10,20 +10,21 @@
     "tests"
   ],
   "dependencies": {
-    "angular": "~1.4.0",
-    "angular-animate": "~1.4.0",
-    "angular-bootstrap": "~0.13.0",
-    "angular-cookies": "~1.4.0",
+    "angular": "~1.4.7",
+    "angular-animate": "~1.4.7",
+    "angular-cookies": "~1.4.7",
     "angular-jwt": "~0.0.9",
     "angular-loading-bar": "~0.7.1",
     "angular-route": "~1.4.0",
-    "angular-sanitize": "~1.3.14",
-    "angular-ui-select": "~0.11.1",
     "angularjs-toaster": "~0.4.14",
     "bootstrap": "~3.3.2",
-    "fontawesome": "~4.3.0"
-  },
-  "resolutions": {
-    "angular": "~1.4.0"
+    "simple-sidebar": "IronSummitMedia/startbootstrap-simple-sidebar",
+    "font-awesome": "fontawesome#~4.4.0",
+    "angular-ui-select": "angular-ui/ui-select",
+    "angular-bootstrap": "~0.13.4",
+    "angular-order-object-by": "~1.2.1",
+    "angular-gravatar": "~0.4.1",
+    "angular-ui-ace": "~0.2.3",
+    "bootswatch": "~3.3.6"
   }
 }
