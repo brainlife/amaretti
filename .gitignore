@@ -3,6 +3,7 @@ node_modules
 ui/bower_components
 api/config
 ui/config.js
+**/barn
 logs
 *.log
 .grunt
