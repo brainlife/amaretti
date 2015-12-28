@@ -1,0 +1,67 @@
+<sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10">
+            <!--<div class="pull-right">Created <time>{{workflow.create_date}}</time></div>-->
+
+            <!--
+            <h3 class="editable" ng-if="!edit.name" ng-click="start_edit('name')">{{workflow.name}}</h3>
+            <div ng-if="edit.name" class="input-group">
+                <input class="form-control" ng-model="edit.name" type="text"/>
+                <span class="input-group-btn">
+                    <button class="btn" type="button" ng-click="edit.name = null"><i class="fa fa-times"></i></button>
+                    <button class="btn btn-primary" type="button" ng-click="end_edit('name')"><i class="fa fa-check"></i></button>
+                </span>
+            </div>
+
+            <p class="editable" ng-if="!edit.desc" ng-click="start_edit('desc')">{{workflow.desc}}</p>
+            <div ng-if="edit.desc" class="input-group">
+                <textarea class="form-control" ng-model="edit.desc"></textarea>
+                <span class="input-group-btn" style="vertical-align: top;">
+                    <button class="btn" type="button" ng-click="edit.desc = null"><i class="fa fa-times"></i></button>
+                    <button class="btn btn-primary" type="button" ng-click="end_edit('desc')"><i class="fa fa-check"></i></button>
+                </span>
+            </div>
+            -->
+            <sca-workflow-info></sca-workflow-info>
+
+            <div ng-repeat="step in workflow.steps">
+                <div class="workflow-step-border">
+                    <hr>
+                    <button class="btn btn-xs pull-right" style="position: relative; top: -35px;" ng-click="addstep($index)">
+                        <i class="fa fa-plus"></i>
+                    </button>
+                </div>
+
+                <div class="workflow-step" style="position: relative;">
+                    <div class="workflow-step-control" style="position: absolute; top: 0px; right: 0px">
+                        <button class="btn btn-xs btn-danger" 
+                            confirmed-click="removestep($index)" 
+                            ng-confirm-click="Are you sure you want to remove this step?">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div ng-switch="step.type">
+                        <sca-step-comment ng-switch-when="comment" step="step"></sca-step-comment>
+                        <sca-step-hpss ng-switch-when="hpss" step="step"></sca-step-hpss>
+                        <div ng-switch-default>{{step | json}}</div>
+                    </div>
+                </div><!--workflow-step-->
+            </div><!--ng-repeast/steps-->
+
+            <div class="workflow-step-border">
+                <hr>
+                <button class="btn btn-xs pull-right" style="position: relative; top: -35px;" ng-click="addstep()">
+                    <i class="fa fa-plus"></i>
+                </button>
+            </div>
+
+            <pre>{{workflow | json}}</pre>
+        </div>
+        <div class="col-md-2">
+            sidebar  TODO
+        </div>
+    </div>
+</div>
+
+

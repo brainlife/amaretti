@@ -1,18 +1,49 @@
 body {
   font-family: 'Lato', serif;
 }
-.center-block {
-  display: block;
-  margin-top: 50px;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 30px;
-  max-width: 500px;
-  background-color: white;
-  box-shadow: 0px 0px 15px #666;
-  border-radius: 5px;
+div.step-selector {
+  border: 1px solid #eee;
+  padding: 10px;
 }
-.logo {
-  margin: 30px 0px;
-  width: 100%;
+div.step-selector span.step-selector-item {
+  background-color: #eee;
+  padding: 5px;
+  cursor: pointer;
+}
+div.step-selector span.step-selector-item-selected {
+  background-color: #008cba;
+  color: white;
+}
+.editable {
+  /*border: 1px solid white;*/
+}
+.editable:hover {
+  cursor: pointer;
+  background-color: #eee;
+  /*border: 1px solid #ccc; */
+}
+.workflow-step {
+  border-left: 3px solid white;
+}
+.workflow-step .workflow-step-control {
+  display: none;
+}
+.workflow-step:hover {
+  border-left: 3px solid #008cba;
+}
+.workflow-step:hover .workflow-step-control {
+  display: inherit;
+}
+.workflow-step-border {
+  opacity: 0.5;
+}
+.sca-step-hpss .sca-step-hpss-folder {
+  cursor: pointer;
+}
+.sca-step-hpss ul.sca-step-hpss-children {
+  list-style: none;
+  font-size: 80%;
+}
+.sca-step-hpss span.sca-step-hpss-filename {
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }

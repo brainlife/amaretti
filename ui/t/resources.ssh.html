@@ -1,0 +1,14 @@
+<div class="form-group">
+    <label>Hostname</label>
+    <input type="text" class="form-control" ng-model="resource.hostname" name="hostname" disabled required></textarea>
+</div>
+<div class="form-group">
+    <label>Username</label>
+    <input type="text" class="form-control" ng-model="myresources[rid].username" name="username" required></textarea>
+</div>
+<div class="form-group">
+    <label>SSH Private Key</label>
+    <textarea class="form-control" ng-model="myresources[rid].ssh_private" name="ssh_private" required></textarea>
+    <p class="help-block">* Please add the corresponding public key in ~/.ssh/authorized_keys on {{resource.hostname}}</p>
+</div>
+

@@ -1,0 +1,35 @@
+<sca-menutab menu="appconf.menu" active="'resources'" user="user"></sca-menutab>
+<div class="container-fluid">
+    <ul class="list-group">
+        <li class="list-group-item" ng-repeat="(rid, resource) in serverconf.resources">
+            <form ng-submit="submit(rid, myresources[rid])">
+                <h4>{{resource.name}}</h4>
+                <p class="help-block">{{resource.desc}}</p>
+                <div class="form-group">
+                    <input type="checkbox" ng-model="myresources[rid].enabled" name="enabled"> Enable</input>
+                </div>
+                <div ng-if="myresources[rid].enabled">
+                    <div ng-switch="resource.type">
+                        <div ng-switch-when="pbs">
+                            <ng-include src="'t/resources.ssh.html'"></ng-include>
+                        </div>
+                        <div ng-switch-when="condor">
+                            <ng-include src="'t/resources.ssh.html'"></ng-include>
+                        </div>
+                        <div ng-switch-when="hpss">
+                            <ng-include src="'t/resources.hpss.html'"></ng-include>
+                        </div>
+                        <div ng-switch-default>
+                            {{resource}}
+                        </div>
+                    </div>
+                </div>
+                <input type="submit" class="btn" value="Update">
+                <!--
+                <pre>{{resource | json}}</pre>
+                <pre>{{myresources[rid] | json}}</pre>
+                -->
+            </form>
+        </li>
+    </ul>
+</div>

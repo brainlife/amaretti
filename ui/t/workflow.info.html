@@ -1,0 +1,18 @@
+<div class="editable" ng-if="!workflow.editing" ng-click="workflow.editing = true">
+    <h3>{{workflow.name}}</h3>
+    <p class="help-block">{{workflow.desc}}</p>
+</div>
+<form ng-if="workflow.editing" ng-submit="submit()">
+    <input class="form-control" ng-model="workflow.name" type="text" placeholder="Workflow Title" required/>
+    <textarea class="form-control" ng-model="workflow.desc" placeholder="Workflow Description"></textarea>
+    <button class="btn btn-sm" type="submit"><i class="fa fa-check"></i></button>
+</form>
+<!--
+<div ng-if="step.editing" class="input-group">
+    <textarea ng-model="step.text" class="form-control" placeholder="Enter comment here" ng-blur="step.editing = false"></textarea>
+    <span class="input-group-btn" style="vertical-align: top;">
+        <button class="btn" type="button" ng-click="step.editing = null"><i class="fa fa-times"></i></button>
+        <button class="btn btn-primary" type="button" ng-click="doneedit(step)"><i class="fa fa-check"></i></button>
+    </span>
+</div>        
+-->

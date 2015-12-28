@@ -14,7 +14,7 @@ var compression = require('compression');
 //mine
 var config = require('./config');
 var logger = new winston.Logger(config.logger.winston);
-//var db = require('./models');
+var db = require('./models/db');
 //var migration = require('./migration');
 //var common = require('./common');
 
@@ -45,8 +45,11 @@ exports.app = app;
 exports.start = function(cb) {
     var port = process.env.PORT || config.express.port || '8081';
     var host = process.env.HOST || config.express.host || 'localhost';
-    app.listen(port, host, function() {
-        logger.info("sca webui/api service running on %s:%d in %s mode", host, port, app.settings.env);
+    db.init(function(err) {
+        if(err) return cb(err);
+        app.listen(port, host, function() {
+            logger.info("sca webui/api service running on %s:%d in %s mode", host, port, app.settings.env);
+        });
     });
 }
 

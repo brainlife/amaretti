@@ -24,6 +24,23 @@ app.animation('.slide-down', ['$animateCss', function($animateCss) {
     };
 }]);
 
+//http://plnkr.co/edit/YWr6o2?p=preview
+app.directive('ngConfirmClick', [
+    function() {
+        return {
+            link: function (scope, element, attr) {
+                var msg = attr.ngConfirmClick || "Are you sure?";
+                var clickAction = attr.confirmedClick;
+                element.bind('click',function (event) {
+                    if ( window.confirm(msg) ) {
+                        scope.$eval(clickAction)
+                    }
+                });
+            }
+        };
+    }
+]);
+
 //show loading bar at the top
 app.config(['cfpLoadingBarProvider', function(cfpLoadingBarProvider) {
     cfpLoadingBarProvider.includeSpinner = false;
@@ -36,12 +53,19 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         templateUrl: 't/about.html',
         controller: 'AboutController'
     })
-    /*
-    .when('/success', {
-
-        templateUrl: 't/empty.html',
-        controller: 'SuccessController'
+    .when('/workflows', {
+        templateUrl: 't/workflows.html',
+        controller: 'WorkflowsController'
     })
+    .when('/workflow/:id', {
+        templateUrl: 't/workflow.html',
+        controller: 'WorkflowController'
+    })
+    .when('/resources', {
+        templateUrl: 't/resources.html',
+        controller: 'ResourcesController'
+    })
+    /*
     .when('/resetpass', {
         templateUrl: 't/resetpass.html',
         controller: 'ResetpassController'
@@ -74,6 +98,33 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
             }
         }
     });
+
+    //check to see if jwt is valid
+    var jwt = localStorage.getItem(appconf.jwt_id);
+    if(jwt) {
+        var expdate = jwtHelper.getTokenExpirationDate(jwt);
+        var ttl = expdate - Date.now();
+        if(ttl < 0) {
+            toaster.error("Your login session has expired. Please re-sign in");
+            localStorage.removeItem(appconf.jwt_id);
+        } else {
+            //TODO - do this via interval?
+            if(ttl < 3600*1000) {
+                //jwt expring in less than an hour! refresh!
+                console.log("jwt expiring in an hour.. refreshing first");
+                $http({
+                    url: appconf.auth_api+'/refresh',
+                    //skipAuthorization: true,  //prevent infinite recursion
+                    //headers: {'Authorization': 'Bearer '+jwt},
+                    method: 'POST'
+                }).then(function(response) {
+                    var jwt = response.data.jwt;
+                    localStorage.setItem(appconf.jwt_id, jwt);
+                    menu.user = jwtHelper.decodeToken(jwt);
+                });
+            }
+        }
+    }
 }]);
 
 //configure httpProvider to send jwt unless skipAuthorization is set in config (not tested yet..)
@@ -119,27 +170,6 @@ function(appconf, $http, jwtHelper, $sce, scaMessage, scaMenu, toaster) {
     //TODO - maybe I should set up interval inside application.run()
     var jwt = localStorage.getItem(appconf.jwt_id);
     if(jwt) {
-        var expdate = jwtHelper.getTokenExpirationDate(jwt);
-        var ttl = expdate - Date.now();
-        if(ttl < 0) {
-            toaster.error("Your login session has expired. Please re-sign in");
-            localStorage.removeItem(appconf.jwt_id);
-        } else {
-            if(ttl < 3600*1000) {
-                //jwt expring in less than an hour! refresh!
-                console.log("jwt expiring in an hour.. refreshing first");
-                $http({
-                    url: appconf.auth_api+'/refresh',
-                    //skipAuthorization: true,  //prevent infinite recursion
-                    //headers: {'Authorization': 'Bearer '+jwt},
-                    method: 'POST'
-                }).then(function(response) {
-                    var jwt = response.data.jwt;
-                    localStorage.setItem(appconf.jwt_id, jwt);
-                    menu.user = jwtHelper.decodeToken(jwt);
-                });
-            }
-        }
     }
     */
 
@@ -203,4 +233,52 @@ app.filter('propsFilter', function() {
   };
 });
 
+//https://gist.github.com/thomseddon/3511330
+app.filter('bytes', function() {
+    return function(bytes, precision) {
+        if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';
+        if (typeof precision === 'undefined') precision = 1;
+        var units = ['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'],
+            number = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, Math.floor(number))).toFixed(precision) +  ' ' + units[number];
+    }
+});
+
+app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
+    return {
+        getMine: function() {
+            return $http.get(appconf.api+'/workflow')
+            .then(function(res) {
+                return res.data;
+            });
+        },
+        create: function() {
+            return $http.post(appconf.api+'/workflow', {
+                name: 'Untitled',
+                desc: 'No Description',
+            });
+        }
+    }
+}]);
+
+app.factory('resources', ['appconf', '$http', function(appconf, $http) {
+    return {
+        //return all devices configured for the user
+        getMine: function() {
+            return $http.get(appconf.api+'/resource')
+            .then(function(res) {
+                var configs = {};
+                res.data.forEach(function(resource) {
+                    configs[resource.resource_id] = resource.config;
+                });
+                return configs;
+            });
+        },
+        
+        //upsert configuration for the device
+        upsert: function(id, resource) {
+            return $http.post(appconf.api+'/resource/'+id, resource);
+        }
+    }
+}]);
 

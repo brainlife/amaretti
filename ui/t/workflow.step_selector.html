@@ -1,0 +1,32 @@
+<div class="modal-header">
+    <h3 class="modal-title">Select New Step</h3>
+</div>
+<div class="modal-body">
+    <!--
+    <ul>
+        <li ng-repeat="item in items">
+            <a href="#" ng-click="$event.preventDefault(); selected.item = item">{{ item }}</a>
+        </li>
+    </ul>
+    Selected: <b>{{ selected.item }}</b>
+    -->
+    <h4>Misc..</h4>
+    <div class="step-selector">
+        <!--<span class="step-selector-item" ng-click="select('comment')"><i id="comment" class="fa fa-comment"></i></span>-->
+        <span ng-repeat="item in items.misc" class="step-selector-item" ng-class="{'step-selector-item-selected': item == item_selected}" ng-click="select(item)">
+            <i class="fa" ng-class="item.icon"></i> {{item.label}}
+        </span>
+    </div>
+
+    <h4>Data Sources</h4>
+    <div class="step-selector">
+        <!--<span class="step-selector-item" ng-click="select('comment')"><i id="comment" class="fa fa-comment"></i></span>-->
+        <span ng-repeat="item in items.datasource" class="step-selector-item" ng-class="{'step-selector-item-selected': item == item_selected}" ng-click="select(item)">
+            <i class="fa" ng-class="item.icon"></i> {{item.label}}
+        </span>
+    </div>
+</div>
+<div class="modal-footer">
+    <button class="btn btn-primary" type="button" ng-click="ok()" ng-disabled="!item_selected">Add</button>
+    <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
+</div>

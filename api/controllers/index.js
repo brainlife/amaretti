@@ -21,13 +21,16 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
         defaults: config.meshconfig.defaults,
         //menu: get_menu(req.user),
         */
-        hello: 'todo',
+        resources: config.resources,
+        steps: config.steps,
     };
     res.json(conf);
 });
 
+router.use('/workflow', require('./workflow'));
+router.use('/resource', require('./resource'));
+router.use('/hpss', require('./hpss'));
 /*
-router.use('/configs', require('./controllers/configs'));
 router.use('/testspecs', require('./controllers/testspecs'));
 router.use('/cache', require('./controllers/cache'));
 router.use('/hostgroups', require('./controllers/hostgroups'));

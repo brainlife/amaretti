@@ -1,0 +1,20 @@
+<sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10">
+            <ul class="list-group">
+                <li class="list-group-item" ng-repeat="workflow in workflows | orderBy:'-update_date'">
+                    <span class="pull-right" ng-if="workflow.create_date">Created: <time>{{workflow.create_date}}</time></span>
+                    <span class="pull-right" ng-if="workflow.update_date">Updated: <time>{{workflow.update_date}}</time></span>
+                    <a href="#/workflow/{{workflow._id}}">{{workflow.name}}</a>
+                    <p>{{workflow.desc}}</p>
+                </li>
+            </ul>
+            <button class="btn" ng-click="create()">Create New Workflow</button>
+            <hr>
+            <pre>{{workflows | json}}</pre>
+        </div>
+    </div>
+</div>
+
+
