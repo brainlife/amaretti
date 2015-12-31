@@ -9,9 +9,11 @@
     "express": "~4.13.3",
     "express-jwt": "^3.0.1",
     "express-winston": "^1.2.0",
-    "hpss": "0.0.5",
+    "hpss": "0.0.7",
     "mongoose": "^4.3.4",
     "morgan": "~1.6.1",
+    "request": "^2.67.0",
+    "ssh2": "^0.4.13",
     "winston": "~1.0.1"
   },
   "devDependencies": {

@@ -48,7 +48,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     //update workflow
     var workflow = req.body;
     workflow.update_date = new Date();
-    db.Workflow.update({_id: workflow._id, user_id: req.user.sub}, {$set: workflow}, function(err, workflow) {
+    db.Workflow.update({_id: id, user_id: req.user.sub}, {$set: workflow}, function(err, workflow) {
         if(err) return next(err);
         res.json(workflow);
     });

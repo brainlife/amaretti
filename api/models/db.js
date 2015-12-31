@@ -34,20 +34,11 @@ var workflowSchema = mongoose.Schema({
 
     name: String, 
     desc: String, 
+    steps: [ mongoose.Schema.Types.Mixed ], 
+
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
-    //steps: [ workflowStepSchema ], 
-    steps: [ mongoose.Schema.Types.Mixed ], 
 });
-/*
-testSchema.statics.canAccessIIBISID = function(user, iibisid, cb) {
-    this.findOne({key: 'iibisid'}, function(err, acl) {
-        var _acl = acl.value[iibisid];
-        if(!_acl) return cb(false); //not set
-        return cb(~_acl.users.indexOf(user.sub));
-    });
-};
-*/
 exports.Workflow = mongoose.model('Workflow', workflowSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -56,15 +47,42 @@ var resourceSchema = mongoose.Schema({
     ////////////////////////////////////////////////
     //key
     user_id: {type: String, index: true}, 
-    resource_id: String,
+    type: String, //like hpss, pbs, 
+    resource_id: String, //like sda, bigred2
     //
     ////////////////////////////////////////////////
 
+    name: String, 
     config: mongoose.Schema.Types.Mixed,
+
+    create_date: {type: Date, default: Date.now },
+    update_date: {type: Date, default: Date.now },
 });
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+var taskSchema = mongoose.Schema({
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //key
+    workflow_id: mongoose.Schema.Types.ObjectId,
+    user_id: String, //sub of user submitted this request
+    //
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    progress_id: {type: String, index: true}, 
+    status: String, 
+    
+    //object containing details for this request
+    config: mongoose.Schema.Types.Mixed, 
+
+    create_date: {type: Date, default: Date.now },
+    update_date: {type: Date, default: Date.now },
+});
+exports.Task = mongoose.model('Task', taskSchema);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /*
 var researchSchema = mongoose.Schema({

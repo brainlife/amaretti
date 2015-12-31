@@ -1,0 +1,19 @@
+<div class="row" class="sca-step-hpss-item">
+    <div class="col-md-6" tooltip="cos:{{item.cos}}" ng-click="select(item)">
+        <span class="sca-step-hpss-entry" style="margin-left: {{16*item.depth}}px;">
+            <!--<span class="label label-info pull-right" ng-if="item.where == 'TAPE'">ON TAPE</span>-->
+            <span class="label label-success pull-right" ng-if="item.where == 'DISK'">ON DISK</span>
+            <span class="label label-warning pull-right" ng-if="item.where == 'EMPTY'">EMPTY</span>
+            <i class="fa fa-file-o"></i>
+            <span class="sca-step-hpss-fixedwidth">{{item.entry}}</span>
+        </span>
+    </div>
+    <div class="col-md-2">
+        <span class="pull-right">{{item.size|bytes:0}}</span>
+    </div>
+    <div class="col-md-4">
+        <ng-include src="'t/steps/hpss.mode.html'"></ng-include>
+        <span class="pull-right">{{item.date|date}}</span>
+    </div>
+</div><!--row-->
+

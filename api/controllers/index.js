@@ -22,13 +22,14 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
         //menu: get_menu(req.user),
         */
         resources: config.resources,
-        steps: config.steps,
+        services: config.services,
     };
     res.json(conf);
 });
 
 router.use('/workflow', require('./workflow'));
 router.use('/resource', require('./resource'));
+router.use('/task', require('./task'));
 router.use('/hpss', require('./hpss'));
 /*
 router.use('/testspecs', require('./controllers/testspecs'));

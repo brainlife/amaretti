@@ -30,51 +30,102 @@ app.directive('scaStepComment', function() {
     };
 });
 
-app.directive('scaStepHpss', function(appconf, $http, toaster) {
+app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
     return {
         restrict: 'E',
         scope: {
+            workflow: '=',
             step: '=',
         },
         templateUrl: 't/steps/hpss.html',
         link: function(scope, element) {
-            var resource_id = "56803b387832d36fa879ecdb";
-            scope.load = function() {
-                $http.get(appconf.api+'/hpss', {params: { resource_id: resource_id}})
-                .then(function(res) {
-                    scope.root = {open: false, path: '/', children: res.data};
+            function load(directory) {
+                $http.get(appconf.api+'/hpss', {params: {
+                    resource_id: scope.hpss_resource._id,
+                    path: directory.path}
+                }).then(function(res) {
+                    directory.children = res.data;
+                    directory.children.forEach(function(child) {
+                        child.depth = directory.depth+1;
+                        child.path = directory.path+"/"+child.entry;
+                        if(~scope.step.paths.indexOf(child.path)) child.selected = true;
+                    });
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);
                 });
             }
-            scope.load();
-            /*
-            scope.submit = function() {
-                delete scope.step.editing;
+
+            //find any sda and hpss supported computing resource (TODO - let user choose if there are more than 1)
+            scope.hpss_resource = null;
+            scope.compute_resource = null; 
+            resources.getall().then(function(myresources) {
+                myresources.forEach(function(r) {
+                    if(r.type == "hpss") scope.hpss_resource = r;  
+                    if(~r.detail.supports.indexOf("hpss")) scope.compute_resource = r;
+                });
+
+                if(scope.hpss_resource == null) toaster.error("You do not have HPSS resource defined");
+                if(scope.compute_resource == null) toaster.error("You do not have any computing resource capable of accessing hpss");
+
+                var username = scope.hpss_resource.config.username;
+                var path = "/hpss/"+username.substr(0,1)+"/"+username.substr(1,1)+"/"+username; //TODO - is this hpss universal?
+                scope.root = {depth: 0, open: false, entry: path, mode: {directory: true}, path: path, children: null};
+                scope.item = scope.root; //alias for directory template
+                load(scope.root);
+            });         
+
+            scope.toggle = function(directory) {
+                directory.open = !directory.open;
+                //ensure all grandchildren are loaded
+                directory.children.forEach(function(child) {
+                    if(child.mode.directory && !child.children) {
+                        load(child);
+                    } 
+                });
+            }
+
+            scope.select = function(item) {
+                item.selected = !item.selected; //for UI ease
+                var pos = scope.step.paths.indexOf(item.path);
+                if(item.selected) {
+                    if(!~pos) scope.step.paths.push(item.path);
+                } else {
+                    if(~pos) scope.step.paths.splice(pos, 1);
+                }
                 scope.$parent.save_workflow();
             }
-            */
-        }
-    };
-});
 
-app.directive('scaStepHpssDirectory', function(appconf, $http, toaster) {
-    return {
-        restrict: 'E',
-        scope: {
-            directory: '=',
-        },
-        templateUrl: 't/steps/hpss.directory.html',
-        link: function(scope, element) {
-            console.dir(scope);
-            scope.toggle = function() {
-                scope.directory.open = !scope.directory.open;
-                //ensure all grandchildren are loaded
-                scope.directory.children.forEach(function(child) {
-                    if(child.mode.directory) {
-                        console.log("need to load:"+child.entry);
-                    } 
+            /*
+            //find paths selected
+            function findselected(item, paths) {
+                if(item.selected) paths.push(item.path);
+                if(item.children) item.children.forEach(function(child) {
+                    findselected(child, paths);
+                });
+            } 
+            */
+
+            scope.submit = function() {
+                //var paths = [];
+                //findselected(scope.root, paths);
+                $http.post(appconf.api+'/task/request', {
+                    workflow_id: scope.workflow._id,
+                    config: {
+                        service_id: scope.step.service_id,
+                        resource_ids: {
+                            hpss: scope.hpss_resource._id,
+                            compute: scope.compute_resource._id,
+                        },
+                        paths: scope.step.paths,
+                    },
+                }).then(function(res) {
+                    //scope.step.tasks.push(res.data.task);
+                    scope.step.task = res.data.task;
+                    scope.$parent.save_workflow(); //TODO - let server side do this update (it's silly that client has to re-send data..)
+                }, function(res) {
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
                 });
             }
         }

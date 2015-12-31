@@ -23,6 +23,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+/*
 //TODO nobody uses this yet
 router.get('/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Resource.findOne({
@@ -35,14 +36,20 @@ router.get('/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req,
         res.json(resource);
     });
 });
+*/
+router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var id = req.params.id;
+    var resource = req.body;
+    db.Resource.update({_id: id, user_id: req.user.sub}, {$set: resource}, function(err, resource) {
+        if(err) return next(err);
+        res.json(resource);
+    });
+});
 
-router.post('/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Resource.findOneAndUpdate({
-        resource_id: req.params.resource_id,
-        user_id: req.user.sub,
-    }, {
-        config: req.body //TODO - validate?
-    }, {upsert: true}, function(err, resource) {
+router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var resource = new db.Resource(req.body);
+    resource.user_id = req.user.sub;
+    resource.save(function(err) {
         if(err) return next(err);
         res.json(resource);
     });

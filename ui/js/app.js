@@ -9,6 +9,7 @@ var app = angular.module('app', [
     'angular-loading-bar',
     'angular-jwt',
     'ui.bootstrap',
+    'ui.bootstrap.tooltip',
     'sca-shared',
 ]);
 
@@ -16,10 +17,10 @@ var app = angular.module('app', [
 app.animation('.slide-down', ['$animateCss', function($animateCss) {
     return {
         enter: function(elem, done) {
-            $(elem).hide().slideDown("slow", done);
+            $(elem).hide().slideDown("fast", done);
         },
         leave: function(elem, done) {
-            $(elem).slideUp("slow", done);
+            $(elem).slideUp("fast", done);
         }
     };
 }]);
@@ -85,7 +86,7 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
     });
     
     //console.dir($routeProvider);
-}]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', function($rootScope, $location, toaster, jwtHelper, appconf) {
+}]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', '$http', function($rootScope, $location, toaster, jwtHelper, appconf, $http) {
     $rootScope.$on("$routeChangeStart", function(event, next, current) {
         //redirect to /login if user hasn't authenticated yet
         if(next.requiresLogin) {
@@ -112,15 +113,13 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
             if(ttl < 3600*1000) {
                 //jwt expring in less than an hour! refresh!
                 console.log("jwt expiring in an hour.. refreshing first");
-                $http({
-                    url: appconf.auth_api+'/refresh',
+                $http.post(appconf.auth_api+'/refresh')
                     //skipAuthorization: true,  //prevent infinite recursion
                     //headers: {'Authorization': 'Bearer '+jwt},
-                    method: 'POST'
-                }).then(function(response) {
+                .then(function(response) {
                     var jwt = response.data.jwt;
                     localStorage.setItem(appconf.jwt_id, jwt);
-                    menu.user = jwtHelper.decodeToken(jwt);
+                    //menu.user = jwtHelper.decodeToken(jwt);
                 });
             }
         }
@@ -236,6 +235,7 @@ app.filter('propsFilter', function() {
 //https://gist.github.com/thomseddon/3511330
 app.filter('bytes', function() {
     return function(bytes, precision) {
+        if(bytes == 0) return '0 bytes';
         if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';
         if (typeof precision === 'undefined') precision = 1;
         var units = ['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'],
@@ -261,24 +261,46 @@ app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
     }
 }]);
 
-app.factory('resources', ['appconf', '$http', function(appconf, $http) {
-    return {
-        //return all devices configured for the user
-        getMine: function() {
+app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $http, serverconf) {
+    var resources = null;
+
+    //return all devices configured for the user
+    function getall() {
+        return serverconf.then(function(serverconf) {
             return $http.get(appconf.api+'/resource')
             .then(function(res) {
-                var configs = {};
-                res.data.forEach(function(resource) {
-                    configs[resource.resource_id] = resource.config;
+                //console.log("got serverconf and resources");
+                resources = res.data;
+                resources.forEach(function(resource) {
+                    resource.detail = serverconf.resources[resource.resource_id];
                 });
-                return configs;
+                return resources;
             });
+        });
+    }
+
+    function add(resource_id) {
+        return serverconf.then(function(serverconf) {
+            var def = serverconf.resources[resource_id];  
+            resources.push({
+                type: def.type,
+                resource_id: resource_id,
+                config: def.default
+            });
+        });
+    }
+
+    return {
+        //getMine: getall, //TODO - deprecated
+        getall: getall, 
+        add: add,
+        upsert: function(resource) {
+            if(resource._id) {
+                return $http.put(appconf.api+'/resource/'+resource._id, resource);
+            } else {
+                return $http.post(appconf.api+'/resource', resource);
+            }
         },
-        
-        //upsert configuration for the device
-        upsert: function(id, resource) {
-            return $http.post(appconf.api+'/resource/'+id, resource);
-        }
     }
 }]);
 

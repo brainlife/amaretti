@@ -29,7 +29,7 @@ div.step-selector span.step-selector-item-selected {
   display: none;
 }
 .workflow-step:hover {
-  border-left: 3px solid #008cba;
+  /*border-left: 3px solid #008cba;*/
 }
 .workflow-step:hover .workflow-step-control {
   display: inherit;
@@ -37,13 +37,21 @@ div.step-selector span.step-selector-item-selected {
 .workflow-step-border {
   opacity: 0.5;
 }
-.sca-step-hpss .sca-step-hpss-folder {
+.sca-step-hpss .sca-step-hpss-entry {
   cursor: pointer;
+}
+.sca-step-hpss .sca-step-hpss-selected {
+  background-color: #008cba;
+  color: white;
 }
 .sca-step-hpss ul.sca-step-hpss-children {
   list-style: none;
-  font-size: 80%;
+  /*font-size: 80%;*/
+  padding-left: 0px;
 }
-.sca-step-hpss span.sca-step-hpss-filename {
+.sca-step-hpss span.sca-step-hpss-fixedwidth {
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+.sca-step-hpss .sca-step-hpss-item:hover {
+  background-color: #ccc;
 }

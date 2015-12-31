@@ -21,7 +21,11 @@ var db = require('./models/db');
 //init express
 var app = express();
 app.use(compression());
-app.use(bodyParser.json()); //parse application/json
+
+//parse application/json
+app.use(bodyParser.json()); 
+app.use(bodyParser.urlencoded({ extended: false }));
+
 app.use(expressWinston.logger(config.logger.winston));
 
 app.use('/', require('./controllers'));
@@ -30,9 +34,13 @@ app.use('/', require('./controllers'));
 app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
     logger.error(err);
-    logger.error(err.stack);
+    if(err.stack) logger.error(err.stack);
     res.status(err.status || 500);
-    res.json({message: err.message, /*stack: err.stack*/}); //let's hide callstack for now
+    var o = {};
+    if(err.message) o.message = err.message;
+    //if(err.code) o.message = "Error Code: "+err.code;
+    //if(config.debug) o.stack = err.stack;
+    res.json(o);
 });
 
 process.on('uncaughtException', function (err) {

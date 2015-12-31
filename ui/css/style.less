@@ -32,7 +32,7 @@ div.step-selector {
         display: none;
     }
     &:hover {
-        border-left: 3px solid #008cba;
+        /*border-left: 3px solid #008cba;*/
         .workflow-step-control {
             display: inherit;
         }
@@ -44,14 +44,22 @@ div.step-selector {
 }
 
 .sca-step-hpss {
-    .sca-step-hpss-folder {
+    .sca-step-hpss-entry {
         cursor: pointer; 
     } 
+    .sca-step-hpss-selected {
+        background-color: #008cba;
+        color: white;
+    }
     ul.sca-step-hpss-children {
         list-style: none;
-        font-size: 80%;
+        /*font-size: 80%;*/
+        padding-left: 0px;
     }
-    span.sca-step-hpss-filename {
+    span.sca-step-hpss-fixedwidth {
         font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
+    }
+    .sca-step-hpss-item:hover {
+        background-color: #ccc;
     }
 }

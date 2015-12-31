@@ -1,19 +1,19 @@
 <div class="form-group">
     <label>Hostname</label>
-    <input type="text" class="form-control" ng-model="resource.hostname" name="hostname" disabled required></textarea>
+    <input type="text" class="form-control" ng-model="def.hostname" name="hostname" disabled required></textarea>
 </div>
 <div class="form-group">
     <label>Principal (username)</label>
-    <input type="text" class="form-control" ng-model="myresources[rid].username" name="username" required></textarea>
+    <input type="text" class="form-control" ng-model="resource.config.username" name="username" required></textarea>
 </div>
 <div class="form-group">
     <label>Authentication Method</label>
-    <select class="form-control" ng-model="myresources[rid].auth_method" name="auth_method" disabled required>
+    <select class="form-control" ng-model="resource.config.auth_method" name="auth_method" disabled required>
         <option value="keytab">Keytab</option>
     </select>
 </div>
 <div class="form-group">
     <label>Keytab (base64)</label>
-    <textarea class="form-control" ng-model="myresources[rid].keytab_base64" name="keytab_base64" required></textarea>
+    <p class="help-block">Issue your kerbros keytab, then run it with base64 command to genenerate the base64 formatted keytab</p>
+    <textarea class="form-control" ng-model="resource.config.keytab_base64" name="keytab_base64" required></textarea>
 </div>
-

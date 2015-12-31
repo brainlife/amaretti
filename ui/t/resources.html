@@ -1,27 +1,26 @@
 <sca-menutab menu="appconf.menu" active="'resources'" user="user"></sca-menutab>
 <div class="container-fluid">
     <ul class="list-group">
-        <li class="list-group-item" ng-repeat="(rid, resource) in serverconf.resources">
-            <form ng-submit="submit(rid, myresources[rid])">
-                <h4>{{resource.name}}</h4>
-                <p class="help-block">{{resource.desc}}</p>
+        <li class="list-group-item" ng-repeat="resource in myresources">
+            <form ng-submit="submit(resource)" ng-init="def = serverconf.resources[resource.resource_id]">
+                <h4>{{def.name}}</h4>
+                <p class="help-block">{{def.desc}}</p>
                 <div class="form-group">
-                    <input type="checkbox" ng-model="myresources[rid].enabled" name="enabled"> Enable</input>
+                    <label>Name</label>
+                    <input type="text" class="form-control" ng-model="resource.name" name="enabled" required></input>
                 </div>
-                <div ng-if="myresources[rid].enabled">
-                    <div ng-switch="resource.type">
-                        <div ng-switch-when="pbs">
-                            <ng-include src="'t/resources.ssh.html'"></ng-include>
-                        </div>
-                        <div ng-switch-when="condor">
-                            <ng-include src="'t/resources.ssh.html'"></ng-include>
-                        </div>
-                        <div ng-switch-when="hpss">
-                            <ng-include src="'t/resources.hpss.html'"></ng-include>
-                        </div>
-                        <div ng-switch-default>
-                            {{resource}}
-                        </div>
+                <div ng-switch="def.type">
+                    <div ng-switch-when="pbs">
+                        <ng-include src="'t/resources.ssh.html'"></ng-include>
+                    </div>
+                    <div ng-switch-when="condor">
+                        <ng-include src="'t/resources.ssh.html'"></ng-include>
+                    </div>
+                    <div ng-switch-when="hpss">
+                        <ng-include src="'t/resources.hpss.html'"></ng-include>
+                    </div>
+                    <div ng-switch-default>
+                        <pre>{{resource|json}}</pre>
                     </div>
                 </div>
                 <input type="submit" class="btn" value="Update">
@@ -32,4 +31,11 @@
             </form>
         </li>
     </ul>
+
+    <div class="form-group">
+        <select class="form-control" ng-model="newresource" ng-change="add()">
+            <option value="">(Add New Resource)</option>
+            <option ng-repeat="(rid, r) in serverconf.resources" value="{{rid}}">{{r.name}}</option> 
+        </select>
+    </div>
 </div>

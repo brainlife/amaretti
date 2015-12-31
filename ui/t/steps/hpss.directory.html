@@ -1,25 +1,25 @@
-<span ng-click="toggle();" class="sca-step-hpss-folder">
-    <i class="fa fa-folder" ng-if="!directory.open"></i> 
-    <i class="fa fa-folder-open" ng-if="directory.open"></i> 
-    {{directory.path}}
-</span>
-<ul class="sca-step-hpss-children slide-down" ng-if="directory.open">
-    <li ng-repeat="item in directory.children">
-        <div class="row">
-            <div class="col-md-6">
-                <span class="label label-info pull-right">Cached</span>
-                <i class="fa fa-file-o" ng-if="item.mode.directory == false"></i>
-                <i class="fa fa-folder" ng-if="item.mode.directory == true"></i>
-                <span class="sca-step-hpss-filename">{{item.entry}}</span>
-            </div>
-            <div class="col-md-3">
-                <span>{{item.cos}}</span>
-                <span ng-if="!item.mode.directory" class="pull-right">{{item.size|bytes}}</span>
-            </div>
-            <div class="col-md-3">
-                <!--<span>{{item.owner}}:{{item.group}}</span>-->
-                <span class="pull-right">{{item.date|date}}</span>
-            </div>
-        </div><!--row-->
+<div class="row" class="sca-step-hpss-item">
+    <div class="col-md-6" tooltip="cos:{{item.cos}}" ng-click="toggle(item);">
+        <span class="sca-step-hpss-entry" style="margin-left: {{16*item.depth}}px;">
+            <i class="fa fa-folder" ng-if="!item.open"></i> 
+            <i class="fa fa-folder-open" ng-if="item.open"></i> 
+            <span class="sca-step-hpss-fixedwidth">{{item.entry}}</span>
+        </span>
+    </div>
+    <div class="col-md-2">
+        <!-- always 512 bytes
+        <span class="pull-right">{{item.size|bytes:0}}</span>
+        -->
+    </div>
+    <div class="col-md-4">
+        <ng-include src="'t/steps/hpss.mode.html'"></ng-include>
+        <span class="pull-right">{{item.date|date}}</span>
+    </div>
+</div>
+<!--children-->
+<ul class="sca-step-hpss-children slide-down" ng-if="item.open">
+    <li ng-repeat="item in item.children" ng-class="{'sca-step-hpss-selected': item.selected}">
+        <ng-include src="'t/steps/hpss.directory.html'" ng-if="item.mode.directory"></ng-include>
+        <ng-include src="'t/steps/hpss.file.html'" ng-if="!item.mode.directory"></ng-include>
     </li>
 </ul>

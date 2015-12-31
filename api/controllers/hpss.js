@@ -7,13 +7,16 @@ var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
 var hpss = require('hpss');
+var uuid = require('uuid');
 
 //mine
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
+//var scassh = require('../ssh');
 
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var path = req.query.path;
     db.Resource.findById(req.query.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
@@ -23,9 +26,10 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             auth_method: resource.config.auth_method, //TODO only supports keytab for now
             keytab: new Buffer(resource.config.keytab_base64, 'base64')
         });
-        hpss_context.ls('isos', function(err, files) {
-            if(err) return next(err);
+        hpss_context.ls(path, function(err, files) {
+            if(err) return next({message: "code:"+err.code+" while attemping to ls:"+path});
             res.json(files);
+            hpss_context.clean();
         }); 
     });
 });

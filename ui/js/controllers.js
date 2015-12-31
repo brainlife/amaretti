@@ -93,28 +93,14 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
             }
         });
 
-        modalInstance.result.then(function(stepid) {
-            
-            //load default config
-            var step;
-            for(var category in $scope.serverconf.steps) {
-                $scope.serverconf.steps[category].forEach(function(_step) {
-                    if(_step.id == stepid) step = _step.default; 
-                });
-            }
-            /*
-            switch(stepid) {
-            case "comment":
-                step = {type: "comment", text: "ahola", editing: true};
-                break;
-            default:
-                toaster.error("unknown stepid:"+stepid);
-            }
-            */
-            step.type = stepid;
-            if(idx === undefined) $scope.workflow.steps.push(step);
-            else $scope.workflow.steps.splice(idx, 0, step);
-            
+        modalInstance.result.then(function(service) {
+            //instantiate new step
+            var newstep = angular.copy(service.default);
+            newstep.service_id = service.id;
+
+            //finally, add the step and update workflow
+            if(idx === undefined) $scope.workflow.steps.push(newstep);
+            else $scope.workflow.steps.splice(idx, 0, newstep);
             $scope.save_workflow();
         }, function () {
             //toaster.success('Modal dismissed at: ' + new Date());
@@ -125,19 +111,19 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
 app.controller('WorkflowStepSelectorController', ['$scope', '$modalInstance', 'items', 'serverconf', 
 function($scope, $modalInstance, items, serverconf) {
     serverconf.then(function(_serverconf) {
-        $scope.items = _serverconf.steps;
+        $scope.services_a = [];
+        for(var service_id in  _serverconf.services) {
+            var service = _serverconf.services[service_id];
+            service.id = service_id;
+            $scope.services_a.push(service);
+        }
     });
-    /*
-    $scope.items = {misc: [
-        {id: "comment", label: "Comment", icon: "fa-comment"}
-    ]};
-    */
-    $scope.item_selected = null;
-    $scope.select = function(item) {
-        $scope.item_selected = item;
+    $scope.service_selected = null;
+    $scope.select = function(service) {
+        $scope.service_selected = service;
     }
     $scope.ok = function () {
-        $modalInstance.close($scope.item_selected.id);
+        $modalInstance.close($scope.service_selected);
     };
     $scope.cancel = function () {
         $modalInstance.dismiss('cancel');
@@ -151,30 +137,22 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 
-        resources.getMine().then(function(resources) {
+        resources.getall().then(function(resources) {
             $scope.myresources = resources;
-            /*
-            for(var resource_id in $scope.serverconf.resources) {
-                if($scope.myresources[resource_id] === undefined) $scope.myresource[resource_id] = {};
-            }
-            */
-
-            //use default if user hasn't configured for a resource
-            for(var rid in _c.resources) {
-                var r = _c.resources[rid];
-                if(r.default && $scope.myresources[rid] === undefined) {
-                    $scope.myresources[rid] = r.default;
-                }
-            }
         });
     });
 
-    $scope.submit = function(id, resource) {
-        resources.upsert(id, resource).then(function(res) {
+    $scope.submit = function(resource) {
+        resources.upsert(resource).then(function(res) {
             toaster.success("successfully updated the resource configuration");
         }, function(res) {     
             toaster.error(res.statusText);
         });
+    }
+
+    $scope.newresource = null;
+    $scope.add = function() {
+        resources.add($scope.newresource);
     }
 }]);
 
