@@ -67,10 +67,12 @@ var taskSchema = mongoose.Schema({
     //key
     workflow_id: mongoose.Schema.Types.ObjectId,
     user_id: String, //sub of user submitted this request
+    service_id: String,
     //
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    progress_id: {type: String, index: true}, 
+    name: String,
+    progress_key: {type: String, index: true}, 
     status: String, 
     
     //object containing details for this request

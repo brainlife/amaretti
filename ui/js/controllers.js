@@ -97,6 +97,7 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
             //instantiate new step
             var newstep = angular.copy(service.default);
             newstep.service_id = service.id;
+            newstep.tasks = [];
 
             //finally, add the step and update workflow
             if(idx === undefined) $scope.workflow.steps.push(newstep);

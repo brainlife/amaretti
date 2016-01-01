@@ -24,7 +24,7 @@ function run() {
     db.Task.find({status: "requested"}).exec(function(err, tasks) {
         if(err) throw err;
         logger.info("loaded "+tasks.length+" requested tasks");
-        async.eachSeries(tasks, process_task, function(err) {
+        async.eachLimit(tasks, config.task_handler.concurrency, process_task, function(err) {
             logger.info("all done.. pausing for 5 seconds");
             setTimeout(run, 1000*5);
         });
@@ -33,40 +33,29 @@ function run() {
 
 function failed(task, error, cb) {
     //mark task as failed so that it won't be picked up again
+    progress.update(task.progress_key, {status: 'failed', msg: error.toString()});
     task.status = "failed";
     task.updated = new Date();
-    task.save(function(err) {
-        //update the root status
-        progress.update(task.progress_id, {status: 'failed', msg: error.toString()}, function(err) {
-            cb(error);
-        });
-    });
-}
-
-function completed(task, cb) {
-    //mark task as failed so that it won't be picked up again
-    task.status = "finished";
-    task.updated = new Date();
-    task.save(function(err) {
-        //update the root status
-        progress.update(task.progress_id, {status: 'finished', msg: "Task Completed"}, function(err) {
-            cb();
-        });
+    task.save(function() {
+        cb(error); //return task error.
     });
 }
 
 function process_task(task, cb) {
-
-    progress.update(task.progress_id+'.prep', {status: 'running', progress: 0, msg: 'Preparing compute resource'});
-
     //load compute resource
     db.Resource.findById(task.config.resource_ids.compute, function(err, resource) {
         if(err) return failed(task, err, cb);
 
         //run the task on the resource
+        progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Processing'});
         run_task(task, resource, function(err) {
             if(err) return failed(task, err, cb);
-            completed(task, cb);
+
+            //all done!
+            progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Completed'});
+            task.status = "finished";
+            task.updated = new Date();
+            task.save(cb);
         });
     });
 }
@@ -81,12 +70,13 @@ function getworkdir(task, resource) {
 }
 
 function run_task(task, resource, cb) {
+
     var conn = new Client();
     conn.on('ready', function() {
 
         var workdir = getworkdir(task, resource);
         var taskdir = workdir+"/"+task._id;
-        var service_id = task.config.service_id;
+        var service_id = task.service_id;
         var service_detail = config.services[service_id];
         var envs = {
             SCA_WORKFLOW_ID: task.workflow_id,
@@ -95,12 +85,15 @@ function run_task(task, resource, cb) {
             SCA_TASK_DIR: taskdir,
             SCA_SERVICE_ID: service_id,
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
-            SCA_PROGRESS_ID: task.progress_id,
+            SCA_PROGRESS_URL: config.progress.api+"/status",
+            SCA_PROGRESS_KEY: task.progress_key,
         };
 
         async.series([
             //TODO - do error handling!
             function(next) {
+                progress.update(task.progress_key, {msg: "Preparing Task"});
+                progress.update(task.progress_key+".prep", {name: "Task Prep", weight: 0});
                 logger.debug("making sure ~/.sca/services exists");
                 conn.exec("mkdir -p .sca/services", function(err, stream) {
                     if(err) next(err);
@@ -110,8 +103,8 @@ function run_task(task, resource, cb) {
                 });
             },
             function(next) {
-                logger.debug("installing requested service");
-                logger.debug("git clone "+service_detail.giturl+" .sca/services/"+service_id);
+                progress.update(task.progress_key+".prep", {status: 'running', progress: 0.1, msg: 'installing/updating '+service_id+' service'});
+                //logger.debug("git clone "+service_detail.giturl+" .sca/services/"+service_id);
                 conn.exec("git clone "+service_detail.giturl+" .sca/services/"+service_id, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function() {
@@ -129,6 +122,7 @@ function run_task(task, resource, cb) {
                 });
             },
             function(next) {
+                progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Preparing taskdir'});
                 logger.debug("making sure taskdir("+taskdir+") exists");
                 conn.exec("mkdir -p "+taskdir, function(err, stream) {
                     if(err) next(err);
@@ -170,6 +164,7 @@ function run_task(task, resource, cb) {
             
             //install request.json in the taskdir
             function(next) { 
+                //progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
                 logger.debug("installing config.json");
                 conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                     if(err) next(err);
@@ -183,11 +178,14 @@ function run_task(task, resource, cb) {
 
             //finally, run the service!
             function(next) {
+                progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished'});
                 logger.debug("running service");
                 var envstr = "";
                 for(var k in envs) {
                     envstr+=k+"=\""+envs[k]+"\" ";
                 }
+                progress.update(task.progress_key, {msg: "Running Service"});
+                //progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
                 conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/run.sh", {
                 /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I have to pass env via command line
                 env: {
@@ -195,8 +193,9 @@ function run_task(task, resource, cb) {
                 }*/
                 }, function(err, stream) {
                     if(err) next(err);
+                    //TODO - handle service error
                     stream.on('close', function() {
-                        next();
+                        progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
                     })
                 });
             },

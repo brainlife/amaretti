@@ -31,7 +31,8 @@ router.post('/request', jwt({secret: config.sca.auth_pubkey}), function(req, res
                 var task = new db.Task(req.body); //for workflow_id, and request object
                 //need to set a few more things
                 task.user_id = req.user.sub;
-                task.progress_id = "_sca."+workflow._id+"."+task._id;//uuid.v4();
+                task.progress_key = "_sca."+workflow._id+"."+task._id;//uuid.v4();
+                task.name = "(untitled) "+task.service_id;
                 task.status = "requested";
 
                 //now register!
@@ -40,7 +41,7 @@ router.post('/request', jwt({secret: config.sca.auth_pubkey}), function(req, res
                 });
                
                 //also send first progress update
-                progress.update(task.progress_id, {status: 'waiting', progress: 0, msg: 'Task Requested'});
+                progress.update(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
             });
         });
     });

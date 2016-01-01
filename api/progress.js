@@ -10,12 +10,17 @@ var logger = new winston.Logger(config.logger.winston);
 
 exports.update = function(key, p, cb) {
     request({
-        url: config.progress.api+'/update', 
+        method: 'POST',
+        url: config.progress.api+'/status/'+key, 
+        /*
         headers: {
             'Authorization': 'Bearer '+config.progress.jwt,
         }, 
-        form: {key: key, p: p},
+        */
+        json: p, 
     }, function(err, res, body){
+        logger.debug("posted progress update:"+key);
+        logger.debug(p);
         if(cb) cb(err, body);
     });
 }

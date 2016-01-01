@@ -1,0 +1,13 @@
+<div class="sca-task">
+    <h4>{{task.name}}</h4>
+    <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}"><i class="fa fa-external-link"></i>
+        <span class="status">{{progress.status}}</span>
+    </a>
+    <p class="help-block">{{progress.msg}}</p>
+    <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+    <p>Started: <time class="pull-right">{{progress.start_time|date:'medium'}}</time></p>
+    <!-- <p>Updated: <time class="pull-right">{{progress.update_time|date:'medium'}}</time></p>-->
+    <p>Finished: <time class="pull-right">{{progress.end_time|date:'medium'}}</time></p>
+    <p>ETA : TODO</p>
+    <hr>
+</div>

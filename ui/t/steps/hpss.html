@@ -14,12 +14,8 @@
             <li ng-repeat="path in step.paths">{{path}}</li>
         </ul>
     </div>
-    <div ng-if="step.task">
-        <hr>
-        {{step.task}}
-    </div>
 
-    <form ng-submit="submit()" ng-if="!step.task">
+    <form ng-submit="submit()">
         <!--
         <div class="form-group">
             <label>Output Name</label>
@@ -27,9 +23,8 @@
         </div>
         -->
         <div class="form-group">
-            <button type="submit" class="btn" ng-click="download()">Stage</button>
+            <button type="submit" class="btn">Stage</button>
         </div>
     </form>
-
     <!--<pre>{{item|json}}</pre>-->
 </div>

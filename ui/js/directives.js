@@ -111,8 +111,8 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
                 //findselected(scope.root, paths);
                 $http.post(appconf.api+'/task/request', {
                     workflow_id: scope.workflow._id,
+                    service_id: scope.step.service_id,
                     config: {
-                        service_id: scope.step.service_id,
                         resource_ids: {
                             hpss: scope.hpss_resource._id,
                             compute: scope.compute_resource._id,
@@ -121,7 +121,7 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
                     },
                 }).then(function(res) {
                     //scope.step.tasks.push(res.data.task);
-                    scope.step.task = res.data.task;
+                    scope.step.tasks.push(res.data.task);
                     scope.$parent.save_workflow(); //TODO - let server side do this update (it's silly that client has to re-send data..)
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
@@ -131,4 +131,67 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
         }
     };
 });
+
+app.directive('scaTask', 
+["appconf", "$http", "$timeout", "toaster", 
+function(appconf, $http, $timeout, toaster) {
+    return {
+        restrict: 'E',
+        scope: {
+            task: '=',
+        },
+        templateUrl: 't/task.html',
+        link: function(scope, element) {
+            scope.appconf = appconf;
+    
+            function load_progress() {
+                $http.get(appconf.progress_api+"/status/"+scope.task.progress_key)
+                .then(function(res) {
+                    scope.progress = res.data;
+
+                    //reload progress - with frequency based on how recent the last update was (0.1 to 60 seconds)
+                    var age = Date.now() - scope.progress.update_time;
+                    //console.dir(age);
+                    $timeout(load_progress, Math.min(Math.max(age/2, 100), 60*1000)); 
+                    /*
+                    switch(scope.progress.status) {
+                    case "finished":
+                    case "canceled":
+                    case "failed":
+                        break;
+                    default:
+                        //TODO - I think every second is too frequent. look at the scope.progress.update_time, and only frequently if
+                        //status has been updated recently
+                        $timeout(load_progress, 1000); 
+                    }
+                    */
+                }, function(res) {
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
+                });
+            }
+            
+            load_progress();
+
+            //duplicate from progress/ui/js/controller.js#DetailController
+            scope.progressType = function(status) {
+                switch(status) {
+                case "running":
+                    return "";
+                case "finished":
+                    return "success";
+                case "canceled":
+                case "paused":
+                    return "warning";
+                case "failed":
+                    return "danger";
+                default:
+                    return "info";
+                }
+            }
+
+        }
+    };
+}]);
+
 
