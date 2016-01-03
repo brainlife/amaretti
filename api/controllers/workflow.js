@@ -24,6 +24,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         create_date: 1,
         update_date: 1
     })
+    .populate('steps.tasks')
     .exec(function(err, workflows) {
         if(err) return next(err);
         res.json(workflows);
@@ -35,7 +36,10 @@ router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     //if(!~req.user.scopes.common.indexOf('admin')) return res.status(401).end();
 
     //update host info
-    db.Workflow.findById(id, function(err, workflow) {
+    db.Workflow
+    .findById(id)
+    .populate('steps.tasks')
+    .exec(function(err, workflow) {
         if(err) return next(err);
         if(!workflow) return res.status(404).end();
         if(req.user.sub != workflow.user_id) return res.status(401).end();
@@ -47,7 +51,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     var id = req.params.id;
     //update workflow
     var workflow = req.body;
-    workflow.update_date = new Date();
+    //workflow.update_date = new Date();
     db.Workflow.update({_id: id, user_id: req.user.sub}, {$set: workflow}, function(err, workflow) {
         if(err) return next(err);
         res.json(workflow);
@@ -58,10 +62,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     //logger.debug("posted");
     //console.dir(req.body);
     var workflow = new db.Workflow(req.body); //TODO - validate?
-    //workflow.create_date = new Date();
-    //workflow.update_date = new Date();
     workflow.user_id = req.user.sub;
-    //workflow.update_date = new Date();
     workflow.save(function(err) {
         if(err) return next(err);
         res.json(workflow);

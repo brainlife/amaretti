@@ -1,8 +1,8 @@
 <div class="sca-comment">
-    <p class="editable" ng-if="!step.editing" ng-click="step.editing = true" style="min-height: 20px">{{step.text}}</p>
-    <div ng-if="step.editing">
+    <p class="editable" ng-if="!step.config.editing" ng-click="step.config.editing = true" style="min-height: 20px">{{step.config.text}}</p>
+    <div ng-if="step.config.editing">
         <label>Comment</label>
-        <textarea ng-model="step.text" class="form-control" placeholder="Enter comment here" ng-blur="submit()"></textarea>
+        <textarea ng-model="step.config.text" class="form-control" placeholder="Enter comment here" ng-blur="submit()"></textarea>
     </div>
     <!--
     <div ng-if="step.editing" class="input-group">

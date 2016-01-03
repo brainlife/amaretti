@@ -30,12 +30,6 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
 router.use('/workflow', require('./workflow'));
 router.use('/resource', require('./resource'));
 router.use('/task', require('./task'));
-router.use('/hpss', require('./hpss'));
-/*
-router.use('/testspecs', require('./controllers/testspecs'));
-router.use('/cache', require('./controllers/cache'));
-router.use('/hostgroups', require('./controllers/hostgroups'));
-*/
 
 module.exports = router;
 

@@ -1,13 +1,49 @@
 <div class="sca-task">
+    <div class="btn-group pull-right task-control">
+        <button class="btn btn-xs btn-danger"
+            confirmed-click="remove()"
+            ng-confirm-click="Are you sure you want to remove this task / data product?">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+
     <h4>{{task.name}}</h4>
-    <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}"><i class="fa fa-external-link"></i>
-        <span class="status">{{progress.status}}</span>
-    </a>
-    <p class="help-block">{{progress.msg}}</p>
-    <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
-    <p>Started: <time class="pull-right">{{progress.start_time|date:'medium'}}</time></p>
-    <!-- <p>Updated: <time class="pull-right">{{progress.update_time|date:'medium'}}</time></p>-->
-    <p>Finished: <time class="pull-right">{{progress.end_time|date:'medium'}}</time></p>
-    <p>ETA : TODO</p>
-    <hr>
+
+    <div ng-if="progress.status != 'finished'">
+        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}"><i class="fa fa-external-link"></i>
+            <i class="fa fa-spinner fa-pulse"></i>
+            <span class="status">{{progress.status}}</span>
+        </a>
+        <p class="help-block">{{progress.msg}}</p>
+        <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+        <div class="row">
+            <div class="col-md-4">
+                Started: <time>{{progress.start_time|date:'medium'}}</time>
+            </div>
+            <div class="col-md-4">
+                Finished: <time>{{progress.end_time|date:'medium'}}</time>
+            </div>
+            <div class="col-md-4">
+                ETA : <time>TODO</time>
+            </div>
+            <!-- <p>Updated: <time class="pull-right">{{progress.update_time|date:'medium'}}</time></p>-->
+        </div>
+    </div>
+    
+    <div ng-if="task.products">
+        <div class="pull-right">
+            <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}">
+                <i class="fa fa-external-link"></i> Progress History
+            </a>
+        </div>
+        Task Created: <time>{{task.update_date|date:'medium'}}</time>
+        Task Finished: <time>{{progress.end_time|date:'medium'}}</time>
+        Task Updated: <time>{{task.update_date|date:'medium'}}</time>
+        <div ng-repeat="product in task.products">
+            <div ng-switch="product.type">
+                <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
+                <div ng-switch-default><pre>{{product | json}}</pre></div>
+            </div>
+        </div>
+    </div>
 </div>

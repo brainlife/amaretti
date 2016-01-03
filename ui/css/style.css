@@ -37,6 +37,14 @@ div.step-selector span.step-selector-item-selected {
 .workflow-step-border {
   opacity: 0.5;
 }
+.sca-step-hpss {
+  /*
+    .sca-step-hpss-item:hover {
+        background-color: #ccc;
+        color: red;
+    }
+    */
+}
 .sca-step-hpss .sca-step-hpss-entry {
   cursor: pointer;
 }
@@ -52,8 +60,12 @@ div.step-selector span.step-selector-item-selected {
 .sca-step-hpss span.sca-step-hpss-fixedwidth {
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
-.sca-step-hpss .sca-step-hpss-item:hover {
-  background-color: #ccc;
+.sca-step-hpss .sca-step-hpss-browser {
+  font-size: 85%;
+  /*
+        padding: 10px 20px;
+        box-shadow: 0 0 10px #eee inset;
+        */
 }
 .sca-task .progress-bar {
   line-height: 16px;
@@ -61,6 +73,15 @@ div.step-selector span.step-selector-item-selected {
 .sca-task .status {
   text-transform: uppercase;
   font-weight: bold;
+}
+.sca-task h4 {
+  margin-top: 0px;
+}
+.sca-task .task-control {
+  display: none;
+}
+.sca-task:hover .task-control {
+  display: inherit;
 }
 .sca-comment p {
   margin: 0px;

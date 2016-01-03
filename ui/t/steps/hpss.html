@@ -1,30 +1,17 @@
 
-<div class="sca-step-hpss">
-    <b><i class="fa fa-archive"></i> HPSS (Tape Archive)</b>
-    <p class="help-block">This step allows you to stage files stored in HPSS</p>
-
-    <!--<label>Browse</label>-->
-    <div class="well well-sm" style="font-size: 80%">
-        <ng-include src="'t/steps/hpss.directory.html'"></ng-include>
+<div class="sca-step-hpss panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-archive"></i> HPSS (Tape Archive)</h3>
     </div>
-
-    <label>Selected</label>
-    <div class="well well-sm">
-        <ul>
-            <li ng-repeat="path in step.paths">{{path}}</li>
-        </ul>
-    </div>
-
-    <form ng-submit="submit()">
-        <!--
-        <div class="form-group">
-            <label>Output Name</label>
-            <input type="text" class="form-control" placeholder="Name used to reference your staged files in later steps" ng-model="name" required></input>
+    <div class="panel-body">
+        <p class="help-block">This step allows you to stage files stored in HPSS</p>
+        <div class="sca-step-hpss-browser">
+            <ng-include src="'t/steps/hpss.directory.html'"></ng-include>
         </div>
-        -->
-        <div class="form-group">
+        <p class="help-block">{{step.config.paths.length}} Files Selected</p>
+        <form ng-submit="submit()">
             <button type="submit" class="btn">Stage</button>
-        </div>
-    </form>
-    <!--<pre>{{item|json}}</pre>-->
+        </form>
+    </div>
 </div>
+

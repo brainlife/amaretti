@@ -2,3 +2,6 @@
 
 pm2 delete sca
 pm2 start sca.js --watch --ignore-watch="\.log$ test/ .sh$ pub/"
+
+pm2 delete sca-task
+pm2 start sca-task.js --watch --ignore-watch="\.log$ test/ .sh$ pub/"

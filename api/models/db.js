@@ -20,11 +20,6 @@ exports.disconnect = function(cb) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-/*
-var workflowStepSchema = mongoose.Schema({ 
-    step: mongoose.Schema.Types.Mixed,
-});
-*/
 var workflowSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //key
@@ -34,10 +29,24 @@ var workflowSchema = mongoose.Schema({
 
     name: String, 
     desc: String, 
-    steps: [ mongoose.Schema.Types.Mixed ], 
+
+    steps: [ mongoose.Schema({
+        service_id: String,
+        name: String, 
+        config: mongoose.Schema.Types.Mixed,
+        tasks: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'}],
+
+        //not sure how useful / accurate these will be..
+        create_date: {type: Date, default: Date.now },
+        update_date: {type: Date, default: Date.now },
+    }) ] ,
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
+});
+workflowSchema.pre('save', function(next) {
+    this.update_date = new Date();
+    next();
 });
 exports.Workflow = mongoose.model('Workflow', workflowSchema);
 
@@ -58,6 +67,10 @@ var resourceSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
+resourceSchema.pre('save', function(next) {
+    this.update_date = new Date();
+    next();
+});
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,7 +78,7 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 var taskSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //key
-    workflow_id: mongoose.Schema.Types.ObjectId,
+    workflow_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
     user_id: String, //sub of user submitted this request
     service_id: String,
     //
@@ -74,12 +87,22 @@ var taskSchema = mongoose.Schema({
     name: String,
     progress_key: {type: String, index: true}, 
     status: String, 
+
+    //resources used by this task
+    resources: mongoose.Schema.Types.Mixed, 
     
     //object containing details for this request
     config: mongoose.Schema.Types.Mixed, 
 
+    //data product produced by this task
+    products: mongoose.Schema.Types.Mixed, 
+
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
+});
+taskSchema.pre('save', function(next) {
+    this.update_date = new Date();
+    next();
 });
 exports.Task = mongoose.model('Task', taskSchema);
 

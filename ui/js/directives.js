@@ -17,13 +17,14 @@ app.directive('scaStepComment', function() {
     return {
         restrict: 'E',
         scope: {
-            step: '=',
+            workflow: '=',
             //editing: '=', //optional
         },
         templateUrl: 't/steps/comment.html',
         link: function(scope, element) {
+            scope.step = scope.workflow.steps[scope.$parent.$index];
             scope.submit = function() {
-                delete scope.step.editing;
+                delete scope.step.config.editing;
                 scope.$parent.save_workflow();
             }
         }
@@ -35,21 +36,29 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
         restrict: 'E',
         scope: {
             workflow: '=',
-            step: '=',
-        },
+        }, 
         templateUrl: 't/steps/hpss.html',
         link: function(scope, element) {
+            scope.step = scope.workflow.steps[scope.$parent.$index];
+            var config = scope.step.config; //just shorthand
+
             function load(directory) {
-                $http.get(appconf.api+'/hpss', {params: {
+                $http.get(appconf.api+'/service/hpss', {params: {
                     resource_id: scope.hpss_resource._id,
-                    path: directory.path}
-                }).then(function(res) {
+                    path: directory.path
+                }}).then(function(res) {
                     directory.children = res.data;
                     directory.children.forEach(function(child) {
                         child.depth = directory.depth+1;
                         child.path = directory.path+"/"+child.entry;
-                        if(~scope.step.paths.indexOf(child.path)) child.selected = true;
+                        if(~config.paths.indexOf(child.path)) child.selected = true;
                     });
+                    var contain_path = false;
+                    config.paths.forEach(function(path) {
+                        if(~path.indexOf(directory.path)) contain_path = true;
+                    });
+                    if(contain_path) toggle(directory);
+                    
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);
@@ -75,7 +84,7 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
                 load(scope.root);
             });         
 
-            scope.toggle = function(directory) {
+            function toggle(directory) {
                 directory.open = !directory.open;
                 //ensure all grandchildren are loaded
                 directory.children.forEach(function(child) {
@@ -84,45 +93,35 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
                     } 
                 });
             }
+            scope.toggle = toggle;
 
             scope.select = function(item) {
                 item.selected = !item.selected; //for UI ease
-                var pos = scope.step.paths.indexOf(item.path);
+                var pos = config.paths.indexOf(item.path);
                 if(item.selected) {
-                    if(!~pos) scope.step.paths.push(item.path);
+                    if(!~pos) config.paths.push(item.path);
                 } else {
-                    if(~pos) scope.step.paths.splice(pos, 1);
+                    if(~pos) config.paths.splice(pos, 1);
                 }
                 scope.$parent.save_workflow();
             }
 
-            /*
-            //find paths selected
-            function findselected(item, paths) {
-                if(item.selected) paths.push(item.path);
-                if(item.children) item.children.forEach(function(child) {
-                    findselected(child, paths);
-                });
-            } 
-            */
-
+            //TODO - maybe I should move this to workflow controller?
             scope.submit = function() {
-                //var paths = [];
-                //findselected(scope.root, paths);
-                $http.post(appconf.api+'/task/request', {
+                $http.post(appconf.api+'/task', {
+                    step_id: scope.$parent.$index, //step idx
                     workflow_id: scope.workflow._id,
                     service_id: scope.step.service_id,
+                    name: 'untitled '+scope.step.service_id+' task '+scope.$parent.$index,
+                    resources: {
+                        hpss: scope.hpss_resource._id,
+                        compute: scope.compute_resource._id,
+                    },
                     config: {
-                        resource_ids: {
-                            hpss: scope.hpss_resource._id,
-                            compute: scope.compute_resource._id,
-                        },
-                        paths: scope.step.paths,
+                        paths: config.paths,
                     },
                 }).then(function(res) {
-                    //scope.step.tasks.push(res.data.task);
                     scope.step.tasks.push(res.data.task);
-                    scope.$parent.save_workflow(); //TODO - let server side do this update (it's silly that client has to re-send data..)
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);
@@ -131,6 +130,24 @@ app.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
         }
     };
 });
+
+app.directive('scaProductRaw', 
+["appconf", "$http", "toaster",  
+function(appconf, $http, toaster) {
+    return {
+        restrict: 'E',
+        scope: {
+            task: '=',
+            product: '=',
+        },
+        templateUrl: 't/products/raw.html',
+        link: function(scope, element) {
+            scope.appconf = appconf;
+            scope.jwt = localStorage.getItem(appconf.jwt_id);
+            scope.product_id = scope.$parent.$index;
+        }
+    }
+}]);
 
 app.directive('scaTask', 
 ["appconf", "$http", "$timeout", "toaster", 
@@ -143,28 +160,33 @@ function(appconf, $http, $timeout, toaster) {
         templateUrl: 't/task.html',
         link: function(scope, element) {
             scope.appconf = appconf;
-    
+            scope.progress = {progress: 0}; //prevent flickering
+
             function load_progress() {
                 $http.get(appconf.progress_api+"/status/"+scope.task.progress_key)
                 .then(function(res) {
+                    //TODO - I need to reload task when status *becomes* finished, but I am not sure if this is good enough..
+                    if(scope.progress.status == "running" && res.data.status == "finished") {
+                        load_task();
+                    }
                     scope.progress = res.data;
 
                     //reload progress - with frequency based on how recent the last update was (0.1 to 60 seconds)
                     var age = Date.now() - scope.progress.update_time;
                     //console.dir(age);
-                    $timeout(load_progress, Math.min(Math.max(age/2, 100), 60*1000)); 
-                    /*
-                    switch(scope.progress.status) {
-                    case "finished":
-                    case "canceled":
-                    case "failed":
-                        break;
-                    default:
-                        //TODO - I think every second is too frequent. look at the scope.progress.update_time, and only frequently if
-                        //status has been updated recently
-                        $timeout(load_progress, 1000); 
-                    }
-                    */
+                    var timeout = Math.min(Math.max(age/2, 100), 60*1000);
+                    $timeout(load_progress, timeout);
+                }, function(res) {
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
+                });
+            }
+
+            function load_task() {
+                $http.get(appconf.api+"/task/"+scope.task._id)
+                .then(function(res) {
+                    scope.task = res.data;
+                    toaster.success("Task "+scope.task.name+" completed successfully");
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);
@@ -189,7 +211,6 @@ function(appconf, $http, $timeout, toaster) {
                     return "info";
                 }
             }
-
         }
     };
 }]);

@@ -1,4 +1,5 @@
 <div class="editable" ng-if="!workflow.editing" ng-click="workflow.editing = true">
+    <div class="pull-right"><b class="text-muted">Created:</b> <time>{{workflow.create_date|date:'medium'}}</time></div>
     <h3>{{workflow.name}}</h3>
     <p class="help-block">{{workflow.desc}}</p>
 </div>

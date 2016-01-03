@@ -29,6 +29,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(expressWinston.logger(config.logger.winston));
 
 app.use('/', require('./controllers'));
+app.use('/product', require('./products'));
+app.use('/service', require('./services'));
 
 //error handling
 app.use(expressWinston.errorLogger(config.logger.winston)); 

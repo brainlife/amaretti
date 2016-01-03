@@ -59,8 +59,19 @@ div.step-selector {
     span.sca-step-hpss-fixedwidth {
         font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
     }
+    /*
     .sca-step-hpss-item:hover {
         background-color: #ccc;
+        color: red;
+    }
+    */
+    .sca-step-hpss-browser {
+        font-size: 85%;
+        /*
+        padding: 10px 20px;
+        box-shadow: 0 0 10px #eee inset;
+        */
+        
     }
 }
 
@@ -69,6 +80,17 @@ div.step-selector {
     .status {
         text-transform: uppercase;
         font-weight: bold;
+    }
+    h4 {
+        margin-top: 0px;
+    }
+    .task-control {
+        display: none;
+    }
+    &:hover {
+        .task-control {
+            display: inherit;
+        }
     }
 }
 

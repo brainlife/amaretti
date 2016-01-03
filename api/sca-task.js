@@ -1,4 +1,5 @@
 #!/usr/bin/node
+'use strict';
 
 //node
 var fs = require('fs');
@@ -14,6 +15,7 @@ var config = require('./config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 var progress = require('./progress');
+var common = require('./common');
 
 db.init(function(err) {
     if(err) return cb(err);
@@ -43,7 +45,7 @@ function failed(task, error, cb) {
 
 function process_task(task, cb) {
     //load compute resource
-    db.Resource.findById(task.config.resource_ids.compute, function(err, resource) {
+    db.Resource.findById(task.resources.compute, function(err, resource) {
         if(err) return failed(task, err, cb);
 
         //run the task on the resource
@@ -60,22 +62,12 @@ function process_task(task, cb) {
     });
 }
 
-function getworkdir(task, resource) {
-    var detail = config.resources[resource.resource_id];
-    var template = detail.workdir;
-    var workdir = template
-        .replace("__username__", resource.config.username)
-        .replace("__workflowid__", task.workflow_id);
-    return workdir; 
-}
-
 function run_task(task, resource, cb) {
-
     var conn = new Client();
     conn.on('ready', function() {
 
-        var workdir = getworkdir(task, resource);
-        var taskdir = workdir+"/"+task._id;
+        var workdir = common.getworkdir(task, resource);
+        var taskdir = common.gettaskdir(task, resource);
         var service_id = task.service_id;
         var service_detail = config.services[service_id];
         var envs = {
@@ -88,6 +80,8 @@ function run_task(task, resource, cb) {
             SCA_PROGRESS_URL: config.progress.api+"/status",
             SCA_PROGRESS_KEY: task.progress_key,
         };
+
+        if(service_id == null) return cb(new Error("service_id not set.."));
 
         async.series([
             //TODO - do error handling!
@@ -134,9 +128,9 @@ function run_task(task, resource, cb) {
 
             //process hpss resource (if exists..)
             function(next) { 
-                if(!task.config.resource_ids.hpss) return next();
+                if(!task.resources.hpss) return next();
                 logger.debug("installing hpss key");
-                db.Resource.findById(task.config.resource_ids.hpss, function(err, resource) {
+                db.Resource.findById(task.resources.hpss, function(err, resource) {
                     
                     //TODO - what if user uses nonkeytab?
                     envs.HPSS_PRINCIPAL = resource.config.username;
@@ -193,10 +187,30 @@ function run_task(task, resource, cb) {
                 }*/
                 }, function(err, stream) {
                     if(err) next(err);
-                    //TODO - handle service error
+                    //TODO - handle service error (don't proceed to collecting product.json if it failed)
                     stream.on('close', function() {
-                        progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
+                        //progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
+                        next();
                     })
+                });
+            },
+            
+            //load the products.json and update task
+            function(next) {
+                progress.update(task.progress_key, {msg: 'Downloading Data products manifect'});
+                conn.exec("cat "+taskdir+"/products.json", {}, function(err, stream) {
+                    if(err) next(err);
+                    var products_json = "";
+                    stream.on('close', function() {
+                        task.products = JSON.parse(products_json);
+                        task.update_date = new Date();
+                        task.save(function(err) {
+                            progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
+                        });
+                    });
+                    stream.on('data', function(data) {
+                        products_json += data;
+                    });
                 });
             },
         ], function(err) {

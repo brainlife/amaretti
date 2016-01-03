@@ -12,7 +12,14 @@
             </ul>
             <button class="btn" ng-click="create()">Create New Workflow</button>
             <hr>
-            <pre>{{workflows | json}}</pre>
+            <pre class="slide-down" ng-if="debug_workflow">{{workflows | json}}</pre>
+            <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
+        </div>
+        <div class="col-md-2">
+            <!--
+            <pre class="slide-down" ng-if="debug_workflow">{{workflows | json}}</pre>
+            <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
+            -->
         </div>
     </div>
 </div>

@@ -21,18 +21,38 @@
             <div class="row">
                 <div class="col-md-9">
                     <div ng-switch="step.service_id">
+                        <sca-step-comment ng-switch-when="comment" workflow="workflow"></sca-step-comment>
+                        <sca-step-hpss ng-switch-when="hpss_import" workflow="workflow"></sca-step-hpss>
+                        <div ng-switch-default>Unknown Step <pre>{{step | json}}</pre></div>
+                    </div>
+                    <ul class="list-group" ng-if="step.tasks.length > 0">
+                        <li class="list-group-item" ng-repeat="task in step.tasks">
+                            <sca-task task="task"></sca-task>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                </div>
+            </div>
+
+            <!--
+            <div class="row">
+                <div class="col-md-9">
+                    <div ng-switch="step.service_id">
                         <sca-step-comment ng-switch-when="comment" workflow="workflow" step="step"></sca-step-comment>
                         <sca-step-hpss ng-switch-when="hpss_import" workflow="workflow" step="step"></sca-step-hpss>
                         <div ng-switch-default>{{step | json}}</div>
                     </div>
-                </div>
-                <div class="col-md-3">
                     <div ng-if="step.tasks.length > 0">
                         <sca-task ng-repeat="task in step.tasks" task="task"></sca-task>
                     </div>
-                </div>
-            </div><!--workflow-step-->
-        </div>
+               </div>
+               <div class="col-md-3">
+                    TODO..
+               </div>
+            </div>
+            -->
+        </div><!--workflow-step-->
     </div><!--ng-repeast/steps-->
 
     <div class="workflow-step-border">
@@ -43,7 +63,7 @@
     </div>
 
     <pre class="slide-down" ng-if="debug_workflow">{{workflow | json}}</pre>
-    <button type="button" class="btn btn-sm" ng-click="debug_workflow = true">Show Workflow JSON</button>
+    <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
 </div>
 
 
