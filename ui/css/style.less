@@ -44,12 +44,16 @@ div.step-selector {
 }
 
 .sca-step-hpss {
-    .sca-step-hpss-entry {
-        cursor: pointer; 
-    } 
     .sca-step-hpss-selected {
         background-color: #008cba;
         color: white;
+    }
+    .sca-step-hpss-entry {
+        cursor: pointer; 
+        &:hover {
+            background-color: #ccc;
+            color: black;
+        } 
     }
     ul.sca-step-hpss-children {
         list-style: none;
@@ -57,21 +61,11 @@ div.step-selector {
         padding-left: 0px;
     }
     span.sca-step-hpss-fixedwidth {
-        font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
     }
-    /*
-    .sca-step-hpss-item:hover {
-        background-color: #ccc;
-        color: red;
-    }
-    */
     .sca-step-hpss-browser {
+        margin-top: 10px;
+        font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
         font-size: 85%;
-        /*
-        padding: 10px 20px;
-        box-shadow: 0 0 10px #eee inset;
-        */
-        
     }
 }
 

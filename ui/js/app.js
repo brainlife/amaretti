@@ -254,8 +254,8 @@ app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
         },
         create: function() {
             return $http.post(appconf.api+'/workflow', {
-                name: 'Untitled',
-                desc: 'No Description',
+                name: '',
+                desc: '',
             });
         }
     }

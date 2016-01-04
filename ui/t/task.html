@@ -8,13 +8,15 @@
     </div>
 
     <h4>{{task.name}}</h4>
+    <div class="pull-right">
+        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress</a>
+    </div>
+    <!--<i class="fa fa-external-link"></i>-->
+    <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
+    <span class="status text-{{progressType(progress.status)}}">{{progress.status}}</span>
+    <p class="help-block">{{progress.msg}}</p>
 
-    <div ng-if="progress.status != 'finished'">
-        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}"><i class="fa fa-external-link"></i>
-            <i class="fa fa-spinner fa-pulse"></i>
-            <span class="status">{{progress.status}}</span>
-        </a>
-        <p class="help-block">{{progress.msg}}</p>
+    <div ng-if="progress.status == 'running'">
         <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
         <div class="row">
             <div class="col-md-4">
@@ -31,11 +33,6 @@
     </div>
     
     <div ng-if="task.products">
-        <div class="pull-right">
-            <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" target="{{task._id}}">
-                <i class="fa fa-external-link"></i> Progress History
-            </a>
-        </div>
         Task Created: <time>{{task.update_date|date:'medium'}}</time>
         Task Finished: <time>{{progress.end_time|date:'medium'}}</time>
         Task Updated: <time>{{task.update_date|date:'medium'}}</time>

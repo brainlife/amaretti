@@ -86,7 +86,7 @@ function run_task(task, resource, cb) {
         async.series([
             //TODO - do error handling!
             function(next) {
-                progress.update(task.progress_key, {msg: "Preparing Task"});
+                //progress.update(task.progress_key, {msg: "Preparing Task"});
                 progress.update(task.progress_key+".prep", {name: "Task Prep", weight: 0});
                 logger.debug("making sure ~/.sca/services exists");
                 conn.exec("mkdir -p .sca/services", function(err, stream) {
@@ -178,7 +178,7 @@ function run_task(task, resource, cb) {
                 for(var k in envs) {
                     envstr+=k+"=\""+envs[k]+"\" ";
                 }
-                progress.update(task.progress_key, {msg: "Running Service"});
+                //progress.update(task.progress_key, {msg: "Running Service"});
                 //progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
                 conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/run.sh", {
                 /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I have to pass env via command line
@@ -187,25 +187,27 @@ function run_task(task, resource, cb) {
                 }*/
                 }, function(err, stream) {
                     if(err) next(err);
-                    //TODO - handle service error (don't proceed to collecting product.json if it failed)
-                    stream.on('close', function() {
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Service failed with return code:"+code+" signal:"+signal);
+                        else next();
                         //progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
-                        next();
                     })
                 });
             },
             
             //load the products.json and update task
             function(next) {
-                progress.update(task.progress_key, {msg: 'Downloading Data products manifect'});
+                //progress.update(task.progress_key+".prep", {msg: 'Downloading data product manifest'});
                 conn.exec("cat "+taskdir+"/products.json", {}, function(err, stream) {
                     if(err) next(err);
                     var products_json = "";
-                    stream.on('close', function() {
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to retrieve products.json from the task directory");
+                        //progress.update(task.progress_key+".prep", {msg: 'Downloading data product manifest'});
                         task.products = JSON.parse(products_json);
                         task.update_date = new Date();
                         task.save(function(err) {
-                            progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
+                            progress.update(task.progress_key, {status: 'finished', msg: 'Finished Successfully'}, next);
                         });
                     });
                     stream.on('data', function(data) {

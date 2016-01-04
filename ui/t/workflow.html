@@ -1,7 +1,6 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid">
     <sca-workflow-info></sca-workflow-info>
-
     <div ng-repeat="step in workflow.steps">
         <div class="workflow-step-border">
             <hr>
@@ -34,24 +33,6 @@
                 <div class="col-md-3">
                 </div>
             </div>
-
-            <!--
-            <div class="row">
-                <div class="col-md-9">
-                    <div ng-switch="step.service_id">
-                        <sca-step-comment ng-switch-when="comment" workflow="workflow" step="step"></sca-step-comment>
-                        <sca-step-hpss ng-switch-when="hpss_import" workflow="workflow" step="step"></sca-step-hpss>
-                        <div ng-switch-default>{{step | json}}</div>
-                    </div>
-                    <div ng-if="step.tasks.length > 0">
-                        <sca-task ng-repeat="task in step.tasks" task="task"></sca-task>
-                    </div>
-               </div>
-               <div class="col-md-3">
-                    TODO..
-               </div>
-            </div>
-            -->
         </div><!--workflow-step-->
     </div><!--ng-repeast/steps-->
 
