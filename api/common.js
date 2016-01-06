@@ -14,15 +14,16 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 var progress = require('./progress');
 
-exports.getworkdir = function(task, resource) {
+exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
     var template = detail.workdir;
     var workdir = template
         .replace("__username__", resource.config.username)
-        .replace("__workflowid__", task.workflow_id);
+        .replace("__workflowid__", workflow_id);
     return workdir; 
 }
-exports.gettaskdir = function(task, resource) {
-    var workdir = exports.getworkdir(task, resource);
-    return workdir+"/"+task._id;
+exports.gettaskdir = function(workflow_id, dirname, resource) {
+    var workdir = exports.getworkdir(workflow_id, resource);
+    return workdir+"/"+dirname;
 }
+

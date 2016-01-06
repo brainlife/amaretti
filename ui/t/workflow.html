@@ -3,14 +3,13 @@
     <sca-workflow-info></sca-workflow-info>
     <div ng-repeat="step in workflow.steps">
         <div class="workflow-step-border">
-            <hr>
-            <button class="btn btn-xs pull-right" style="position: relative; top: -35px;" ng-click="addstep($index)">
+            <button class="btn btn-xs pull-right" style="position: relative; top: -13px;" ng-click="addstep($index)">
                 <i class="fa fa-plus"></i>
             </button>
+            <hr>
         </div>
-
         <div class="workflow-step" style="position: relative;">
-            <div class="workflow-step-control" style="position: absolute; top: 0px; right: 0px; z-index: 1;">
+            <div class="workflow-step-control" style="position: absolute; top: -3px; right: 0px; z-index: 1;">
                 <button class="btn btn-xs btn-danger" 
                     confirmed-click="removestep($index)" 
                     ng-confirm-click="Are you sure you want to remove this step?">
@@ -22,27 +21,41 @@
                     <div ng-switch="step.service_id">
                         <sca-step-comment ng-switch-when="comment" workflow="workflow"></sca-step-comment>
                         <sca-step-hpss ng-switch-when="hpss_import" workflow="workflow"></sca-step-hpss>
+                        <sca-step-blast ng-switch-when="blastdb_import" workflow="workflow"></sca-step-blast>
+                        <sca-step-upload ng-switch-when="upload" workflow="workflow"></sca-step-upload>
                         <div ng-switch-default>Unknown Step <pre>{{step | json}}</pre></div>
                     </div>
-                    <ul class="list-group" ng-if="step.tasks.length > 0">
+                    <ul class="list-group" ng-if="step.tasks.length">
                         <li class="list-group-item" ng-repeat="task in step.tasks">
-                            <sca-task task="task"></sca-task>
+                            <sca-task step="step" task="task"></sca-task>
                         </li>
                     </ul>
-                </div>
+                </div><!--col-md-9-->
                 <div class="col-md-3">
-                </div>
-            </div>
+                    <h4 ng-if="step.products.length" style="margin-top: 0px;">Products</h4>
+                    <ul class="list-group" ng-if="step.products.length">
+                        <li class="list-group-item" ng-repeat="product in step.products">
+                            <div ng-switch="product.detail.type">
+                                <sca-product-raw ng-switch-when="raw" product="product"></sca-product-raw>
+                                <sca-product-blastdb ng-switch-when="blastdb" product="product"></sca-product-blastdb>
+                                <div ng-switch-default><b>Unknown Product Type: {{product.detail.type}} <pre>{{product | json}}</pre></div>
+                            </div>
+                        </li>
+                    </ul>
+                </div><!--col-md-3-->
+            </div><!--row-->
         </div><!--workflow-step-->
     </div><!--ng-repeast/steps-->
 
+    <!--bottom border-->
     <div class="workflow-step-border">
-        <hr>
-        <button class="btn btn-xs pull-right" style="position: relative; top: -35px;" ng-click="addstep()">
+        <button class="btn btn-xs pull-right" style="position: relative; top: -13px;" ng-click="addstep()">
             <i class="fa fa-plus"></i>
         </button>
+        <hr>
     </div>
 
+    <!--debug-->
     <pre class="slide-down" ng-if="debug_workflow">{{workflow | json}}</pre>
     <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
 </div>

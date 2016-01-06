@@ -9,38 +9,27 @@
 
     <h4>{{task.name}}</h4>
     <div class="pull-right">
-        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress</a>
+        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress Detail</a>
     </div>
-    <!--<i class="fa fa-external-link"></i>-->
-    <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
-    <span class="status text-{{progressType(progress.status)}}">{{progress.status}}</span>
-    <p class="help-block">{{progress.msg}}</p>
 
-    <div ng-if="progress.status == 'running'">
-        <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+    <div>
+        <span class="status text-{{progressType(progress.status)}}">{{progress.status}}</span>
+        <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
+        <p class="help-block">{{progress.msg}}</p>
         <div class="row">
             <div class="col-md-4">
                 Started: <time>{{progress.start_time|date:'medium'}}</time>
             </div>
             <div class="col-md-4">
-                Finished: <time>{{progress.end_time|date:'medium'}}</time>
-            </div>
-            <div class="col-md-4">
-                ETA : <time>TODO</time>
-            </div>
-            <!-- <p>Updated: <time class="pull-right">{{progress.update_time|date:'medium'}}</time></p>-->
-        </div>
-    </div>
-    
-    <div ng-if="task.products">
-        Task Created: <time>{{task.update_date|date:'medium'}}</time>
-        Task Finished: <time>{{progress.end_time|date:'medium'}}</time>
-        Task Updated: <time>{{task.update_date|date:'medium'}}</time>
-        <div ng-repeat="product in task.products">
-            <div ng-switch="product.type">
-                <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
-                <div ng-switch-default><pre>{{product | json}}</pre></div>
+                Updated: <time>{{progress.update_time|date:'medium'}}</time>
             </div>
         </div>
     </div>
+
+    <div ng-if="progress.status == 'running'">
+        <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+        ETA : <time>TODO</time>
+    </div>
+
+
 </div>

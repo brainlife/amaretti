@@ -12,15 +12,14 @@ var Client = require('ssh2').Client;
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
-var common = require('../common');
+//var common = require('../common');
 
 //stream file content via ssh using cat.. I wish there is a way to directly download the file from the compute element
-function stream_remote_file(resource, taskdir, file, res, cb) {
-    var path = taskdir+"/"+file;
+function stream_remote_file(resource, dirname, file, res, cb) {
+    var path = dirname+"/"+file;
 
     var conn = new Client();
     conn.on('ready', function() {
-        
         //get filesize first
         conn.exec("stat --printf=%s "+path, function(err, stream) {
             if(err) return cb(err);
@@ -29,7 +28,6 @@ function stream_remote_file(resource, taskdir, file, res, cb) {
                 size += data;
             });
             stream.on('close', function() {
-
                 res.setHeader('Content-Length', size);
                 res.setHeader('Content-disposition', 'attachment; filename='+file);
                 //res.setHeader('Content-type', 'video/quicktime'); //TODO - is there a way to get mime type?
@@ -67,22 +65,21 @@ router.get('/', jwt({
     secret: config.sca.auth_pubkey,
     getToken: function fromHeaderOrQuerystring (req) { return req.query.at; }
 }), function(req, res, next) {
-    var task_id = req.query.t;
+    //var task_id = req.query.t;
     var product_id = req.query.p;
     var file_id = req.query.f;
-    //res.json({msg: "todo..", file: file, user: req.user, task_id: task_id});
-    db.Task.findById(task_id, function(err, task) {
+    db.Product.findById(product_id, function(err, product) {
         if(err) return next(err);
-        if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end();
-        db.Resource.findById(task.resources.compute, function(err, resource) {
+        if(!product) return res.status(404).end();
+        if(product.user_id != req.user.sub) return res.status(401).end();
+        if(product.detail.type != "raw") return next("product type is not raw");
+        db.Resource.findById(product.resources.compute, function(err, resource) {
             if(err) return next(err);
             if(!resource) return res.status(404).end();
             if(resource.user_id != req.user.sub) return res.status(401).end(); //shouldn't be needed, but just in case..
-
-            var taskdir = common.gettaskdir(task, resource);
-            var file = task.products[product_id].files[file_id];
-            stream_remote_file(resource, taskdir, file, res, function(err) {
+            //var taskdir = common.gettaskdir(product.workflow_id, product.task_id, resource);
+            var file = product.detail.files[file_id];
+            stream_remote_file(resource, product.path, file, res, function(err) {
                 if(err) return next(err);
             });
         });

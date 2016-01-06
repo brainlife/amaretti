@@ -11,6 +11,15 @@ var app = angular.module('app', [
     'ui.bootstrap',
     'ui.bootstrap.tooltip',
     'sca-shared',
+
+    //TODO anyway I can automate this?
+    'sca-service-comment',
+    'sca-service-hpss',
+    'sca-service-blast',
+    'sca-service-upload',
+
+    'sca-product-raw',
+    'sca-product-blastdb',
 ]);
 
 //can't quite do the slidedown animation through pure angular/css.. borrowing slideDown from jQuery..

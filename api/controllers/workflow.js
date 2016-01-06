@@ -12,6 +12,7 @@ var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 
+//get all workflows
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Workflow
     .find({
@@ -31,14 +32,13 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+//get a single workflow
 router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
-    //if(!~req.user.scopes.common.indexOf('admin')) return res.status(401).end();
-
-    //update host info
     db.Workflow
     .findById(id)
     .populate('steps.tasks')
+    .populate('steps.products')
     .exec(function(err, workflow) {
         if(err) return next(err);
         if(!workflow) return res.status(404).end();
@@ -47,20 +47,18 @@ router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     });
 });
 
+//update workflow
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
-    //update workflow
     var workflow = req.body;
-    //workflow.update_date = new Date();
     db.Workflow.update({_id: id, user_id: req.user.sub}, {$set: workflow}, function(err, workflow) {
         if(err) return next(err);
         res.json(workflow);
     });
 });
 
+//create new workflow
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    //logger.debug("posted");
-    //console.dir(req.body);
     var workflow = new db.Workflow(req.body); //TODO - validate?
     workflow.user_id = req.user.sub;
     workflow.save(function(err) {

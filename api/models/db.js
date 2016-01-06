@@ -32,9 +32,11 @@ var workflowSchema = mongoose.Schema({
 
     steps: [ mongoose.Schema({
         service_id: String,
-        name: String, 
+        name: String,  //not sure if I will ever use this
         config: mongoose.Schema.Types.Mixed,
+
         tasks: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'}],
+        products: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Product'}],
 
         //not sure how useful / accurate these will be..
         create_date: {type: Date, default: Date.now },
@@ -77,14 +79,16 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 
 var taskSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    //key
+    //important fields
     workflow_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
+    step_id: Number, //index of step within workflow
+    //task_id: Number, //index of task within step
     user_id: String, //sub of user submitted this request
-    service_id: String,
     //
     //////////////////////////////////////////////////////////////////////////////////////////////
 
     name: String,
+    service_id: String,
     progress_key: {type: String, index: true}, 
     status: String, 
 
@@ -93,9 +97,6 @@ var taskSchema = mongoose.Schema({
     
     //object containing details for this request
     config: mongoose.Schema.Types.Mixed, 
-
-    //data product produced by this task
-    products: mongoose.Schema.Types.Mixed, 
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
@@ -108,167 +109,35 @@ exports.Task = mongoose.model('Task', taskSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-/*
-var researchSchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    // keys
-    //
-    IIBISID: String, //like.. 2016-00001
-    Modality: String,  //like.. PT
-    StationName: String,  //like.. CT71271
-    radio_tracer: String, //like DOTA NOC (from RadiopharmaceuticalInformationSequence.Radiopharmaceutical - only used for CT)
-    //
-    ///////////////////////////////////////////////////////////////////////////
-
-});
-
-exports.Research = mongoose.model('Research', researchSchema);
-
-var templateSchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    // keys
-    //
-    research_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    //study_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    series_desc: String, //original SeriesDescription minut anything after ^
-    //series_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    date: Date, //date when this template is received (probabbly use StudyTimestamp of the template?)
-    SeriesNumber: Number,
-    
-    //
-    ///////////////////////////////////////////////////////////////////////////
-    
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    //foreign key to assist lookup
-    //
-    Modality: String,  //like.. PT
-    
-    count: Number, //number of images in a given series
-});
-exports.Template = mongoose.model('Template', templateSchema);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-var templateHeaderSchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    // keys
-    //
-    template_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    AcquisitionNumber: Number,
-    InstanceNumber: Number,
-    //
-    ///////////////////////////////////////////////////////////////////////////
-    
-    headers: mongoose.Schema.Types.Mixed, 
-    IIBISID: String, //make it easier to do access control
-    
-});
-exports.TemplateHeader = mongoose.model('TemplateHeader', templateHeaderSchema);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-var studySchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    // keys
-    //
-    research_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    series_desc: String, //original SeriesDescription minut anything after ^
-    subject: String,
-    StudyInstanceUID: String, //StudyInstanceUID alone can not uniquely identify a "study" as I understand it. 
-    SeriesNumber: Number, //some study has repeated series
-    //
-    ///////////////////////////////////////////////////////////////////////////
-    
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    //foreign key/value to assist lookup
-    //
-    Modality: String,  //like.. PT
-    StudyTimestamp: Date,
-    IIBISID: String,  //for easy access control
-
-    ///////////////////////////////////////////////////////////////////////////
-
-    //template to use for QC (if not, latest version will be used) specified by a user - to override the auto selection
-    template_id: {type: mongoose.Schema.Types.ObjectId, index: true},
-
-    //study level qc result 
-    qc: mongoose.Schema.Types.Mixed,
-});
-
-exports.Study = mongoose.model('Study', studySchema);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///
-var acquisitionSchema = mongoose.Schema({
-
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    // keys
-    //
-    //study that this aq belongs to
-    study_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    AcquisitionNumber: Number,
-    //
-    ///////////////////////////////////////////////////////////////////////////
-    
-    ///////////////////////////////////////////////////////////////////////////
-    //
-    //foreign key to assist lookup
-    //
-    research_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    study_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-});
-exports.Acquisition = mongoose.model('Acquisition', acquisitionSchema);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-var imageSchema = mongoose.Schema({
-    
+var productSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    //key
-    //SOPInstanceUID: String,
-    acquisition_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    InstanceNumber: Number,
-    //
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-
-    //foreigh keys to make it easier to find related information
-    research_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    study_id: {type: mongoose.Schema.Types.ObjectId, index: true}, 
-    IIBISID: String,  //for easy access control
-
-    //the actual headers for this instance (cleaned)
-    headers: mongoose.Schema.Types.Mixed, 
-
-    //qc result (null if not qc-ed)
-    qc: mongoose.Schema.Types.Mixed,
-});
-exports.Image = mongoose.model('Image', imageSchema);
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-var aclSchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    //key
-    //SOPInstanceUID: String,
-    key: String,
+    //important fields
+    workflow_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
+    user_id: String, //sub of user submitted this request
     //
     //////////////////////////////////////////////////////////////////////////////////////////////
-    value: mongoose.Schema.Types.Mixed, 
+
+    //task that created this product (maybe not set if it wasn't generated by a task)
+    task_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Task'},
+    service_id: String, //service that produced this product
+
+    name: String, //what for?
+
+    //resources used to produce this product
+    resources: mongoose.Schema.Types.Mixed, 
+
+    //fs: String, //filesystem ..TODO
+    path: String, //path where this product is stored .. like "/N/dc2/scratch/__username__/sca/workflows/__workflowid__/"
+    
+    //object containing details for this product
+    detail: mongoose.Schema.Types.Mixed, 
+
+    create_date: {type: Date, default: Date.now },
+    update_date: {type: Date, default: Date.now }, //I am not sure if product ever get updated?
 });
-aclSchema.statics.canAccessIIBISID = function(user, iibisid, cb) {
-    this.findOne({key: 'iibisid'}, function(err, acl) {
-        var _acl = acl.value[iibisid];
-        if(!_acl) return cb(false); //not set
-        return cb(~_acl.users.indexOf(user.sub));
-    });
-};
-exports.Acl = mongoose.model('Acl', aclSchema);
-*/
+productSchema.pre('save', function(next) {
+    this.update_date = new Date();
+    next();
+});
+exports.Product = mongoose.model('Product', productSchema);
+

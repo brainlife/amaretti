@@ -101,27 +101,12 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
                 name: 'untitled',
                 config: service.default,
                 tasks: [],
+                products: [],
             };
             //finally, add the step and update workflow
             if(idx === undefined) $scope.workflow.steps.push(newstep);
             else $scope.workflow.steps.splice(idx, 0, newstep);
             $scope.save_workflow();
-            /*
-            $http.post(appconf.api+'/workflow', {
-                workflow_id: $scope.workflow._id,
-                service_id: service.id,
-                name: 'untitled',
-                config: service.default,
-            })
-            .then(function(res) {
-                if(idx === undefined) $scope.workflow.steps.push(res.data);
-                else $scope.workflow.steps.splice(idx, 0, res.data);
-            }, function(res) {
-                if(res.data && res.data.message) toaster.error(res.data.message);
-                else toaster.error(res.statusText);
-            });
-            */
-            
         }, function () {
             //toaster.success('Modal dismissed at: ' + new Date());
         });

@@ -1,12 +1,14 @@
 <div class="editable" ng-if="!workflow.editing" ng-click="workflow.editing = true">
     <div class="pull-right"><b class="text-muted">Created:</b> <time>{{workflow.create_date|date:'medium'}}</time></div>
     <h3>{{workflow.name}}</h3>
+    <h3 ng-if="!workflow.name" class="text-muted">Untitled</h3>
     <p class="help-block">{{workflow.desc}}</p>
+    <!--<p class="text-muted" ng-if="!workflow.desc">No description</p>-->
 </div>
 <form ng-if="workflow.editing" ng-submit="submit()">
     <input class="form-control" ng-model="workflow.name" type="text" placeholder="Workflow Title" required/>
     <textarea class="form-control" ng-model="workflow.desc" placeholder="Workflow Description"></textarea>
-    <button class="btn btn-sm" type="submit"><i class="fa fa-check"></i></button>
+    <button class="btn btn-xs" type="submit"><i class="fa fa-check"></i></button>
 </form>
 <!--
 <div ng-if="step.editing" class="input-group">

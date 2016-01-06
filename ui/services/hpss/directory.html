@@ -14,7 +14,6 @@
         -->
     </div>
     <div class="col-md-4">
-        <!--<ng-include src="'t/services/hpss.mode.html'"></ng-include>-->
         {{item.mode}}
         <span class="pull-right">{{item.date|date}}</span>
     </div>
@@ -23,8 +22,8 @@
 <ul class="sca-step-hpss-children slide-down" ng-if="item.open" ng-init="parent = item">
     <p class="text-muted" ng-if="item.children.legth == 0">(empty)</p>
     <li ng-repeat="item in item.children">
-        <ng-include src="'t/services/hpss.directory.html'" ng-if="item.directory"></ng-include>
-        <ng-include src="'t/services/hpss.file.html'" ng-if="!item.directory && !item.next"></ng-include>
+        <ng-include src="'services/hpss/directory.html'" ng-if="item.directory"></ng-include>
+        <ng-include src="'services/hpss/file.html'" ng-if="!item.directory && !item.next"></ng-include>
         <div ng-if="item.next" class="sca-step-hpss-entry text-muted">
             <p ng-if="!parent.next_loading" ng-click="next(parent, item.next)">
                 <span style="margin-left: {{16*item.depth}}px;"><i class="fa fa-caret-down"></i> Show More...</span>

@@ -10,6 +10,7 @@ var _ = require('underscore');
 var config = require('../config');
 
 router.use('/hpss', require('./hpss'));
+router.use('/upload', require('./upload'));
 
 module.exports = router;
 

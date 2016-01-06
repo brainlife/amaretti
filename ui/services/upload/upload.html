@@ -1,0 +1,56 @@
+<div class="sca-step-upload panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa fa-archive"></i> Uploader</h3>
+    </div>
+    <div class="panel-body">
+        <p class="help-block">This step allows you to upload files to SCA</p>
+        <div class="row">
+            <div class="col-md-9">
+                <div ngf-drop ng-model="files" class="well" ngf-drag-over-class="'dragover'" ngf-multiple="true">
+                    <!-- ngf-pattern="'image/*,application/pdf'"-->
+                    <span class="text-muted">Drag &amp; Drop Files to Upload</span>
+                </div>
+                <div ngf-no-file-drop>File Drag/Drop is not supported for this browser</div>
+            </div>
+            <div class="col-md-1">
+                <span class="text-muted">OR</span>
+            </div>
+            <div class="col-md-2">
+                <div class="form-group">
+                    <button type="button" class="btn" ngf-select ng-model="files" multiple="multiple">Select Files</button>
+                </div>
+            </div>
+        </div>
+        <pre>{{files|json}}</pre>
+        <!--
+        Image thumbnail: <img ngf-thumbnail="file || '/thumb.jpg'">
+        Audio preview: <audio controls ngf-src="file"></audio>
+        Video preview: <video controls ngf-src="file"></video>
+        -->
+    </div>
+    <div class="panel-footer">
+        <form ng-submit="upload()">
+            <!--
+            <div class="form-group">
+                <label>Run On</label>
+                <select class="form-control" 
+                    ng-options="r._id as r.name for r in compute_resources" 
+                    ng-model="step.config.compute_resource_id">
+                </select>
+            </div>
+            -->
+            <div class="form-group">
+                <label>Task Name (optional)</label>
+                <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
+            </div>
+            <button type="submit" class="btn">Upload</button>
+        </form>
+    </div>
+</div>
+
+<!--
+Upload right away after file selection:
+<div class="btn" ngf-select="upload($file)">Upload on file select</div>
+<div class="btn" ngf-select="uploadFiles($files)" multiple="multiple">Upload on file select</div>
+-->
+

@@ -22,9 +22,6 @@ div.step-selector span.step-selector-item-selected {
   background-color: #eee;
   /*border: 1px solid #ccc; */
 }
-.workflow-step {
-  border-left: 3px solid white;
-}
 .workflow-step .workflow-step-control {
   display: none;
 }

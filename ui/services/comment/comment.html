@@ -2,7 +2,8 @@
     <p class="editable" ng-if="!step.config.editing" ng-click="step.config.editing = true" style="min-height: 20px">{{step.config.text}}</p>
     <div ng-if="step.config.editing">
         <label>Comment</label>
-        <textarea ng-model="step.config.text" class="form-control" placeholder="Enter comment here" ng-blur="submit()"></textarea>
+        <textarea ng-model="step.config.text" class="form-control" placeholder="Enter comment here"></textarea>
+        <button class="btn btn-xs" type="button" ng-click="submit()"><i class="fa fa-check"></i></button>
     </div>
     <!--
     <div ng-if="step.editing" class="input-group">

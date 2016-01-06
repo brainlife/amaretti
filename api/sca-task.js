@@ -54,7 +54,7 @@ function process_task(task, cb) {
             if(err) return failed(task, err, cb);
 
             //all done!
-            progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Completed'});
+            progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Task Completed'});
             task.status = "finished";
             task.updated = new Date();
             task.save(cb);
@@ -66,10 +66,10 @@ function run_task(task, resource, cb) {
     var conn = new Client();
     conn.on('ready', function() {
 
-        var workdir = common.getworkdir(task, resource);
-        var taskdir = common.gettaskdir(task, resource);
         var service_id = task.service_id;
         var service_detail = config.services[service_id];
+        var workdir = common.getworkdir(task.workflow_id, resource);
+        var taskdir = common.gettaskdir(task.workflow_id, service_id+"."+task._id, resource);
         var envs = {
             SCA_WORKFLOW_ID: task.workflow_id,
             SCA_WORKFLOW_DIR: workdir,
@@ -172,15 +172,15 @@ function run_task(task, resource, cb) {
 
             //finally, run the service!
             function(next) {
-                progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished'});
-                logger.debug("running service");
+                progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'});
+                logger.debug("running service: ~/.sca/services/"+service_id+"/"+service_detail.bin.run);
                 var envstr = "";
                 for(var k in envs) {
                     envstr+=k+"=\""+envs[k]+"\" ";
                 }
-                //progress.update(task.progress_key, {msg: "Running Service"});
+                progress.update(task.progress_key, {msg: "Running Service"});
                 //progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
-                conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/run.sh", {
+                conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/"+service_detail.bin.run, {
                 /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I have to pass env via command line
                 env: {
                     SCA_SOMETHING: 'whatever',
@@ -197,17 +197,39 @@ function run_task(task, resource, cb) {
             
             //load the products.json and update task
             function(next) {
-                //progress.update(task.progress_key+".prep", {msg: 'Downloading data product manifest'});
+                progress.update(task.progress_key, {msg: "Downloading products.json"});
                 conn.exec("cat "+taskdir+"/products.json", {}, function(err, stream) {
                     if(err) next(err);
                     var products_json = "";
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to retrieve products.json from the task directory");
-                        //progress.update(task.progress_key+".prep", {msg: 'Downloading data product manifest'});
-                        task.products = JSON.parse(products_json);
-                        task.update_date = new Date();
-                        task.save(function(err) {
-                            progress.update(task.progress_key, {status: 'finished', msg: 'Finished Successfully'}, next);
+
+                        //find workflow to add products to
+                        db.Workflow.findById(task.workflow_id, function(err, workflow) {
+                            if(err) return next(err);
+
+                            //create products
+                            var products = JSON.parse(products_json);
+                            async.eachSeries(products, function(product, next_product) {
+                                var _product = new db.Product({
+                                    workflow_id: task.workflow_id,
+                                    user_id: task.user_id,
+                                    task_id: task._id,
+                                    service_id: task.service_id,
+                                    name: 'product of '+task.name,  //TODO?
+                                    resources: task.resources,
+                                    path: taskdir,
+                                    detail: product,
+                                });
+                                _product.save(function(err) {
+                                    if(err) return next(err);
+                                    workflow.steps[task.step_id].products.push(_product._id);
+                                    next_product();
+                                });
+                            }, function(err) {
+                                if(err) return next(err);
+                                workflow.save(next);
+                            });
                         });
                     });
                     stream.on('data', function(data) {
