@@ -2,13 +2,111 @@ body {
     font-family: 'Lato', serif;
 }
 
-div.step-selector {
+div.sca-workflow {
+    font-size: 12px;
+
+    .editable {
+        /*border: 1px solid white;*/
+        &:hover {
+            cursor: pointer;
+            background-color: #eee;
+            /*border: 1px solid #ccc; */
+        }
+    }
+
+    .workflow-step {
+        .workflow-step-control {
+            display: none;
+        }
+        &:hover {
+            /*border-left: 3px solid #008cba;*/
+            .workflow-step-control {
+                display: inherit;
+            }
+        }
+    }
+
+    .workflow-step-border {
+        opacity: 0.5;
+    }
+
+    .sca-step-hpss {
+        .sca-step-hpss-selected {
+            background-color: #008cba;
+            color: white;
+        }
+        .sca-step-hpss-entry {
+            cursor: pointer; 
+            &:hover {
+                background-color: #ccc;
+                color: black;
+            } 
+        }
+        ul.sca-step-hpss-children {
+            list-style: none;
+            padding-left: 0px;
+        }
+        span.sca-step-hpss-fixedwidth {
+        }
+        .sca-step-hpss-browser {
+            /* box-shadow: 0 0px 10px 0px grey inset; */
+            margin-top: 10px;
+            font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
+        }
+    }
+
+    .sca-task {
+        .progress-bar {line-height: 16px;}
+        .status {
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        h4 {
+            margin-top: 0px;
+        }
+        .task-control {
+            display: none;
+        }
+        &:hover {
+            .task-control {
+                display: inherit;
+            }
+        }
+    }
+    .sca-step-upload {
+        /*
+        .progress-bar {
+            line-height: 16px;
+        }
+        .progress {
+            margin-bottom: 0px;
+        }
+        */
+    }
+
+    .sca-comment {
+        p {
+            margin: 0px;
+        }
+    }
+
+    .sca-product {
+        border: 1px solid #ddd;
+        padding: 15px;
+        border-left: 5px solid #00ba8c;
+        border-top-left-radius: 5px;
+        border-bottom-left-radius: 5px;
+    }
+}
+
+.step-selector {
     border: 1px solid #eee;
     padding: 10px;
 
     span.step-selector-item {
         background-color: #eee;    
         padding: 5px;
+        margin-left: 5px;
         cursor: pointer;
     }
     span.step-selector-item-selected {
@@ -17,88 +115,3 @@ div.step-selector {
     }
 }
 
-.editable {
-    /*border: 1px solid white;*/
-    &:hover {
-        cursor: pointer;
-        background-color: #eee;
-        /*border: 1px solid #ccc; */
-    }
-}
-
-.workflow-step {
-    .workflow-step-control {
-        display: none;
-    }
-    &:hover {
-        /*border-left: 3px solid #008cba;*/
-        .workflow-step-control {
-            display: inherit;
-        }
-    }
-}
-
-.workflow-step-border {
-    opacity: 0.5;
-}
-
-.sca-step-hpss {
-    .sca-step-hpss-selected {
-        background-color: #008cba;
-        color: white;
-    }
-    .sca-step-hpss-entry {
-        cursor: pointer; 
-        &:hover {
-            background-color: #ccc;
-            color: black;
-        } 
-    }
-    ul.sca-step-hpss-children {
-        list-style: none;
-        /*font-size: 80%;*/
-        padding-left: 0px;
-    }
-    span.sca-step-hpss-fixedwidth {
-    }
-    .sca-step-hpss-browser {
-        margin-top: 10px;
-        font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
-        font-size: 85%;
-    }
-}
-
-.sca-task {
-    .progress-bar {line-height: 16px;}
-    .status {
-        text-transform: uppercase;
-        font-weight: bold;
-    }
-    h4 {
-        margin-top: 0px;
-    }
-    .task-control {
-        display: none;
-    }
-    &:hover {
-        .task-control {
-            display: inherit;
-        }
-    }
-}
-.sca-step-upload {
-    /*
-    .progress-bar {
-        line-height: 16px;
-    }
-    .progress {
-        margin-bottom: 0px;
-    }
-    */
-}
-
-.sca-comment {
-    p {
-        margin: 0px;
-    }
-}

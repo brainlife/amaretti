@@ -22,8 +22,8 @@ exports.getworkdir = function(workflow_id, resource) {
         .replace("__workflowid__", workflow_id);
     return workdir; 
 }
-exports.gettaskdir = function(workflow_id, dirname, resource) {
+exports.gettaskdir = function(workflow_id, task_id, resource) {
     var workdir = exports.getworkdir(workflow_id, resource);
-    return workdir+"/"+dirname;
+    return workdir+"/"+task_id;
 }
 

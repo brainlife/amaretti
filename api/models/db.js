@@ -36,7 +36,7 @@ var workflowSchema = mongoose.Schema({
         config: mongoose.Schema.Types.Mixed,
 
         tasks: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'}],
-        products: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Product'}],
+        //products: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Product'}],
 
         //not sure how useful / accurate these will be..
         create_date: {type: Date, default: Date.now },
@@ -98,6 +98,11 @@ var taskSchema = mongoose.Schema({
     //object containing details for this request
     config: mongoose.Schema.Types.Mixed, 
 
+    //fs: String, //.. like "uits_dc2"
+    //workdir: String, //.. like "/N/dc2/scratch/__username__/sca/workflows/__workflowid__/"
+    //taskdir: String, //.. like "hpss.123351723984123424"
+    products: [ mongoose.Schema.Types.Mixed ],
+
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
@@ -109,6 +114,8 @@ exports.Task = mongoose.model('Task', taskSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+//DEPRECATED
 var productSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //important fields
@@ -140,4 +147,4 @@ productSchema.pre('save', function(next) {
     next();
 });
 exports.Product = mongoose.model('Product', productSchema);
-
+*/

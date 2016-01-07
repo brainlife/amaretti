@@ -1,86 +1,96 @@
 body {
   font-family: 'Lato', serif;
 }
-div.step-selector {
-  border: 1px solid #eee;
-  padding: 10px;
+div.sca-workflow {
+  font-size: 12px;
 }
-div.step-selector span.step-selector-item {
-  background-color: #eee;
-  padding: 5px;
-  cursor: pointer;
-}
-div.step-selector span.step-selector-item-selected {
-  background-color: #008cba;
-  color: white;
-}
-.editable {
+div.sca-workflow .editable {
   /*border: 1px solid white;*/
 }
-.editable:hover {
+div.sca-workflow .editable:hover {
   cursor: pointer;
   background-color: #eee;
   /*border: 1px solid #ccc; */
 }
-.workflow-step .workflow-step-control {
+div.sca-workflow .workflow-step .workflow-step-control {
   display: none;
 }
-.workflow-step:hover {
+div.sca-workflow .workflow-step:hover {
   /*border-left: 3px solid #008cba;*/
 }
-.workflow-step:hover .workflow-step-control {
+div.sca-workflow .workflow-step:hover .workflow-step-control {
   display: inherit;
 }
-.workflow-step-border {
+div.sca-workflow .workflow-step-border {
   opacity: 0.5;
 }
-.sca-step-hpss .sca-step-hpss-selected {
+div.sca-workflow .sca-step-hpss .sca-step-hpss-selected {
   background-color: #008cba;
   color: white;
 }
-.sca-step-hpss .sca-step-hpss-entry {
+div.sca-workflow .sca-step-hpss .sca-step-hpss-entry {
   cursor: pointer;
 }
-.sca-step-hpss .sca-step-hpss-entry:hover {
+div.sca-workflow .sca-step-hpss .sca-step-hpss-entry:hover {
   background-color: #ccc;
   color: black;
 }
-.sca-step-hpss ul.sca-step-hpss-children {
+div.sca-workflow .sca-step-hpss ul.sca-step-hpss-children {
   list-style: none;
-  /*font-size: 80%;*/
   padding-left: 0px;
 }
-.sca-step-hpss .sca-step-hpss-browser {
+div.sca-workflow .sca-step-hpss .sca-step-hpss-browser {
+  /* box-shadow: 0 0px 10px 0px grey inset; */
   margin-top: 10px;
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-  font-size: 85%;
 }
-.sca-task .progress-bar {
+div.sca-workflow .sca-task .progress-bar {
   line-height: 16px;
 }
-.sca-task .status {
+div.sca-workflow .sca-task .status {
   text-transform: uppercase;
   font-weight: bold;
 }
-.sca-task h4 {
+div.sca-workflow .sca-task h4 {
   margin-top: 0px;
 }
-.sca-task .task-control {
+div.sca-workflow .sca-task .task-control {
   display: none;
 }
-.sca-task:hover .task-control {
+div.sca-workflow .sca-task:hover .task-control {
   display: inherit;
 }
-.sca-step-upload {
+div.sca-workflow .sca-step-upload {
   /*
-    .progress-bar {
-        line-height: 16px;
-    }
-    .progress {
-        margin-bottom: 0px;
-    }
-    */
+        .progress-bar {
+            line-height: 16px;
+        }
+        .progress {
+            margin-bottom: 0px;
+        }
+        */
 }
-.sca-comment p {
+div.sca-workflow .sca-comment p {
   margin: 0px;
+}
+div.sca-workflow .sca-product {
+  border: 1px solid #ddd;
+  padding: 15px;
+  border-left: 5px solid #00ba8c;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+.step-selector {
+  border: 1px solid #eee;
+  padding: 10px;
+}
+.step-selector span.step-selector-item {
+  background-color: #eee;
+  padding: 5px;
+  margin-left: 5px;
+  cursor: pointer;
+}
+.step-selector span.step-selector-item-selected {
+  background-color: #008cba;
+  color: white;
 }

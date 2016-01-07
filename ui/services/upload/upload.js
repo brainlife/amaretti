@@ -32,11 +32,11 @@ function(appconf, serverconf, toaster, Upload) {
                     Upload.upload({
                         //TODO - pick appropriate resource_id
                         url: appconf.api+"/service/upload/files?w="+scope.workflow._id+"&s="+step_id+"&resource_id=56842954354c552207761708", 
-                        data: {file: scope.files}
+                        data: {file: scope.files, task: {name: 'from client'}}
                     }).then(function(res) {
                         //console.dir(res);
                         scope.loaded = null;
-                        scope.step.products.push(res.data);
+                        scope.step.tasks.push(res.data);
                         toaster.success("uploaded successfully");
                         scope.files = [];
                     }, function(res) {

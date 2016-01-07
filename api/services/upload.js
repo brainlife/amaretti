@@ -42,6 +42,7 @@ router.post('/files',
             if(err) return next(err);
             if(!workflow) return res.status(404).end();
             if(workflow.user_id != req.user.sub) return res.status(401).end();
+            /*
             var product = new db.Product({
                 workflow_id: workflow_id,
                 user_id: req.user.sub,
@@ -51,17 +52,40 @@ router.post('/files',
             });
             product.path = common.gettaskdir(workflow_id, "upload."+product._id, resource);
             product.detail = {type: "raw", files: []}; //TODO - let user decide the data type
+            */
+            var task = new db.Task({
+                workflow_id: workflow_id,
+                step_id: step_id,
+                user_id: req.user.sub,
+                service_id: 'upload', 
+                //progress_key
+                resources: {compute: resource_id},
+                //config: {}, 
+            });
+            var product = {type: "raw", files: []};
+            var path = common.gettaskdir(workflow_id, task._id, resource);
 
             //open ssh connection to remote compute resource
             var conn = new Client();
             conn.on('ready', function() {
                 //now stream
-                stream_form(req, conn, product, function(err) {
+                stream_form(req, conn, path, task, product, function(err) {
                     if(err) next(err);
 
                     //logger.debug("closing ssh");
                     conn.end();
 
+                    task.products = [product];
+                    task.status = 'finished';
+                    task.save(function(err) {
+                        workflow.steps[step_id].tasks.push(task._id);
+                        workflow.save(function(err) {
+                            if(err) return next(err);
+                            res.json(task);
+                        });
+                    });
+
+                    /*
                     //store products and end
                     product.save(function(err) {
                         if(err) return next(err);
@@ -71,6 +95,7 @@ router.post('/files',
                             res.json(product);
                         });
                     })
+                    */
                 });
             });
             conn.connect({
@@ -82,10 +107,10 @@ router.post('/files',
     });
 });
 
-function stream_form(req, conn, product, cb) {
+function stream_form(req, conn, path, task, product, cb) {
     //now start parsing
     var open_streams = 0;
-    var form = new multiparty.Form();
+    var form = new multiparty.Form({autoFields: true});
     form.on('error', cb);
     form.on('close', alldone);
 
@@ -99,19 +124,15 @@ function stream_form(req, conn, product, cb) {
             setTimeout(alldone, 1000);
         }
     };
+    form.on('field', function(name, value) {
+        if(name == "task[name]") task.name = value;
+    });
     form.on('part', function(part) {
         //logger.debug("received part "+part.filename);
         //logger.debug("expected size:"+part.byteCount);
-
-        //I really don't know if part.resume() will work... let's just hope client never sends me "field"
-        if (part.filename === null) {
-            logger.info("received field (although it shouldn't).. ignoring");
-            logger.debug(part);
-            return part.resume(); // ignore fields for example
-        }
         //stream file to remote system
         var escaped_filename = part.filename.replace(/"/g, '\\"');
-        conn.exec("mkdir -p "+product.path+" && cat /dev/stdin > \""+product.path+"/"+escaped_filename+"\"", {}, function(err, stream) {
+        conn.exec("mkdir -p "+path+" && cat /dev/stdin > \""+path+"/"+escaped_filename+"\"", {}, function(err, stream) {
             if(err) cb(err);
             open_streams++;
             stream.on('close', function(code, signal)  {
@@ -120,7 +141,7 @@ function stream_form(req, conn, product, cb) {
                 open_streams--;
             });
             logger.debug("starting streaming");
-            product.detail.files.push({filename: part.filename, size: part.byteCount, type: part.headers['content-type']});
+            product.files.push({filename: part.filename, size: part.byteCount, type: part.headers['content-type']});
             part.pipe(stream);
         });
         /*

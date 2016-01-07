@@ -25,7 +25,7 @@ function(appconf, $http, $timeout, toaster) {
         templateUrl: 't/task.html',
         link: function(scope, element) {
             scope.appconf = appconf;
-            scope.progress = {progress: 0}; //prevent flickering
+            //scope.progress = {progress: 0}; //prevent flickering
 
             function load_progress() {
                 $http.get(appconf.progress_api+"/status/"+scope.task.progress_key)
@@ -33,7 +33,8 @@ function(appconf, $http, $timeout, toaster) {
                     //load products if status becomes running to finished
                     if(scope.progress.status == "running" && res.data.status == "finished") {
                         toaster.success("Task "+scope.task.name+" completed successfully"); //can I assume it's successful?
-                        reload_task().then(reload_products);
+                        //reload_task().then(reload_products);
+                        reload_task();
                     }
                     scope.progress = res.data;
 
@@ -58,6 +59,7 @@ function(appconf, $http, $timeout, toaster) {
                 });
             }
 
+            /*
             function reload_products() {
                 return $http.get(appconf.api+"/product/bytaskid/"+scope.task._id)
                 .then(function(res) {
@@ -69,8 +71,9 @@ function(appconf, $http, $timeout, toaster) {
                     else toaster.error(res.statusText);
                 });
             }
+            */
             
-            load_progress();
+            if(scope.task.progress_key) load_progress();
 
             //duplicate from progress/ui/js/controller.js#DetailController
             scope.progressType = function(status) {

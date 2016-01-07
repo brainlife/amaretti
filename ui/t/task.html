@@ -1,4 +1,4 @@
-<div class="sca-task">
+<div class="sca-task" ng-if="task.status != 'finished'">
     <div class="btn-group pull-right task-control">
         <button class="btn btn-xs btn-danger"
             confirmed-click="remove()"
@@ -8,13 +8,14 @@
     </div>
 
     <h4>{{task.name}}</h4>
-    <div class="pull-right">
-        <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress Detail</a>
-    </div>
 
-    <div>
-        <span class="status text-{{progressType(progress.status)}}">{{progress.status}}</span>
-        <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
+    <div ng-if="progress">
+        <p>
+            <span class="status text-{{progressType(progress.status)}}">{{progress.status}}</span>
+            <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
+            <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress Detail</a>
+        <p>
+
         <p class="help-block">{{progress.msg}}</p>
         <div class="row">
             <div class="col-md-4">
@@ -24,12 +25,17 @@
                 Updated: <time>{{progress.update_time|date:'medium'}}</time>
             </div>
         </div>
+        <div ng-if="progress.status == 'running'">
+            <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+            ETA : <time>TODO</time>
+        </div>
     </div>
-
-    <div ng-if="progress.status == 'running'">
-        <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
-        ETA : <time>TODO</time>
-    </div>
-
-
 </div>
+
+<!--products-->
+<div class="sca-product" ng-repeat="product in task.products" ng-switch="product.type">
+    <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
+    <sca-product-blastdb ng-switch-when="blastdb" task="task" product="product"></sca-product-blastdb>
+    <div ng-switch-default><b>Unknown Product Type: {{product.type}} <pre>{{product | json}}</pre></div>
+</div>
+

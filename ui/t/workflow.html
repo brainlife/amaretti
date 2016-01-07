@@ -1,5 +1,5 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
-<div class="container-fluid">
+<div class="container-fluid sca-workflow">
     <sca-workflow-info></sca-workflow-info>
     <div ng-repeat="step in workflow.steps">
         <div class="workflow-step-border">
@@ -25,13 +25,10 @@
                         <sca-step-upload ng-switch-when="upload" workflow="workflow"></sca-step-upload>
                         <div ng-switch-default>Unknown Step <pre>{{step | json}}</pre></div>
                     </div>
-                    <ul class="list-group" ng-if="step.tasks.length">
-                        <li class="list-group-item" ng-repeat="task in step.tasks">
-                            <sca-task step="step" task="task"></sca-task>
-                        </li>
-                    </ul>
+                    <sca-task ng-repeat="task in step.tasks" step="step" task="task"></sca-task>
                 </div><!--col-md-9-->
                 <div class="col-md-3">
+                    <!--
                     <h4 ng-if="step.products.length" style="margin-top: 0px;">Outputs</h4>
                     <ul class="list-group" ng-if="step.products.length">
                         <li class="list-group-item" ng-repeat="product in step.products">
@@ -42,6 +39,7 @@
                             </div>
                         </li>
                     </ul>
+                    -->
                 </div><!--col-md-3-->
             </div><!--row-->
         </div><!--workflow-step-->
@@ -57,7 +55,7 @@
 
     <!--debug-->
     <pre class="slide-down" ng-if="debug_workflow">{{workflow | json}}</pre>
-    <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
+    <button type="button" class="btn btn-sm" ng-if="!debug_workflow" ng-click="$parent.debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
 </div>
 
 

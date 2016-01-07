@@ -203,12 +203,12 @@ function run_task(task, resource, cb) {
                     var products_json = "";
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to retrieve products.json from the task directory");
-
+                        task.products = JSON.parse(products_json);
+                        task.save(next);
+                        /*
                         //find workflow to add products to
                         db.Workflow.findById(task.workflow_id, function(err, workflow) {
                             if(err) return next(err);
-
-                            //create products
                             var products = JSON.parse(products_json);
                             async.eachSeries(products, function(product, next_product) {
                                 var _product = new db.Product({
@@ -226,11 +226,13 @@ function run_task(task, resource, cb) {
                                     workflow.steps[task.step_id].products.push(_product._id);
                                     next_product();
                                 });
+                                
                             }, function(err) {
                                 if(err) return next(err);
                                 workflow.save(next);
                             });
                         });
+                        */
                     });
                     stream.on('data', function(data) {
                         products_json += data;

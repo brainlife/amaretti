@@ -12,7 +12,7 @@ var Client = require('ssh2').Client;
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
-//var common = require('../common');
+var common = require('../common');
 
 //stream file content via ssh using cat.. I wish there is a way to directly download the file from the compute element
 function stream_remote_file(resource, dirname, file, res, cb) {
@@ -66,21 +66,22 @@ router.get('/', jwt({
     secret: config.sca.auth_pubkey,
     getToken: function fromHeaderOrQuerystring (req) { return req.query.at; }
 }), function(req, res, next) {
-    //var task_id = req.query.t;
+    var task_id = req.query.t;
     var product_id = req.query.p;
     var file_id = req.query.f;
-    db.Product.findById(product_id, function(err, product) {
+    db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
-        if(!product) return res.status(404).end();
-        if(product.user_id != req.user.sub) return res.status(401).end();
-        if(product.detail.type != "raw") return next("product type is not raw");
-        db.Resource.findById(product.resources.compute, function(err, resource) {
+        if(!task) return res.status(404).end();
+        if(task.user_id != req.user.sub) return res.status(401).end();
+        var product = task.products[product_id];
+        if(product.type != "raw") return next("product type is not raw");
+        db.Resource.findById(task.resources.compute, function(err, resource) {
             if(err) return next(err);
             if(!resource) return res.status(404).end();
             if(resource.user_id != req.user.sub) return res.status(401).end(); //shouldn't be needed, but just in case..
-            //var taskdir = common.gettaskdir(product.workflow_id, product.task_id, resource);
-            var file = product.detail.files[file_id];
-            stream_remote_file(resource, product.path, file, res, function(err) {
+            var file = product.files[file_id];
+            var path = common.gettaskdir(task.workflow_id, task_id, resource);
+            stream_remote_file(resource, path, file, res, function(err) {
                 if(err) return next(err);
             });
         });

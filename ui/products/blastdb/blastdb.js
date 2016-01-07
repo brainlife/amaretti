@@ -6,6 +6,7 @@ service.directive('scaProductBlastdb', function(appconf, $http, toaster) {
     return {
         restrict: 'E',
         scope: {
+            task: '=',
             product: '=',
         },
         templateUrl: 'products/blastdb/blastdb.html',

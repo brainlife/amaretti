@@ -30,7 +30,7 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
 router.use('/workflow', require('./workflow'));
 router.use('/resource', require('./resource'));
 router.use('/task', require('./task'));
-router.use('/product', require('./product'));
+//router.use('/product', require('./product'));
 
 module.exports = router;
 
