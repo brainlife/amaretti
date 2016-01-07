@@ -1,53 +1,56 @@
 <div class="sca-step-upload panel panel-default">
     <div class="panel-heading">
-        <h3 class="panel-title"><i class="fa fa-archive"></i> Uploader</h3>
+        <h3 class="panel-title"><i class="fa {{service_detail.icon}}"></i> {{service_detail.label}}</h3>
     </div>
     <div class="panel-body">
         <p class="help-block">This step allows you to upload files to SCA</p>
-        <div class="row">
-            <div class="col-md-9">
-                <div ngf-drop ng-model="files" class="well" ngf-drag-over-class="'dragover'" ngf-multiple="true">
-                    <!-- ngf-pattern="'image/*,application/pdf'"-->
-                    <span class="text-muted">Drag &amp; Drop Files to Upload</span>
+        <div ng-if="!loaded">
+            <div class="row">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <button type="button" class="btn" ngf-select ng-model="$parent.files" multiple="multiple">Select Files</button>
+                    </div>
                 </div>
-                <div ngf-no-file-drop>File Drag/Drop is not supported for this browser</div>
-            </div>
-            <div class="col-md-1">
-                <span class="text-muted">OR</span>
-            </div>
-            <div class="col-md-2">
-                <div class="form-group">
-                    <button type="button" class="btn" ngf-select ng-model="files" multiple="multiple">Select Files</button>
+                <div ngf-drop ng-model="$parent.files" ngf-drag-over-class="'dragover'" ngf-multiple="true">
+                    <div class="col-md-1">
+                        <span class="text-muted">OR</span>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="well">
+                            <!-- ngf-pattern="'image/*,application/pdf'"-->
+                            <span class="text-muted">Drag &amp; Drop Files Here</span>
+                            <ul class="list-group">
+                                <li class="list-group-item" ng-repeat="file in files">
+                                    <div class="row">
+                                        <!-- {{file.type}} -->
+                                        <!-- {{file.lastModified}} -->
+                                        <div class="col-md-6">{{file.name}}</div>
+                                        <div class="col-md-3">{{file.type}}</div>
+                                        <div class="col-md-3">{{file.size|bytes}}</div>
+                                    </div>
+                                </li>
+                            </ul> 
+                        </div>
+                    </div>
+                </div>
+                <div ngf-no-file-drop>
+                    <div class="col-md-10">
+                        File Drag/Drop is not supported for this browser
+                    </div>
                 </div>
             </div>
-        </div>
-        <pre>{{files|json}}</pre>
-        <!--
-        Image thumbnail: <img ngf-thumbnail="file || '/thumb.jpg'">
-        Audio preview: <audio controls ngf-src="file"></audio>
-        Video preview: <video controls ngf-src="file"></video>
-        -->
-    </div>
-    <div class="panel-footer">
-        <form ng-submit="upload()">
-            <!--
             <div class="form-group">
-                <label>Run On</label>
-                <select class="form-control" 
-                    ng-options="r._id as r.name for r in compute_resources" 
-                    ng-model="step.config.compute_resource_id">
-                </select>
-            </div>
-            -->
-            <div class="form-group">
-                <label>Task Name (optional)</label>
+                <label>Output Name (optional)</label>
                 <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
             </div>
-            <button type="submit" class="btn">Upload</button>
-        </form>
+            <button type="button" class="btn" ng-click="upload()">Upload</button>
+        </div>
+        <div ng-if="loaded">
+            <i class="fa fa-spinner fa-pulse"></i> Uploading...
+            <progressbar class="progress" value="(loaded/total)*100" type="success">{{(loaded/total)*100|number:1}}% Transfered</progressbar>
+        </div>
     </div>
 </div>
-
 <!--
 Upload right away after file selection:
 <div class="btn" ngf-select="upload($file)">Upload on file select</div>

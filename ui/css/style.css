@@ -71,6 +71,16 @@ div.step-selector span.step-selector-item-selected {
 .sca-task:hover .task-control {
   display: inherit;
 }
+.sca-step-upload {
+  /*
+    .progress-bar {
+        line-height: 16px;
+    }
+    .progress {
+        margin-bottom: 0px;
+    }
+    */
+}
 .sca-comment p {
   margin: 0px;
 }

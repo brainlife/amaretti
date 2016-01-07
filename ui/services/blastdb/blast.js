@@ -4,7 +4,9 @@
 
 var service = angular.module('sca-service-blast', [ 'app.config', 'toaster', 'ui.select' ]);
 
-service.directive('scaStepBlast', function(appconf, $http, toaster, resources) {
+service.directive('scaStepBlast', 
+['appconf', '$http', 'toaster', 'resources', 'serverconf',
+function(appconf, $http, toaster, resources, serverconf) {
     return {
         restrict: 'E',
         scope: {
@@ -12,6 +14,7 @@ service.directive('scaStepBlast', function(appconf, $http, toaster, resources) {
         }, 
         templateUrl: 'services/blastdb/blast.html',
         link: function(scope, element) {
+            serverconf.then(function(conf) { scope.service_detail = conf.services['blastdb_import']; });
             scope.step = scope.workflow.steps[scope.$parent.$index];
             var config = scope.step.config; //just shorthand
             scope.dbs = [
@@ -63,7 +66,7 @@ service.directive('scaStepBlast', function(appconf, $http, toaster, resources) {
             }
         }
     };
-});
+}]);
     
 //end of IIFE (immediately-invoked function expression)
 })();

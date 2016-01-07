@@ -2,7 +2,9 @@
 (function() {
 
 var service = angular.module('sca-service-hpss', [ 'app.config', 'toaster' ]);
-service.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
+service.directive('scaStepHpss', 
+['appconf', 'serverconf', '$http', 'toaster', 'resources', 
+function(appconf, serverconf, $http, toaster, resources) {
     return {
         restrict: 'E',
         scope: {
@@ -10,6 +12,7 @@ service.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
         }, 
         templateUrl: 'services/hpss/hpss.html',
         link: function(scope, element) {
+            serverconf.then(function(conf) { scope.service_detail = conf.services['hpss_import']; });
             scope.step = scope.workflow.steps[scope.$parent.$index];
             var config = scope.step.config; //just shorthand
             
@@ -154,7 +157,7 @@ service.directive('scaStepHpss', function(appconf, $http, toaster, resources) {
             }
         }
     };
-});
+}]);
     
 //end of IIFE (immediately-invoked function expression)
 })();

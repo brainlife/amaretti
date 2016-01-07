@@ -16,11 +16,11 @@ var db = require('../models/db');
 
 //stream file content via ssh using cat.. I wish there is a way to directly download the file from the compute element
 function stream_remote_file(resource, dirname, file, res, cb) {
-    var path = dirname+"/"+file;
+    var path = dirname+"/"+file.filename;
 
     var conn = new Client();
     conn.on('ready', function() {
-        //get filesize first
+        //get filesize first (TODO - do this only if file.size isn't set)
         conn.exec("stat --printf=%s "+path, function(err, stream) {
             if(err) return cb(err);
             var size = "";
@@ -29,11 +29,12 @@ function stream_remote_file(resource, dirname, file, res, cb) {
             });
             stream.on('close', function() {
                 res.setHeader('Content-Length', size);
-                res.setHeader('Content-disposition', 'attachment; filename='+file);
-                //res.setHeader('Content-type', 'video/quicktime'); //TODO - is there a way to get mime type?
+                res.setHeader('Content-disposition', 'attachment; filename='+file.filename);
+                if(file.type) res.setHeader('Content-type', file.type); 
 
                 //then stream
-                conn.exec("cat "+path, function(err, stream) {
+                var escaped_path = path.replace(/"/g, '\\"');
+                conn.exec("cat \""+escaped_path+"\"", function(err, stream) {
                     if(err) return cb(err);
                     stream.on('data', function(data) {
                         res.write(data);

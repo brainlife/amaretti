@@ -3,5 +3,6 @@
 <p>{{product.name}}</p>
 
 <p ng-repeat="file in product.detail.files" style="font-family: monospace;">
-    <a href="{{appconf.api}}/product/raw?p={{product._id}}&f={{$index}}&at={{jwt}}">{{file}}</a>
+    <a href="{{appconf.api}}/product/raw?p={{product._id}}&f={{$index}}&at={{jwt}}">{{file.filename}}</a>
+    <span>{{file.size|bytes}}</span> 
 </p>
