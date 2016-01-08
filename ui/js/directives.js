@@ -31,7 +31,7 @@ function(appconf, $http, $timeout, toaster) {
                 $http.get(appconf.progress_api+"/status/"+scope.task.progress_key)
                 .then(function(res) {
                     //load products if status becomes running to finished
-                    if(scope.progress.status == "running" && res.data.status == "finished") {
+                    if(scope.progress && scope.progress.status == "running" && res.data.status == "finished") {
                         toaster.success("Task "+scope.task.name+" completed successfully"); //can I assume it's successful?
                         //reload_task().then(reload_products);
                         reload_task();
@@ -40,9 +40,8 @@ function(appconf, $http, $timeout, toaster) {
 
                     //reload progress - with frequency based on how recent the last update was (0.1 to 60 seconds)
                     var age = Date.now() - scope.progress.update_time;
-                    //console.dir(age);
                     var timeout = Math.min(Math.max(age/2, 100), 60*1000);
-                    $timeout(load_progress, timeout);
+                    if(scope.progress.status != "finished") $timeout(load_progress, timeout);
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);

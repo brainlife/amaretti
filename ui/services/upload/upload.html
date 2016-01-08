@@ -3,7 +3,7 @@
         <h3 class="panel-title"><i class="fa {{service_detail.icon}}"></i> {{service_detail.label}}</h3>
     </div>
     <div class="panel-body">
-        <p class="help-block">This step allows you to upload files to SCA</p>
+        <p class="help-block">{{service_detail.desc}}</p>
         <div ng-if="!loaded">
             <div class="row">
                 <div class="col-md-2">
@@ -40,10 +40,17 @@
                 </div>
             </div>
             <div class="form-group">
-                <label>Output Name (optional)</label>
-                <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
+                <label>Data Type</label>
+                <select class="form-control" ng-model="$parent.step.config.type" ng-change="$parent.save_workflow()" placeholder="untitled">
+                    <option value="raw">raw</option>
+                    <option value="bio/fasta">bio/fasta</option>
+                </select>
             </div>
-            <button type="button" class="btn" ng-click="upload()">Upload</button>
+            <div class="form-group">
+                <label>Output Name (optional)</label>
+                <input type="text" class="form-control" ng-model="$parent.step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
+            </div>
+            <button type="button" class="btn" ng-click="upload()" ng-disabled="$parent.files.length == 0">Upload</button>
         </div>
         <div ng-if="loaded">
             <i class="fa fa-spinner fa-pulse"></i> Uploading...

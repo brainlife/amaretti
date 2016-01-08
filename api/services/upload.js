@@ -42,17 +42,6 @@ router.post('/files',
             if(err) return next(err);
             if(!workflow) return res.status(404).end();
             if(workflow.user_id != req.user.sub) return res.status(401).end();
-            /*
-            var product = new db.Product({
-                workflow_id: workflow_id,
-                user_id: req.user.sub,
-                service_id: 'upload', //TODO can I get it from the config?
-                name: 'whaterver', //TODO.. what is this used for?
-                resources: {compute: resource_id},
-            });
-            product.path = common.gettaskdir(workflow_id, "upload."+product._id, resource);
-            product.detail = {type: "raw", files: []}; //TODO - let user decide the data type
-            */
             var task = new db.Task({
                 workflow_id: workflow_id,
                 step_id: step_id,
@@ -72,30 +61,28 @@ router.post('/files',
                 stream_form(req, conn, path, task, product, function(err) {
                     if(err) next(err);
 
-                    //logger.debug("closing ssh");
-                    conn.end();
+                    //lastly, write out products.json (just in case..)
+                    conn.exec("cat > "+path+"/products.json", function(err, stream) {
+                        if(err) next(err);
+                        stream.on('close', function() {
+                            
+                            //now I can close ssh
+                            conn.end();
 
-                    task.products = [product];
-                    task.status = 'finished';
-                    task.save(function(err) {
-                        workflow.steps[step_id].tasks.push(task._id);
-                        workflow.save(function(err) {
-                            if(err) return next(err);
-                            res.json(task);
-                        });
+                            //store product info on the task document.
+                            task.products = [product];
+                            task.status = 'finished';
+                            task.save(function(err) {
+                                workflow.steps[step_id].tasks.push(task._id);
+                                workflow.save(function(err) {
+                                    if(err) return next(err);
+                                    res.json(task);
+                                });
+                            });
+                        })
+                        stream.write(JSON.stringify([product], null, 4));
+                        stream.end();
                     });
-
-                    /*
-                    //store products and end
-                    product.save(function(err) {
-                        if(err) return next(err);
-                        workflow.steps[step_id].products.push(product._id);
-                        workflow.save(function(err) {
-                            if(err) return next(err);
-                            res.json(product);
-                        });
-                    })
-                    */
                 });
             });
             conn.connect({
@@ -107,6 +94,7 @@ router.post('/files',
     });
 });
 
+//TODO ugly sig..
 function stream_form(req, conn, path, task, product, cb) {
     //now start parsing
     var open_streams = 0;
@@ -125,7 +113,13 @@ function stream_form(req, conn, path, task, product, cb) {
         }
     };
     form.on('field', function(name, value) {
-        if(name == "task[name]") task.name = value;
+        //TODO validate?
+        switch(name) {
+        case "task[name]": task.name = value; break;
+        case "task[type]": product.type = value; break;
+        default: 
+            logger.error("unknown field name:"+name);
+        }
     });
     form.on('part', function(part) {
         //logger.debug("received part "+part.filename);

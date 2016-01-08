@@ -288,6 +288,22 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
         });
     }
 
+    
+    //find available resources that mathces criteria (empty means no match)
+    function find(criteria) {
+        return getall().then(function() {
+            var matches = [];
+            resources.forEach(function(resource) {
+                if(criteria.type && resource.type != criteria.type) return;
+                matches.push(resource); 
+            });
+
+            //TODO sort the mathces so that the best resource goes to [0]
+            return matches;
+        }); 
+    }
+
+    //add to resources list without adding it to the server
     function add(resource_id) {
         return serverconf.then(function(serverconf) {
             var def = serverconf.resources[resource_id];  
@@ -299,17 +315,20 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
         });
     }
 
+    function upsert(resource) {
+        if(resource._id) {
+            return $http.put(appconf.api+'/resource/'+resource._id, resource);
+        } else {
+            return $http.post(appconf.api+'/resource', resource);
+        }
+    }
+
     return {
-        //getMine: getall, //TODO - deprecated
         getall: getall, 
-        add: add,
-        upsert: function(resource) {
-            if(resource._id) {
-                return $http.put(appconf.api+'/resource/'+resource._id, resource);
-            } else {
-                return $http.post(appconf.api+'/resource', resource);
-            }
-        },
+        upsert: upsert,
+        find: find,
+
+        add: add, //just add to resources array - doesn't save it
     }
 }]);
 

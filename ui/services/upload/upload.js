@@ -4,8 +4,8 @@
 //https://github.com/danialfarid/ng-file-upload
 var service = angular.module('sca-service-upload', [ 'ngFileUpload' ]);
 service.directive('scaStepUpload', 
-['appconf', 'serverconf', 'toaster', 'Upload', 
-function(appconf, serverconf, toaster, Upload) {
+['appconf', 'serverconf', 'toaster', 'Upload', 'resources',
+function(appconf, serverconf, toaster, Upload, resources) {
     return {
         restrict: 'E',
         scope: {
@@ -17,7 +17,18 @@ function(appconf, serverconf, toaster, Upload) {
             var step_id = scope.$parent.$index; //how accurate is this?
             scope.step = scope.workflow.steps[step_id];
             var config = scope.step.config; //just shorthand
+
             scope.files = [];
+
+            resources.find({type: "pbs"}).then(function(rs) {
+                scope.compute_resources = rs;
+                if(scope.compute_resources.length == 0) toaster.error("You do not have any computing resource capable of staging blast db");
+                if(!config.compute_resource_id) {
+                    config.compute_resource_id = scope.compute_resources[0]._id; //first one should be the best resource to default to
+                    scope.$parent.save_workflow();                    
+                }
+                //TODO if there are more than 1 compute resources, I should let user choose it?
+            });
 
             //for progress
             scope.loaded = null;
@@ -26,35 +37,34 @@ function(appconf, serverconf, toaster, Upload) {
             scope.upload = function() {
                 scope.loaded = 0;
                 scope.total = 1; //can't be 0 since it's used for denominator
-                console.dir(scope.files);
+                //console.dir(scope.files);
+                console.dir(scope.step.config);
 
-                if (scope.files && scope.files.length) {
-                    Upload.upload({
-                        //TODO - pick appropriate resource_id
-                        url: appconf.api+"/service/upload/files?w="+scope.workflow._id+"&s="+step_id+"&resource_id=56842954354c552207761708", 
-                        data: {file: scope.files, task: {name: 'from client'}}
-                    }).then(function(res) {
-                        //console.dir(res);
-                        scope.loaded = null;
-                        scope.step.tasks.push(res.data);
-                        toaster.success("uploaded successfully");
-                        scope.files = [];
-                    }, function(res) {
-                        scope.loaded = null;
-                        if(res.data && res.data.message) toaster.error(res.data.message);
-                        else toaster.error(res.statusText);
-                    }, function(event) {
-                        //console.dir(event);
-                        scope.loaded = event.loaded; 
-                        scope.total = event.total; 
-                    });
-                    /*
-                    for (var i = 0; i < files.length; i++) {
-                        Upload.upload({..., data: {file: files[i]}, ...})...;
-                    }
-                    // or send them all together for HTML5 browsers:
-                    */
+                Upload.upload({
+                    //TODO - pick appropriate resource_id
+                    url: appconf.api+"/service/upload/files?w="+scope.workflow._id+"&s="+step_id+"&resource_id="+scope.step.config.compute_resource_id, 
+                    data: {file: scope.files, task: {name: scope.step.config.name, type: scope.step.config.type}}
+                }).then(function(res) {
+                    //console.dir(res);
+                    scope.loaded = null;
+                    scope.step.tasks.push(res.data);
+                    toaster.success("uploaded successfully");
+                    scope.files = [];
+                }, function(res) {
+                    scope.loaded = null;
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
+                }, function(event) {
+                    //console.dir(event);
+                    scope.loaded = event.loaded; 
+                    scope.total = event.total; 
+                });
+                /*
+                for (var i = 0; i < files.length; i++) {
+                    Upload.upload({..., data: {file: files[i]}, ...})...;
                 }
+                // or send them all together for HTML5 browsers:
+                */
             }
         }
     };

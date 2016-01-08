@@ -69,7 +69,7 @@ function run_task(task, resource, cb) {
         var service_id = task.service_id;
         var service_detail = config.services[service_id];
         var workdir = common.getworkdir(task.workflow_id, resource);
-        var taskdir = common.gettaskdir(task.workflow_id, service_id+"."+task._id, resource);
+        var taskdir = common.gettaskdir(task.workflow_id, task._id, resource);
         var envs = {
             SCA_WORKFLOW_ID: task.workflow_id,
             SCA_WORKFLOW_DIR: workdir,
@@ -126,6 +126,7 @@ function run_task(task, resource, cb) {
                 });
             },
 
+            //TODO - maybe this is handled via deps
             //process hpss resource (if exists..)
             function(next) { 
                 if(!task.resources.hpss) return next();
@@ -155,11 +156,30 @@ function run_task(task, resource, cb) {
                     });
                 });
             },
+
+            //handle dependencies
+            function(next) {
+                if(!task.deps) return next(); //skip
+                async.forEach(task.deps, function(dep, next_dep) {
+                    //progress.update(task.progress_key+".prep.dep"+dep_idx, {status: 'running', progress: 0, msg: 'Handling dependency '+dep.id});
+                    switch(dep.type) {
+                    case "product": 
+                        process_product_dep(task, dep, next_dep); break;
+                    default: 
+                        next_dep("unknown dep type:"+dep.type); 
+                    }
+                }, next);
+            },
             
-            //install request.json in the taskdir
+            //install config.json in the taskdir
             function(next) { 
+                if(!task.config) {      
+                    logger.info("no config object stored in task.. skipping writing config.json");
+                    return next();
+                }
                 //progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
                 logger.debug("installing config.json");
+                logger.debug(task.config);
                 conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function() {
@@ -251,5 +271,17 @@ function run_task(task, resource, cb) {
         username: resource.config.username,
         privateKey: resource.config.ssh_private,
     });
+}
+
+function process_product_dep(task, dep, cb) {
+    //dep: {task_id: 1231231323, id: "FASTA"}
+    
+    //TODO - algorithm
+    //lookup the task, and lookup compute resource used and see if it mathes
+    //if match, then all I need to do is to set ENV:FASTA to whatever gettaskdir returns.
+    //if doesn't match, then lookup which fs it uses, and if it matches, I should just use gettaskdir also
+    //if fs doesn't match either, then check to see if the data has already been transferred here (need a new attribute in workflow document?)
+    //if the data isn't syned yet, then I have to copy data (rsync?) and update workflow to indicate that the data product is available here
+    cb();
 }
 

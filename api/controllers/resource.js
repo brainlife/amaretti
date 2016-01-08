@@ -19,6 +19,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     })
     .exec(function(err, resources) {
         if(err) return next(err);
+        //TODO - I should not return private keys directly to the user. I should return true/false instead, and only allow update with new content
         res.json(resources);
     });
 });

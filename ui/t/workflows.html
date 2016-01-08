@@ -6,7 +6,7 @@
                 <li class="list-group-item" ng-repeat="workflow in workflows | orderBy:'-update_date'">
                     <span class="pull-right" ng-if="workflow.create_date">Created: <time>{{workflow.create_date}}</time></span>
                     <span class="pull-right" ng-if="workflow.update_date">Updated: <time>{{workflow.update_date}}</time></span>
-                    <a href="#/workflow/{{workflow._id}}">{{workflow.name}}</a>
+                    <a href="#/workflow/{{workflow._id}}">{{workflow.name||'Untitled'}}</a>
                     <p>{{workflow.desc}}</p>
                 </li>
             </ul>

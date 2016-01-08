@@ -1,6 +1,4 @@
-<time class="pull-right">{{product.create_date|date:'medium'}}</time>
 <b>Raw Files</b>
-<p>{{task.name}}</p>
 <p ng-repeat="file in product.files" style="font-family: monospace;">
     <a href="{{appconf.api}}/product/raw?t={{task._id}}&p={{product_id}}&f={{$index}}&at={{jwt}}">{{file.filename}}</a>
     <span>{{file.size|bytes}}</span> 

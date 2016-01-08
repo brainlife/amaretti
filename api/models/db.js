@@ -40,7 +40,7 @@ var workflowSchema = mongoose.Schema({
 
         //not sure how useful / accurate these will be..
         create_date: {type: Date, default: Date.now },
-        update_date: {type: Date, default: Date.now },
+        //update_date: {type: Date, default: Date.now },
     }) ] ,
 
     create_date: {type: Date, default: Date.now },
@@ -97,6 +97,10 @@ var taskSchema = mongoose.Schema({
     
     //object containing details for this request
     config: mongoose.Schema.Types.Mixed, 
+
+    //dependencies required to run the service
+    //[ {type: "product", id: "FASTA", task_id: "1231231231312321"} ]
+    deps: [ mongoose.Schema.Types.Mixed ],
 
     //fs: String, //.. like "uits_dc2"
     //workdir: String, //.. like "/N/dc2/scratch/__username__/sca/workflows/__workflowid__/"

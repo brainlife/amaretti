@@ -15,8 +15,12 @@
             <i class="fa fa-spinner fa-pulse" ng-if="progress.status == 'running'"></i>
             <a href="{{appconf.progress_url}}/#/detail/{{task.progress_key}}" class="pull-right" target="{{task._id}}">Progress Detail</a>
         <p>
-
         <p class="help-block">{{progress.msg}}</p>
+        <div ng-if="progress.status == 'running'">
+            <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
+            ETA : <time>TODO</time>
+        </div>
+
         <div class="row">
             <div class="col-md-4">
                 Started: <time>{{progress.start_time|date:'medium'}}</time>
@@ -25,17 +29,18 @@
                 Updated: <time>{{progress.update_time|date:'medium'}}</time>
             </div>
         </div>
-        <div ng-if="progress.status == 'running'">
-            <progressbar value="progress.progress*100" type="{{progressType(progress.status)}}">{{progress.progress*100 | number:1}}%</progressbar>
-            ETA : <time>TODO</time>
-        </div>
     </div>
 </div>
 
 <!--products-->
 <div class="sca-product" ng-repeat="product in task.products" ng-switch="product.type">
+    <time class="pull-right text-muted">{{task.create_date|date:'medium'}}</time>
+    <h4>{{task.name}}</h4>
     <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
-    <sca-product-blastdb ng-switch-when="blastdb" task="task" product="product"></sca-product-blastdb>
-    <div ng-switch-default><b>Unknown Product Type: {{product.type}} <pre>{{product | json}}</pre></div>
+    <sca-product-blastdb ng-switch-when="bio/blastdb" task="task" product="product"></sca-product-blastdb>
+    <div ng-switch-default>
+        <b>Unknown Product Type: {{product.type}}</b>
+        <pre>{{product | json}}</pre>
+    </div>
 </div>
 

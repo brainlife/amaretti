@@ -12,6 +12,7 @@ function($scope, appconf, $route, serverconf, menu) {
     serverconf.then(function(_c) { $scope.serverconf = _c; });
     $scope.menu = menu;
     $scope.user = menu.user; //for app menu
+    $scope.i_am_header = true;
 }]);
 
 app.controller('WorkflowsController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', 'workflows', '$location',
@@ -65,6 +66,7 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     }
     */
 
+    //TODO rename to just save()?
     $scope.save_workflow = function() {
         $http.put(appconf.api+'/workflow/'+$routeParams.id, $scope.workflow)
         .then(function(res) {
@@ -73,6 +75,30 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
             if(res.data && res.data.message) toaster.error(res.data.message);
             else toaster.error(res.statusText);
         });
+    }
+
+    $scope.findproducts = function(type) {
+        var products = [];
+        var step_idx = 0;
+        $scope.workflow.steps.forEach(function(step) {
+            step.tasks.forEach(function(task) {
+                var product_idx = 0;
+                task.products.forEach(function(product) {
+                    if(product.type == type) {
+                        //products.push({workflow_id: $scope.workflow._id, step_idx: step_idx, product_idx: product_idx, });
+                        products.push({
+                            step: step,    
+                            task: task, 
+                            service_detail: $scope.serverconf.services[task.service_id],
+                            product_idx: product_idx
+                        });
+                    }
+                });
+                product_idx++;
+            });
+            step_idx++;
+        });
+        return products;
     }
 
     $scope.removestep = function(idx) {
@@ -101,7 +127,6 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
                 name: 'untitled',
                 config: service.default,
                 tasks: [],
-                products: [],
             };
             //finally, add the step and update workflow
             if(idx === undefined) $scope.workflow.steps.push(newstep);
@@ -116,11 +141,13 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
 app.controller('WorkflowStepSelectorController', ['$scope', '$modalInstance', 'items', 'serverconf', 
 function($scope, $modalInstance, items, serverconf) {
     serverconf.then(function(_serverconf) {
+        $scope.groups = [];
         $scope.services_a = [];
         for(var service_id in  _serverconf.services) {
             var service = _serverconf.services[service_id];
             service.id = service_id;
             $scope.services_a.push(service);
+            if(!~$scope.groups.indexOf(service.group)) $scope.groups.push(service.group);
         }
     });
     $scope.service_selected = null;
@@ -157,7 +184,7 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
 
     $scope.newresource = null;
     $scope.add = function() {
-        resources.add($scope.newresource);
+        resources.upsert($scope.newresource);
     }
 }]);
 

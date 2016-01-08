@@ -1,0 +1,43 @@
+<div class="sca-step-blast panel panel-default">
+    <div class="panel-heading">
+        <h3 class="panel-title"><i class="fa {{service_detail.icon}}"></i> {{service_detail.label}}</h3>
+    </div>
+    <div class="panel-body">
+        <p class="help-block">{{service_detail.desc}}</p>
+        <form ng-submit="submit()">
+            <label>Input Fasta</label>
+            <!--
+            <select class="form-control" 
+                ng-options="product.product as product.task.name for product in fasta_products" 
+                ng-model="step.config.fasta"
+                ng-change="select_fasta()">
+            </select>
+            -->
+            <!--on-select="select_fasta($item, $model)"-->
+            <ui-select ng-model="step.config.fasta" required>
+                <ui-select-match placeholder="Select a fasta data product...">
+                    {{$select.selected.task.name}}<span class="text-muted">:{{$select.selected.product_idx}}</span>
+                    <!--
+                    from
+                    <i class="fa {{$select.selected.service_detail.icon}}"></i> 
+                    {{$select.selected.service_detail.label}} 
+                    -->
+                </ui-select-match>
+                <ui-select-choices repeat="product in fasta_products">
+                    {{product.task.name}}<span class="text-muted">:{{product.product_idx}}</span>
+                    <!--
+                    from
+                    <i class="fa {{product.service_detail.icon}}"></i> 
+                    {{product.service_detail.label}}
+                    -->
+                </ui-select-choices>
+            </ui-select>
+            <!--{{step.config.fasta.task._id}}.{{step.config.fasta.product_idx}}-->
+            <div class="form-group">
+                <label>Output Name (optional)</label>
+                <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
+            </div>
+            <button type="submit" class="btn">Run</button>
+        </form>
+    </div>
+</div>
