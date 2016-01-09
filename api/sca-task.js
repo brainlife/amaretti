@@ -84,7 +84,7 @@ function run_task(task, resource, cb) {
             SCA_SERVICE_ID: service_id,
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
             SCA_PROGRESS_URL: config.progress.api+"/status",
-            SCA_PROGRESS_KEY: task.progress_key,
+            SCA_PROGRESS_KEY: task.progress_key+".service",
         };
 
         if(service_id == null) return cb(new Error("service_id not set.."));
@@ -227,20 +227,49 @@ function run_task(task, resource, cb) {
                     stream.end();
                 });
             },
+            
+            //write _boot.sh
+            function(next) { 
+                //progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
+                logger.debug("installing _boot.sh");
+                conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
+                    if(err) next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to write _boot.sh -- code:"+code);
+                        else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                    stream.write("#!/bin/bash\n");
+                    for(var k in envs) {
+                        var v = envs[k];
+                        var vs = v.replace(/\"/g,'\\"')
+                        stream.write("export "+k+"=\""+vs+"\"\n");
+                    }
+                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.bin.run+" > log.stdout 2>log.stderr\n");
+                    stream.end();
+                });
+            },
 
             //finally, run the service!
             function(next) {
                 progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'});
                 logger.debug("running service: ~/.sca/services/"+service_id+"/"+service_detail.bin.run);
+                /*
                 var envstr = "";
                 for(var k in envs) {
                     var v = envs[k];
                     var vs = v.replace(/\"/g,'\\"')
                     envstr+=k+"=\""+vs+"\" ";
                 }
-                progress.update(task.progress_key, {msg: "Running Service"});
-                //progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
                 conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/"+service_detail.bin.run+" > log.stdout 2>log.stderr", {
+                */
+                progress.update(task.progress_key, {msg: "Running Service"});
+                progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
+                conn.exec("cd "+taskdir+" && ./_boot.sh", {
                 /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I have to pass env via command line
                 env: {
                     SCA_SOMETHING: 'whatever',

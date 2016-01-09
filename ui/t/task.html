@@ -1,6 +1,9 @@
 <div class="sca-task" ng-if="task.status != 'finished'">
     <div class="btn-group pull-right task-control">
-        <button class="btn btn-xs btn-danger"
+        <button type="button" ng-if="progress.status =='failed'" class="btn btn-xs" ng-click="rerun()">
+            <i class="fa fa-repeat"></i> Rerun
+        </button>
+        <button type="button" class="btn btn-xs btn-danger"
             confirmed-click="remove()"
             ng-confirm-click="Are you sure you want to remove this task / data product?">
             <i class="fa fa-times"></i>

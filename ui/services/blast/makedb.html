@@ -17,7 +17,9 @@
                 <!--on-select="select_fasta($item, $model)"-->
                 <ui-select ng-model="step.config.fasta" required>
                     <ui-select-match placeholder="Select a fasta data product...">
-                        <span class="label label-success">{{$select.selected.product.fasta.type}}</span>&nbsp;
+                        <span class="label label-success" ng-if="$select.selected.product.fasta.type == 'nucl'">nucl</span>
+                        <span class="label label-info" ng-if="$select.selected.product.fasta.type == 'prot'">prot</span>
+                        &nbsp;
                         <b>{{$select.selected.product.fasta.filename}}</b> 
                         | From {{$select.selected.task.name}} <small class="text-muted">/p{{$select.selected.product_idx}}</small> 
                     

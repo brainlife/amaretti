@@ -72,5 +72,23 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     });
 });
 
+router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var task_id = req.params.task_id;
+    db.Task.findById(task_id, function(err, task) {
+        if(err) return next(err);
+        if(!task) return res.status(404).end();
+        if(task.user_id != req.user.sub) return res.status(401).end();
+        
+        task.status = "requested";
+        task.products = [];
+        task.save(function(err) {
+            if(err) return next(err);
+            progress.update(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
+                res.json({message: "Task rerequested", task: task});
+            });
+        });
+    });
+});
+
 module.exports = router;
 

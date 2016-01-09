@@ -93,6 +93,25 @@ function(appconf, $http, $timeout, toaster) {
                     return "info";
                 }
             }
+
+            scope.remove = function() {
+                alert('todo..');
+            }
+            scope.rerun = function() {
+                return $http.put(appconf.api+"/task/rerun/"+scope.task._id)
+                .then(function(res) {
+                    toaster.success(res.data.message);
+                    //update without chainging parent reference so that change will be visible via workflow
+                    //console.dir(res.data);
+                    for(var k in res.data.task) {
+                        scope.task[k] = res.data.task[k];
+                    } 
+                    load_progress();
+                }, function(res) {
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
+                });
+            }
         }
     };
 }]);
