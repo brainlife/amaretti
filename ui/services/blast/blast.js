@@ -47,7 +47,7 @@ function(appconf, $http, toaster, resources, serverconf) {
             scope.submit = function() {
                 var name = config.name||'untitled '+scope.step.service_id+' task '+scope.step.tasks.length;
                 $http.post(appconf.api+'/task', {
-                    step_id: scope.$parent.$index, //step idx
+                    step_idx: scope.$parent.$index, //step idx
                     workflow_id: scope.workflow._id,
                     service_id: scope.step.service_id,
                     name: name,
@@ -91,13 +91,14 @@ function(appconf, $http, toaster, resources, serverconf) {
                 }
             });
 
-            scope.fasta_products = scope.$parent.findproducts("bio/fasta");
+            //scope.fasta_products = scope.$parent.findproducts("bio/fasta");
+            scope.products = scope.$parent._products;
 
             scope.submit = function() {
                 console.log("hi");
                 $http.post(appconf.api+'/task', {
                     workflow_id: scope.workflow._id,
-                    step_id: scope.$parent.$index, //step idx
+                    step_idx: scope.$parent.$index, //step idx
                     service_id: scope.step.service_id,
                     name: config.name,
                     resources: {
@@ -107,7 +108,7 @@ function(appconf, $http, toaster, resources, serverconf) {
                         //fasta_product: {task_id: config.fasta.task._id, product_idx: config.fasta.product_idx},
                     },
                     deps: [
-                        {type: "product", id: "FASTA", task_id: config.fasta.task._id/*, product_idx: config.fasta.product_idx*/},
+                        {type: "product", name: "FASTA", task_id: config.fasta.task._id/*, product_idx: config.fasta.product_idx*/},
                     ],
                 }).then(function(res) {
                     scope.step.tasks.push(res.data.task);

@@ -4,14 +4,14 @@
     </div>
     <div class="panel-body">
         <p class="help-block">{{service_detail.desc}}</p>
-        <div ng-if="!loaded">
+        <div ng-if-dis="!loaded">
             <div class="row">
                 <div class="col-md-2">
                     <div class="form-group">
-                        <button type="button" class="btn" ngf-select ng-model="$parent.files" multiple="multiple">Select Files</button>
+                        <button type="button" class="btn" ngf-select ng-model="files" multiple="multiple">Select Files</button>
                     </div>
                 </div>
-                <div ngf-drop ng-model="$parent.files" ngf-drag-over-class="'dragover'" ngf-multiple="true">
+                <div ngf-drop ng-model="files" ngf-drag-over-class="'dragover'" ngf-multiple="true">
                     <div class="col-md-1">
                         <span class="text-muted">OR</span>
                     </div>
@@ -41,22 +41,23 @@
             </div>
             <div class="form-group">
                 <label>Data Type</label>
-                <select class="form-control" ng-model="$parent.step.config.type" ng-change="$parent.save_workflow()" placeholder="untitled">
+                <select class="form-control" ng-model="step.config.type" ng-change="save_workflow()" placeholder="untitled">
                     <option value="raw">raw</option>
                     <option value="bio/fasta">bio/fasta</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Output Name (optional)</label>
-                <input type="text" class="form-control" ng-model="$parent.step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
+                <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
             </div>
-            <button type="button" class="btn" ng-click="upload()" ng-disabled="$parent.files.length == 0">Upload</button>
-        </div>
-        <div ng-if="loaded">
-            <i class="fa fa-spinner fa-pulse"></i> Uploading...
-            <progressbar class="progress" value="(loaded/total)*100" type="success">{{(loaded/total)*100|number:1}}% Transfered</progressbar>
+            <button type="button" class="btn" ng-click="upload()" ng-disabled="files.length == 0 || loaded">Upload</button>
         </div>
     </div>
+</div>
+
+<div ng-if="loaded" class="sca-task">
+    <i class="fa fa-spinner fa-pulse"></i> Uploading...
+    <progressbar class="progress" value="(loaded/total)*100" type="success">{{(loaded/total)*100|number:1}}% Transfered</progressbar>
 </div>
 <!--
 Upload right away after file selection:

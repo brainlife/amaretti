@@ -51,7 +51,10 @@ function(appconf, $http, $timeout, toaster) {
             function reload_task() {
                 return $http.get(appconf.api+"/task/"+scope.task._id)
                 .then(function(res) {
-                    scope.task = res.data;
+                    //update without chainging parent reference so that change will be visible via workflow
+                    for(var k in res.data) {
+                        scope.task[k] = res.data[k];
+                    } 
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);

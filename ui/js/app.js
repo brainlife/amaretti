@@ -19,7 +19,8 @@ var app = angular.module('app', [
     'sca-service-upload',
 
     'sca-product-raw',
-    'sca-product-blastdb',
+    'sca-product-blast-db',
+    'sca-product-blast-fasta',
 ]);
 
 //can't quite do the slidedown animation through pure angular/css.. borrowing slideDown from jQuery..
@@ -251,6 +252,12 @@ app.filter('bytes', function() {
             number = Math.floor(Math.log(bytes) / Math.log(1024));
         return (bytes / Math.pow(1024, Math.floor(number))).toFixed(precision) +  ' ' + units[number];
     }
+});
+
+app.filter('reverse', function() {
+    return function(items) {
+        return items.slice().reverse();
+    };
 });
 
 app.factory('workflows', ['appconf', '$http', function(appconf, $http) {

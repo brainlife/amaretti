@@ -27,21 +27,10 @@
                         <sca-step-upload ng-switch-when="upload" workflow="workflow"></sca-step-upload>
                         <div ng-switch-default>Unknown Step <pre>{{step | json}}</pre></div>
                     </div>
-                    <sca-task ng-repeat="task in step.tasks" step="step" task="task"></sca-task>
+                    <sca-task ng-repeat="task in step.tasks | orderBy:'-create_date'" step="step" task="task"></sca-task>
                 </div><!--col-md-9-->
                 <div class="col-md-3">
-                    <!--
-                    <h4 ng-if="step.products.length" style="margin-top: 0px;">Outputs</h4>
-                    <ul class="list-group" ng-if="step.products.length">
-                        <li class="list-group-item" ng-repeat="product in step.products">
-                            <div ng-switch="product.detail.type">
-                                <sca-product-raw ng-switch-when="raw" product="product"></sca-product-raw>
-                                <sca-product-blastdb ng-switch-when="blastdb" product="product"></sca-product-blastdb>
-                                <div ng-switch-default><b>Unknown Product Type: {{product.detail.type}} <pre>{{product | json}}</pre></div>
-                            </div>
-                        </li>
-                    </ul>
-                    -->
+                    <!--what should I use this space for?-->
                 </div><!--col-md-3-->
             </div><!--row-->
         </div><!--workflow-step-->

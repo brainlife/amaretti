@@ -47,14 +47,14 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         db.Workflow.findById(workflow_id, function(err, workflow) {
             if(workflow.user_id != req.user.sub) return res.status(401).end();
             //console.dir(req.body)
-            var step = workflow.steps[req.body.step_id];
+            var step = workflow.steps[req.body.step_idx];
             var task = new db.Task(req.body); //for workflow_id, service_id, name, resources, and config
             
             //need to set a few more things
             task.user_id = req.user.sub;
             task.progress_key = "_sca."+workflow._id+"."+task._id;//uuid.v4();
             task.status = "requested";
-            task.step_id = req.body.step_id;
+            task.step_idx = req.body.step_idx;
             //task.task_id = step.tasks.length;
 
             //now register!

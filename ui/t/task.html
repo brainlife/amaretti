@@ -30,14 +30,19 @@
             </div>
         </div>
     </div>
+    <div ng-if="!progress">
+        <span class="status text-{{progressType(task.status)}}">{{task.status}}</span>
+    </div>
 </div>
 
 <!--products-->
-<div class="sca-product" ng-repeat="product in task.products" ng-switch="product.type">
+<div class="sca-product" ng-repeat="product in task.products | reverse" ng-switch="product.type">
+    <!--<img src="products/blast/imgres.png" class="pull-left" height="64px"></img>-->
     <time class="pull-right text-muted">{{task.create_date|date:'medium'}}</time>
-    <h4>{{task.name}}</h4>
+    <h4>{{task.name}} <small>/p{{$index}}</small></h4>
     <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
-    <sca-product-blastdb ng-switch-when="bio/blastdb" task="task" product="product"></sca-product-blastdb>
+    <sca-product-blast-db ng-switch-when="bio/blastdb" task="task" product="product"></sca-product-blast-db>
+    <sca-product-blast-fasta ng-switch-when="bio/fasta" task="task" product="product"></sca-product-blast-fasta>
     <div ng-switch-default>
         <b>Unknown Product Type: {{product.type}}</b>
         <pre>{{product | json}}</pre>

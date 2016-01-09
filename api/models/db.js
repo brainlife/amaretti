@@ -81,7 +81,7 @@ var taskSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //important fields
     workflow_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
-    step_id: Number, //index of step within workflow
+    step_idx: Number, //index of step within workflow
     //task_id: Number, //index of task within step
     user_id: String, //sub of user submitted this request
     //
@@ -99,7 +99,7 @@ var taskSchema = mongoose.Schema({
     config: mongoose.Schema.Types.Mixed, 
 
     //dependencies required to run the service
-    //[ {type: "product", id: "FASTA", task_id: "1231231231312321"} ]
+    //[ {type: "product", env: "FASTA", task_id: "1231231231312321"} ]
     deps: [ mongoose.Schema.Types.Mixed ],
 
     //fs: String, //.. like "uits_dc2"

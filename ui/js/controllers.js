@@ -40,6 +40,9 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     $scope.appconf = appconf;
     serverconf.then(function(_serverconf) { $scope.serverconf = _serverconf; });
 
+    $scope.workflow = {steps: []}; //so that I can start watching workflow immediately
+    $scope._products = [];
+
     $http.get(appconf.api+'/workflow/'+$routeParams.id)
     .then(function(res) {
         $scope.workflow = res.data;
@@ -52,6 +55,27 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
         if(res.data && res.data.message) toaster.error(res.data.message);
         else toaster.error(res.statusText);
     });
+
+    $scope.$watch('workflow', function(nv, ov) {
+        $scope._products.length = 0; //clear without changing reference 
+        $scope.workflow.steps.forEach(function(step) {
+            step.tasks.forEach(function(task) {
+                for(var product_idx = 0;product_idx < task.products.length; product_idx++) {
+                    var product = task.products[product_idx];                
+                    $scope._products.push({
+                        product: product,
+                        step: step,    
+                        task: task, 
+                        service_detail: $scope.serverconf.services[task.service_id],
+                        product_idx: product_idx
+                    });
+                }
+            });
+        });
+    }, true);//deepwatch-ing the entire workflow maybe too expensive..
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    //functions
 
     /*
     //for editing workflow attributes (name, desc)
@@ -77,13 +101,14 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
         });
     }
 
+    /*
     $scope.findproducts = function(type) {
         var products = [];
-        var step_idx = 0;
         $scope.workflow.steps.forEach(function(step) {
             step.tasks.forEach(function(task) {
-                var product_idx = 0;
-                task.products.forEach(function(product) {
+                for(var product_idx = 0;product_idx < task.products.length; product_idx++) {
+                    var product = task.products[product_idx];                
+                    //TODO support other criteria?
                     if(product.type == type) {
                         //products.push({workflow_id: $scope.workflow._id, step_idx: step_idx, product_idx: product_idx, });
                         products.push({
@@ -93,14 +118,12 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
                             product_idx: product_idx
                         });
                     }
-                });
-                product_idx++;
+                }
             });
-            step_idx++;
         });
         return products;
     }
-
+    */
     $scope.removestep = function(idx) {
         $scope.workflow.steps.splice(idx, 1);
         $scope.save_workflow();

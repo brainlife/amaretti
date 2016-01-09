@@ -27,7 +27,7 @@ router.post('/files',
     jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
 
     var workflow_id = req.query.w;
-    var step_id = req.query.s;
+    var step_idx = req.query.s;
     var resource_id = req.query.resource_id;
     
     //load & check resource
@@ -44,34 +44,47 @@ router.post('/files',
             if(workflow.user_id != req.user.sub) return res.status(401).end();
             var task = new db.Task({
                 workflow_id: workflow_id,
-                step_id: step_id,
+                step_idx: step_idx,
                 user_id: req.user.sub,
                 service_id: 'upload', 
-                //progress_key
+                status: 'requested',
                 resources: {compute: resource_id},
                 //config: {}, 
             });
-            var product = {type: "raw", files: []};
             var path = common.gettaskdir(workflow_id, task._id, resource);
 
             //open ssh connection to remote compute resource
             var conn = new Client();
             conn.on('ready', function() {
-                //now stream
-                stream_form(req, conn, path, task, product, function(err) {
+                //now stream data from req to compute resource
+                stream_form(req, conn, path, function(err, files, fields) {
                     if(err) next(err);
 
-                    //lastly, write out products.json (just in case..)
-                    conn.exec("cat > "+path+"/products.json", function(err, stream) {
+                    //I don't need ssh connection anymore
+                    conn.end();
+                    
+                    //var products = get_products(files, fields);
+                    task.name = fields.name;
+                    task.config = fields;
+                    task.config.files = files;
+                    task.progress_key = "_sca."+workflow._id+"."+task._id;
+                    task.save(function(err) {
+                        if(err) next(err);
+                        workflow.steps[step_idx].tasks.push(task._id);
+                        workflow.save(function(err) {
+                            res.json({message: "Task Registered", task: task});
+                        });
+                    });
+                    /*
+                    conn.exec("cat > "+path+"/config.json", function(err, stream) {
                         if(err) next(err);
                         stream.on('close', function() {
-                            
                             //now I can close ssh
                             conn.end();
-
                             //store product info on the task document.
-                            task.products = [product];
-                            task.status = 'finished';
+                            task.name = fields.name;
+                            task.products = products;
+                            task.status = 'requested';
                             task.save(function(err) {
                                 workflow.steps[step_id].tasks.push(task._id);
                                 workflow.save(function(err) {
@@ -80,9 +93,10 @@ router.post('/files',
                                 });
                             });
                         })
-                        stream.write(JSON.stringify([product], null, 4));
+                        stream.write(JSON.stringify(products, null, 4));
                         stream.end();
                     });
+                    */
                 });
             });
             conn.connect({
@@ -94,18 +108,36 @@ router.post('/files',
     });
 });
 
-//TODO ugly sig..
-function stream_form(req, conn, path, task, product, cb) {
+/*
+function get_products(files, fields) {
+    var products = [];
+    if(fields.type == "bio/fasta") {    
+        //create separate products for each files
+        files.forEach(function(file) {
+            products.push({type: fields.type, fasta: file});
+        });
+    } else {
+        //just put everything under files..
+        products.push({type: fields.type, files: files});        
+    }
+    return products;
+}
+*/
+
+function stream_form(req, conn, path, cb) {
     //now start parsing
     var open_streams = 0;
     var form = new multiparty.Form({autoFields: true});
+    var files = [];
+    var fields = {};
+
     form.on('error', cb);
     form.on('close', alldone);
 
     function alldone() {
         if(open_streams == 0) {
             //logger.info("all done");
-            cb();
+            cb(null, files, fields);
         } else {
             //I need to wait for all stream to close before moving on..
             logger.info("waiting for streams to close (remaining:"+open_streams+")");
@@ -114,12 +146,15 @@ function stream_form(req, conn, path, task, product, cb) {
     };
     form.on('field', function(name, value) {
         //TODO validate?
+        /*
         switch(name) {
         case "task[name]": task.name = value; break;
         case "task[type]": product.type = value; break;
         default: 
             logger.error("unknown field name:"+name);
         }
+        */
+        fields[name] = value;
     });
     form.on('part', function(part) {
         //logger.debug("received part "+part.filename);
@@ -135,7 +170,7 @@ function stream_form(req, conn, path, task, product, cb) {
                 open_streams--;
             });
             logger.debug("starting streaming");
-            product.files.push({filename: part.filename, size: part.byteCount, type: part.headers['content-type']});
+            files.push({filename: part.filename, size: part.byteCount, type: part.headers['content-type']});
             part.pipe(stream);
         });
         /*

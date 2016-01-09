@@ -134,7 +134,7 @@ function(appconf, serverconf, $http, toaster, resources) {
             scope.submit = function() {
                 var name = config.name||'untitled '+scope.step.service_id+' task '+scope.step.tasks.length;
                 $http.post(appconf.api+'/task', {
-                    step_id: scope.$parent.$index, //step idx
+                    step_idx: scope.$parent.$index, //step idx
                     workflow_id: scope.workflow._id,
                     service_id: scope.step.service_id,
                     name: name,
