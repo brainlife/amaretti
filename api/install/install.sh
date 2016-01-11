@@ -10,6 +10,8 @@ exec 2> >(tee -a ${LOGFILE} >&2)
 
 echo "installing sca shared libs"
 
+mkdir -p keys
+chmod 700 keys
 mkdir -p services
 mkdir -p bin
 

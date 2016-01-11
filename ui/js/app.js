@@ -339,3 +339,31 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
     }
 }]);
 
+/*
+app.directive('match', function () {
+  return {
+    require: 'ngModel',
+    link: function (scope, elm, attrs, ctl) {
+        scope.$watch(attrs['match'], function (errorMsg) {
+            console.dir(elm[0]);
+            //ui-select doesn't have setCustomValidity?
+            //elm[0].setCustomValidity(errorMsg);
+            ctl.$setValidity('match', errorMsg ? false : true);
+        });
+    }
+  };
+});
+*/
+
+//https://github.com/angular-ui/ui-select/issues/258
+app.directive('uiSelectRequired', function() {
+  return {
+    require: 'ngModel',
+    link: function(scope, elm, attrs, ctrl) {
+      ctrl.$validators.uiSelectRequired = function(modelValue, viewValue) {
+        //return modelValue && modelValue.length;
+        return modelValue != "";
+      };
+    }
+  };
+});

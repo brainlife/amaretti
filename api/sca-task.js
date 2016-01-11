@@ -44,7 +44,6 @@ function failed(task, error, cb) {
 }
 
 function process_task(task, cb) {
-
     //mark the task as running
     task.status = "running";
     task.save(function() {
@@ -103,12 +102,17 @@ function run_task(task, resource, cb) {
                     });
                 });
                 */
-                conn.exec("cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
+                conn.exec("mkdir -p ~/.sca && cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to write ~/.sca/install.sh");
                         else next();
                     })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
                     fs.createReadStream("install/install.sh").pipe(stream);
                     //stream.write();
                     //stream.end();
@@ -137,6 +141,11 @@ function run_task(task, resource, cb) {
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git clone "+service_detail.giturl+" code:"+code);
                         else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
                     });
                 });
             },
@@ -147,6 +156,11 @@ function run_task(task, resource, cb) {
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git pull in ~/.sca/services/"+service_id);
                         else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
                     });
                 });
             },
@@ -158,6 +172,11 @@ function run_task(task, resource, cb) {
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed create taskdir:"+taskdir);
                         else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
                     });
                 });
             },
@@ -174,22 +193,22 @@ function run_task(task, resource, cb) {
                     envs.HPSS_AUTH_METHOD = resource.config.auth_method;
                     envs.HPSS_KEYTAB_PATH = "$HOME/.sca/keys/"+resource._id+".keytab";
 
-                    //create a key directory (and make sure it's 700ed)
-                    conn.exec("mkdir -p .sca/keys && chmod 700 .sca/keys", function(err, stream) {
+                    //now install the hpss key
+                    var key_filename = ".sca/keys/"+resource._id+".keytab";
+                    conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
                         if(err) next(err);
-                        stream.on('close', function() {
-                            //now install the hpss key
-                            conn.exec("cat > .sca/keys/"+resource._id+".keytab && chmod 600 .sca/keys/"+resource._id+".keytab", function(err, stream) {
-                                if(err) next(err);
-                                stream.on('close', function(code, signal) {
-                                    if(code) return next("Failed write https keytab");
-                                    else next();
-                                });
-                                var keytab = new Buffer(resource.config.keytab_base64, 'base64');
-                                stream.write(keytab);
-                                stream.end();
-                            });
+                        stream.on('close', function(code, signal) {
+                            if(code) return next("Failed write https keytab");
+                            else next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
                         });
+                        var keytab = new Buffer(resource.config.keytab_base64, 'base64');
+                        stream.write(keytab);
+                        stream.end();
                     });
                 });
             },
@@ -198,7 +217,7 @@ function run_task(task, resource, cb) {
             function(next) {
                 if(!task.deps) return next(); //skip
                 async.forEach(task.deps, function(dep, next_dep) {
-                    //progress.update(task.progress_key+".prep.dep"+dep_idx, {status: 'running', progress: 0, msg: 'Handling dependency '+dep.id});
+                    progress.update(task.progress_key+".prep", {msg: 'Resolving '+dep.type+' dependency: '+dep.name});
                     switch(dep.type) {
                     case "product": 
                         process_product_dep(task, dep, conn, resource, envs, next_dep); break;
@@ -223,6 +242,11 @@ function run_task(task, resource, cb) {
                         if(code) return next("Failed to write config.json");
                         else next();
                     })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
                     stream.write(JSON.stringify(task.config, null, 4));
                     stream.end();
                 });
@@ -280,14 +304,12 @@ function run_task(task, resource, cb) {
                         if(code) return next("Service failed with return code:"+code+" signal:"+signal);
                         else next();
                         //progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
-                    });
-                    /*
+                    })
                     .on('data', function(data) {
                         logger.info(data.toString());
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
                     });
-                    */
                 });
             },
             
@@ -332,6 +354,8 @@ function run_task(task, resource, cb) {
                     });
                     stream.on('data', function(data) {
                         products_json += data;
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
                     });
                 });
             },
@@ -352,18 +376,6 @@ function run_task(task, resource, cb) {
 function process_product_dep(task, dep, conn, resource, envs, cb) {
     logger.debug("handling dependency");
     logger.debug(dep);
-    //dep: {task_id: 1231231323, name: "FASTA"}
-    
-    //TODO - algorithm
-    //lookup the task, and lookup compute resource used and see if it mathes
-    //if match, then all I need to do is to set ENV:FASTA to whatever gettaskdir returns.
-    //if resource doesn't match, then lookup which fs/user it uses, and if they matches, I should just use gettaskdir also
-    //                  if fs matches but not the user, then I need to copy data. do rsync against the user@localhost
-    //if fs doesn't match , then do remote rsync
-
-    //TODO - new (simplified) algorithm
-    //check to see if the taskdir exists under current resource
-    //if not, rsync from the dep resource 
 
     db.Task.findById(dep.task_id).exec(function(err, dep_task) {
         if(err) throw err;
@@ -372,23 +384,92 @@ function process_product_dep(task, dep, conn, resource, envs, cb) {
 
         //see if we have the dep taskdir 
         var dep_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, resource);
+        envs["SCA_TASK_DIR_"+dep.name] = dep_taskdir;
+        /*
+        //TODO - what if user re-run the task? I should always rsync if resource doesn't match?
         conn.exec("ls "+dep_taskdir, function(err, stream) {
             if(err) cb(err);
             stream.on('close', function(code, signal) {
                 switch(code) {
                 case 0: 
                     logger.debug("dependency already exists on local compute resoruce:"+dep_taskdir);
-                    envs["SCA_TASK_DIR_"+dep.name] = dep_taskdir;
                     cb();
                     break;
-                case 1:
-                    cb("TODO - need to rsync taskdir from remote resource..");
+                case 1: //doesn't exist
+                case 2: //xd-login returns code 2 instead of 1..
+                    //cb("TODO - need to rsync taskdir from remote resource..");
+                    db.Resource.findById(dep_task.resources.compute, function(err, source_resource) {
+                        if(err) return cb(err);
+                        var source_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, source_resource);
+                        rsync_product(conn, source_resource, source_taskdir, dep_taskdir, cb);
+                    });
                     break;
                 default:
                     cb("unknown return code while checking to see if dependency taskdir exists:"+dep_taskdir+" code:"+code);
                 }
             })
+            .on('data', function(data) {
+                logger.info(data.toString());
+            }).stderr.on('data', function(data) {
+                logger.error(data.toString());
+            });
         }); 
+        */
+        //if on the same resource, assume that it's there
+        if(resource._id == dep_task.resources.compute) return cb();
+        //always rsync for cross-resource dependency - it might not be synced yet, or out-of-sync
+        db.Resource.findById(dep_task.resources.compute, function(err, source_resource) {
+            if(err) return cb(err);
+            if(!source_resource) return cb("couldn't find dep resource");
+            if(source_resource.user_id != task.user_id) return cb("dep resource user_id doesn't match");
+            var source_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, source_resource);
+            rsync_product(conn, source_resource, source_taskdir, dep_taskdir, cb);
+        });
     });
 }
 
+function rsync_product(conn, source_resource, source_taskdir, dest_taskdir, cb) {
+    async.series([
+        function(next) {
+            //install source key
+            var key_filename = ".sca/keys/"+source_resource._id+".sshkey";
+            conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
+                if(err) next(err);
+                stream.on('close', function(code, signal) {
+                    if(code) return next("Failed write https keytab");
+                    else next();
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                }).stderr.on('data', function(data) {
+                    logger.error(data.toString());
+                });
+                var keytab = new Buffer(source_resource.config.ssh_private, 'utf8');
+                stream.write(keytab);
+                stream.end();
+            });
+        },
+        function(next) {
+            //run rsync 
+            var source_resource_detail = config.resources[source_resource.resource_id];
+            var hostname = source_resource_detail.hostname;
+            var sshopts = "ssh -i .sca/keys/"+source_resource._id+".sshkey";
+            var source = source_resource.config.username+"@"+hostname+":"+source_taskdir+"/";
+            conn.exec("rsync -av --progress -e \""+sshopts+"\" "+source+" "+dest_taskdir, function(err, stream) {
+                if(err) next(err);
+                stream.on('close', function(code, signal) {
+                    if(code) return next("Failed write https keytab");
+                    else next();
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                }).stderr.on('data', function(data) {
+                    logger.error(data.toString());
+                });
+                var keytab = new Buffer(source_resource.config.ssh_private, 'utf8');
+                stream.write(keytab);
+                stream.end();
+            });
+        },
+    ], cb);
+}

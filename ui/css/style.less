@@ -4,6 +4,10 @@ body {
 
 div.sca-workflow {
     font-size: 12px;
+    background-color: #fcfcfc;
+    position: relative;
+    top: -10px;
+
     .progress-bar { line-height: 16px; }
 
     .editable {
@@ -12,6 +16,13 @@ div.sca-workflow {
             cursor: pointer;
             background-color: #eee;
             /*border: 1px solid #ccc; */
+        }
+    }
+
+    .sca-workflow-info {
+        padding-top: 10px;
+        h3 {
+            margin-top: 0px;
         }
     }
 
@@ -38,6 +49,7 @@ div.sca-workflow {
         }
         .sca-step-hpss-entry {
             cursor: pointer; 
+            padding: 1px;
             &:hover {
                 background-color: #ccc;
                 color: black;
@@ -57,6 +69,7 @@ div.sca-workflow {
     }
 
     .sca-task {
+        background-color: #fff;
         border: 1px solid #ddd;
         padding: 15px;
         margin: 5px 0px;
@@ -87,6 +100,7 @@ div.sca-workflow {
     }
 
     .sca-product {
+        background-color: #fff;
         border: 1px solid #ddd;
         padding: 15px;
         margin: 5px 0px;

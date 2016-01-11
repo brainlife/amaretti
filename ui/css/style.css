@@ -3,6 +3,9 @@ body {
 }
 div.sca-workflow {
   font-size: 12px;
+  background-color: #fcfcfc;
+  position: relative;
+  top: -10px;
 }
 div.sca-workflow .progress-bar {
   line-height: 16px;
@@ -14,6 +17,12 @@ div.sca-workflow .editable:hover {
   cursor: pointer;
   background-color: #eee;
   /*border: 1px solid #ccc; */
+}
+div.sca-workflow .sca-workflow-info {
+  padding-top: 10px;
+}
+div.sca-workflow .sca-workflow-info h3 {
+  margin-top: 0px;
 }
 div.sca-workflow .workflow-step .workflow-step-control {
   display: none;
@@ -33,6 +42,7 @@ div.sca-workflow .sca-step-hpss .sca-step-hpss-selected {
 }
 div.sca-workflow .sca-step-hpss .sca-step-hpss-entry {
   cursor: pointer;
+  padding: 1px;
 }
 div.sca-workflow .sca-step-hpss .sca-step-hpss-entry:hover {
   background-color: #ccc;
@@ -48,6 +58,7 @@ div.sca-workflow .sca-step-hpss .sca-step-hpss-browser {
   font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 div.sca-workflow .sca-task {
+  background-color: #fff;
   border: 1px solid #ddd;
   padding: 15px;
   margin: 5px 0px;
@@ -69,6 +80,7 @@ div.sca-workflow .sca-comment p {
   margin: 0px;
 }
 div.sca-workflow .sca-product {
+  background-color: #fff;
   border: 1px solid #ddd;
   padding: 15px;
   margin: 5px 0px;

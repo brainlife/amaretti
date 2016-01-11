@@ -13,7 +13,7 @@
                     <div ng-switch-when="pbs">
                         <ng-include src="'t/resources.ssh.html'"></ng-include>
                     </div>
-                    <div ng-switch-when="condor">
+                    <div ng-switch-when="osg">
                         <ng-include src="'t/resources.ssh.html'"></ng-include>
                     </div>
                     <div ng-switch-when="hpss">
@@ -33,9 +33,18 @@
     </ul>
 
     <div class="form-group">
-        <select class="form-control" ng-model="newresource" ng-change="add()">
+        <select class="form-control" ng-model="newresource_id" 
+            ng-options="rid as resource.name for (rid, resource) in serverconf.resources"
+            ng-change="add()">
             <option value="">(Add New Resource)</option>
-            <option ng-repeat="(rid, r) in serverconf.resources" value="{{rid}}">{{r.name}}</option> 
         </select>
+        <!--
+        <ui-select ng-model="newresource" on-select="add($item, $model)">
+            <ui-select-match placeholder="Add New Resource...">{{$select.selected.name}}</ui-select-match>
+            <ui-select-choices repeat="rid in Object.keys(serverconf.resources)">
+                {{db.name}}<br><small>{{db.desc}}</small>
+            </ui-select-choices>
+        </ui-select>
+        -->
     </div>
 </div>

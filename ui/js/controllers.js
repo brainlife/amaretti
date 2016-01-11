@@ -134,8 +134,9 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
             //animation: $scope.animationsEnabled,
             templateUrl: 't/workflow.step_selector.html',
             controller: 'WorkflowStepSelectorController',
-            //size: size,
+            size: 'lg',
             resolve: {
+                //TODO what is this?
                 items: function () {
                     return {'item': 'here'}
                 }
@@ -205,9 +206,10 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
         });
     }
 
-    $scope.newresource = null;
+    $scope.newresource_id = null;
     $scope.add = function() {
-        resources.upsert($scope.newresource);
+        console.log($scope.newresource_id);
+        resources.add($scope.newresource_id);
     }
 }]);
 
