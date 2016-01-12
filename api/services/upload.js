@@ -35,6 +35,8 @@ router.post('/files',
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         if(resource.user_id != req.user.sub) return res.status(401).end();
+
+        common.decrypt_resource(resource);
         var resource_detail = config.resources[resource.resource_id];
 
         //create product record to store results
@@ -102,7 +104,7 @@ router.post('/files',
             conn.connect({
                 host: resource_detail.hostname,
                 username: resource.config.username,
-                privateKey: resource.config.ssh_private,
+                privateKey: resource.config.enc_ssh_private,
             });
         });
     });

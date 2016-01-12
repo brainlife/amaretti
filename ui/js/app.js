@@ -288,6 +288,7 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
                 //console.log("got serverconf and resources");
                 resources = res.data;
                 resources.forEach(function(resource) {
+                    //console.dir(resource);
                     resource.detail = serverconf.resources[resource.resource_id];
                 });
                 return resources;
@@ -295,7 +296,6 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
         });
     }
 
-    
     //find available resources that mathces criteria (empty means no match)
     function find(criteria) {
         return getall().then(function() {

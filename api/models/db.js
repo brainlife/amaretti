@@ -1,3 +1,7 @@
+'use strict';
+
+//node
+//var crypto = require('crypto');
 
 //contrib
 var mongoose = require('mongoose');
@@ -46,7 +50,7 @@ var workflowSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
-workflowSchema.pre('save', function(next) {
+workflowSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
@@ -65,14 +69,73 @@ var resourceSchema = mongoose.Schema({
 
     name: String, 
     config: mongoose.Schema.Types.Mixed,
+    salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
-resourceSchema.pre('save', function(next) {
+
+//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
+//I prefer doing this manually anyway, because it will be more visible 
+resourceSchema.pre('update', function(next) {
+    //this._update.$set.update_date = new Date();
     this.update_date = new Date();
     next();
 });
+/*
+resourceSchema.pre('update', function(next) {
+    console.log("pre update");
+    encrypt_config(this._update.$set.config);
+    this._update.$set.update_date = new Date();
+    next();
+});
+resourceSchema.pre('save', function(next) {
+    console.log("pre save");
+    encrypt_config(this.config);
+    next();
+});
+resourceSchema.post('find', function(doc) {
+    console.log("pre find");
+    if(doc.config) decrypt_config(doc.config);
+});
+*/
+
+/*
+function encrypt_config(_config, cb) { 
+    //create new salt/iv
+    var salt = new Buffer(crypto.randomBytes(32)); //ensure that the IV (initialization vector) is random
+    var iv = new Buffer(crypto.randomBytes(16)); //ensure that the IV (initialization vector) is random
+    _config._enc_salt = salt;
+    _config._enc_iv = iv;
+    var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt, 100000, 32, 'sha512');//, config.sca.resource_pbkdf2_algo);
+    var cipher = crypto.createCipheriv('aes256', key, iv);
+    for(var k in _config) {
+        if(k.indexOf("enc_") === 0) {
+            console.dir(k);
+            console.dir(_config[k]);
+            _config[k] = cipher.update(_config[k], 'utf8', 'base64');
+            _config[k] += cipher.final('base64');
+        }
+    }
+}
+
+//decrypt all config parameter that starts with enc_
+function decrypt_config(_config) {
+    if(!_config._enc_salt || !_config._enc_iv) {
+        logger.error("_end_salt or _enc_iv is missing.. can't decrypt config");
+        return;
+    }
+    var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, _config._enc_salt, 100000, 32, 'sha512');//, config.sca.resource_pbkdf2_algo);
+    var decipher = crypto.createDecipheriv(config.sca.resource_algo, key, _config._enc_iv);
+    for(var k in _config) {
+        if(k.indexOf("enc_") === 0) {
+            _config[k] = decipher.update(_config[k], 'base64', 'utf8');
+            _config[k] += decipher.final('utf8'); 
+        }
+    }
+}
+*/
+
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -110,7 +173,7 @@ var taskSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
-taskSchema.pre('save', function(next) {
+taskSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
@@ -146,7 +209,7 @@ var productSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now }, //I am not sure if product ever get updated?
 });
-productSchema.pre('save', function(next) {
+productSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });

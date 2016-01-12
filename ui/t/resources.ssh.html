@@ -8,7 +8,17 @@
 </div>
 <div class="form-group">
     <label>SSH Private Key (PEM)</label>
-    <textarea class="form-control" ng-model="resource.config.ssh_private" name="ssh_private" required></textarea>
-    <p class="help-block">* Please add the corresponding public key in ~/.ssh/authorized_keys on {{def.hostname}}</p>
+    <div ng-if="resource.config.enc_ssh_private === true">
+        <button class="btn btn-xs" ng-click="resource.config.enc_ssh_private = ''">Reset</button>
+    </div>
+    <div ng-if="resource.config.enc_ssh_private !== true">
+        <p class="help-block">* Please add the corresponding public key in ~/.ssh/authorized_keys on {{def.hostname}}</p>
+        <textarea class="form-control" ng-model="resource.config.enc_ssh_private" name="enc_ssh_private" required></textarea>
+    </div>
 </div>
-
+<!--
+<div class="form-group">
+    <label>unecnrypted key</label>
+    <textarea class="form-control" ng-model="resource.config.ssh_private" name="ssh_private" required></textarea>
+</div>
+-->

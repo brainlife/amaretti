@@ -20,6 +20,7 @@ function stream_remote_file(resource, dirname, file, res, cb) {
 
     var conn = new Client();
     conn.on('ready', function() {
+        /*
         //get filesize first (TODO - do this only if file.size isn't set)
         conn.exec("stat --printf=%s "+path, function(err, stream) {
             if(err) return cb(err);
@@ -28,33 +29,36 @@ function stream_remote_file(resource, dirname, file, res, cb) {
                 size += data;
             });
             stream.on('close', function() {
-                res.setHeader('Content-Length', size);
-                res.setHeader('Content-disposition', 'attachment; filename='+file.filename);
-                if(file.type) res.setHeader('Content-type', file.type); 
-
-                //then stream
-                var escaped_path = path.replace(/"/g, '\\"');
-                conn.exec("cat \""+escaped_path+"\"", function(err, stream) {
-                    if(err) return cb(err);
-                    stream.on('data', function(data) {
-                        res.write(data);
-                    });
-                    stream.on('end', function() {
-                        res.end();
-                    });
-                    stream.on('close', function() {
-                        conn.end();
-                        cb();
-                    })
-                });
             });
+        });
+        */
+
+        res.setHeader('Content-disposition', 'attachment; filename='+file.filename);
+        if(file.size) res.setHeader('Content-Length', file.size);
+        if(file.type) res.setHeader('Content-type', file.type); 
+
+        //then stream
+        var escaped_path = path.replace(/"/g, '\\"');
+        conn.exec("cat \""+escaped_path+"\"", function(err, stream) {
+            if(err) return cb(err);
+            stream.on('data', function(data) {
+                res.write(data);
+            });
+            stream.on('end', function() {
+                res.end();
+            });
+            stream.on('close', function() {
+                conn.end();
+                cb();
+            })
         });
     });
     var detail = config.resources[resource.resource_id];
+    //common.
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
-        privateKey: resource.config.ssh_private,
+        privateKey: resource.config.enc_ssh_private,
     });
 }
 
@@ -71,14 +75,15 @@ router.get('/', jwt({
     var file_id = req.query.f;
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
-        if(!task) return res.status(404).end();
+        if(!task) return res.status(404).json({message: "couldn't find the task specified:"+task_id});
         if(task.user_id != req.user.sub) return res.status(401).end();
         var product = task.products[product_id];
         if(product.type != "raw") return next("product type is not raw");
         db.Resource.findById(task.resources.compute, function(err, resource) {
             if(err) return next(err);
-            if(!resource) return res.status(404).end();
+            if(!resource) return res.status(404).json({message: "couldn't find the resource used to run this task"+task.resources.compute});
             if(resource.user_id != req.user.sub) return res.status(401).end(); //shouldn't be needed, but just in case..
+            common.decrypt_resource(resource);
             var file = product.files[file_id];
             var path = common.gettaskdir(task.workflow_id, task_id, resource);
             stream_remote_file(resource, path, file, res, function(err) {
@@ -86,23 +91,6 @@ router.get('/', jwt({
             });
         });
     });
-    /*
-    db.Resource.findById(req.query.resource_id, function(err, resource) {
-        if(err) return next(err);
-        if(!resource) return res.status(404).end();
-        if(resource.user_id != req.user.sub) return res.status(401).end();
-        var hpss_context = new hpss.context({
-            username: resource.config.username,
-            auth_method: resource.config.auth_method, //TODO only supports keytab for now
-            keytab: new Buffer(resource.config.keytab_base64, 'base64')
-        });
-        hpss_context.ls(path, function(err, files) {
-            if(err) return next({message: "code:"+err.code+" while attemping to ls:"+path});
-            res.json(files);
-            hpss_context.clean();
-        }); 
-    });
-    */
 });
 
 module.exports = router;

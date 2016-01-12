@@ -199,16 +199,30 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     });
 
     $scope.submit = function(resource) {
+
+        /*
+        //mask if enc_ fields are set to "true" - meaning user hasn't updated it
+        for(var k in resource.config) {
+            if(k.indexOf("enc_") === 0) {
+                var v = resource.config[k];
+                if(v === true) delete resource.config[k]; 
+            }
+        }
+        */
         resources.upsert(resource).then(function(res) {
             toaster.success("successfully updated the resource configuration");
+            //console.dir(res.data);
+            for(var k in res.data) {
+                resource[k] = res.data[k];
+            }
         }, function(res) {     
-            toaster.error(res.statusText);
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
         });
     }
 
     $scope.newresource_id = null;
     $scope.add = function() {
-        console.log($scope.newresource_id);
         resources.add($scope.newresource_id);
     }
 }]);

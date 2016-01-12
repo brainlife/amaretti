@@ -5,40 +5,33 @@
     <div class="panel-body">
         <p class="help-block">{{service_detail.desc}}</p>
         <div ng-if-dis="!loaded">
-            <div class="row">
-                <div class="col-md-2">
-                    <div class="form-group">
+
+            <div ngf-drop ng-model="files" ngf-drag-over-class="'dragover'" ngf-multiple="true">
+                <div class="well">
+                    <!-- ngf-pattern="'image/*,application/pdf'"-->
+                    <p class="text-muted">Stage files to upload by dropping them here or 
                         <button type="button" class="btn" ngf-select ng-model="files" multiple="multiple">Select Files</button>
-                    </div>
-                </div>
-                <div ngf-drop ng-model="files" ngf-drag-over-class="'dragover'" ngf-multiple="true">
-                    <div class="col-md-1">
-                        <span class="text-muted">OR</span>
-                    </div>
-                    <div class="col-md-9">
-                        <div class="well">
-                            <!-- ngf-pattern="'image/*,application/pdf'"-->
-                            <span class="text-muted">Drag &amp; Drop Files Here</span>
-                            <ul class="list-group">
-                                <li class="list-group-item" ng-repeat="file in files">
-                                    <div class="row">
-                                        <!-- {{file.type}} -->
-                                        <!-- {{file.lastModified}} -->
-                                        <div class="col-md-6">{{file.name}}</div>
-                                        <div class="col-md-3">{{file.type}}</div>
-                                        <div class="col-md-3">{{file.size|bytes}}</div>
-                                    </div>
-                                </li>
-                            </ul> 
-                        </div>
-                    </div>
-                </div>
-                <div ngf-no-file-drop>
-                    <div class="col-md-10">
-                        File Drag/Drop is not supported for this browser
-                    </div>
+                    </p>
+                    <ul class="list-group">
+                        <li class="list-group-item" ng-repeat="file in files">
+                            <div class="row">
+                                <!-- {{file.type}} -->
+                                <!-- {{file.lastModified}} -->
+                                <div class="col-md-6">{{file.name}}</div>
+                                <div class="col-md-3">{{file.type}}</div>
+                                <div class="col-md-3">{{file.size|bytes}}</div>
+                            </div>
+                        </li>
+                    </ul> 
                 </div>
             </div>
+            <!--
+            <div ngf-no-file-drop>
+                <div class="col-md-10">
+                    Drag/Drop is not supported for this browser
+                </div>
+            </div>
+            -->
             <div class="form-group">
                 <label>Data Type</label>
                 <select class="form-control" ng-model="step.config.type" ng-change="save_workflow()" placeholder="untitled">

@@ -37,7 +37,7 @@ function failed(task, error, cb) {
     //mark task as failed so that it won't be picked up again
     progress.update(task.progress_key, {status: 'failed', msg: error.toString()});
     task.status = "failed";
-    task.updated = new Date();
+    //task.updated = new Date();
     task.save(function() {
         cb(error); //return task error.
     });
@@ -53,15 +53,22 @@ function process_task(task, cb) {
 
             //run the task on the resource
             progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Processing'});
-            run_task(task, resource, function(err) {
-                if(err) return failed(task, err, cb);
+            try {
+                common.decrypt_resource(resource);
+                console.dir(resource);
+                run_task(task, resource, function(err) {
+                    if(err) return failed(task, err, cb);
 
-                //all done!
-                progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Task Completed'});
-                task.status = "finished";
-                task.updated = new Date();
-                task.save(cb);
-            });
+                    //all done!
+                    progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Task Completed'});
+                    task.status = "finished";
+                    //task.updated = new Date();
+                    task.save(cb);
+                });
+            } catch(err) {
+                logger.error(err);
+                failed(task, err, cb);
+            }
         });
     });
 }
@@ -187,6 +194,8 @@ function run_task(task, resource, cb) {
                 if(!task.resources.hpss) return next();
                 logger.debug("installing hpss key");
                 db.Resource.findById(task.resources.hpss, function(err, resource) {
+                    if(err) return next(err);
+                    common.decrypt_resource(resource);
                     
                     //TODO - what if user uses nonkeytab?
                     envs.HPSS_PRINCIPAL = resource.config.username;
@@ -206,7 +215,7 @@ function run_task(task, resource, cb) {
                         }).stderr.on('data', function(data) {
                             logger.error(data.toString());
                         });
-                        var keytab = new Buffer(resource.config.keytab_base64, 'base64');
+                        var keytab = new Buffer(resource.config.enc_keytab, 'base64');
                         stream.write(keytab);
                         stream.end();
                     });
@@ -369,7 +378,7 @@ function run_task(task, resource, cb) {
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
-        privateKey: resource.config.ssh_private,
+        privateKey: resource.config.enc_ssh_private,
     });
 }
 
@@ -385,36 +394,6 @@ function process_product_dep(task, dep, conn, resource, envs, cb) {
         //see if we have the dep taskdir 
         var dep_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, resource);
         envs["SCA_TASK_DIR_"+dep.name] = dep_taskdir;
-        /*
-        //TODO - what if user re-run the task? I should always rsync if resource doesn't match?
-        conn.exec("ls "+dep_taskdir, function(err, stream) {
-            if(err) cb(err);
-            stream.on('close', function(code, signal) {
-                switch(code) {
-                case 0: 
-                    logger.debug("dependency already exists on local compute resoruce:"+dep_taskdir);
-                    cb();
-                    break;
-                case 1: //doesn't exist
-                case 2: //xd-login returns code 2 instead of 1..
-                    //cb("TODO - need to rsync taskdir from remote resource..");
-                    db.Resource.findById(dep_task.resources.compute, function(err, source_resource) {
-                        if(err) return cb(err);
-                        var source_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, source_resource);
-                        rsync_product(conn, source_resource, source_taskdir, dep_taskdir, cb);
-                    });
-                    break;
-                default:
-                    cb("unknown return code while checking to see if dependency taskdir exists:"+dep_taskdir+" code:"+code);
-                }
-            })
-            .on('data', function(data) {
-                logger.info(data.toString());
-            }).stderr.on('data', function(data) {
-                logger.error(data.toString());
-            });
-        }); 
-        */
         //if on the same resource, assume that it's there
         if(resource._id == dep_task.resources.compute) return cb();
         //always rsync for cross-resource dependency - it might not be synced yet, or out-of-sync
@@ -422,6 +401,7 @@ function process_product_dep(task, dep, conn, resource, envs, cb) {
             if(err) return cb(err);
             if(!source_resource) return cb("couldn't find dep resource");
             if(source_resource.user_id != task.user_id) return cb("dep resource user_id doesn't match");
+            common.decrypt_resource(source_resource);
             var source_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, source_resource);
             rsync_product(conn, source_resource, source_taskdir, dep_taskdir, cb);
         });
@@ -444,7 +424,7 @@ function rsync_product(conn, source_resource, source_taskdir, dest_taskdir, cb) 
                 }).stderr.on('data', function(data) {
                     logger.error(data.toString());
                 });
-                var keytab = new Buffer(source_resource.config.ssh_private, 'utf8');
+                var keytab = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
                 stream.write(keytab);
                 stream.end();
             });
@@ -466,7 +446,7 @@ function rsync_product(conn, source_resource, source_taskdir, dest_taskdir, cb) 
                 }).stderr.on('data', function(data) {
                     logger.error(data.toString());
                 });
-                var keytab = new Buffer(source_resource.config.ssh_private, 'utf8');
+                var keytab = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
                 stream.write(keytab);
                 stream.end();
             });

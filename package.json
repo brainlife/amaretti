@@ -11,7 +11,7 @@
     "express-jwt": "^3.0.1",
     "express-winston": "^1.2.0",
     "hpss": "0.0.7",
-    "mongoose": "^4.3.4",
+    "mongoose": "^4.3.5",
     "morgan": "~1.6.1",
     "multiparty": "^4.1.2",
     "request": "^2.67.0",

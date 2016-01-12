@@ -45,7 +45,7 @@ function(appconf, serverconf, $http, toaster, resources) {
                     config.paths.forEach(function(path) {
                         if(~path.indexOf(directory.path)) contain_path = true;
                     });
-                    if(contain_path || directory == scope.root) toggle(directory);
+                    if(contain_path /*|| directory == scope.root*/) toggle(directory);
                 }, function(res) {
                     directory.loading = false;
                     if(res.data && res.data.message) toaster.error(res.data.message);
