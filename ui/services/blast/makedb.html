@@ -15,7 +15,7 @@
                         <b>{{$select.selected.product.fasta.filename}}</b> 
                         | From {{$select.selected.task.name}} <small class="text-muted">/p{{$select.selected.product_idx}}</small> 
                     </ui-select-match>
-                    <ui-select-choices repeat="product in products">
+                    <ui-select-choices repeat="product in products | filter: $select.search | filter: {product: {type:'bio/fasta'}}">
                             <span class="label label-success" ng-if="product.product.fasta.type == 'nucl'">nucl</span>
                             <span class="label label-info" ng-if="product.product.fasta.type == 'prot'">prot</span>
                             &nbsp;
