@@ -96,7 +96,8 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
     });
     
     //console.dir($routeProvider);
-}]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', '$http', function($rootScope, $location, toaster, jwtHelper, appconf, $http) {
+}]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', '$http', 'scaMessage',
+function($rootScope, $location, toaster, jwtHelper, appconf, $http, scaMessage) {
     $rootScope.$on("$routeChangeStart", function(event, next, current) {
         //redirect to /login if user hasn't authenticated yet
         if(next.requiresLogin) {
