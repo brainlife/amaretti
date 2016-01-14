@@ -27,7 +27,7 @@
                         <sca-step-upload ng-switch-when="upload" workflow="workflow"></sca-step-upload>
                         <div ng-switch-default>Unknown Step <pre>{{step | json}}</pre></div>
                     </div>
-                    <sca-task ng-repeat="task in step.tasks | orderBy:'-create_date'" step="step" task="task"></sca-task>
+                    <sca-task ng-repeat="task in step.tasks | orderBy:'-create_date'" task="task"></sca-task>
                 </div><!--col-md-9-->
                 <div class="col-md-3">
                     <!--what should I use this space for?-->

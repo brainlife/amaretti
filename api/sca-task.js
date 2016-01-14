@@ -19,16 +19,114 @@ var common = require('./common');
 
 db.init(function(err) {
     if(err) return cb(err);
-    run();
+    check_requested();
+    check_running();
 });
 
-function run() {
+//var running = 0;
+function check_requested() {
+    /*
+    if(running > config.task_handler.concurrency) {
+        logger.info("running too many tasks already.. skipping this round");
+        return;
+    }
+    */
     db.Task.find({status: "requested"}).exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("loaded "+tasks.length+" requested tasks");
-        async.eachLimit(tasks, config.task_handler.concurrency, process_task, function(err) {
-            logger.info("all done.. pausing for 5 seconds");
-            setTimeout(run, 1000*5);
+        //logger.info("check_requested :: loaded "+tasks.length+" requested tasks -- running:"+running);
+        logger.info("check_requested :: loaded "+tasks.length);
+        //process synchronously so that I don't accidentally overwrap with next check
+        async.eachSeries(tasks, function(task, next) {
+            logger.info("check_requested "+task._id);
+            //running++;
+    
+            //but, each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
+            process_requested(task, function(err) {
+                //running--; 
+                if(err) logger.error(err);
+            });
+            next(); //intentially let outside of process_requested cb
+        }, function(err) {
+            //wait for the next round
+            setTimeout(check_requested, 1000*10);
+        });
+    });
+}
+
+//check for task status of running tasks
+function check_running() {
+    db.Task.find({status: "running"}).exec(function(err, tasks) {
+        if(err) throw err;
+        logger.info("check_running :: loaded "+tasks.length+" running tasks");
+        //process synchronously so that I don't accidentally overwrap with next check
+        async.eachSeries(tasks, function(task, next) {
+            logger.info("check_running "+task._id);
+            
+            //load the compute resource and decrypt
+            db.Resource.findById(task.resources.compute, function(err, resource) {
+                if(err) return failed(task, err, cb);
+                common.decrypt_resource(resource);
+                
+                //now ssh
+                var conn = new Client();
+                conn.on('ready', function() {
+                    //var workdir = common.getworkdir(task.workflow_id, resource);
+                    var taskdir = common.gettaskdir(task.workflow_id, task._id, resource);
+                    conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
+                        if(err) {
+                            conn.end();
+                            next(err);
+                        }
+                        stream.on('close', function(code, signal) {
+                            switch(code) {
+                            case 0: 
+                                task.status = "running";
+                                task.save();
+                                conn.end();
+                                next();
+                                break;
+                            case 1: 
+                                load_products(task, taskdir, conn, function(err) {
+                                    conn.end();
+                                    if(err) return next(err);
+                                    task.status = "finished";
+                                    task.save(function() {
+                                        progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
+                                    });
+                                });
+                                break;
+                            case 2: 
+                                task.status = "failed";
+                                task.save();
+                                conn.end();
+                                next();
+                                break; 
+                            default:
+                                //TODO - should I mark it as failed? or.. 3 strikes and out rule?
+                                logger.error("unknown return code:"+code+" returned from _status.sh");
+                                conn.end();
+                                next();
+                            }
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                    });
+                });
+                var detail = config.resources[resource.resource_id];
+                //console.dir(detail);
+                conn.connect({
+                    host: detail.hostname,
+                    username: resource.config.username,
+                    privateKey: resource.config.enc_ssh_private,
+                });
+            });
+        }, function(err) {
+            if(err) logger.error(err);
+            //all done for this round
+            setTimeout(check_running, 1000*60); //check job status every few minutes
         });
     });
 }
@@ -43,40 +141,25 @@ function failed(task, error, cb) {
     });
 }
 
-function process_task(task, cb) {
-    //mark the task as running
-    task.status = "running";
-    task.save(function() {
-        //load compute resource
-        db.Resource.findById(task.resources.compute, function(err, resource) {
+//maybe I should inline this in check_requested.
+function process_requested(task, cb) {
+    //first, load the compute resource and decrypt
+    db.Resource.findById(task.resources.compute, function(err, resource) {
+        if(err) return failed(task, err, cb);
+        common.decrypt_resource(resource);
+        progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+        init_task(task, resource, function(err) {
             if(err) return failed(task, err, cb);
-
-            //run the task on the resource
-            progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Processing'});
-            try {
-                common.decrypt_resource(resource);
-                console.dir(resource);
-                run_task(task, resource, function(err) {
-                    if(err) return failed(task, err, cb);
-
-                    //all done!
-                    progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Task Completed'});
-                    task.status = "finished";
-                    //task.updated = new Date();
-                    task.save(cb);
-                });
-            } catch(err) {
-                logger.error(err);
-                failed(task, err, cb);
-            }
+            cb();
+            //progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Task Completed'}, cb);
         });
     });
 }
 
-function run_task(task, resource, cb) {
+//initialize task and run or start the service
+function init_task(task, resource, cb) {
     var conn = new Client();
     conn.on('ready', function() {
-
         var service_id = task.service_id;
         var service_detail = config.services[service_id];
         if(!service_detail) return cb("Couldn't find such service:"+service_id);
@@ -260,16 +343,16 @@ function run_task(task, resource, cb) {
                     stream.end();
                 });
             },
-            
-            //write _boot.sh
+           
+            //write _status.sh
             function(next) { 
-                //progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
-                logger.debug("installing _boot.sh");
-                conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
+                if(!service_detail.bin.status) return next(); //not all service uses status
+                logger.debug("installing _status.sh");
+                conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to write _boot.sh -- code:"+code);
-                        else next();
+                        if(code) return next("Failed to write _status.sh -- code:"+code);
+                        next();
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
@@ -282,37 +365,60 @@ function run_task(task, resource, cb) {
                         var vs = v.replace(/\"/g,'\\"')
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
-                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.bin.run+" > log.stdout 2>log.stderr\n");
+                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.bin.status);
+                    stream.end();
+                });
+            },
+ 
+            //write _boot.sh
+            function(next) { 
+                //progress.update(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
+                logger.debug("installing _boot.sh");
+                conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
+                    if(err) next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to write _boot.sh -- code:"+code);
+                        next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                    stream.write("#!/bin/bash\n");
+                    for(var k in envs) {
+                        var v = envs[k];
+                        var vs = v.replace(/\"/g,'\\"')
+                        stream.write("export "+k+"=\""+vs+"\"\n");
+                    }
+                    stream.write("~/.sca/services/"+service_id+"/"+(service_detail.bin.run||service_detail.bin.start)+" > log.stdout 2>log.stderr\n");
                     stream.end();
                 });
             },
 
-            //finally, run the service!
+            //end of prep
             function(next) {
-                progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'});
-                logger.debug("running service: ~/.sca/services/"+service_id+"/"+service_detail.bin.run);
-                /*
-                var envstr = "";
-                for(var k in envs) {
-                    var v = envs[k];
-                    var vs = v.replace(/\"/g,'\\"')
-                    envstr+=k+"=\""+vs+"\" ";
-                }
-                conn.exec("cd "+taskdir+" && "+envstr+" ~/.sca/services/"+service_id+"/"+service_detail.bin.run+" > log.stdout 2>log.stderr", {
-                */
-                progress.update(task.progress_key, {msg: "Running Service"});
+                progress.update(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'}, next);
+            },
+            
+            //finally, start the service
+            function(next) {
+                if(!service_detail.bin.start) return next(); //not all service uses start
+
+                logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.bin.start);
                 progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
+
                 conn.exec("cd "+taskdir+" && ./_boot.sh", {
-                /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I have to pass env via command line
-                env: {
-                    SCA_SOMETHING: 'whatever',
-                }*/
+                    /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
                 }, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Service failed with return code:"+code+" signal:"+signal);
-                        else next();
-                        //progress.update(task.progress_key, {status: 'finished', progress: 1, msg: 'Finished Successfully'}, next);
+                        if(code) {
+                            return next("Service startup failed with return code:"+code+" signal:"+signal);
+                        } else {
+                            task.status = "running";
+                            task.save(next);
+                        }
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
@@ -320,8 +426,44 @@ function run_task(task, resource, cb) {
                         logger.error(data.toString());
                     });
                 });
-            },
+            },            
             
+            //or run it synchronously (via run.sh)
+            function(next) {
+                if(!service_detail.bin.run) return next(); //not all service uses run (they may use start/status)
+
+                logger.debug("running_sync service: ~/.sca/services/"+service_id+"/"+service_detail.bin.run);
+                progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Running Service'});
+
+                task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
+                task.save(function() {
+                    conn.exec("cd "+taskdir+" && ./_boot.sh", {
+                        /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
+                    }, function(err, stream) {
+                        if(err) next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code) {
+                                return next("Service failed with return code:"+code+" signal:"+signal);
+                            } else {
+                                load_products(task, taskdir, conn, function(err) {
+                                    if(err) return next(err);
+                                    task.status = "finished";
+                                    task.save(function() {
+                                        progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
+                                    });
+                                });
+                            }
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                    });
+                });
+            },
+
+            /*
             //load the products.json and update task
             function(next) {
                 progress.update(task.progress_key, {msg: "Downloading products.json"});
@@ -332,34 +474,6 @@ function run_task(task, resource, cb) {
                         if(code) return next("Failed to retrieve products.json from the task directory");
                         task.products = JSON.parse(products_json);
                         task.save(next);
-                        /*
-                        //find workflow to add products to
-                        db.Workflow.findById(task.workflow_id, function(err, workflow) {
-                            if(err) return next(err);
-                            var products = JSON.parse(products_json);
-                            async.eachSeries(products, function(product, next_product) {
-                                var _product = new db.Product({
-                                    workflow_id: task.workflow_id,
-                                    user_id: task.user_id,
-                                    task_id: task._id,
-                                    service_id: task.service_id,
-                                    name: 'product of '+task.name,  //TODO?
-                                    resources: task.resources,
-                                    path: taskdir,
-                                    detail: product,
-                                });
-                                _product.save(function(err) {
-                                    if(err) return next(err);
-                                    workflow.steps[task.step_id].products.push(_product._id);
-                                    next_product();
-                                });
-                                
-                            }, function(err) {
-                                if(err) return next(err);
-                                workflow.save(next);
-                            });
-                        });
-                        */
                     });
                     stream.on('data', function(data) {
                         products_json += data;
@@ -368,17 +482,44 @@ function run_task(task, resource, cb) {
                     });
                 });
             },
+            */
         ], function(err) {
             conn.end();
             cb(err); 
         }); 
     });
+    conn.on('error', function(err) {
+        cb(err);
+    });
+    conn.on('end', function() {
+        //client disconnected.. should I reconnect?
+        logger.debug("ssh2 connection ended");
+    });
 
     var detail = config.resources[resource.resource_id];
+    console.dir(detail);
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
+    });
+}
+
+function load_products(task, taskdir, conn, cb) {
+    progress.update(task.progress_key, {msg: "Downloading products.json"});
+    conn.exec("cat "+taskdir+"/products.json", {}, function(err, stream) {
+        if(err) next(err);
+        var products_json = "";
+        stream.on('close', function(code, signal) {
+            if(code) return next("Failed to retrieve products.json from the task directory");
+            task.products = JSON.parse(products_json);
+            task.save(cb);
+        });
+        stream.on('data', function(data) {
+            products_json += data;
+        }).stderr.on('data', function(data) {
+            logger.error(data.toString());
+        });
     });
 }
 

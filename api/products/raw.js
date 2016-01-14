@@ -14,12 +14,34 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
 
+//ssh2 connection cache
+var conns = {};
+function get_conn(resource, cb) {
+    if(conns[resource._id]) return cb(conns[resource._id]);
+    var detail = config.resources[resource.resource_id];
+    var conn = new Client();
+    conns[resource._id] = conn;
+    conn.on('ready', function() {
+        logger.debug("connected");
+        logger.debug(detail);
+        cb(conn);
+    });
+    conn.on('end', function() {
+        logger.debug("connection closed");
+        delete conns[resource._id];
+    });
+    conn.connect({
+        host: detail.hostname,
+        username: resource.config.username,
+        privateKey: resource.config.enc_ssh_private,
+    });
+}
+
 //stream file content via ssh using cat.. I wish there is a way to directly download the file from the compute element
 function stream_remote_file(resource, dirname, file, res, cb) {
     var path = dirname+"/"+file.filename;
 
-    var conn = new Client();
-    conn.on('ready', function() {
+    get_conn(resource, function(conn) {
         /*
         //get filesize first (TODO - do this only if file.size isn't set)
         conn.exec("stat --printf=%s "+path, function(err, stream) {
@@ -48,17 +70,10 @@ function stream_remote_file(resource, dirname, file, res, cb) {
                 res.end();
             });
             stream.on('close', function() {
-                conn.end();
+                //conn.end();
                 cb();
             })
         });
-    });
-    var detail = config.resources[resource.resource_id];
-    //common.
-    conn.connect({
-        host: detail.hostname,
-        username: resource.config.username,
-        privateKey: resource.config.enc_ssh_private,
     });
 }
 
@@ -84,6 +99,7 @@ router.get('/', jwt({
             if(!resource) return res.status(404).json({message: "couldn't find the resource used to run this task"+task.resources.compute});
             if(resource.user_id != req.user.sub) return res.status(401).end(); //shouldn't be needed, but just in case..
             common.decrypt_resource(resource);
+            console.dir(product.files[file_id]);
             var file = product.files[file_id];
             var path = common.gettaskdir(task.workflow_id, task_id, resource);
             stream_remote_file(resource, path, file, res, function(err) {
