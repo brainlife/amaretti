@@ -20,8 +20,8 @@ function get_conn(resource, cb) {
     if(conns[resource._id]) return cb(conns[resource._id]);
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
-    conns[resource._id] = conn;
     conn.on('ready', function() {
+        conns[resource._id] = conn;
         logger.debug("connected");
         logger.debug(detail);
         cb(conn);
@@ -29,6 +29,9 @@ function get_conn(resource, cb) {
     conn.on('end', function() {
         logger.debug("connection closed");
         delete conns[resource._id];
+    });
+    conn.on('error', function(err) {
+        logger.error(err);
     });
     conn.connect({
         host: detail.hostname,

@@ -37,15 +37,16 @@ function check_requested() {
         logger.info("check_requested :: loaded "+tasks.length);
         //process synchronously so that I don't accidentally overwrap with next check
         async.eachSeries(tasks, function(task, next) {
-            logger.info("check_requested "+task._id);
-            //running++;
-    
-            //but, each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
-            process_requested(task, function(err) {
-                //running--; 
-                if(err) logger.error(err);
+            task.status = "initializing";
+            task.save(function(err) {
+                if(err) logger.error(err); //continue
+                logger.info("check_requested "+task._id);
+                //but, each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
+                process_requested(task, function(err) {
+                    if(err) logger.error(err); //continue
+                });
+                next(); //intentially let outside of process_requested cb
             });
-            next(); //intentially let outside of process_requested cb
         }, function(err) {
             //wait for the next round
             setTimeout(check_requested, 1000*10);
@@ -86,13 +87,11 @@ function check_running() {
                                 next();
                                 break;
                             case 1: 
+                                task.status = "finished"; //load_products saves this
                                 load_products(task, taskdir, conn, function(err) {
-                                    conn.end();
+                                    conn.end(); //should close ssh2 connection no matter what
                                     if(err) return next(err);
-                                    task.status = "finished";
-                                    task.save(function() {
-                                        progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
-                                    });
+                                    progress.update(task.progress_key, {status: 'finished', msg: 'Service Completed'}, next);
                                 });
                                 break;
                             case 2: 
@@ -172,8 +171,9 @@ function init_task(task, resource, cb) {
             SCA_TASK_DIR: taskdir,
             SCA_SERVICE_ID: service_id,
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
-            SCA_PROGRESS_URL: config.progress.api+"/status",
-            SCA_PROGRESS_KEY: task.progress_key+".service",
+            //SCA_PROGRESS_URL: config.progress.api+"/status",
+            //SCA_PROGRESS_KEY: task.progress_key+".service",
+            SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key+".service",
         };
 
         if(service_id == null) return cb(new Error("service_id not set.."));
@@ -209,7 +209,7 @@ function init_task(task, resource, cb) {
                 });
             },
             function(next) {
-                progress.update(task.progress_key+".prep", {status: 'running', progress: 0.3, msg: 'running sca install script (might take a while for the first time)'});
+                progress.update(task.progress_key+".prep", {progress: 0.3, msg: 'running sca install script (might take a while for the first time)'});
                 conn.exec("cd ~/.sca && ./install.sh", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
@@ -224,7 +224,7 @@ function init_task(task, resource, cb) {
                 });
             },
             function(next) {
-                progress.update(task.progress_key+".prep", {status: 'running', progress: 0.5, msg: 'installing/updating '+service_id+' service'});
+                progress.update(task.progress_key+".prep", {progress: 0.5, msg: 'installing/updating '+service_id+' service'});
                 //logger.debug("git clone "+service_detail.giturl+" .sca/services/"+service_id);
                 conn.exec("ls .sca/services/"+service_id+ " || git clone "+service_detail.giturl+" .sca/services/"+service_id, function(err, stream) {
                     if(err) next(err);
@@ -255,7 +255,7 @@ function init_task(task, resource, cb) {
                 });
             },
             function(next) {
-                progress.update(task.progress_key+".prep", {status: 'running', progress: 0.7, msg: 'Preparing taskdir'});
+                progress.update(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                 logger.debug("making sure taskdir("+taskdir+") exists");
                 conn.exec("mkdir -p "+taskdir, function(err, stream) {
                     if(err) next(err);
@@ -445,12 +445,10 @@ function init_task(task, resource, cb) {
                             if(code) {
                                 return next("Service failed with return code:"+code+" signal:"+signal);
                             } else {
+                                task.status = "finished"; //let load_products save this
                                 load_products(task, taskdir, conn, function(err) {
                                     if(err) return next(err);
-                                    task.status = "finished";
-                                    task.save(function() {
-                                        progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
-                                    });
+                                    progress.update(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
                                 });
                             }
                         })
