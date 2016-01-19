@@ -186,10 +186,11 @@ function($scope, $modalInstance, items, serverconf) {
     };
 }]);
 
-app.controller('ResourcesController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 
-function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources) {
+app.controller('ResourcesController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu',
+function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu) {
     scaMessage.show(toaster);
     $scope.appconf = appconf;
+    $scope.settings_menu = scaSettingsMenu;
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 

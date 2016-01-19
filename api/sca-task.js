@@ -98,7 +98,7 @@ function check_running() {
                                 task.status = "failed";
                                 task.save();
                                 conn.end();
-                                next();
+                                progress.update(task.progress_key, {status: 'failed', msg: 'Service failed'}, next);
                                 break; 
                             default:
                                 //TODO - should I mark it as failed? or.. 3 strikes and out rule?
@@ -157,14 +157,21 @@ function process_requested(task, cb) {
 
 //initialize task and run or start the service
 function init_task(task, resource, cb) {
+
+    var detail = config.resources[resource.resource_id];
+    console.dir(detail);
+
     var conn = new Client();
     conn.on('ready', function() {
         var service_id = task.service_id;
+        if(service_id == null) return cb(new Error("service_id not set.."));
+
         var service_detail = config.services[service_id];
         if(!service_detail) return cb("Couldn't find such service:"+service_id);
         var workdir = common.getworkdir(task.workflow_id, resource);
         var taskdir = common.gettaskdir(task.workflow_id, task._id, resource);
         var envs = {
+            //SCA_RESOURCE_ID: resource.resource_id, //bigred2 / karst, etc..
             SCA_WORKFLOW_ID: task.workflow_id.toString(),
             SCA_WORKFLOW_DIR: workdir,
             SCA_TASK_ID: task._id.toString(),
@@ -175,8 +182,6 @@ function init_task(task, resource, cb) {
             //SCA_PROGRESS_KEY: task.progress_key+".service",
             SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key+".service",
         };
-
-        if(service_id == null) return cb(new Error("service_id not set.."));
 
         async.series([
             function(next) {
@@ -271,7 +276,7 @@ function init_task(task, resource, cb) {
                 });
             },
 
-            //TODO - maybe this is handled via deps
+            //TODO - maybe this should be handled via deps
             //process hpss resource (if exists..)
             function(next) { 
                 if(!task.resources.hpss) return next();
@@ -486,16 +491,11 @@ function init_task(task, resource, cb) {
             cb(err); 
         }); 
     });
-    conn.on('error', function(err) {
-        cb(err);
-    });
+    conn.on('error', cb);
     conn.on('end', function() {
         //client disconnected.. should I reconnect?
         logger.debug("ssh2 connection ended");
     });
-
-    var detail = config.resources[resource.resource_id];
-    console.dir(detail);
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
