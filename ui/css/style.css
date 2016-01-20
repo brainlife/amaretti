@@ -113,3 +113,8 @@ div.sca-workflow .sca-product h4 {
   background-color: #008cba;
   color: white;
 }
+.sca-product-blast .preview {
+  max-height: 250px;
+  overflow: auto;
+  font-size: 80%;
+}

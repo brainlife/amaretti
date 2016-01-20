@@ -4,6 +4,7 @@
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
+var Client = require('ssh2').Client;
 
 //contrib
 var winston = require('winston');
@@ -64,3 +65,27 @@ exports.decrypt_resource = function(resource) {
     }
 }
 
+var ssh_conns = {};
+exports.get_ssh_connection = function(resource, cb) {
+    if(ssh_conns[resource._id]) return cb(ssh_conns[resource._id]);
+    var detail = config.resources[resource.resource_id];
+    var conn = new Client();
+    conn.on('ready', function() {
+        ssh_conns[resource._id] = conn;
+        logger.debug("connected");
+        logger.debug(detail);
+        cb(conn);
+    });
+    conn.on('end', function() {
+        logger.debug("connection closed");
+        delete ssh_conns[resource._id];
+    });
+    conn.on('error', function(err) {
+        logger.error(err);
+    });
+    conn.connect({
+        host: detail.hostname,
+        username: resource.config.username,
+        privateKey: resource.config.enc_ssh_private,
+    });
+}

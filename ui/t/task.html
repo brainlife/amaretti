@@ -46,6 +46,7 @@
     <sca-product-raw ng-switch-when="raw" task="task" product="product"></sca-product-raw>
     <sca-product-blast-db ng-switch-when="bio/blastdb" task="task" product="product"></sca-product-blast-db>
     <sca-product-blast-fasta ng-switch-when="bio/fasta" task="task" product="product"></sca-product-blast-fasta>
+    <sca-product-blast-out ng-switch-when="bio/blast" task="task" product="product"></sca-product-blast-out>
     <div ng-switch-default>
         <b>Unknown Product Type: {{product.type}}</b>
         <pre>{{product | json}}</pre>

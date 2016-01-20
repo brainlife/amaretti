@@ -19,8 +19,7 @@ var app = angular.module('app', [
     'sca-service-upload',
 
     'sca-product-raw',
-    'sca-product-blast-db',
-    'sca-product-blast-fasta',
+    'sca-product-blast',
 ]);
 
 //can't quite do the slidedown animation through pure angular/css.. borrowing slideDown from jQuery..

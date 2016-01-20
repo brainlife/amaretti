@@ -10,6 +10,7 @@ var _ = require('underscore');
 var config = require('../config');
 
 router.use('/raw', require('./raw'));
+router.use('/blast', require('./blast'));
 
 module.exports = router;
 
