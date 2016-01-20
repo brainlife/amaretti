@@ -46,6 +46,28 @@
                 <div class="alert alert-danger">Query and database must be the same type.</div>
             </div>
             <div class="form-group">
+                <label>Blast Options</label>
+                <input type="text" class="form-control" ng-model="step.config.blast_opts" ng-blur="$parent.save_workflow()" placeholder=""></input>
+            </div>
+            <!--
+            <div class="form-group">
+                <label>E-value</label>
+                <input type="text" class="form-control" ng-model="step.config.evalue" ng-blur="$parent.save_workflow()" placeholder="Expect Value - the number of hits one can expect to see by chance when saerching a database of a particular size"></input>
+            </div>
+            <div class="form-group">
+                <label>Best Hit Score Edge</label>
+                <input type="text" class="form-control" ng-model="step.config.best_hit_score_edge" ng-blur="$parent.save_workflow()" placeholder=""></input>
+            </div>
+            <div class="form-group">
+                <label>Best Hit Overhang</label>
+                <input type="text" class="form-control" ng-model="step.config.best_hit_overhang" ng-blur="$parent.save_workflow()" placeholder=""></input>
+            </div>
+            <div class="form-group">
+                <label>Best Hit Overhang</label>
+                <input type="text" class="form-control" ng-model="step.config.best_hit_overhang" ng-blur="$parent.save_workflow()" placeholder=""></input>
+            </div>
+            -->
+            <div class="form-group">
                 <label>Output Name (optional)</label>
                 <input type="text" class="form-control" ng-model="step.config.name" ng-blur="$parent.save_workflow()" placeholder="untitled"></input>
             </div>
