@@ -465,27 +465,6 @@ function init_task(task, resource, cb) {
                     });
                 });
             },
-
-            /*
-            //load the products.json and update task
-            function(next) {
-                progress.update(task.progress_key, {msg: "Downloading products.json"});
-                conn.exec("cat "+taskdir+"/products.json", {}, function(err, stream) {
-                    if(err) next(err);
-                    var products_json = "";
-                    stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to retrieve products.json from the task directory");
-                        task.products = JSON.parse(products_json);
-                        task.save(next);
-                    });
-                    stream.on('data', function(data) {
-                        products_json += data;
-                    }).stderr.on('data', function(data) {
-                        logger.error(data.toString());
-                    });
-                });
-            },
-            */
         ], function(err) {
             conn.end();
             cb(err); 
@@ -509,9 +488,14 @@ function load_products(task, taskdir, conn, cb) {
         if(err) next(err);
         var products_json = "";
         stream.on('close', function(code, signal) {
-            if(code) return next("Failed to retrieve products.json from the task directory");
-            task.products = JSON.parse(products_json);
-            task.save(cb);
+            if(code) return cb("Failed to retrieve products.json from the task directory");
+            try {
+                console.log(products_json);
+                task.products = JSON.parse(products_json);
+                task.save(cb);
+            } catch(e) {
+                cb("Failed to parse products.json: "+e.toString());
+            }
         });
         stream.on('data', function(data) {
             products_json += data;
@@ -530,9 +514,12 @@ function process_product_dep(task, dep, conn, resource, envs, cb) {
         if(!dep_task) return cb("can't find dependency task:"+dep.task_id);
         if(dep_task.user_id != task.user_id) return cb("user_id doesn't match");
 
-        //see if we have the dep taskdir 
         var dep_taskdir = common.gettaskdir(dep_task.workflow_id, dep_task._id, resource);
+
+        //TODO - maybe I should store this in config.<dep.name>.json?
         envs["SCA_TASK_DIR_"+dep.name] = dep_taskdir;
+        envs["SCA_PRODUCT_IDX_"+dep.name] = dep.product_idx;
+        
         //if on the same resource, assume that it's there
         if(resource._id == dep_task.resources.compute) return cb();
         //always rsync for cross-resource dependency - it might not be synced yet, or out-of-sync

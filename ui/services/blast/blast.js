@@ -124,7 +124,7 @@ function(appconf, $http, toaster, resources, serverconf) {
                         //fasta_product: {task_id: config.fasta.task._id, product_idx: config.fasta.product_idx},
                     },
                     deps: [
-                        {type: "product", name: "FASTA", task_id: config.fasta.task._id/*, product_idx: config.fasta.product_idx*/},
+                        {type: "product", name: "FASTA", task_id: config.fasta.task._id, product_idx: config.fasta.product_idx},
                     ],
                 }).then(function(res) {
                     scope.step.tasks.push(res.data.task);
@@ -180,8 +180,8 @@ function(appconf, $http, toaster, resources, serverconf) {
                         evalue: '0.0001',
                     },
                     deps: [
-                        {type: "product", name: "QUERY", task_id: config.query.task._id/*, product_idx: config.fasta.product_idx*/},
-                        {type: "product", name: "DB", task_id: config.database.task._id/*, product_idx: config.fasta.product_idx*/},
+                        {type: "product", name: "QUERY", task_id: config.query.task._id, product_idx: config.query.product_idx},
+                        {type: "product", name: "DB", task_id: config.database.task._id, product_idx: config.database.product_idx},
                     ],
                 }).then(function(res) {
                     scope.step.tasks.push(res.data.task);
