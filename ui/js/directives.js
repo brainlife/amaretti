@@ -38,9 +38,9 @@ function(appconf, $http, $timeout, toaster) {
                     }
                     scope.progress = res.data;
 
-                    //reload progress - with frequency based on how recent the last update was (0.1 to 60 seconds)
+                    //reload progress - with frequency based on how recent the last update was (500msec to 30 seconds)
                     var age = Date.now() - scope.progress.update_time;
-                    var timeout = Math.min(Math.max(age/2, 100), 60*1000);
+                    var timeout = Math.min(Math.max(age/2, 500), 30*1000);
                     if(scope.progress.status != "finished") $timeout(load_progress, timeout);
                 }, function(res) {
                     if(res.data && res.data.message) toaster.error(res.data.message);

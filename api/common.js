@@ -4,11 +4,12 @@
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
-var Client = require('ssh2').Client;
 
 //contrib
 var winston = require('winston');
 var async = require('async');
+var keygen = require('ssh-keygen');
+var Client = require('ssh2').Client;
 
 //mine
 var config = require('./config');
@@ -40,12 +41,14 @@ exports.encrypt_resource = function(resource) {
             var iv = new Buffer(crypto.randomBytes(16)); //ensure that the IV (initialization vector) is random
             if(!resource.salts) resource.salts = {};
             resource.salts[k] = {salt: salt, iv: iv};
+            //resource.markModified('salts');
 
             //create cipher
             var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt, 100000, 32, 'sha512');//, config.sca.resource_pbkdf2_algo);
             var cipher = crypto.createCipheriv(config.sca.resource_cipher_algo, key, iv);
             resource.config[k] = cipher.update(v, 'utf8', 'base64');
             resource.config[k] += cipher.final('base64');
+            //resource.markModified('config');
         }
     }
 }
@@ -87,5 +90,22 @@ exports.get_ssh_connection = function(resource, cb) {
         host: detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
+    });
+}
+
+exports.ssh_keygen = function(cb) {
+    logger.info("generating ssh key");
+    //this just calls ssh-keygen..
+    keygen({
+      //location: location,
+      //comment: "",
+      //password: password, 
+      read: true
+    }, function(err, out) {
+        if(err) cb(err);
+        cb(null, {
+            pubkey: out.pubKey.trim(),
+            key: out.key.trim(),
+        });
     });
 }

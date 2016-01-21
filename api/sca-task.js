@@ -393,7 +393,12 @@ function init_task(task, resource, cb) {
                     stream.write("#!/bin/bash\n");
                     for(var k in envs) {
                         var v = envs[k];
-                        var vs = v.replace(/\"/g,'\\"')
+                        if(v.replace) {
+                            var vs = v.replace(/\"/g,'\\"')
+                        } else {
+                            //probably number
+                            var vs = v;
+                        }
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
                     stream.write("~/.sca/services/"+service_id+"/"+(service_detail.bin.run||service_detail.bin.start)+" > log.stdout 2>log.stderr\n");

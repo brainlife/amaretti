@@ -69,7 +69,7 @@ var resourceSchema = mongoose.Schema({
 
     name: String, 
     config: mongoose.Schema.Types.Mixed,
-    salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config
+    salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },

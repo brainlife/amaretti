@@ -277,7 +277,8 @@ app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
     }
 }]);
 
-app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $http, serverconf) {
+app.factory('resources', ['appconf', '$http', 'serverconf', 'toaster', 
+function(appconf, $http, serverconf, toaster) {
     var resources = null;
 
     //return all devices configured for the user
@@ -292,6 +293,9 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
                     resource.detail = serverconf.resources[resource.resource_id];
                 });
                 return resources;
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
             });
         });
     }
@@ -310,24 +314,27 @@ app.factory('resources', ['appconf', '$http', 'serverconf', function(appconf, $h
         }); 
     }
 
-    //add to resources list without adding it to the server
+    //add to resources 
     function add(resource_id) {
+        //just in case..
         return serverconf.then(function(serverconf) {
             var def = serverconf.resources[resource_id];  
-            resources.push({
+            $http.post(appconf.api+'/resource', {
                 type: def.type,
                 resource_id: resource_id,
                 config: def.default
+            })      
+            .then(function(res) {
+                resources.push(res.data);
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
             });
         });
     }
 
     function upsert(resource) {
-        if(resource._id) {
-            return $http.put(appconf.api+'/resource/'+resource._id, resource);
-        } else {
-            return $http.post(appconf.api+'/resource', resource);
-        }
+        return $http.put(appconf.api+'/resource/'+resource._id, resource);
     }
 
     return {

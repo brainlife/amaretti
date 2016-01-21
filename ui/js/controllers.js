@@ -77,19 +77,6 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     ///////////////////////////////////////////////////////////////////////////////////////////////
     //functions
 
-    /*
-    //for editing workflow attributes (name, desc)
-    $scope.edit = {};
-    $scope.start_edit = function(id) {
-        $scope.edit[id] = $scope.workflow[id];
-    }
-    $scope.end_edit = function(id) {
-        //TODO
-        alert($scope.edit[id]);
-        $scope.edit[id] = null;
-    }
-    */
-
     //TODO rename to just save()?
     $scope.save_workflow = function() {
         $http.put(appconf.api+'/workflow/'+$routeParams.id, $scope.workflow)
@@ -101,29 +88,6 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
         });
     }
 
-    /*
-    $scope.findproducts = function(type) {
-        var products = [];
-        $scope.workflow.steps.forEach(function(step) {
-            step.tasks.forEach(function(task) {
-                for(var product_idx = 0;product_idx < task.products.length; product_idx++) {
-                    var product = task.products[product_idx];                
-                    //TODO support other criteria?
-                    if(product.type == type) {
-                        //products.push({workflow_id: $scope.workflow._id, step_idx: step_idx, product_idx: product_idx, });
-                        products.push({
-                            step: step,    
-                            task: task, 
-                            service_detail: $scope.serverconf.services[task.service_id],
-                            product_idx: product_idx
-                        });
-                    }
-                }
-            });
-        });
-        return products;
-    }
-    */
     $scope.removestep = function(idx) {
         $scope.workflow.steps.splice(idx, 1);
         $scope.save_workflow();
@@ -200,22 +164,10 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     });
 
     $scope.submit = function(resource) {
-
-        /*
-        //mask if enc_ fields are set to "true" - meaning user hasn't updated it
-        for(var k in resource.config) {
-            if(k.indexOf("enc_") === 0) {
-                var v = resource.config[k];
-                if(v === true) delete resource.config[k]; 
-            }
-        }
-        */
         resources.upsert(resource).then(function(res) {
             toaster.success("successfully updated the resource configuration");
-            //console.dir(res.data);
-            for(var k in res.data) {
-                resource[k] = res.data[k];
-            }
+            //update with new content without updating anything else
+            for(var k in res.data) { resource[k] = res.data[k]; }
         }, function(res) {     
             if(res.data && res.data.message) toaster.error(res.data.message);
             else toaster.error(res.statusText);
@@ -225,6 +177,16 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $rou
     $scope.newresource_id = null;
     $scope.add = function() {
         resources.add($scope.newresource_id);
+    }
+    $scope.reset_sshkey = function(resource) {
+        $http.post(appconf.api+'/resource/resetsshkeys/'+resource._id)
+        .then(function(res) {
+            toaster.success("Successfully reset your ssh keys. Please update your public key in ~/.ssh/authorized_keys!");
+            resource.config.ssh_public = res.data.ssh_public;
+        }, function(res) {
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
+        });
     }
 }]);
 
