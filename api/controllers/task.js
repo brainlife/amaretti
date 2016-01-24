@@ -62,7 +62,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
                 //also add reference to the workflow
                 step.tasks.push(_task._id);
                 workflow.save(function(err) {
-                    res.json({message: "Task Registered", task: _task});
+                    res.json({message: "Task successfully requested", task: _task});
                 });
             });
            
@@ -84,7 +84,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.save(function(err) {
             if(err) return next(err);
             progress.update(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
-                res.json({message: "Task rerequested", task: task});
+                res.json({message: "Task successfully re-requested", task: task});
             });
         });
     });

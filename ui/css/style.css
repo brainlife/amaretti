@@ -44,27 +44,6 @@ div.sca-workflow .workflow-step:hover .workflow-step-control {
 div.sca-workflow .workflow-step-border {
   opacity: 0.5;
 }
-div.sca-workflow .sca-step-hpss .sca-step-hpss-selected {
-  background-color: #008cba;
-  color: white;
-}
-div.sca-workflow .sca-step-hpss .sca-step-hpss-entry {
-  cursor: pointer;
-  padding: 1px;
-}
-div.sca-workflow .sca-step-hpss .sca-step-hpss-entry:hover {
-  background-color: #ccc;
-  color: black;
-}
-div.sca-workflow .sca-step-hpss ul.sca-step-hpss-children {
-  list-style: none;
-  padding-left: 0px;
-}
-div.sca-workflow .sca-step-hpss .sca-step-hpss-browser {
-  /* box-shadow: 0 0px 10px 0px grey inset; */
-  margin-top: 10px;
-  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-}
 div.sca-workflow .sca-task {
   background-color: #fff;
   border: 1px solid #ddd;
@@ -83,6 +62,58 @@ div.sca-workflow .sca-task .task-control {
 }
 div.sca-workflow .sca-task:hover .task-control {
   display: inherit;
+}
+div.sca-workflow .sca-step {
+  overflow: hidden;
+}
+div.sca-workflow .sca-step.ng-enter {
+  transition: 0.5s ease all;
+  transform: scaleY(0);
+  transform-origin: top;
+  max-height: 0px;
+  opacity: 0;
+}
+div.sca-workflow .sca-step.ng-enter.ng-enter-active {
+  transform: scaleY(1);
+  max-height: 800px;
+  /*this needs to be bigger than any ca-step can ever be... but can't be too big or animation won't work..*/
+  opacity: 1;
+}
+div.sca-workflow .sca-step.ng-leave {
+  transition: 0.5s ease all;
+  transform: scaleY(1);
+  transform-origin: top;
+  max-height: 800px;
+  opacity: 1;
+}
+div.sca-workflow .sca-step.ng-leave.ng-leave-active {
+  transform: scaleY(0);
+  max-height: 0px;
+  opacity: 0;
+}
+div.sca-workflow .sca-step .panel {
+  margin-bottom: 0px;
+}
+div.sca-workflow .sca-step .sca-step-hpss .sca-step-hpss-selected {
+  background-color: #008cba;
+  color: white;
+}
+div.sca-workflow .sca-step .sca-step-hpss .sca-step-hpss-entry {
+  cursor: pointer;
+  padding: 1px;
+}
+div.sca-workflow .sca-step .sca-step-hpss .sca-step-hpss-entry:hover {
+  background-color: #ccc;
+  color: black;
+}
+div.sca-workflow .sca-step .sca-step-hpss ul.sca-step-hpss-children {
+  list-style: none;
+  padding-left: 0px;
+}
+div.sca-workflow .sca-step .sca-step-hpss .sca-step-hpss-browser {
+  /* box-shadow: 0 0px 10px 0px grey inset; */
+  margin-top: 10px;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 div.sca-workflow .sca-comment p {
   margin: 0px;

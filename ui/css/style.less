@@ -51,31 +51,6 @@ div.sca-workflow {
         opacity: 0.5;
     }
 
-    .sca-step-hpss {
-        .sca-step-hpss-selected {
-            background-color: #008cba;
-            color: white;
-        }
-        .sca-step-hpss-entry {
-            cursor: pointer; 
-            padding: 1px;
-            &:hover {
-                background-color: #ccc;
-                color: black;
-            } 
-        }
-        ul.sca-step-hpss-children {
-            list-style: none;
-            padding-left: 0px;
-        }
-        span.sca-step-hpss-fixedwidth {
-        }
-        .sca-step-hpss-browser {
-            /* box-shadow: 0 0px 10px 0px grey inset; */
-            margin-top: 10px;
-            font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
-        }
-    }
 
     .sca-task {
         background-color: #fff;
@@ -99,7 +74,64 @@ div.sca-workflow {
             }
         }
     }
-    .sca-step-upload {
+
+    .sca-step {
+        overflow: hidden;
+        &.ng-enter {
+            transition: 0.5s ease all;
+            transform: scaleY(0);    
+            transform-origin: top;
+            max-height: 0px;
+            opacity: 0;
+        }
+        &.ng-enter.ng-enter-active  {
+            transform: scaleY(1);
+            max-height: 800px; /*this needs to be bigger than any ca-step can ever be... but can't be too big or animation won't work..*/
+            opacity: 1;
+        }
+
+        &.ng-leave {
+            transition: 0.5s ease all;
+            transform: scaleY(1);
+            transform-origin: top;
+            max-height: 800px;
+            opacity: 1;
+        }
+        &.ng-leave.ng-leave-active {
+            transform: scaleY(0);    
+            max-height: 0px;
+            opacity: 0;
+        }
+
+        .panel {
+            margin-bottom: 0px;
+        }
+
+        .sca-step-hpss {
+            .sca-step-hpss-selected {
+                background-color: #008cba;
+                color: white;
+            }
+            .sca-step-hpss-entry {
+                cursor: pointer; 
+                padding: 1px;
+                &:hover {
+                    background-color: #ccc;
+                    color: black;
+                } 
+            }
+            ul.sca-step-hpss-children {
+                list-style: none;
+                padding-left: 0px;
+            }
+            span.sca-step-hpss-fixedwidth {
+            }
+            .sca-step-hpss-browser {
+                /* box-shadow: 0 0px 10px 0px grey inset; */
+                margin-top: 10px;
+                font-family: Menlo,Monaco,Consolas,"Courier New",monospace;
+            }
+        }
     }
 
     .sca-comment {

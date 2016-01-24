@@ -1,7 +1,7 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid sca-workflow">
     <sca-workflow-info></sca-workflow-info>
-    <div ng-repeat="step in workflow.steps">
+    <div ng-repeat="step in workflow.steps" class="sca-step">
         <div class="workflow-step-border">
             <button class="btn btn-xs pull-right" style="position: relative; top: -13px;" ng-click="addstep($index)">
                 <i class="fa fa-plus"></i>
