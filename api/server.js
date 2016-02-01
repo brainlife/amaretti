@@ -38,13 +38,18 @@ app.use('/service', require('./services'));
 app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
     logger.error(err);
-    if(err.stack) logger.error(err.stack);
+    if(err.stack) {
+        logger.error(err.stack);
+        err.stack = "hidden"; //for ui
+    }
     res.status(err.status || 500);
+    res.json(err);
+    /*
     var o = {};
     if(err.message) o.message = err.message;
-    //if(err.code) o.message = "Error Code: "+err.code;
-    //if(config.debug) o.stack = err.stack;
     res.json(o);
+    */
+
 });
 
 process.on('uncaughtException', function (err) {

@@ -14,6 +14,16 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var progress = require('../progress');
 
+router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    db.Task.find({
+        user_id: req.user.sub,
+        create_date: { "$gte": new Date(2016,0,1)},  //TODO - make this not hardcoded..
+    }, function(err, tasks) {
+        if(err) return next(err);
+        res.json(tasks);
+    });
+});
+
 router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.findById(req.params.id, function(err, task) {
         if(err) return next(err);

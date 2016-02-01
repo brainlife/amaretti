@@ -1,4 +1,4 @@
-<div class="sca-task" ng-if="task.status != 'finished'">
+<div class="sca-task sca-task-{{task.status}}" ng-if="task.status != 'finished'">
     <div class="btn-group pull-right task-control">
         <button type="button" ng-if="progress.status =='failed'" class="btn btn-xs" ng-click="rerun()">
             <i class="fa fa-repeat"></i> Rerun

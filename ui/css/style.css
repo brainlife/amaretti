@@ -49,6 +49,9 @@ div.sca-workflow .sca-task {
   border: 1px solid #ddd;
   padding: 15px;
   margin: 5px 0px;
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+  border-left: 5px solid gray;
 }
 div.sca-workflow .sca-task .status {
   text-transform: uppercase;
@@ -59,6 +62,9 @@ div.sca-workflow .sca-task h4 {
 }
 div.sca-workflow .sca-task .task-control {
   display: none;
+}
+div.sca-workflow .sca-task.sca-task-failed {
+  border-left: 5px solid red;
 }
 div.sca-workflow .sca-task:hover .task-control {
   display: inherit;
