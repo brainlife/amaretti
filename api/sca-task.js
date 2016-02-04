@@ -147,6 +147,8 @@ function process_requested(task, cb) {
         if(err) return failed(task, err, cb);
         common.decrypt_resource(resource);
         progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+        //progress.update(task.progress_key+".service", {status: 'running', progress: 0, msg: 'Waiting for Task Prep'});
+        //progress.update(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
         init_task(task, resource, function(err) {
             if(err) return failed(task, err, cb);
             cb();
@@ -180,13 +182,13 @@ function init_task(task, resource, cb) {
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
             //SCA_PROGRESS_URL: config.progress.api+"/status",
             //SCA_PROGRESS_KEY: task.progress_key+".service",
-            SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key+".service",
+            SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key/*+".service"*/,
         };
 
         async.series([
             function(next) {
                 //progress.update(task.progress_key, {msg: "Preparing Task"});
-                progress.update(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0, msg: 'installing sca install script', weight: 0});
+                progress.update(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0.05, msg: 'installing sca install script', weight: 0});
                 /*
                 logger.debug("making sure ~/.sca/services exists");
                 conn.exec("mkdir -p .sca/services", function(err, stream) {
@@ -416,7 +418,7 @@ function init_task(task, resource, cb) {
                 if(!service_detail.bin.start) return next(); //not all service uses start
 
                 logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.bin.start);
-                progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Starting Service'});
+                progress.update(task.progress_key/*+".service"*/, {name: service_detail.label, msg: 'Starting Service'});
 
                 conn.exec("cd "+taskdir+" && ./_boot.sh", {
                     /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
@@ -443,7 +445,7 @@ function init_task(task, resource, cb) {
                 if(!service_detail.bin.run) return next(); //not all service uses run (they may use start/status)
 
                 logger.debug("running_sync service: ~/.sca/services/"+service_id+"/"+service_detail.bin.run);
-                progress.update(task.progress_key+".service", {name: service_detail.label, status: 'running', progress: 0, msg: 'Running Service'});
+                progress.update(task.progress_key/*+".service"*/, {name: service_detail.label, status: 'running', progress: 0, msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                 task.save(function() {
