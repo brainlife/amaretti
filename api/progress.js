@@ -17,10 +17,15 @@ exports.update = function(key, p, cb) {
             'Authorization': 'Bearer '+config.progress.jwt,
         }, 
         */
+	rejectUnauthorized: false,
         json: p, 
     }, function(err, res, body){
-        logger.debug("posted progress update:"+key);
-        logger.debug(p);
+	if(err) {
+		logger.debug(err);
+	} else {
+		logger.debug("successfully posted progress update:"+key);
+		logger.debug(p);
+	}
         if(cb) cb(err, body);
     });
 }

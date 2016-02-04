@@ -101,6 +101,11 @@ router.post('/files',
                     */
                 });
             });
+	    conn.on('error', function(err) {
+		logger.error("ssh2 error");
+		logger.error(err);
+		next("Failed to ssh to resource "+resource_detail.hostname+" with username:"+resource.config.username);
+            });
             conn.connect({
                 host: resource_detail.hostname,
                 username: resource.config.username,

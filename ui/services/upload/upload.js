@@ -55,6 +55,7 @@ function(appconf, serverconf, toaster, Upload, resources) {
                     //toaster.success("uploaded successfully");
                     scope.files = [];
                 }, function(res) {
+		    //console.dir(res);
                     scope.loaded = null;
                     if(res.data && res.data.message) toaster.error(res.data.message);
                     else toaster.error(res.statusText);

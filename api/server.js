@@ -37,6 +37,7 @@ app.use('/service', require('./services'));
 //error handling
 app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
+    if(typeof err == "string") err = {message: err};
     logger.error(err);
     if(err.stack) {
         logger.error(err.stack);
