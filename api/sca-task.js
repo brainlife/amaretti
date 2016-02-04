@@ -18,7 +18,7 @@ var progress = require('./progress');
 var common = require('./common');
 
 db.init(function(err) {
-    if(err) return cb(err);
+    if(err) throw err;
     check_requested();
     check_running();
 });
