@@ -10,7 +10,7 @@ var router = express.Router();
 var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
-var uuid = require('uuid');
+//var uuid = require('uuid');
 var multiparty = require('multiparty');
 var Client = require('ssh2').Client;
 

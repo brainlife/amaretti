@@ -7,7 +7,7 @@ var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
 var hpss = require('hpss');
-var uuid = require('uuid');
+//var uuid = require('uuid');
 
 //mine
 var config = require('../config');
