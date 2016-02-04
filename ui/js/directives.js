@@ -30,6 +30,11 @@ function(appconf, $http, $timeout, toaster) {
             function load_progress() {
                 $http.get(appconf.progress_api+"/status/"+scope.task.progress_key)
                 .then(function(res) {
+                    if(!res.data) {
+                        console.log("failed to load progress");
+                        return;
+                    }
+
                     //load products if status becomes running to finished
                     if(scope.progress && scope.progress.status == "running" && res.data.status == "finished") {
                         toaster.success("Task "+scope.task.name+" completed successfully"); //can I assume it's successful?
