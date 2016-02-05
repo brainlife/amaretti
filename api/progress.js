@@ -17,15 +17,15 @@ exports.update = function(key, p, cb) {
             'Authorization': 'Bearer '+config.progress.jwt,
         }, 
         */
-	rejectUnauthorized: false,
+        rejectUnauthorized: false, //this maybe needed if the https server doesn't contain intermediate cert ..
         json: p, 
     }, function(err, res, body){
-	if(err) {
-		logger.debug(err);
-	} else {
-		logger.debug("successfully posted progress update:"+key);
-		logger.debug(p);
-	}
+        if(err) {
+            logger.debug(err);
+        } else {
+            logger.debug("successfully posted progress update:"+key);
+            logger.debug(p);
+        }
         if(cb) cb(err, body);
     });
 }

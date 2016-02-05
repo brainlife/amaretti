@@ -46,8 +46,8 @@ function check_resource_access(user, ids, cb) {
     }, cb);
 }
 
+//submit task!
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    //TODO it's very much specific for hpss task right now.. I need to make it more generic
     var workflow_id = req.body.workflow_id;
     var name = req.body.name;
 
@@ -56,7 +56,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         //make sure user owns the workflow that this task has requested under
         db.Workflow.findById(workflow_id, function(err, workflow) {
             if(workflow.user_id != req.user.sub) return res.status(401).end();
-            //console.dir(req.body)
             var step = workflow.steps[req.body.step_idx];
             var task = new db.Task(req.body); //for workflow_id, service_id, name, resources, and config
             
@@ -65,13 +64,13 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
             task.progress_key = "_sca."+workflow._id+"."+task._id;//uuid.v4();
             task.status = "requested";
             task.step_idx = req.body.step_idx;
-            //task.task_id = step.tasks.length;
 
             //now register!
             task.save(function(err, _task) {
                 //also add reference to the workflow
                 step.tasks.push(_task._id);
                 workflow.save(function(err) {
+                    if(err) return next(err);
                     res.json({message: "Task successfully requested", task: _task});
                 });
             });
