@@ -233,7 +233,7 @@ function init_task(task, resource, cb) {
             function(next) {
                 progress.update(task.progress_key+".prep", {progress: 0.5, msg: 'installing/updating '+service_id+' service'});
                 //logger.debug("git clone "+service_detail.giturl+" .sca/services/"+service_id);
-                conn.exec("ls .sca/services/"+service_id+ " || git clone "+service_detail.giturl+" .sca/services/"+service_id, function(err, stream) {
+                conn.exec("ls .sca/services/"+service_id+ " || LD_LIBRARY_PATH=\"\" git clone "+service_detail.giturl+" .sca/services/"+service_id, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git clone "+service_detail.giturl+" code:"+code);
@@ -248,7 +248,7 @@ function init_task(task, resource, cb) {
             },
             function(next) {
                 logger.debug("making sure requested service is up-to-date");
-                conn.exec("cd .sca/services/"+service_id+" && git pull", function(err, stream) {
+                conn.exec("cd .sca/services/"+service_id+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git pull in ~/.sca/services/"+service_id);
