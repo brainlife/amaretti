@@ -1,6 +1,11 @@
 body {
     font-family: 'Lato', serif;
 }
+.navbar-static-top {
+    position: fixed;
+    top: 0px;
+    width: 100%;
+}
 
 .header {
     padding: 10px;
@@ -50,7 +55,6 @@ div.sca-workflow {
     .workflow-step-border {
         opacity: 0.5;
     }
-
 
     .sca-task {
         background-color: #fff;
@@ -184,4 +188,10 @@ div.sca-workflow {
         overflow: auto;
         font-size: 80%;
     }
+}
+
+/*not working..*/
+li[ng-click]:hover {
+    background-color: #eee;
+    cursor: pointer;
 }

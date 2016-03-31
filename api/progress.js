@@ -23,8 +23,8 @@ exports.update = function(key, p, cb) {
         if(err) {
             logger.debug(err);
         } else {
-            logger.debug("successfully posted progress update:"+key);
-            logger.debug(p);
+            //logger.debug("successfully posted progress update:"+key);
+            logger.debug([key, p]);
         }
         if(cb) cb(err, body);
     });

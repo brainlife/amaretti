@@ -24,12 +24,32 @@ router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
     });
 });
 
-router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+//deprecated by /query?
+router.get('/byid/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.findById(req.params.id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub) return res.status(401).end();
         res.json(task);
+    });
+});
+
+router.get('/query', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var where = req.query.where || {};
+    where.user_id = req.user.sub;
+    var query = db.Task.find();
+    query.where("user_id", req.user.sub);
+    if(req.query.where) {
+        var where = JSON.parse(req.query.where);
+        for(var f in where) {
+            query.where(f, where[f]);
+        }
+    }
+    if(req.query.sort) query.sort(req.query.sort);
+    if(req.query.limit) query.limit(req.query.limit);
+    query.exec(function(err, tasks) {
+        if(err) return next(err);
+        res.json(tasks);
     });
 });
 
@@ -46,39 +66,47 @@ function check_resource_access(user, ids, cb) {
     }, cb);
 }
 
-//submit task!
+//submit a task
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var workflow_id = req.body.workflow_id;
-    var name = req.body.name;
+    var instance_id = req.body.instance_id;
+    //var step_id = req.body.step_id;
+    var service_id = req.body.service_id;
+    var config = req.body.config;
+    //var name = req.body.name;
 
-    check_resource_access(req.user, req.body.resources, function(err) {
-        if(err) next(err);
-        //make sure user owns the workflow that this task has requested under
-        db.Workflow.findById(workflow_id, function(err, workflow) {
-            if(workflow.user_id != req.user.sub) return res.status(401).end();
-            var step = workflow.steps[req.body.step_idx];
-            var task = new db.Task(req.body); //for workflow_id, service_id, name, resources, and config
-            
-            //need to set a few more things
-            task.user_id = req.user.sub;
-            task.progress_key = "_sca."+workflow._id+"."+task._id;//uuid.v4();
-            task.status = "requested";
-            task.step_idx = req.body.step_idx;
+    //check_resource_access(req.user, req.body.resources, function(err) {
+    //    if(err) next(err);
+    
+    //make sure user owns the workflow that this task has requested under
+    db.Workflow.findById(instance_id, function(err, instance) {
+        if(instance.user_id != req.user.sub) return res.status(401).end();
+        var task = new db.Task({}); 
+        task.instance_id = instance_id;
+        task.service_id = service_id;
+        task.user_id = req.user.sub;
+        task.progress_key = "_sca."+instance_id+"."+task._id;
+        task.status = "requested";
+        //task.step_idx = req.body.step_idx;
+        task.config = config;
 
-            //now register!
-            task.save(function(err, _task) {
-                //also add reference to the workflow
-                step.tasks.push(_task._id);
-                workflow.save(function(err) {
-                    if(err) return next(err);
-                    res.json({message: "Task successfully requested", task: _task});
-                });
+        //now register!
+        task.save(function(err, _task) {
+            /*
+            //also add reference to the workflow
+            if(!instance.steps[step_id]) instance.steps[step_id] = {tasks: []};
+            instance.steps[step_id].tasks.push(_task._id);
+            workflow.save(function(err) {
+                if(err) return next(err);
+                res.json({message: "Task successfully requested", task: _task});
             });
-           
-            //also send first progress update
-            progress.update(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
+            */
+            res.json({message: "Task successfully registered", task: _task});
         });
+       
+        //also send first progress update
+        progress.update(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
     });
+    //});
 });
 
 router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {

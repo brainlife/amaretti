@@ -21,8 +21,9 @@ exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
     var template = detail.workdir;
     var workdir = template
-        .replace("__username__", resource.config.username)
-        .replace("__workflowid__", workflow_id);
+        .replace("__username__", resource.config.username);
+    //    .replace("__workflowid__", workflow_id);
+    workdir+='/'+workflow_id;
     return workdir; 
 }
 exports.gettaskdir = function(workflow_id, task_id, resource) {
@@ -58,12 +59,10 @@ exports.decrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
             var salt = resource.salts[k];
-            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt.salt.buffer, 100000, 32, 'sha512');//, config.sca.resource_pbkdf2_algo);
+            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt.salt.buffer, 100000, 32, 'sha512');
             var decipher = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, salt.iv.buffer);
             resource.config[k] = decipher.update(resource.config[k], 'base64', 'utf8');
             resource.config[k] += decipher.final('utf8'); 
-            //console.log("unecnrypted");
-            //console.log(resource.config[k]);
         }
     }
 }
@@ -86,6 +85,7 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('error', function(err) {
         logger.error(err);
     });
+    exports.decrypt_resource(resource);
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
@@ -109,3 +109,74 @@ exports.ssh_keygen = function(cb) {
         });
     });
 }
+
+/*
+var services = null;
+exports.getServices = function(cb) {
+    //use cache
+    if(services) return cb(null, services);
+    
+    //load for the first time
+    services = {};
+    var services_dir = __dirname+'/../services';
+    fs.readdir(services_dir, function(err, files) {
+        if(err) return cb(err);
+        files.forEach(function(file) {
+            try {
+                var p = require(services_dir+'/'+file+'/package.json');
+                services[p.name] = p;
+            } catch(e) {
+                console.error("failed to register service:"+file);
+                console.error(e);
+            }
+        });
+        cb(null, services);
+    });
+}
+
+var products = null;
+exports.getProducts = function(cb) {
+    //use cache
+    if(products) return cb(null, products);
+
+    //load for the first time
+    products = {};
+    var products_dir = __dirname+'/../products';
+    fs.readdir(products_dir, function(err, files) {
+        if(err) return cb(err);
+        files.forEach(function(file) {
+            try {
+                var p = require(products_dir+'/'+file+'/package.json');
+                products[p.name] = p;
+            } catch(e) {
+                console.error("failed to register product:"+file);
+                console.error(e);
+            }
+        });
+        cb(null, products);
+    });
+}
+
+var workflows = null;
+exports.getWorkflows = function(cb) {
+    //use cache
+    if(workflows) return cb(null, workflows);
+
+    //load for the first time
+    workflows = {};
+    var workflows_dir = __dirname+'/../workflows';
+    fs.readdir(workflows_dir, function(err, files) {
+        if(err) return cb(err);
+        files.forEach(function(file) {
+            try {
+                var p = require(workflows_dir+'/'+file+'/package.json');
+                workflows[p.name] = p;
+            } catch(e) {
+                console.error("failed to register workflow:"+file);
+                console.error(e);
+            }
+        });
+        cb(null, workflows);
+    });
+}
+*/

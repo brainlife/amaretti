@@ -1,12 +1,13 @@
 {
   "name": "sca",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "SCA sample portal",
   "main": "index.js",
   "dependencies": {
     "async": "^1.5.1",
     "body-parser": "~1.13.3",
     "compression": "^1.6.0",
+    "ejs": "^2.4.1",
     "express": "~4.13.3",
     "express-jwt": "^3.0.1",
     "express-winston": "^1.2.0",

@@ -31,8 +31,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(expressWinston.logger(config.logger.winston));
 
 app.use('/', require('./controllers'));
-app.use('/product', require('./products'));
-app.use('/service', require('./services'));
+//app.use('/product', require('./products'));
+//app.use('/service', require('./services'));
 
 //error handling
 app.use(expressWinston.errorLogger(config.logger.winston)); 
@@ -45,12 +45,6 @@ app.use(function(err, req, res, next) {
     }
     res.status(err.status || 500);
     res.json(err);
-    /*
-    var o = {};
-    if(err.message) o.message = err.message;
-    res.json(o);
-    */
-
 });
 
 process.on('uncaughtException', function (err) {

@@ -28,6 +28,7 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
 });
 
 router.use('/workflow', require('./workflow'));
+router.use('/instance', require('./instance')); //workflow instances
 router.use('/resource', require('./resource'));
 router.use('/task', require('./task'));
 //router.use('/product', require('./product'));

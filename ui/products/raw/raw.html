@@ -1,6 +1,0 @@
-<b>Raw Files</b>
-<p ng-repeat="file in product.files" style="font-family: monospace;">
-    <a href="{{appconf.api}}/product/raw?t={{task._id}}&p={{product_idx}}&f={{$index}}&at={{jwt}}">{{file.filename}}
-        <span class="text-muted">{{file.size|bytes}}</span> 
-    </a>
-</p>
