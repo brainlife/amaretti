@@ -5,7 +5,7 @@ var mongoose = require('mongoose');
 var winston = require('winston');
 
 //mine
-var config = require('../config');
+var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 
 exports.init = function(cb) {
@@ -29,12 +29,7 @@ var workflowSchema = mongoose.Schema({
     //user that this workflow instance belongs to
     user_id: {type: String, index: true}, 
 
-    /*
-    name: String, 
-    desc: String, 
-    */
-
-    steps: mongoose.Schema.Types.Mixed,
+    config: mongoose.Schema.Types.Mixed,
     /*
     steps: [ mongoose.Schema({
         service_id: String,
@@ -70,6 +65,10 @@ var resourceSchema = mongoose.Schema({
     //
     ////////////////////////////////////////////////
 
+    status: String,
+    status_msg: String,
+    status_update: Date,
+
     name: String, 
     config: mongoose.Schema.Types.Mixed,
     salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
@@ -103,10 +102,14 @@ var taskSchema = mongoose.Schema({
     service_id: String,
 
     progress_key: {type: String, index: true}, 
-    status: String, 
 
-    //resources chosen to run this task on
-    //resources: mongoose.Schema.Types.Mixed, 
+    status: String, 
+    status_msg: String,
+    status_update: Date,
+
+    //if this document is handled by sca-task, this will be set to hostname, pid, timestamp of the sca-task
+    _handled: mongoose.Schema.Types.Mixed,
+
     resource_id: mongoose.Schema.Types.ObjectId,
     
     //object containing details for this task
@@ -124,6 +127,7 @@ taskSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
+
 exports.Task = mongoose.model('Task', taskSchema);
 
 

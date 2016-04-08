@@ -11,6 +11,7 @@
     "express": "~4.13.3",
     "express-jwt": "^3.0.1",
     "express-winston": "^1.2.0",
+    "fs-mode-to-string": "0.0.2",
     "hpss": "0.0.7",
     "mongoose": "^4.3.5",
     "morgan": "~1.6.1",

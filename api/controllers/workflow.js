@@ -11,9 +11,8 @@ var ejs = require('ejs');
 var _ = require('underscore');
 
 //mine
-var config = require('../config');
+var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
-//var common = require('../common');
 var db = require('../models/db');
 
 //get all workflows registered (and instances that user has created for each workflows)
@@ -45,65 +44,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         res.json(workflows);
     });
 });
-
-/*
-//construct html frame needed for the workflow
-var html_template = ejs.compile(fs.readFileSync(__dirname+"/workflow.html", {encoding: 'utf8'}));
-router.get('/html/:instid', function(req, res, next) {
-    //get specified workflow instance
-    var instid = req.params.instid;
-    db.Workflow.findById(instid)
-    //.populate('steps.tasks')
-    //.populate('steps.products')
-    .exec(function(err, workflow_inst) {
-        if(err) return next(err);
-        if(!workflow_inst) return next("can't find specified workflow instance"); 
-
-        //get workflow detail
-        common.getWorkflows(function(err, workflows) {
-            if(err) return next(err);
-            var workflow = workflows[workflow_inst.type_id];
-
-            //TODO - maybe I should only load services / products referenced by this workflow
-            //for now, let's just load all registered services / products
-            common.getProducts(function(err, products) {
-                if(err) return next(err);
-                console.dir(products);
-                common.getServices(function(err, services) {
-                    if(err) return next(err);
-                    res.end(html_template({
-                        products: products, 
-                        services: services, 
-                        workflow: workflow,
-                        inst: workflow_inst,
-                    }));
-                });
-            });
-        });
-    }); 
-});
-*/
-/*
-//get all workflows instances for this user
-router.get('/insts', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Workflow
-    .find({
-        user_id: req.user.sub
-    })
-    .sort({'update_date':1})
-    .select({
-        name: 1,
-        desc: 1,
-        create_date: 1,
-        update_date: 1
-    })
-    .populate('steps.tasks')
-    .exec(function(err, workflows) {
-        if(err) return next(err);
-        res.json(workflows);
-    });
-});
-*/
 
 module.exports = router;
 

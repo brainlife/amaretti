@@ -9,10 +9,11 @@ var async = require('async');
 var hpss = require('hpss');
 
 //mine
-var config = require('../config');
+var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
-var progress = require('../progress');
+var common = require('../common');
+//var progress = require('../progress');
 
 router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.find({
@@ -104,7 +105,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         });
        
         //also send first progress update
-        progress.update(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
+        common.progress(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
     });
     //});
 });
@@ -120,7 +121,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.products = [];
         task.save(function(err) {
             if(err) return next(err);
-            progress.update(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
+            common.progress(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
                 res.json({message: "Task successfully re-requested", task: task});
             });
         });

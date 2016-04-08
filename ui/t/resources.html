@@ -25,6 +25,9 @@
                     <div ng-switch-when="hpss">
                         <ng-include src="'t/resources.hpss.html'"></ng-include>
                     </div>
+                    <div ng-switch-when="docker">
+                        <ng-include src="'t/resources.ssh.html'"></ng-include>
+                    </div>
                     <div ng-switch-default>
                         <pre>{{resource|json}}</pre>
                     </div>

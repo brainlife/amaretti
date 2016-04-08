@@ -1,40 +1,35 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid">
-    <div class="panel panel-default" ng-repeat="(wid, workflow) in workflows">
-        <div class="panel-heading">
-            <span class="pull-right text-muted">{{workflow.package.version}}</span>
-            {{workflow.package.sca.label || workflow.package.name}}
-        </div>
-        <div class="panel-body"> 
-            <div class="row">
-                <div class="col-md-7">
-                    <p>{{workflow.package.description}}</p>
-                    <p>{{workflow.package.author}}</p>
-                    <button type="button" class="btn btn-xs" ng-click="detail(wid)"><i class="fa fa-info-circle"></i> Detail</button>
-                </div>
-                <div class="col-md-5">
-                    <!--
-                    <hr>
-                    <pre class="slide-down" ng-if="workflow.showjson">{{workflow|json}}</pre>
-                    <button type="button" class="btn btn-xs" ng-click="workflow.showjson = true"><i class="fa fa-download"></i> JSON</button>
-                    -->
-                    <ul class="list-group">
-                        <li class="list-group-item" ng-repeat="(instid, inst) in workflow.insts" ng-click="openinst(wid, instid)">
-                            Untitled <small class="text-muted">{{instid}}</small>
-                            <time class="pull-right">{{inst.create_date|date:'short'}}</time>
-                        </li>
-                        <li class="list-group-item text-muted" ng-click="create(wid)"><i class="fa fa-file"></i>&nbsp;&nbsp;Create New</li>
-                    </ul>
-                </div>
+    <div class="row">
+    <div class="col-md-4" ng-repeat="(wid, workflow) in workflows">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <small class="pull-right text-muted">{{workflow.package.version}}</small>
+                {{workflow.package.sca.label || workflow.package.name}}
+            </div>
+            <div class="panel-body"> 
+                <p>{{workflow.package.description}}</p>
+                <p>{{workflow.package.author}}</p>
+                <button type="button" class="btn btn-xs" ng-click="detail(wid)"><i class="fa fa-info-circle"></i> Detail</button>
+                <button type="button" class="btn btn-primary btn-xs" ng-click="create(wid)"><i class="fa fa-file"></i>&nbsp;&nbsp;Start</button>
+                <!--
+                <hr>
+                <pre class="slide-down" ng-if="workflow.showjson">{{workflow|json}}</pre>
+                <button type="button" class="btn btn-xs" ng-click="workflow.showjson = true"><i class="fa fa-download"></i> JSON</button>
+                -->
+            </div>
+            <div class="panel-footer">
+                <h5>Instances</h5>
+                <ul class="list-group">
+                    <li class="list-group-item" ng-repeat="(instid, inst) in workflow.insts" ng-click="openinst(wid, instid)">
+                        {{inst.config.description||'Untitled'}} <small class="text-muted">{{instid}}</small>
+                        <time class="pull-right">{{inst.create_date|date:'short'}}</time>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
-    <!--
-    <button class="btn" ng-click="create()">Create New Workflow</button>
-    <hr>
-    <pre class="slide-down" ng-if="debug_workflow">{{workflows | json}}</pre>
-    <button type="button" class="btn btn-sm" ng-click="debug_workflow = true"><i class="fa fa-download"></i> JSON</button>
-    -->
+    </div><!--row-->
 </div>
 
 

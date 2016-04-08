@@ -10,20 +10,20 @@ var winston = require('winston');
 var async = require('async');
 var keygen = require('ssh-keygen');
 var Client = require('ssh2').Client;
+var request = require('request');
 
 //mine
-var config = require('./config');
+var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
-var progress = require('./progress');
+//var progress = require('./progress');
 
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
     var template = detail.workdir;
     var workdir = template
         .replace("__username__", resource.config.username);
-    //    .replace("__workflowid__", workflow_id);
-    workdir+='/'+workflow_id;
+    if(workflow_id) workdir+='/'+workflow_id;
     return workdir; 
 }
 exports.gettaskdir = function(workflow_id, task_id, resource) {
@@ -69,21 +69,32 @@ exports.decrypt_resource = function(resource) {
 
 var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
-    if(ssh_conns[resource._id]) return cb(ssh_conns[resource._id]);
+    //see if we already have an active ssh session
+    var old = ssh_conns[resource._id];
+    if(old) {
+        logger.debug("reusing previously established ssh connection");
+        return cb(null, old);
+    }
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
         ssh_conns[resource._id] = conn;
-        logger.debug("connected");
+        logger.debug("ssh connection ready");
         logger.debug(detail);
-        cb(conn);
+        cb(null, conn);
     });
     conn.on('end', function() {
-        logger.debug("connection closed");
+        logger.debug("ssh connection ended");
+        delete ssh_conns[resource._id];
+    });
+    conn.on('close', function() {
+        logger.debug("ssh connection closed");
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
+        logger.error("ssh connection error");
         logger.error(err);
+        cb(err);
     });
     exports.decrypt_resource(resource);
     conn.connect({
@@ -110,73 +121,25 @@ exports.ssh_keygen = function(cb) {
     });
 }
 
-/*
-var services = null;
-exports.getServices = function(cb) {
-    //use cache
-    if(services) return cb(null, services);
-    
-    //load for the first time
-    services = {};
-    var services_dir = __dirname+'/../services';
-    fs.readdir(services_dir, function(err, files) {
-        if(err) return cb(err);
-        files.forEach(function(file) {
-            try {
-                var p = require(services_dir+'/'+file+'/package.json');
-                services[p.name] = p;
-            } catch(e) {
-                console.error("failed to register service:"+file);
-                console.error(e);
-            }
-        });
-        cb(null, services);
+exports.progress = function(key, p, cb) {
+    request({
+        method: 'POST',
+        url: config.progress.api+'/status/'+key, 
+        /*
+        headers: {
+            'Authorization': 'Bearer '+config.progress.jwt,
+        }, 
+        */
+        rejectUnauthorized: false, //this maybe needed if the https server doesn't contain intermediate cert ..
+        json: p, 
+    }, function(err, res, body){
+        if(err) {
+            logger.debug(err);
+        } else {
+            //logger.debug("successfully posted progress update:"+key);
+            logger.debug([key, p]);
+        }
+        if(cb) cb(err, body);
     });
 }
 
-var products = null;
-exports.getProducts = function(cb) {
-    //use cache
-    if(products) return cb(null, products);
-
-    //load for the first time
-    products = {};
-    var products_dir = __dirname+'/../products';
-    fs.readdir(products_dir, function(err, files) {
-        if(err) return cb(err);
-        files.forEach(function(file) {
-            try {
-                var p = require(products_dir+'/'+file+'/package.json');
-                products[p.name] = p;
-            } catch(e) {
-                console.error("failed to register product:"+file);
-                console.error(e);
-            }
-        });
-        cb(null, products);
-    });
-}
-
-var workflows = null;
-exports.getWorkflows = function(cb) {
-    //use cache
-    if(workflows) return cb(null, workflows);
-
-    //load for the first time
-    workflows = {};
-    var workflows_dir = __dirname+'/../workflows';
-    fs.readdir(workflows_dir, function(err, files) {
-        if(err) return cb(err);
-        files.forEach(function(file) {
-            try {
-                var p = require(workflows_dir+'/'+file+'/package.json');
-                workflows[p.name] = p;
-            } catch(e) {
-                console.error("failed to register workflow:"+file);
-                console.error(e);
-            }
-        });
-        cb(null, workflows);
-    });
-}
-*/
