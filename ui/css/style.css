@@ -1,6 +1,9 @@
 body {
   font-family: 'Lato', serif;
 }
+h2 {
+  color: gray;
+}
 .navbar-static-top {
   position: fixed;
   top: 0px;
@@ -164,4 +167,12 @@ div.sca-workflow .sca-product h4 {
 li[ng-click]:hover {
   background-color: #eee;
   cursor: pointer;
+}
+.panel-workflow {
+  transition: box-shadow 0.2s;
+}
+.panel-workflow:hover {
+  cursor: pointer;
+  box-shadow: 3px 3px 3px #aaa;
+  position: relative;
 }

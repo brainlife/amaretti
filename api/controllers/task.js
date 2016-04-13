@@ -15,6 +15,7 @@ var db = require('../models/db');
 var common = require('../common');
 //var progress = require('../progress');
 
+//deprecated by /query?
 router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.find({
         user_id: req.user.sub,
@@ -67,19 +68,15 @@ function check_resource_access(user, ids, cb) {
     }, cb);
 }
 
-//submit a task
+//submit a task under a workflow instance
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance_id = req.body.instance_id;
-    //var step_id = req.body.step_id;
     var service_id = req.body.service_id;
     var config = req.body.config;
-    //var name = req.body.name;
+    var deps = req.body.deps;
 
-    //check_resource_access(req.user, req.body.resources, function(err) {
-    //    if(err) next(err);
-    
     //make sure user owns the workflow that this task has requested under
-    db.Workflow.findById(instance_id, function(err, instance) {
+    db.Instance.findById(instance_id, function(err, instance) {
         if(instance.user_id != req.user.sub) return res.status(401).end();
         var task = new db.Task({}); 
         task.instance_id = instance_id;
@@ -87,8 +84,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
-        //task.step_idx = req.body.step_idx;
         task.config = config;
+        task.deps = deps;
 
         //now register!
         task.save(function(err, _task) {
@@ -105,7 +102,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         });
        
         //also send first progress update
-        common.progress(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: 'Task Requested'});
+        common.progress(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: service_id+' service requested'});
     });
     //});
 });
@@ -123,6 +120,25 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
             if(err) return next(err);
             common.progress(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
                 res.json({message: "Task successfully re-requested", task: task});
+            });
+        });
+    });
+});
+
+router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var task_id = req.params.task_id;
+    db.Task.findById(task_id, function(err, task) {
+        if(err) return next(err);
+        if(!task) return res.status(404).end();
+        if(task.user_id != req.user.sub) return res.status(401).end();
+        if(task.status != "running") return next("you can only stop task in running status");
+        
+        task.status = "stop_requested";
+        task.products = [];
+        task.save(function(err) {
+            if(err) return next(err);
+            common.progress(task.progress_key, {msg: 'Stop Requested'}, function() {
+                res.json({message: "Task successfully requested to stop", task: task});
             });
         });
     });

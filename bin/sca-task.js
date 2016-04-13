@@ -23,6 +23,7 @@ db.init(function(err) {
     if(err) throw err;
     check_requested();
     check_running();
+    check_stop();
 });
 
 //var running = 0;
@@ -84,11 +85,72 @@ function check_requested() {
     });
 }
 
+function check_stop() {
+    db.Task.find({status: "stop_requested"}).exec(function(err, tasks) {
+        if(err) throw err;
+        //logger.info("check_stop:: loaded "+tasks.length+" stop_requested tasks");
+        async.eachSeries(tasks, function(task, next) {
+            logger.info("handling stop request:"+task._id);
+            db.Resource.findById(task.resource_id, function(err, resource) {
+                if(err) {
+                    logger.error(err);
+                    return next(); //skip this task
+                }
+
+                var service_detail = config.services[task.service_id];
+                if(!service_detail) {
+                    logger.error("Couldn't find such service:"+task.service_id);
+                    return next(); //skip this task
+                }
+                if(!service_detail.sca || !service_detail.sca.bin || !service_detail.sca.bin.stop) {
+                    logger.error("service:"+task.service_id+" doesn't have stop.sh defined.. marking as finished");
+                    task.status = "stopped";
+                    task.status_msg = "Stopped by user";
+                    task.save();
+                    return next(); //skip this task
+                }
+
+                common.get_ssh_connection(resource, function(err, conn) {
+                    var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                    conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            logger.debug("stream closed "+code);
+                            task.status = "stopped";
+                            switch(code) {
+                            case 0: //cleanly stopped
+                                task.status_msg = "Cleanly stopped by user";
+                                task.save();
+                                next();
+                                break;
+                            default:
+                                task.status_msg = "Failed to stop the task cleanly -- code:"+code;
+                                task.save();
+                                next();
+                            }
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.debug("receiveed stderr");
+                            logger.error(data.toString());
+                        });
+                    });
+                });
+            });
+        }, function(err) {
+            if(err) logger.error(err); //continue
+            //all done for this round - schedule for next
+            setTimeout(check_running, 1000*5); //check job status every few minutes
+        });
+    });
+}
+
 //check for task status of already running tasks
 function check_running() {
     db.Task.find({status: "running"}).exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("check_running :: loaded "+tasks.length+" running tasks");
+        //logger.info("check_running :: loaded "+tasks.length+" running tasks");
         //process synchronously so that I don't accidentally overwrap with next check
         async.eachSeries(tasks, function(task, next) {
             logger.info("check_running "+task._id);
@@ -97,11 +159,10 @@ function check_running() {
                 if(err) return next(err);
                 common.get_ssh_connection(resource, function(err, conn) {
                     var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                    //TODO - not all service provides bin.status.. how will this handle that?
                     logger.debug("cd "+taskdir+" && ./_status.sh");
                     conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
-                        if(err) {
-                            next(err);
-                        }
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             switch(code) {
                             case 0: //still running
@@ -154,24 +215,11 @@ function check_running() {
 
 function process_requested(task, cb) {
     //var query = null;
-    var service_detail = config.services[task.service_id];
-    if(!service_detail) return cb("Couldn't find such service:"+task.service_id);
-    resource_picker.select(task.user_id, function(resource) {
-        var resource_detail = config.resources[resource.resource_id];
-
-        //use service provied scoring logic
-        logger.debug(resource_detail);
-        if( service_detail.package.sca && 
-            service_detail.package.sca.resource_query && 
-            service_detail.package.sca.resource_query.score &&
-            service_detail.package.sca.resource_query.score[resource_detail.type]) {
-            logger.debug("using service provided scoring");
-            logger.debug(service_detail.package.sca.resource_query.score[resource_detail.type]);
-            return service_detail.package.sca.resource_query.score[resource_detail.type];
-        }
-        //if not, just pick pbs
-        else if(resource.type == "pbs") return 10;
-        else return 0;
+    //var service_detail = config.services[task.service_id];
+    //if(!service_detail) return cb("Couldn't find such service:"+task.service_id);
+    resource_picker.select(task.user_id, {
+        service_id: task.service_id,
+        //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
     }, function(err, resource) {
         if(err) return cb(err);
         if(!resource) return cb("couldn't find a resource to execute this task");
@@ -197,7 +245,7 @@ function init_task(task, resource, cb) {
 
         var service_detail = config.services[service_id];
         if(!service_detail) return cb("Couldn't find such service:"+service_id);
-        if(!service_detail.package.sca || !service_detail.package.sca.bin) return cb("package.sca.bin not defined");
+        if(!service_detail.sca || !service_detail.sca.bin) return cb("package.sca.bin not defined");
 
         console.log("running service:"+service_id);
         //console.dir(service_detail);
@@ -212,6 +260,7 @@ function init_task(task, resource, cb) {
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
             SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key/*+".service"*/,
         };
+        task.envs = envs;
 
         async.series([
             function(next) {
@@ -258,7 +307,7 @@ function init_task(task, resource, cb) {
             },
             function(next) {
                 common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service_id+' service'});
-                conn.exec("ls .sca/services/"+service_id+ " >/dev/null 2>&1 || LD_LIBRARY_PATH=\"\" git clone "+service_detail.package.repository.url+" .sca/services/"+service_id, function(err, stream) {
+                conn.exec("ls .sca/services/"+service_id+ " >/dev/null 2>&1 || LD_LIBRARY_PATH=\"\" git clone "+service_detail.repository.url+" .sca/services/"+service_id, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git clone. code:"+code);
@@ -351,6 +400,7 @@ function init_task(task, resource, cb) {
                         if(source_resource.user_id != task.user_id) return cb("dep resource aren't owned by the same user");
                         var source_path = common.gettaskdir(task.instance_id, task._id, source_resource);
                         var dest_path = common.gettaskdir(task.instance_id, task._id, resource);
+                        //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                         transfer.rsync_resource(source_resource, resource, source_path, dest_path, next_dep);
                     });
                 }, next);
@@ -383,8 +433,8 @@ function init_task(task, resource, cb) {
            
             //write _status.sh
             function(next) { 
-                //not all service uses status
-                if(!service_detail.package.sca.bin.status) return next(); 
+                //not all service has status
+                if(!service_detail.sca.bin.status) return next(); 
 
                 logger.debug("installing _status.sh");
                 conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
@@ -404,14 +454,42 @@ function init_task(task, resource, cb) {
                         var vs = v.replace(/\"/g,'\\"')
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
-                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.package.sca.bin.status);
+                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.status);
+                    stream.end();
+                });
+            },
+            
+            //write _stop.sh
+            function(next) { 
+                //not all service has stop
+                if(!service_detail.sca.bin.stop) return next(); 
+
+                logger.debug("installing _stop.sh");
+                conn.exec("cd "+taskdir+" && cat > _stop.sh && chmod +x _stop.sh", function(err, stream) {
+                    if(err) next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to write _stop.sh -- code:"+code);
+                        next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                    stream.write("#!/bin/bash\n");
+                    for(var k in envs) {
+                        var v = envs[k];
+                        var vs = v.replace(/\"/g,'\\"')
+                        stream.write("export "+k+"=\""+vs+"\"\n");
+                    }
+                    stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.stop);
                     stream.end();
                 });
             },
  
             //write _boot.sh
             function(next) { 
-                if(!service_detail.package.sca.bin.run && !service_detail.package.sca.bin.start) {
+                if(!service_detail.sca.bin.run && !service_detail.sca.bin.start) {
                     return next("bin.run nor bin.start defined in package.json"); 
                 }
                 
@@ -439,7 +517,7 @@ function init_task(task, resource, cb) {
                         }
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
-                    stream.write("~/.sca/services/"+service_id+"/"+(service_detail.package.sca.bin.run||service_detail.package.sca.bin.start)+" > log.stdout 2>log.stderr\n");
+                    stream.write("~/.sca/services/"+service_id+"/"+(service_detail.sca.bin.run||service_detail.sca.bin.start)+" > log.stdout 2>log.stderr\n");
                     stream.end();
                 });
             },
@@ -451,9 +529,9 @@ function init_task(task, resource, cb) {
             
             //finally, start the service
             function(next) {
-                if(!service_detail.package.sca.bin.start) return next(); //not all service uses start
+                if(!service_detail.sca.bin.start) return next(); //not all service uses start
 
-                logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.package.sca.bin.start);
+                logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start);
                 common.progress(task.progress_key/*+".service"*/, {name: service_detail.label, msg: 'Starting Service'});
 
                 conn.exec("cd "+taskdir+" && ./_boot.sh", {
@@ -478,9 +556,9 @@ function init_task(task, resource, cb) {
             
             //or run it synchronously (via run.sh)
             function(next) {
-                if(!service_detail.package.sca.bin.run) return next(); //not all service uses run (they may use start/status)
+                if(!service_detail.sca.bin.run) return next(); //not all service uses run (they may use start/status)
 
-                logger.debug("running_sync service: ~/.sca/services/"+service_id+"/"+service_detail.package.sca.bin.run);
+                logger.debug("running_sync service: ~/.sca/services/"+service_id+"/"+service_detail.sca.bin.run);
                 common.progress(task.progress_key/*+".service"*/, {name: service_detail.label, status: 'running', /*progress: 0,*/ msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
@@ -538,7 +616,7 @@ function load_products(task, taskdir, conn, cb) {
         var products_json = "";
         var error_msg = "";
         stream.on('error', function(err) {
-            error_msg = err;
+            error_msg = "Failed to download products.json: "+err;
         }); 
         stream.on('data', function(data) {
             products_json += data;

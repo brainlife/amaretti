@@ -1,10 +1,31 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid">
-    <h2>{{workflow.sca.label}}</h2>
-    <p>{{workflow.description}}</p>
-    <button type="button" class="btn" ng-click="create()">Start</button>
-    <hr>
-    <pre>{{workflow|json}}</pre>
-</div>
+    <h2>{{workflow.sca.label || workflow.name}} <small>{{workflow.version}}</small></h2>
+    <p class="text-muted">{{workflow.description}}</p>
+    <div class="row">
+        <div class="col-md-7">
+            <p class="alert alert-warning">TODO ..show other information from workflow</p>
+            <pre style="font-size: 80%">{{workflow|json}}</pre>
+        </div>
+        <div class="col-md-5">
+            <div class="well">
+                <h3>New Instance</h3>
+                <form ng-submit="submit()">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" class="form-control" placeholder="Enter name for this workflow instance" required ng-model="form.name"></input>
+                        <label>Description</label>
+                        <textarea class="form-control" placeholder="A description for this instance" ng-model="form.desc"></textarea>
+                    </div>
+                    <div class="pull-right">
+                        <button type="button" class="btn" ng-click="back()">Back</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa fa-file"></i>&nbsp;&nbsp;New</button>
+                    </div>
+                </form>
+                <br clear="both">
+            </div>
+        </div><!--col-dm-5-->
+    </div><!--row-->
+</div><!--container-fluid-->
 
 

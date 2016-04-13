@@ -4,7 +4,7 @@
   "description": "SCA sample portal",
   "main": "index.js",
   "dependencies": {
-    "async": "^1.5.1",
+    "async": "^1.5.2",
     "body-parser": "~1.13.3",
     "compression": "^1.6.0",
     "ejs": "^2.4.1",

@@ -17,7 +17,7 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 
 function getinstance(instid, req, cb) {
-    db.Workflow
+    db.Instance
     .findById(instid)
     //.populate('steps.tasks')
     //.populate('steps.products')
@@ -28,12 +28,22 @@ function getinstance(instid, req, cb) {
         cb(null, instance);
     });
 }
+ 
+//get all instances that belongs to a user
+router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    db.Instance
+    .find({user_id: req.user.sub})
+    .exec(function(err, instances) {
+        if(err) return next(err);
+        res.json(instances);
+    });
+});
 
 //get a single workflow instance
 router.get('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     /*
     var id = req.params.instid;
-    db.Workflow
+    db.Instance
     .findById(id)
     .populate('steps.tasks')
     .populate('steps.products')
@@ -76,7 +86,7 @@ router.put('/:instid/:stepid', jwt({secret: config.sca.auth_pubkey}), function(r
         if(err) return next(err);
         if(!instance.steps) instance.steps = {};
         instance.steps[stepid] = req.body;
-        db.Workflow.update({_id: instid, user_id: req.user.sub}, {$set: instance}, function(err, workflow) {
+        db.Instance.update({_id: instid, user_id: req.user.sub}, {$set: instance}, function(err, workflow) {
             if(err) return next(err);
             res.json({message: "success"});
         });
@@ -88,17 +98,25 @@ router.put('/:instid/:stepid', jwt({secret: config.sca.auth_pubkey}), function(r
 //update workflow instance *config*
 router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;
-    var config = req.body;
-    db.Workflow.update({_id: id, user_id: req.user.sub}, {$set: {config: config, update_date: new Date()}}, function(err, workflow) {
+    var name = req.body.name;
+    var desc = req.body.desc;
+    var config = req.body.config;
+    db.Instance.update({_id: id, user_id: req.user.sub}, {$set: {
+        name: name,
+        desc: desc,
+        config: config, update_date: new Date()
+    }}, function(err, instance) {
         if(err) return next(err);
-        res.json(workflow);
+        res.json(instance);
     });
 });
 
-//create new workflow
+//create new instance
 router.post('/:workflowid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var instance = new db.Workflow({});
-    instance.type_id = req.params.workflowid;
+    var instance = new db.Instance({});
+    instance.workflow_id = req.params.workflowid;
+    instance.name = req.body.name;
+    instance.desc = req.body.desc;
     instance.user_id = req.user.sub;
     instance.steps = {};
     instance.save(function(err) {

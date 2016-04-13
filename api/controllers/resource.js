@@ -20,6 +20,7 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
 var resource_picker = require('../resource_picker');
+var transfer = require('../transfer');
 
 function mask_enc(resource) {
     //mask all config parameters that starts with enc_
@@ -36,9 +37,18 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     db.Resource.find({
         user_id: req.user.sub
     })
+    .lean()
     .exec(function(err, resources) {
         if(err) return next(err);
         resources.forEach(mask_enc);
+            
+        //add / remove a few more things
+        resources.forEach(function(resource) {
+            resource.detail = config.resources[resource.resource_id];
+            //resource.workdir = common.getworkdir(null, resource); //nobody uses this at the moment
+            resource.salts = undefined;
+            resource.user_id = undefined; //no point
+        });
         res.json(resources);
     });
 });
@@ -77,15 +87,12 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
 });
 
 //return a best resource for a given purpose / criteria (TODO..)
-//(likely to be deprecated... only sca service should be responsible for picking the 
-//best resource, and dealing with decrypted config
+//TODO ..only sca service should be responsible for picking the best resource.., and dealing with decrypted config
+//currently used by file upload service to pick which resource to upload files to
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var user_query = req.query; //TODO..
-    resource_picker.select(req.user.sub, function(resource) {
-        //TODO - for now, give pbs high score..
-        var resource_detail = config.resources[resource._id];
-        if(resource.type == "pbs") return 100;
-        return 0;
+    resource_picker.select(req.user.sub, {
+        service_id: req.query.service_id,  //service_id that resource must provide
+        other_service_id: req.query.other_service_ids, //TODO -- helps to pick a better ID
     }, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
@@ -95,20 +102,6 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
             detail: resource_detail,
             workdir: common.getworkdir(null, resource),
         };
-        
-        /*
-        //TODO this should go away when/if I build resource service that can stream IO via socket.io-stream
-        //don't forget to get rid of decrypt_resource then
-        if(req.query._addsecret) {
-            common.decrypt_resource(resource);
-            ret._secrets = {
-                username: resource.config.username,
-                private_key: resource.config.enc_ssh_private,
-                hostname: resource_detail.hostname,
-            }
-        }
-        */
-
         res.json(ret);
     });
 });
@@ -217,6 +210,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     form.parse(req);
 });
 
+/* I believe noone uses this 
 router.post('/exec', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource_id = req.body.resource_id;
     var cmd = req.body.cmd;
@@ -236,6 +230,37 @@ router.post('/exec', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
                     res.end();
                     //conn.end();
                 });
+            });
+        });
+    });
+});
+*/
+
+router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var task_id = req.body.task_id;
+    var dest_resource_id = req.body.dest_resource_id;
+
+    db.Task.findById(task_id, function(err, task) {
+        if(err) return next(err);
+        if(!task) return res.status(404).json({message: "couldn't find the task specified"});
+        if(task.user_id != req.user.sub) return res.status(401).end(); 
+        db.Resource.findById(task.resource_id, function(err, source_resource) {
+            if(err) return next(err);
+            //if(!source_resource) return res.status(404).json({message: "couldn't find the source resource specified in a task"});
+            //if(source_resource.user_id != req.user.sub) return res.status(401).end(); 
+            db.Resource.findById(dest_resource_id, function(err, dest_resource) {
+                if(err) return next(err);
+                if(!dest_resource) return res.status(404).json({message: "couldn't find the dest resource specified"});
+                if(dest_resource.user_id != req.user.sub) return res.status(401).end(); 
+
+                var source_path = common.gettaskdir(task.instance_id, task_id, source_resource);
+                var dest_path = common.gettaskdir(task.instance_id, task_id, dest_resource);
+
+                //now start rsync
+                transfer.rsync_resource(source_resource, dest_resource, source_path, dest_path, function(err) {
+                    if(err) throw err; //TODO - don't throw here.. mark this transfer as failed (no such collection yet)
+                });
+                res.json({message: "data transfer requested.."});
             });
         });
     });

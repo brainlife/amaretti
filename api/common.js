@@ -20,9 +20,10 @@ var db = require('./models/db');
 
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
+    //if(detail === undefined) throw new Error("couldn't find resource_id:"+resource.resource_id);
+    if(!detail.workdir) return null;
     var template = detail.workdir;
-    var workdir = template
-        .replace("__username__", resource.config.username);
+    var workdir = template.replace("__username__", resource.config.username);
     if(workflow_id) workdir+='/'+workflow_id;
     return workdir; 
 }

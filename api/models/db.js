@@ -21,10 +21,13 @@ exports.disconnect = function(cb) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-var workflowSchema = mongoose.Schema({
+//workflow instance
+var instanceSchema = mongoose.Schema({
 
-    //workflow id (like "freesurfer")
-    type_id: String,
+    workflow_id: String, //"freesurfer"
+
+    name: String, //name of the workflow
+    desc: String, //desc of the workflow
 
     //user that this workflow instance belongs to
     user_id: {type: String, index: true}, 
@@ -48,11 +51,11 @@ var workflowSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
-workflowSchema.pre('update', function(next) {
+instanceSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
-exports.Workflow = mongoose.model('Workflow', workflowSchema);
+exports.Instance = mongoose.model('Instance', instanceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -89,17 +92,19 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 var taskSchema = mongoose.Schema({
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    //important fields
-    //workflow_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
-    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Workflow'},
-    //step_idx: Number, //index of step within workflow
-    user_id: String, //sub of user submitted this request
-    //
-    //////////////////////////////////////////////////////////////////////////////////////////////
 
-    //name: String,
+    user_id: String, //sub of user submitted this request
+
+    instance_id: String,
     service_id: String,
+    
+    //resource where the service was executed (not set if it's not yet run)
+    resource_id: mongoose.Schema.Types.ObjectId,
+    //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
+    envs: mongoose.Schema.Types.Mixed,
+    
+    //content of products.json once generated
+    products: mongoose.Schema.Types.Mixed,
 
     progress_key: {type: String, index: true}, 
 
@@ -109,8 +114,6 @@ var taskSchema = mongoose.Schema({
 
     //if this document is handled by sca-task, this will be set to hostname, pid, timestamp of the sca-task
     _handled: mongoose.Schema.Types.Mixed,
-
-    resource_id: mongoose.Schema.Types.ObjectId,
     
     //object containing details for this task
     config: mongoose.Schema.Types.Mixed, 
@@ -118,7 +121,8 @@ var taskSchema = mongoose.Schema({
     //task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'} ],
 
-    products: mongoose.Schema.Types.Mixed,
+    //list of resource where the output directory is synchronized (TODO - not sure if I will use this or not)
+    //resources: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },

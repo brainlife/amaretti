@@ -45,6 +45,14 @@ function check_resources(cb) {
 //run appropriate tests based on resource type
 function check_resource(resource, cb) {
     var detail = config.resources[resource.resource_id];
+    if(detail === undefined) {
+        logger.error("unknown resource_id:"+resource.resource_id);
+        return cb();
+    }
+    if(detail.type === undefined) {
+        logger.error(resource.resource_id+" doesn't have type defined.. don't know how to check");
+        return cb();
+    }
     logger.debug(detail);
     switch(detail.type) {
     case "pbs": return check_ssh(resource, update_status);

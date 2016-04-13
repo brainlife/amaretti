@@ -38,13 +38,28 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 });
             },
             function(next) {
+                //make sure dest dir exists
+                conn.exec("mkdir -p "+dest_path, function(err, stream) {
+                    if(err) next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to mkdir -p "+dest_path);
+                        else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                });
+            },  
+            function(next) {
                 //run rsync 
                 var source_resource_detail = config.resources[source_resource.resource_id];
                 var hostname = source_resource_detail.hostname;
                 var sshopts = "ssh -i .sca/keys/"+source_resource._id+".sshkey";
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
-                console.log("rsync -av --progress -e \""+sshopts+"\" "+source+" "+dest_path);
-                conn.exec("rsync -av --progress -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                console.log("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path);
+                conn.exec("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to rsync content from source_resource:"+source_path+" to dest_resource:"+dest_path);

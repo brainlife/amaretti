@@ -158,6 +158,7 @@ app.filter('reverse', function() {
     };
 });
 
+/*
 app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
     return {
         get: function() {
@@ -180,6 +181,7 @@ app.factory('workflows', ['appconf', '$http', function(appconf, $http) {
         }
     }
 }]);
+*/
 
 app.factory('resources', ['appconf', '$http', 'serverconf', 'toaster', 
 function(appconf, $http, serverconf, toaster) {
