@@ -119,7 +119,7 @@ function mkdirp(conn, dir, cb) {
 }
 
 //handle file upload request via multipart form
-//takes resource_id and path via headers
+//takes resource_id and path via headers (mkdirp path if it doesn't exist)
 router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var form = new multiparty.Form({autoFields: true});
     //var resource_id = req.headers.resource_id;
@@ -236,6 +236,7 @@ router.post('/exec', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
 });
 */
 
+//currently used by sca-cli cp 
 router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.body.task_id;
     var dest_resource_id = req.body.dest_resource_id;
@@ -259,6 +260,8 @@ router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, re
                 //now start rsync
                 transfer.rsync_resource(source_resource, dest_resource, source_path, dest_path, function(err) {
                     if(err) throw err; //TODO - don't throw here.. mark this transfer as failed (no such collection yet)
+                }, function(progress) {
+                    //event stream?
                 });
                 res.json({message: "data transfer requested.."});
             });

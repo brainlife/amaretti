@@ -25,6 +25,7 @@ router.use('/workflow', require('./workflow'));
 router.use('/instance', require('./instance')); //workflow instances
 router.use('/resource', require('./resource'));
 router.use('/task', require('./task'));
+router.use('/comment', require('./comment'));
 
 module.exports = router;
 

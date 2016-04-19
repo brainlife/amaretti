@@ -10,7 +10,12 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 var common = require('../api/common');
 
-exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb) {
+//TODO I still haven't decided if I should make this a task that dynamically inserted between 2 dependent tasks at runtime.
+//(or will that leads to possible infinite loop?)
+//I think such approach is messy, and also think SCA should own the transfer routing / method decision. 
+//Or.. we could do something like.. making a generic transfer task and SCA to figure out the best route / methods and pass
+//that information via config.json?
+exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb, progress_cb) {
     common.get_ssh_connection(dest_resource, function(err, conn) {
         if(err) return cb(err); 
         async.series([
@@ -67,6 +72,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
+                        if(progress_cb) {
+                            progress_cb({msg:data.toString()}); 
+                        }
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
                     });

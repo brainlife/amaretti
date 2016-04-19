@@ -33,20 +33,6 @@ var instanceSchema = mongoose.Schema({
     user_id: {type: String, index: true}, 
 
     config: mongoose.Schema.Types.Mixed,
-    /*
-    steps: [ mongoose.Schema({
-        service_id: String,
-        name: String,  //not sure if I will ever use this
-        config: mongoose.Schema.Types.Mixed,
-
-        tasks: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'}],
-        //products: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Product'}],
-
-        //not sure how useful / accurate these will be..
-        create_date: {type: Date, default: Date.now },
-        //update_date: {type: Date, default: Date.now },
-    }) ] ,
-    */
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
@@ -95,13 +81,14 @@ var taskSchema = mongoose.Schema({
 
     user_id: String, //sub of user submitted this request
 
-    instance_id: String,
+    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
     service_id: String,
     
     //resource where the service was executed (not set if it's not yet run)
-    resource_id: mongoose.Schema.Types.ObjectId,
+    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
+    
     //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
-    envs: mongoose.Schema.Types.Mixed,
+    _envs: mongoose.Schema.Types.Mixed,
     
     //content of products.json once generated
     products: mongoose.Schema.Types.Mixed,
@@ -133,6 +120,23 @@ taskSchema.pre('update', function(next) {
 });
 
 exports.Task = mongoose.model('Task', taskSchema);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+var commentSchema = mongoose.Schema({
+
+    type: String, //workflow, instance, task, etc..
+    subid: String, //workflow_id, instance_id, whatever... could be not set
+
+    user_id: String, //author user id
+    create_date: {type: Date, default: Date.now },
+    text: String, //content of the comment
+
+    //profile cache to speed things up
+    //TODO update this cache periodically, or whenever user changes profile
+    _profile: mongoose.Schema.Types.Mixed,
+});
+exports.Comment = mongoose.model('Comment', commentSchema);
 
 
 

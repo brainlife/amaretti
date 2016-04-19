@@ -1,6 +1,11 @@
 body {
   font-family: 'Lato', serif;
 }
+.container .page {
+  background-color: white;
+  box-shadow: 0 0 5px #ccc;
+  padding: 20px;
+}
 h2 {
   color: gray;
 }
@@ -175,4 +180,8 @@ li[ng-click]:hover {
   cursor: pointer;
   box-shadow: 3px 3px 3px #aaa;
   position: relative;
+}
+.clickable:hover {
+  cursor: pointer;
+  background-color: #ccc;
 }

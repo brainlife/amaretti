@@ -29,11 +29,15 @@ function getinstance(instid, req, cb) {
     });
 }
  
-//get all instances that belongs to a user
+//query all instances that belongs to a user
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Instance
-    .find({user_id: req.user.sub})
-    .exec(function(err, instances) {
+    var where = {};
+    if(req.query.where) where = JSON.parse(req.query.where);
+    where.user_id = req.user.sub;
+    var query = db.Instance.find(where);
+    if(req.query.sort) query.sort(req.query.sort);
+    if(req.query.limit) query.limit(req.query.limit);
+    query.exec(function(err, instances) {
         if(err) return next(err);
         res.json(instances);
     });

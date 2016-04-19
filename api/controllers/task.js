@@ -15,7 +15,8 @@ var db = require('../models/db');
 var common = require('../common');
 //var progress = require('../progress');
 
-//deprecated by /query?
+/*
+//TODO deprecated by get:/?
 router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.find({
         user_id: req.user.sub,
@@ -25,28 +26,39 @@ router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
         res.json(tasks);
     });
 });
+*/
 
-//deprecated by /query?
-router.get('/byid/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Task.findById(req.params.id, function(err, task) {
+//TODO deprecated by get:/?
+router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    db.Task
+    .findById(req.params.id)
+    //.populate('deps')
+    //.populate('resource_id') //I think resource_id expand to resource is confusing.. I will populate it to _resource below
+    .lean()
+    .exec(function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub) return res.status(401).end();
-        res.json(task);
+
+        //populate resource info
+        if(task.resource_id) {
+            db.Resource.findById(task.resource_id)
+            .select('type name status status_msg')
+            .exec(function(err, resource) {
+                if(err) return next(err); 
+                task._resource = resource;
+                res.json(task);
+            });
+        } else res.json(task);
     });
 });
 
-router.get('/query', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var where = req.query.where || {};
+//get all tasks that belongs to a user (with query.)
+router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var where = {};
+    if(req.query.where) where = JSON.parse(req.query.where);
     where.user_id = req.user.sub;
-    var query = db.Task.find();
-    query.where("user_id", req.user.sub);
-    if(req.query.where) {
-        var where = JSON.parse(req.query.where);
-        for(var f in where) {
-            query.where(f, where[f]);
-        }
-    }
+    var query = db.Task.find(where);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);
     query.exec(function(err, tasks) {
@@ -84,6 +96,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
+        task.status_msg = "";
         task.config = config;
         task.deps = deps;
 
@@ -115,6 +128,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         if(task.user_id != req.user.sub) return res.status(401).end();
         
         task.status = "requested";
+        task.status_msg = "";
         task.products = [];
         task.save(function(err) {
             if(err) return next(err);
@@ -134,6 +148,7 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         if(task.status != "running") return next("you can only stop task in running status");
         
         task.status = "stop_requested";
+        task.status_msg = "";
         task.products = [];
         task.save(function(err) {
             if(err) return next(err);

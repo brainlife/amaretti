@@ -39,6 +39,7 @@
     <script src="bower_components/angular-bootstrap/ui-bootstrap.min.js"></script>
     <script src="bower_components/angular-bootstrap/ui-bootstrap-tpls.min.js"></script>
     <script src="bower_components/angularjs-toaster/toaster.min.js"></script>
+    <script src="bower_components/angular-gravatar/build/angular-gravatar.js"></script>
 
     <!--
     <script src="bower_components/ng-file-upload/ng-file-upload.min.js"></script>
@@ -49,32 +50,10 @@
     <script src="../shared/config.js"></script> 
     <script src="../shared/dist/shared.js"></script> 
 
-    <script>
-    var app = angular.module('app', [
-        'app.config',
-        'ngRoute',
-        'ngAnimate',
-        'ngCookies',
-        'toaster',
-        'angular-loading-bar',
-        'angular-jwt',
-        'ui.bootstrap',
-        'ui.bootstrap.tooltip',
-        'sca-shared',
-        /*
-        //TODO anyway I can automate this?
-        'sca-service-comment',
-        'sca-service-hpss',
-        'sca-service-blast',
-        'sca-service-upload',
+    <script src="bower_components/sca-files/ui/files.js"></script><!-- used for task view.. maybe I should make it separate service?-->
 
-        'sca-product-raw',
-        'sca-product-blast',
-        */
-    ]);
-    </script>
-    <script src="js/common.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/controllers.js"></script>
 
     <!--
     <script src="services/comment/comment.js"></script>

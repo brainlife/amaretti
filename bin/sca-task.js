@@ -44,17 +44,25 @@ function check_requested() {
         logger.info("check_requested :: loaded "+tasks.length);
         
         async.eachSeries(tasks, function(task, next) {
-            console.dir(task);
-
+            //console.dir(task);
             //make sure dependent tasks has all finished
             //TODO - this is extremely inefficient. maybe I should set such request to "waiting_dep" and reset them to "requested" once
             //depdendent task has finished
             var deps_all_done = true;
+            var dep_failed = null;
             task.deps.forEach(function(dep) {
                 if(dep.status != "finished") deps_all_done = false; 
+                if(dep.status == "failed") dep_failed = dep._id;
             });
+            if(dep_failed) {
+                logger.debug("one of dependency has failed.. stopping this task");
+                task.status = "stopped";
+                task.status_msg = "dependency: "+dep_failed+" failed.. stopping";
+                task.save(next);
+                return;
+            }
             if(!deps_all_done) {
-                logger.debug("dependency not met..");
+                logger.debug("dependency not met.. postponing");
                 return next();
             }
             
@@ -178,6 +186,7 @@ function check_running() {
                                         return;
                                     }
                                     task.status = "finished"; //load_products saves this
+                                    task.status_msg = "service completed successfully";
                                     task.save();
                                     common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'}, next);
                                 });
@@ -260,7 +269,7 @@ function init_task(task, resource, cb) {
             SCA_SERVICE_DIR: "$HOME/.sca/services/"+service_id,
             SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key/*+".service"*/,
         };
-        task.envs = envs;
+        task._envs = envs;
 
         async.series([
             function(next) {
@@ -401,7 +410,14 @@ function init_task(task, resource, cb) {
                         var source_path = common.gettaskdir(task.instance_id, task._id, source_resource);
                         var dest_path = common.gettaskdir(task.instance_id, task._id, resource);
                         //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
-                        transfer.rsync_resource(source_resource, resource, source_path, dest_path, next_dep);
+                        common.progress(task.progress_key+".sync", {status: 'running', progress: 0, name: 'Transferring source task directory'});
+                        transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
+                            if(err) common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
+                            else common.progress(task.progress_key+".sync", {status: 'finished', progress: 1});
+                            next_dep(err);
+                        }, function(progress) {
+                            common.progress(task.progress_key+".sync", progress);
+                        });
                     });
                 }, next);
             },
@@ -543,6 +559,7 @@ function init_task(task, resource, cb) {
                             return next("Service startup failed with return code:"+code+" signal:"+signal);
                         } else {
                             task.status = "running";
+                            task.status_msg = "started service.";
                             task.save(next);
                         }
                     })
@@ -562,6 +579,7 @@ function init_task(task, resource, cb) {
                 common.progress(task.progress_key/*+".service"*/, {name: service_detail.label, status: 'running', /*progress: 0,*/ msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
+                task.status_msg = "running service synchrnounsly.";
                 task.save(function() {
                     conn.exec("cd "+taskdir+" && ./_boot.sh", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
@@ -574,6 +592,7 @@ function init_task(task, resource, cb) {
                                 load_products(task, taskdir, conn, function(err) {
                                     if(err) return next(err);
                                     task.status = "finished"; //let load_products save this
+                                    task.status_msg = "service finished";
                                     task.save();
                                     common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
                                 });

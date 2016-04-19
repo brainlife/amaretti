@@ -1,28 +1,53 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid">
-    <h2>{{workflow.sca.label || workflow.name}} <small>{{workflow.version}}</small></h2>
-    <p class="text-muted">{{workflow.description}}</p>
     <div class="row">
-        <div class="col-md-7">
+        <div class="col-md-8">
+            <h2>{{workflow.sca.label || workflow.name}} <small>{{workflow.version}}</small></h2>
+            <p class="text-muted">{{workflow.description}}</p>
             <p class="alert alert-warning">TODO ..show other information from workflow</p>
             <pre style="font-size: 80%">{{workflow|json}}</pre>
+            <h3 class="text-muted">Comments</h3>
+            <form ng-submit="addcomment()">
+                <textarea class="form-control" ng-model="comment" placeholder="Add a comment .."></textarea>
+                <button type="submit" class="btn btn-sm" ng-if="comment"><i class="fa fa-check" aria-hidden="true"></i></button>
+            </form>
+            <br>
+            <div class="row" ng-repeat="comment in comments|orderBy:'-create_date'">
+                <div class="col-md-1"><img gravatar-src="comment._profile.email" gravatar-size="32"></img></div>
+                <div class="col-sm-11">
+                    <time class="pull-right text-muted">{{comment.create_date|date:'short'}}</time>
+                    <b>{{comment._profile.fullname}}</b>
+                    <p>{{comment.text}}</p> 
+                </div>
+                <hr>
+            </div>
+           
         </div>
-        <div class="col-md-5">
-            <div class="well">
-                <h3>New Instance</h3>
+        <div class="col-md-4">
+            <h3 class="text-muted">Instances</h3>
+            <div class="well well-sm">
+                <!--
+                <h3><i class="fa fa-play-circle" aria-hidden="true"></i> Create New</h3>
+                -->
                 <form ng-submit="submit()">
                     <div class="form-group">
                         <label>Name *</label>
-                        <input type="text" class="form-control" placeholder="Enter name for this workflow instance" required ng-model="form.name"></input>
+                        <input type="text" class="form-control" placeholder="Enter name for new workflow instance" required ng-model="form.name"></input>
                         <label>Description</label>
-                        <textarea class="form-control" placeholder="A description for this instance" ng-model="form.desc"></textarea>
+                        <textarea class="form-control" placeholder="A description for new workflow instance" ng-model="form.desc"></textarea>
                     </div>
                     <div class="pull-right">
-                        <button type="button" class="btn" ng-click="back()">Back</button>
-                        <button type="submit" class="btn btn-primary"><i class="fa fa-file"></i>&nbsp;&nbsp;New</button>
+                        <!--<button type="button" class="btn" ng-click="back()">Back</button>-->
+                        <button type="submit" class="btn btn-primary"><i class="fa fa-file"></i>&nbsp;&nbsp;New Instance</button>
                     </div>
                 </form>
                 <br clear="both">
+            </div>
+            <div ng-repeat="instance in instances|orderBy:'-create_date'" class="clickable" ng-click="openinst(instance)">
+                <time class="pull-right text-muted">{{instance.create_date|date:'short'}}</time>
+                <b>{{instance.name}}</b>
+                <p>{{instance.desc}}</p>
+                <pre>{{instance.config|json}}</pre>
             </div>
         </div><!--col-dm-5-->
     </div><!--row-->
