@@ -24,10 +24,15 @@ exports.select = function(user_id, query, cb) {
         var best_score = null;
         resources.forEach(function(resource) {
             var score = score_resource(resource, query);
-            logger.debug(resource._id+" type:"+resource.type+" score="+score);
+            //logger.debug(resource._id+" type:"+resource.type+" score="+score);
             if(!best || score > best_score) {
+                //normally pick the best score...
                 best_score = score;
                 best = resource;
+            } else if(score == best_score && query.resource_id && query.resource_id == resource._id.toString()) {
+                //but if score ties, give user preference into consideration
+                logger.debug("using "+query.resource_id+" since score tied");
+                best = resource; 
             }
         });
 
@@ -41,7 +46,7 @@ exports.select = function(user_id, query, cb) {
 
 function score_resource(resource, query) {
     var resource_detail = config.resources[resource.resource_id];
-    logger.debug(resource_detail);
+    //logger.debug(resource_detail);
     //see if resource supports the service
     //TODO other things we could do..
     //1... handle query.other_service_ids and give higher score to resource that provides more of those services

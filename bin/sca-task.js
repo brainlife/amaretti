@@ -41,7 +41,7 @@ function check_requested() {
     .populate('deps', 'status resource_id') //populate dep status and resource_id
     .exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("check_requested :: loaded "+tasks.length);
+        logger.info("check_requested:"+tasks.length);
         
         async.eachSeries(tasks, function(task, next) {
             //console.dir(task);
@@ -62,7 +62,7 @@ function check_requested() {
                 return;
             }
             if(!deps_all_done) {
-                logger.debug("dependency not met.. postponing");
+                logger.debug("task:"+task._id+" dependency not met.. postponing");
                 return next();
             }
             
@@ -96,6 +96,7 @@ function check_requested() {
 function check_stop() {
     db.Task.find({status: "stop_requested"}).exec(function(err, tasks) {
         if(err) throw err;
+        logger.info("check_stop:"+tasks.length);
         //logger.info("check_stop:: loaded "+tasks.length+" stop_requested tasks");
         async.eachSeries(tasks, function(task, next) {
             logger.info("handling stop request:"+task._id);
@@ -114,8 +115,7 @@ function check_stop() {
                     logger.error("service:"+task.service_id+" doesn't have stop.sh defined.. marking as finished");
                     task.status = "stopped";
                     task.status_msg = "Stopped by user";
-                    task.save();
-                    return next(); //skip this task
+                    task.save(next);
                 }
 
                 common.get_ssh_connection(resource, function(err, conn) {
@@ -128,13 +128,11 @@ function check_stop() {
                             switch(code) {
                             case 0: //cleanly stopped
                                 task.status_msg = "Cleanly stopped by user";
-                                task.save();
-                                next();
+                                task.save(next);
                                 break;
                             default:
                                 task.status_msg = "Failed to stop the task cleanly -- code:"+code;
-                                task.save();
-                                next();
+                                task.save(next);
                             }
                         })
                         .on('data', function(data) {
@@ -149,7 +147,7 @@ function check_stop() {
         }, function(err) {
             if(err) logger.error(err); //continue
             //all done for this round - schedule for next
-            setTimeout(check_running, 1000*5); //check job status every few minutes
+            setTimeout(check_stop, 1000*10); //check job status every few minutes
         });
     });
 }
@@ -158,6 +156,7 @@ function check_stop() {
 function check_running() {
     db.Task.find({status: "running"}).exec(function(err, tasks) {
         if(err) throw err;
+        logger.info("check_running:"+tasks.length);
         //logger.info("check_running :: loaded "+tasks.length+" running tasks");
         //process synchronously so that I don't accidentally overwrap with next check
         async.eachSeries(tasks, function(task, next) {
@@ -179,23 +178,23 @@ function check_running() {
                             case 1: //finished
                                 load_products(task, taskdir, conn, function(err) {
                                     if(err) {
+                                        common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                         task.status = "failed";
                                         task.status_msg = err;
-                                        task.save();
-                                        common.progress(task.progress_key, {status: 'failed', msg: err.toString()}, next);
+                                        task.save(next);
                                         return;
                                     }
-                                    task.status = "finished"; //load_products saves this
+                                    common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
+                                    task.status = "finished";
                                     task.status_msg = "service completed successfully";
-                                    task.save();
-                                    common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'}, next);
+                                    task.save(next);
                                 });
                                 break;
                             case 2:  //failed
-                                task.status = "failed"; //load_products saves this
+                                common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
+                                task.status = "failed"; 
                                 task.status_msg = err;
-                                task.save();
-                                common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'}, next);
+                                task.save(next);
                                 break; 
                             default:
                                 //TODO - should I mark it as failed? or.. 3 strikes and out rule?
@@ -217,7 +216,7 @@ function check_running() {
             }
             
             //all done for this round - schedule for next
-            setTimeout(check_running, 1000*60); //check job status every few minutes
+            setTimeout(check_running, 1000*10); //check job status every few minutes
         });
     });
 }
@@ -228,6 +227,7 @@ function process_requested(task, cb) {
     //if(!service_detail) return cb("Couldn't find such service:"+task.service_id);
     resource_picker.select(task.user_id, {
         service_id: task.service_id,
+        resource_id: task.resource_id //user preference (most of the time not set)
         //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
     }, function(err, resource) {
         if(err) return cb(err);
@@ -273,18 +273,7 @@ function init_task(task, resource, cb) {
 
         async.series([
             function(next) {
-                //common.progress(task.progress_key, {msg: "Preparing Task"});
                 common.progress(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0.05, msg: 'Installing sca install script', weight: 0});
-                /*
-                logger.debug("making sure ~/.sca/services exists");
-                conn.exec("mkdir -p .sca/services", function(err, stream) {
-                    if(err) next(err);
-                    stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to create ~/.sca/services");
-                        else next();
-                    });
-                });
-                */
                 conn.exec("mkdir -p ~/.sca && cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
@@ -316,7 +305,12 @@ function init_task(task, resource, cb) {
             },
             function(next) {
                 common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service_id+' service'});
-                conn.exec("ls .sca/services/"+service_id+ " >/dev/null 2>&1 || LD_LIBRARY_PATH=\"\" git clone "+service_detail.repository.url+" .sca/services/"+service_id, function(err, stream) {
+                var url = service_detail.repository.url;
+                //trim "git+" from git+https
+                if(url.indexOf("git+https://") == 0) {
+                    url = url.substring(4);
+                }
+                conn.exec("ls .sca/services/"+service_id+ " >/dev/null 2>&1 || LD_LIBRARY_PATH=\"\" git clone "+url+" .sca/services/"+service_id, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to git clone. code:"+code);
@@ -407,8 +401,10 @@ function init_task(task, resource, cb) {
                         if(err) return cb(err);
                         if(!source_resource) return cb("couldn't find dep resource");
                         if(source_resource.user_id != task.user_id) return cb("dep resource aren't owned by the same user");
-                        var source_path = common.gettaskdir(task.instance_id, task._id, source_resource);
-                        var dest_path = common.gettaskdir(task.instance_id, task._id, resource);
+                        var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
+                        var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
+                        logger.debug("syncing from source:"+source_path);
+                        logger.debug("syncing from dest:"+dest_path);
                         //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                         common.progress(task.progress_key+".sync", {status: 'running', progress: 0, name: 'Transferring source task directory'});
                         transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
@@ -533,7 +529,8 @@ function init_task(task, resource, cb) {
                         }
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
-                    stream.write("~/.sca/services/"+service_id+"/"+(service_detail.sca.bin.run||service_detail.sca.bin.start)+" > log.stdout 2>log.stderr\n");
+                    if(service_detail.sca.bin.run) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.run+" > run.stdout 2>run.stderr\n");
+                    if(service_detail.sca.bin.start) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start+" > start.stdout 2>start.stderr\n");
                     stream.end();
                 });
             },
@@ -591,10 +588,10 @@ function init_task(task, resource, cb) {
                             } else {
                                 load_products(task, taskdir, conn, function(err) {
                                     if(err) return next(err);
-                                    task.status = "finished"; //let load_products save this
+                                    common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
+                                    task.status = "finished"; 
                                     task.status_msg = "service finished";
-                                    task.save();
-                                    common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'}, next);
+                                    task.save(next);
                                 });
                             }
                         })
@@ -610,20 +607,6 @@ function init_task(task, resource, cb) {
             cb(err); 
         }); 
     });
-    /*
-    conn.on('error', cb);
-    conn.on('end', function() {
-        //client disconnected.. should I reconnect?
-        logger.debug("ssh2 connection ended");
-    });
-    var resource_detail = config.resources[resource.resource_id];
-    common.decrypt_resource(resource);
-    conn.connect({
-        host: resource_detail.hostname,
-        username: resource.config.username,
-        privateKey: resource.config.enc_ssh_private,
-    });
-    */
 }
 
 function load_products(task, taskdir, conn, cb) {
@@ -640,18 +623,13 @@ function load_products(task, taskdir, conn, cb) {
         stream.on('data', function(data) {
             products_json += data;
         })
-        /*
-        stream.stderr.on('data', function(data) {
-            logger.error(data.toString());
-        });
-        */
         stream.on('close', function(code, signal) {
             if(code) return cb("Failed to retrieve products.json from the task directory");
             if(error_msg) return cb(error_msg);
             try {
                 console.log(products_json);
                 task.products = JSON.parse(products_json);
-                task.save(cb);
+                cb();
             } catch(e) {
                 cb("Failed to parse products.json: "+e.toString());
             }

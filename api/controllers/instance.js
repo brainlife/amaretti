@@ -121,8 +121,9 @@ router.post('/:workflowid', jwt({secret: config.sca.auth_pubkey}), function(req,
     instance.workflow_id = req.params.workflowid;
     instance.name = req.body.name;
     instance.desc = req.body.desc;
+    instance.config = req.body.config;
+
     instance.user_id = req.user.sub;
-    instance.steps = {};
     instance.save(function(err) {
         if(err) return next(err);
         res.json(instance);

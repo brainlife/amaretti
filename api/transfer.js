@@ -71,10 +71,13 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         else next();
                     })
                     .on('data', function(data) {
+                        //TODO rsync --progress output tons of stuff. I should parser / pick message to show and send to progress service
+                        /*
                         logger.info(data.toString());
                         if(progress_cb) {
                             progress_cb({msg:data.toString()}); 
                         }
+                        */
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
                     });
@@ -86,33 +89,4 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         ], cb);
     });
 }
-/*
-exports.select = function(user_id, score_func, cb) {
 
-    //select all resource available for the user
-    db.Resource.find({
-        user_id: user_id
-    })
-    .exec(function(err, resources) {
-        if(err) return cb(err);
-
-        //select the best resource based on the query
-        var best = null;
-        var best_score = null;
-        resources.forEach(function(resource) {
-            var score = score_func(resource);
-            logger.debug(resource._id+" type:"+resource.type+" score="+score);
-            if(!best || score > best_score) {
-                best_score = score;
-                best = resource;
-            }
-        });
-
-        //for debugging
-        logger.debug("best! resource chosen:"+best._id);
-        logger.debug(config.resources[best.resource_id]);
-
-        cb(null, best);
-    });
-}
-*/

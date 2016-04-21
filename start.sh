@@ -7,6 +7,6 @@ pm2 delete sca-task
 pm2 start bin/sca-task.js --watch --ignore-watch="\.log$ test/ .sh$ ui/"
 
 pm2 delete sca-resource
-pm2 start bin/sca-resource.js --watch --ignore-watch="\.log$ test/ .sh$ pub/"
+pm2 start bin/sca-resource.js --watch --ignore-watch="\.log$ test/ .sh$ ui/"
 
 pm2 save

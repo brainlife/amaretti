@@ -88,7 +88,8 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
 
 //return a best resource for a given purpose / criteria (TODO..)
 //TODO ..only sca service should be responsible for picking the best resource.., and dealing with decrypted config
-//currently used by file upload service to pick which resource to upload files to
+//currently used by file upload service to pick which resource to upload files
+//also used by sca-cli backup to pick do file upload also
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     resource_picker.select(req.user.sub, {
         service_id: req.query.service_id,  //service_id that resource must provide
@@ -98,7 +99,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
         if(!resource) return res.status(404).end();
         var resource_detail = config.resources[resource.resource_id];
         var ret = {
-            resource: resource,
+            resource: mask_enc(resource),
             detail: resource_detail,
             workdir: common.getworkdir(null, resource),
         };
@@ -118,8 +119,10 @@ function mkdirp(conn, dir, cb) {
     });
 }
 
+
 //handle file upload request via multipart form
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
+//TODO - deprecate this and use the streaming version below..
 router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var form = new multiparty.Form({autoFields: true});
     //var resource_id = req.headers.resource_id;
@@ -144,17 +147,15 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
+                logger.debug("mkdirp: "+fields.path);
                 mkdirp(conn, fields.path, function(err) {
                     if(err) return next(err);
                     conn.sftp(function(err, sftp) {
                         if(err) return next(err);
-                        //create directory.. (in case it doesn't exist yet.. TODO - this is not recursive)
-                        //sftp.mkdir(fields.path, function(err) {
-                        //    if(err) logger.error(err); //continue
                         var escaped_filename = part.filename.replace(/"/g, '\\"');
                         var _path = fields.path+"/"+escaped_filename;
+                        logger.debug("streaming file to "+_path);
                         var stream = sftp.createWriteStream(_path);
-                        logger.debug("streaming file");
                         part.pipe(stream).on('close', function() {
                             logger.debug("streaming closed");
                             sftp.stat(_path, function(err, stat) {
@@ -163,51 +164,44 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
                                 res.json({file: {filename: part.filename, attrs: stat}});
                             });
                         });
-                        //}); 
                     });
                 });
-                /*
-                form.on('close', function() {
-                    res.json({message: "ok"});
-                });
-                */
-                
-                /*
-                //often form parsing ends before ssh streaming finishes..
-                //we need to avoid moving on before all ssh-streaming completes (or partial file will be left)
-                var open_streams = 0;
-                function alldone() {
-                    if(open_streams == 0) {
-                        //all done
-                        res.json({message: "files uploaded", file: file});
-                    } else {
-                        //I need to wait for all stream to close before moving on..
-                        logger.info("waiting for streams to close (remaining:"+open_streams+")");
-                        setTimeout(alldone, 1000);
-                    }
-                };
-                form.on('close', alldone);
-
-                logger.info("ssh open");
-                //stream file to remote system
-                var escaped_filename = part.filename.replace(/"/g, '\\"');
-                //TODO - let's just overwrite files if it already exists..
-                //in the future, I should either fail, or upload to an alternative filename
-                conn.exec("mkdir -p "+fields.path+" && cat >\""+fields.path+"/"+escaped_filename+"\"", {}, function(err, stream) {
-                    if(err) return next(err);
-                    open_streams++;
-                    stream.on('exit', function() {
-                        logger.debug("stream exited");
-                        open_streams--;
-                    });
-                    logger.debug("pipping part:"+part.filename+" to ssh stream");
-                    part.pipe(stream);
-                });
-                */
             });
         });
     });
     form.parse(req);
+});
+
+//simpler streaming 
+router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var id = req.params.resourceid;
+    var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
+    db.Resource.findOne({_id: id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end();
+        if(resource.user_id != req.user.sub) return res.status(401).end();
+        common.get_ssh_connection(resource, function(err, conn) {
+            if(err) return next(err);
+            var fullpath = common.getworkdir(_path, resource);
+            logger.debug("mkdirp "+path.dirname(fullpath));
+            mkdirp(conn, path.dirname(fullpath), function(err) {
+                if(err) return next(err);
+                conn.sftp(function(err, sftp) {
+                    if(err) return next(err);
+                    logger.debug("streaming file to "+_path);
+                    req.pipe(sftp.createWriteStream(fullpath))
+                    .on('close', function() {
+                        logger.debug("streaming closed");
+                        sftp.stat(fullpath, function(err, stat) {
+                            sftp.end();
+                            if(err) return next(err);
+                            res.json({filename: path.basename(fullpath), attrs: stat});
+                        });
+                    });
+                });
+            });
+        });
+    });
 });
 
 /* I believe noone uses this 
@@ -237,6 +231,9 @@ router.post('/exec', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
 */
 
 //currently used by sca-cli cp 
+//deprecated
+//you can just submit a task that requires other taskdir
+/*
 router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.body.task_id;
     var dest_resource_id = req.body.dest_resource_id;
@@ -268,6 +265,7 @@ router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, re
         });
     });
 });
+*/
 
 //this API allows user to download any files under user's workflow directory
 //TODO - since I can't let <a> pass jwt token via header, I have to expose it via URL.
@@ -276,7 +274,15 @@ router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, re
 //getToken() below allows me to check jwt token via "at" query.
 router.get('/download', jwt({
     secret: config.sca.auth_pubkey,
-    getToken: function fromHeaderOrQuerystring (req) { return req.query.at; }
+    getToken: function(req) { 
+        //load token from req.headers as well as query.at
+        if(req.query.at) return req.query.at; 
+        if(req.headers.authorization) {
+            var auth_head = req.headers.authorization;
+            if(auth_head.indexOf("Bearer") === 0) return auth_head.substr(7);
+        }
+        return null;
+    }
 }), function(req, res, next) {
     var resource_id = req.query.r;
     var _path = req.query.p;
@@ -313,6 +319,12 @@ router.get('/download', jwt({
                     });
                     */
                 });
+                /*
+                sftp.on('error', function(err) {
+                    console.dir(err);
+                    res.status(500).json(err);
+                });
+                */
             });
         });
     });

@@ -111,6 +111,10 @@ var taskSchema = mongoose.Schema({
     //list of resource where the output directory is synchronized (TODO - not sure if I will use this or not)
     //resources: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
+    //TEXT INDEX field to be searchable with text search
+    name: String, 
+    desc: String, 
+
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
@@ -118,6 +122,7 @@ taskSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
+taskSchema.index({name: 'text', desc: 'text'});
 
 exports.Task = mongoose.model('Task', taskSchema);
 

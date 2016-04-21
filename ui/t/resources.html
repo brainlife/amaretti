@@ -7,7 +7,22 @@
 -->
 <div class="container-fluid">
     <h2>My Resources</h2>
-    <p class="help-block">Please list all your recouces that you'd like SCA to use</p>
+    <p class="help-block">Register resources that you'd like SCA to use</p>
+    <div class="form-group">
+        <select class="form-control" ng-model="newresource_id" 
+            ng-options="rid as resource.name for (rid, resource) in serverconf.resources"
+            ng-change="add()">
+            <option value="">(Add New Resource)</option>
+        </select>
+        <!--
+        <ui-select ng-model="newresource" on-select="add($item, $model)">
+            <ui-select-match placeholder="Add New Resource...">{{$select.selected.name}}</ui-select-match>
+            <ui-select-choices repeat="rid in Object.keys(serverconf.resources)">
+                {{db.name}}<br><small>{{db.desc}}</small>
+            </ui-select-choices>
+        </ui-select>
+        -->
+    </div>
     <ul class="list-group">
         <li class="list-group-item" ng-repeat="resource in myresources">
             <form ng-submit="submit(resource)" ng-init="def = serverconf.resources[resource.resource_id]">
@@ -46,19 +61,4 @@
         </li>
     </ul>
 
-    <div class="form-group">
-        <select class="form-control" ng-model="newresource_id" 
-            ng-options="rid as resource.name for (rid, resource) in serverconf.resources"
-            ng-change="add()">
-            <option value="">(Add New Resource)</option>
-        </select>
-        <!--
-        <ui-select ng-model="newresource" on-select="add($item, $model)">
-            <ui-select-match placeholder="Add New Resource...">{{$select.selected.name}}</ui-select-match>
-            <ui-select-choices repeat="rid in Object.keys(serverconf.resources)">
-                {{db.name}}<br><small>{{db.desc}}</small>
-            </ui-select-choices>
-        </ui-select>
-        -->
-    </div>
 </div>

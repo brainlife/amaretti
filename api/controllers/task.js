@@ -58,6 +58,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     var where = {};
     if(req.query.where) where = JSON.parse(req.query.where);
     where.user_id = req.user.sub;
+    //logger.debug("searching task with following where");
+    //console.dir(where);
     var query = db.Task.find(where);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);
@@ -84,8 +86,6 @@ function check_resource_access(user, ids, cb) {
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance_id = req.body.instance_id;
     var service_id = req.body.service_id;
-    var config = req.body.config;
-    var deps = req.body.deps;
 
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
@@ -97,8 +97,13 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
         task.status_msg = "";
-        task.config = config;
-        task.deps = deps;
+        task.name = req.body.name;
+        task.desc = req.body.desc;
+        task.config = req.body.config;
+        task.deps = req.body.deps;
+
+        //setting this to resource_id doesn't gurantee that it will run there.. this is to help sca-task decide where to run the task
+        task.resource_id = req.body.resource_id;
 
         //now register!
         task.save(function(err, _task) {
@@ -129,7 +134,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         
         task.status = "requested";
         task.status_msg = "";
-        task.products = [];
+        //task.products = []; 
         task.save(function(err) {
             if(err) return next(err);
             common.progress(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
@@ -145,11 +150,18 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         if(err) return next(err);
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub) return res.status(401).end();
-        if(task.status != "running") return next("you can only stop task in running status");
-        
-        task.status = "stop_requested";
-        task.status_msg = "";
-        task.products = [];
+        if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
+
+        switch(task.status) {
+        case "running":
+            task.status = "stop_requested";
+            task.status_msg = "";
+            break;
+        default:
+            task.status = "stopped";
+            task.status_msg = "";
+        }
+        //task.products = [];
         task.save(function(err) {
             if(err) return next(err);
             common.progress(task.progress_key, {msg: 'Stop Requested'}, function() {
