@@ -26,7 +26,7 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         controller: 'WorkflowsController'
     })
 
-    //detail for each workflow (not instance - /sca/inst uses separate page)
+    //detail for each workflow 
     .when('/workflow/:id', {
         templateUrl: 't/workflow.html',
         controller: 'WorkflowController'
@@ -35,20 +35,21 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
     //list of all currently running workflows
     .when('/insts', {
         templateUrl: 't/insts.html',
-        controller: 'InstsController'
+        controller: 'InstsController',
+        requiresLogin: true
     })
     /*
     .when('/task/:instid/:taskid', {
         templateUrl: 't/task.html',
         controller: 'TaskController',
-        requireslogin: true
     })
     */
 
     //allows user to edit list of resources that user has access to
     .when('/resources', {
         templateUrl: 't/resources.html',
-        controller: 'ResourcesController'
+        controller: 'ResourcesController',
+        requiresLogin: true
     })
     .otherwise({
         redirectTo: '/about'

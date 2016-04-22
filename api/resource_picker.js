@@ -39,8 +39,13 @@ exports.select = function(user_id, query, cb) {
         });
 
         //for debugging
-        logger.debug("best! resource chosen:"+best._id);
-        logger.debug(config.resources[best.resource_id]);
+        if(best) {
+            logger.debug("best resource chosen:"+best._id);
+            logger.debug(config.resources[best.resource_id]);
+        } else {
+            logger.debug("no resource matched query");
+            logger.debug(query);
+        } 
 
         cb(null, best);
     });

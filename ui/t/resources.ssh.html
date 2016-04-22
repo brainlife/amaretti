@@ -11,7 +11,11 @@
     <label>SSH Public Key</label>
     <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{def.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
     <button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(resource)">Reset Keys</button>
-    <pre>{{resource.config.ssh_public}} {{resource.config.username}}@sca.{{resource._id}}</pre>
+<pre style="font-size: 85%">
+#Public key to allow access to this resource through SCA
+{{resource.config.ssh_public}} {{resource.config.username}}@sca.{{resource._id}}
+</pre>
+
 </div>
 <!--
 <div class="form-group">
