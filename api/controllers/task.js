@@ -13,7 +13,6 @@ var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
-//var progress = require('../progress');
 
 /*
 //TODO deprecated by get:/?
@@ -120,7 +119,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         });
        
         //also send first progress update
-        common.progress(task.progress_key, {name: task.name, status: 'waiting', progress: 0, msg: service_id+' service requested'});
+        common.progress(task.progress_key, {name: task.name||service_id, status: 'waiting', msg: service_id+' service requested'});
     });
     //});
 });
@@ -137,7 +136,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         //task.products = []; 
         task.save(function(err) {
             if(err) return next(err);
-            common.progress(task.progress_key, {status: 'waiting', progress: 0, msg: 'Task Re-requested'}, function() {
+            common.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, function() {
                 res.json({message: "Task successfully re-requested", task: task});
             });
         });

@@ -37,7 +37,7 @@ function check_requested() {
 
     //look for requested task that doesn't have _handled set
     db.Task
-    .find({status: "requested",  _handled: {$exists: false}})
+    .find({status: "requested", _handled: {$exists: false}})
     .populate('deps', 'status resource_id') //populate dep status and resource_id
     .exec(function(err, tasks) {
         if(err) throw err;
@@ -545,7 +545,7 @@ function init_task(task, resource, cb) {
                 if(!service_detail.sca.bin.start) return next(); //not all service uses start
 
                 logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start);
-                common.progress(task.progress_key/*+".service"*/, {name: service_detail.label, msg: 'Starting Service'});
+                common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
 
                 conn.exec("cd "+taskdir+" && ./_boot.sh", {
                     /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
@@ -573,7 +573,7 @@ function init_task(task, resource, cb) {
                 if(!service_detail.sca.bin.run) return next(); //not all service uses run (they may use start/status)
 
                 logger.debug("running_sync service: ~/.sca/services/"+service_id+"/"+service_detail.sca.bin.run);
-                common.progress(task.progress_key/*+".service"*/, {name: service_detail.label, status: 'running', /*progress: 0,*/ msg: 'Running Service'});
+                common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', /*progress: 0,*/ msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                 task.status_msg = "running service synchrnounsly.";

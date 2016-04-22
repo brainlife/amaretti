@@ -19,6 +19,8 @@ exports.select = function(user_id, query, cb) {
     .exec(function(err, resources) {
         if(err) return cb(err);
 
+        if(query.resource_id) logger.info("user preferred or previously used resource_id:"+query.resource_id);
+
         //select the best resource based on the query
         var best = null;
         var best_score = null;

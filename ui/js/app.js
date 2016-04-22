@@ -9,7 +9,6 @@ var app = angular.module('app', [
     'ui.gravatar',
     'ui.bootstrap',
     'ui.bootstrap.tooltip',
-    'sca-files',
     'sca-shared',
 ]);
 
