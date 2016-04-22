@@ -87,13 +87,13 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
 });
 
 //return a best resource for a given purpose / criteria (TODO..)
-//TODO ..only sca service should be responsible for picking the best resource.., and dealing with decrypted config
+//TODO should sca be the only one who should be query the *best* resource?
 //currently used by file upload service to pick which resource to upload files
 //also used by sca-cli backup to pick do file upload also
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     resource_picker.select(req.user.sub, {
-        service_id: req.query.service_id,  //service_id that resource must provide
-        other_service_id: req.query.other_service_ids, //TODO -- helps to pick a better ID
+        service_id: req.query.service_id,  //service that resource must provide
+        //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
     }, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
@@ -300,32 +300,30 @@ router.get('/download', jwt({
         logger.debug("downloading: "+_path);
         logger.debug("from resource:"+resource._id);
 
-        common.get_ssh_connection(resource, function(err, conn) {
+        common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
-            conn.sftp(function(err, sftp) {
+            sftp.stat(_path, function(err, stat) {
                 if(err) return next(err);
-                sftp.stat(_path, function(err, stat) {
-                    if(err) return next(err);
-                    console.log(mime.lookup(_path));
-                    //res.setHeader('Content-disposition', 'attachment; filename='+path.basename(_path));
-                    res.setHeader('Content-disposition', 'filename='+path.basename(_path));
-                    res.setHeader('Content-Length', stat.size);
-                    res.setHeader('Content-Type', mime.lookup(_path));
-                    var stream = sftp.createReadStream(_path);
-                    stream.pipe(res);               
-                    /*
-                    stream.on('end', function() {
-                        logger.debug("download streaming ended");
-                    });
-                    */
-                });
+                console.log(mime.lookup(_path));
+                //res.setHeader('Content-disposition', 'attachment; filename='+path.basename(_path));
+                res.setHeader('Content-disposition', 'filename='+path.basename(_path));
+                res.setHeader('Content-Length', stat.size);
+                res.setHeader('Content-Type', mime.lookup(_path));
+                var stream = sftp.createReadStream(_path);
+                stream.pipe(res);               
                 /*
-                sftp.on('error', function(err) {
-                    console.dir(err);
-                    res.status(500).json(err);
+                stream.on('close', function() {
+                    //logger.debug("download streaming ended");
+                    sftp.close();
                 });
                 */
             });
+            /*
+            sftp.on('error', function(err) {
+                console.dir(err);
+                res.status(500).json(err);
+            });
+            */
         });
     });
 });

@@ -73,7 +73,7 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        logger.debug("reusing previously established ssh connection");
+        logger.debug("reusing previously established ssh connection. # of connections:"+Object.keys(ssh_conns).length);
         return cb(null, old);
     }
     var detail = config.resources[resource.resource_id];
@@ -81,7 +81,7 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('ready', function() {
         ssh_conns[resource._id] = conn;
         logger.debug("ssh connection ready");
-        logger.debug(detail);
+        //logger.debug(detail);
         cb(null, conn);
     });
     conn.on('end', function() {
@@ -95,13 +95,50 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('error', function(err) {
         logger.error("ssh connection error");
         logger.error(err);
-        cb(err);
+        //cb(err);
+        delete ssh_conns[resource._id];
     });
     exports.decrypt_resource(resource);
     conn.connect({
         host: detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
+    });
+}
+
+//I also need to cache sftp connection.. If I reuse ssh connection to get sftp connection from it, 
+//ssh closed connection eventually.
+var sftp_conns = {};
+exports.get_sftp_connection = function(resource, cb) {
+    var old = sftp_conns[resource._id];
+    if(old) {
+        logger.debug("reusing previously established sftp connection. number of connections:"+Object.keys(sftp_conns).length);
+        return cb(null, old);
+    }
+    //get new ssh connection
+    exports.get_ssh_connection(resource, function(err, conn) {
+        if(err) return cb(err);
+        conn.sftp(function(err, sftp) {
+            if(err) return cb(err);
+            logger.debug("sftp connection ready");
+            sftp_conns[resource._id] = sftp;
+            cb(null, sftp);
+        });
+        //TODO - I thinks I should be listening events on sftp (not conn), but doc doesn't mention any event..
+        conn.on('end', function() {
+            logger.debug("ssh connection ended - used by sftp");
+            delete sftp_conns[resource._id];
+        });
+        conn.on('close', function() {
+            logger.debug("ssh connection closed - used by sftp");
+            delete sftp_conns[resource._id];
+        });
+        conn.on('error', function(err) {
+            logger.error("ssh connection error - used by sftp");
+            logger.error(err);
+            //cb(err);
+            delete sftp_conns[resource._id];
+        });
     });
 }
 

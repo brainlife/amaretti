@@ -256,7 +256,7 @@ function init_task(task, resource, cb) {
         if(!service_detail) return cb("Couldn't find such service:"+service_id);
         if(!service_detail.sca || !service_detail.sca.bin) return cb("package.sca.bin not defined");
 
-        console.log("running service:"+service_id);
+        //console.log("running service:"+service_id);
         //console.dir(service_detail);
         var workdir = common.getworkdir(task.instance_id, resource);
         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -323,6 +323,7 @@ function init_task(task, resource, cb) {
                     });
                 });
             },
+
             function(next) {
                 logger.debug("making sure requested service is up-to-date");
                 conn.exec("cd .sca/services/"+service_id+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
@@ -338,6 +339,28 @@ function init_task(task, resource, cb) {
                     });
                 });
             },
+            
+            /* can't get this thing to work..
+            //run service install.sh (if used)
+            //TODO - once installed file gets created, install.sh will never run..
+            //to reduce the confusion, I am 60% leaning toward not having install.sh and let service owner do any install step during start.sh or run.sh
+            function(next) {
+                if(!service_detail.sca.bin.install) return next(); 
+                conn.exec("ls .sca/services/"+service_id+ "/installed >/dev/null 2>&1 || cd .sca/services/"+service_id+"; ./install.sh && echo $! > installed", function(err, stream) {
+                    if(err) next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to run install.sh:"+code);
+                        else next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                });
+            },
+            */
+
             function(next) {
                 common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                 logger.debug("making sure taskdir("+taskdir+") exists");
@@ -556,7 +579,7 @@ function init_task(task, resource, cb) {
                             return next("Service startup failed with return code:"+code+" signal:"+signal);
                         } else {
                             task.status = "running";
-                            task.status_msg = "started service.";
+                            task.status_msg = "started service";
                             task.save(next);
                         }
                     })
@@ -576,7 +599,7 @@ function init_task(task, resource, cb) {
                 common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', /*progress: 0,*/ msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
-                task.status_msg = "running service synchrnounsly.";
+                task.status_msg = "running service";
                 task.save(function() {
                     conn.exec("cd "+taskdir+" && ./_boot.sh", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
