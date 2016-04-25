@@ -1,17 +1,23 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container-fluid">
-    <h2>Workflow Instances</h2>
+    <h2>Your Workflow Instances</h2>
     <ul class="list-group"> 
         <li class="list-group-item" ng-repeat="inst in instances | orderBy:'workflow_id'" ng-click="openinst(inst)">
             <div class="row" ng-init="workflow = workflows[inst.workflow_id]">
                 <div class="col-md-3">
                     {{inst.workflow_id}} <small class="text-muted">{{inst._id}}</small>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     {{inst.name || 'untitled'}}
                 </div>
-                <div class="col-md-6">
-                    <span class="text-muted">{{inst.desc}}</span> <time class="pull-right">{{inst.create_date|date:'short'}}</time>
+                <div class="col-md-3">
+                    <span class="text-muted">{{inst.desc}}</span>
+                </div>
+                <div class="col-md-4">
+                    <span ng-if="running_tasks[inst._id]">
+                        <i class="fa fa-spinner fa-pulse fa-fw"></i> {{running_tasks[inst._id].length}} Running
+                    </span>
+                    <time class="pull-right">{{inst.create_date|date:'short'}}</time>
                 </div>
             </div>
         </li>

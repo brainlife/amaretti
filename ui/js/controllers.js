@@ -38,6 +38,23 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
         if(res.data && res.data.message) toaster.error(res.data.message);
         else toaster.error(res.statusText);
     });
+    
+    //load running tasks
+    $http.get(appconf.api+'/task', {params: {
+        where: {status: "running"}, 
+    }})
+    .then(function(res) {
+        $scope.running_tasks = {};
+        //organize running tasks into each workflows
+        res.data.forEach(function(task) {
+            if(!$scope.running_tasks[task.instance_id]) $scope.running_tasks[task.instance_id] = [];
+            $scope.running_tasks[task.instance_id].push(task); 
+        });
+        //console.dir($scope.running_tasks);
+    }, function(res) {
+        if(res.data && res.data.message) toaster.error(res.data.message);
+        else toaster.error(res.statusText);
+    });
 
     /*
     workflows.get().then(function(workflows) {
@@ -68,7 +85,6 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $loc
         }})
         .then(function(res) {
             $scope.instances = res.data;
-            console.dir(res.data);
         }, function(res) {
             if(res.data && res.data.message) toaster.error(res.data.message);
             else toaster.error(res.statusText);

@@ -66,22 +66,16 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
         logger.debug("getting ssh connection");
-        common.get_ssh_connection(resource, function(err, conn) {
-            logger.debug("got something..");
+        common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
-            logger.debug("starting sftp session..");
-            conn.sftp(function(err, sftp) {     
+            logger.debug("reading directory:"+_path);
+            sftp.readdir(_path, function(err, files) {
                 if(err) return next(err);
-                logger.debug("reading directory:"+_path);
-                sftp.readdir(_path, function(err, files) {
-                    sftp.end();
-                    if(err) return next(err);
-                    files.forEach(function(file) {
-                        file.attrs.mode_string = modeString(file.attrs.mode);
-                    });
-                    res.json({files: files});
+                files.forEach(function(file) {
+                    file.attrs.mode_string = modeString(file.attrs.mode);
                 });
-            }); 
+                res.json({files: files});
+            });
         });
     });
 });

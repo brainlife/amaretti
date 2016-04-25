@@ -86,6 +86,9 @@ var taskSchema = mongoose.Schema({
     
     //resource where the service was executed (not set if it's not yet run)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
+
+    //resource to be selected if multiple resource is available and score ties
+    preferred_resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
     
     //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
     _envs: mongoose.Schema.Types.Mixed,

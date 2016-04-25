@@ -222,12 +222,9 @@ function check_running() {
 }
 
 function process_requested(task, cb) {
-    //var query = null;
-    //var service_detail = config.services[task.service_id];
-    //if(!service_detail) return cb("Couldn't find such service:"+task.service_id);
     resource_picker.select(task.user_id, {
         service_id: task.service_id,
-        resource_id: task.resource_id //user preference (most of the time not set)
+        preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
         //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
     }, function(err, resource) {
         if(err) return cb(err);
@@ -429,10 +426,10 @@ function init_task(task, resource, cb) {
                         logger.debug("syncing from source:"+source_path);
                         logger.debug("syncing from dest:"+dest_path);
                         //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
-                        common.progress(task.progress_key+".sync", {status: 'running', progress: 0, name: 'Transferring source task directory'});
+                        common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                         transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
                             if(err) common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
-                            else common.progress(task.progress_key+".sync", {status: 'finished', progress: 1});
+                            else common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
                             next_dep(err);
                         }, function(progress) {
                             common.progress(task.progress_key+".sync", progress);

@@ -19,7 +19,7 @@ exports.select = function(user_id, query, cb) {
     .exec(function(err, resources) {
         if(err) return cb(err);
 
-        if(query.resource_id) logger.info("user preferred or previously used resource_id:"+query.resource_id);
+        if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
 
         //select the best resource based on the query
         var best = null;
@@ -31,9 +31,11 @@ exports.select = function(user_id, query, cb) {
                 //normally pick the best score...
                 best_score = score;
                 best = resource;
-            } else if(score == best_score && query.resource_id && query.resource_id == resource._id.toString()) {
+            } else if(score == best_score && 
+                query.preferred_resource_id && 
+                query.preferred_resource_id == resource._id.toString()) {
                 //but if score ties, give user preference into consideration
-                logger.debug("using "+query.resource_id+" since score tied");
+                logger.debug("using "+query.preferred_resource_id+" since score tied");
                 best = resource; 
             }
         });

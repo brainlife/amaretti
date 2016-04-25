@@ -89,17 +89,11 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
         if(instance.user_id != req.user.sub) return res.status(401).end();
-        var task = new db.Task({}); 
-        task.instance_id = instance_id;
-        task.service_id = service_id;
+        var task = new db.Task(req.body);  //TODO should I validate?
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
         task.status_msg = "";
-        task.name = req.body.name;
-        task.desc = req.body.desc;
-        task.config = req.body.config;
-        task.deps = req.body.deps;
 
         //setting this to resource_id doesn't gurantee that it will run there.. this is to help sca-task decide where to run the task
         task.resource_id = req.body.resource_id;
