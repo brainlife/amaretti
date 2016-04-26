@@ -58,8 +58,11 @@ var resourceSchema = mongoose.Schema({
     status_msg: String,
     status_update: Date,
 
+    active: Boolean,
+
     name: String, 
     config: mongoose.Schema.Types.Mixed,
+
     salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
 
     create_date: {type: Date, default: Date.now },
@@ -118,8 +121,20 @@ var taskSchema = mongoose.Schema({
     name: String, 
     desc: String, 
 
+    //time when this task was requested
+    request_date: {type: Date},
+    
+    //time when this task started running
+    start_date: {type: Date},
+    
+    //time when this task was finished
+    finish_date: {type: Date},
+
+    //time when this task was originally created
     create_date: {type: Date, default: Date.now },
-    update_date: {type: Date, default: Date.now },
+
+    //time when this task was last updated
+    update_date: {type: Date},
 });
 taskSchema.pre('update', function(next) {
     this.update_date = new Date();

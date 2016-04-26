@@ -27,6 +27,7 @@ router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
 });
 */
 
+/*
 //TODO deprecated by get:/?
 router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task
@@ -51,14 +52,15 @@ router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
         } else res.json(task);
     });
 });
+*/
 
 //get all tasks that belongs to a user (with query.)
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var where = {};
     if(req.query.where) where = JSON.parse(req.query.where);
     where.user_id = req.user.sub;
-    //logger.debug("searching task with following where");
-    //console.dir(where);
+    logger.debug("searching task with following where");
+    console.log(JSON.stringify(where, null, 4));
     var query = db.Task.find(where);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);
@@ -93,7 +95,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
-        task.status_msg = "";
+        task.request_date = new Date();
+        task.status_msg = "Waiting to be processed by SCA task handler";
 
         //setting this to resource_id doesn't gurantee that it will run there.. this is to help sca-task decide where to run the task
         task.resource_id = req.body.resource_id;
@@ -127,6 +130,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         
         task.status = "requested";
         task.status_msg = "";
+        task.request_date = new Date();
         //task.products = []; 
         task.save(function(err) {
             if(err) return next(err);

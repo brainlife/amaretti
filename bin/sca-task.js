@@ -231,7 +231,7 @@ function process_requested(task, cb) {
         if(!resource) return cb("couldn't find a resource to execute this task");
         task.resource_id = resource._id;
 
-        common.progress(task.progress_key, {status: 'running', /*progress: 0,*/ msg: 'Initializing'});
+        common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
         init_task(task, resource, function(err) {
             if(err) {
                 common.progress(task.progress_key, {status: 'failed', /*progress: 0,*/ msg: err.toString()});
@@ -577,6 +577,7 @@ function init_task(task, resource, cb) {
                         } else {
                             task.status = "running";
                             task.status_msg = "started service";
+                            task.start_date = new Date();
                             task.save(next);
                         }
                     })
@@ -597,6 +598,7 @@ function init_task(task, resource, cb) {
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                 task.status_msg = "running service";
+                task.start_date = new Date();
                 task.save(function() {
                     conn.exec("cd "+taskdir+" && ./_boot.sh", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
@@ -611,6 +613,7 @@ function init_task(task, resource, cb) {
                                     common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                     task.status = "finished"; 
                                     task.status_msg = "service finished";
+                                    task.finish_date = new Date();
                                     task.save(next);
                                 });
                             }

@@ -14,7 +14,8 @@ var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 
-//get all workflows registered (add query capability to limit number of workflow returned)
+//get all workflows registered 
+//TODO add query capability and limit number of workflow returned by default
 router.get('/', function(req, res, next) {
     res.json(config.workflows);
 });
