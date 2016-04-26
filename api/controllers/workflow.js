@@ -8,7 +8,6 @@ var jwt = require('express-jwt');
 var async = require('async');
 var fs = require('fs');
 var ejs = require('ejs');
-var _ = require('underscore');
 
 //mine
 var config = require('../../config');

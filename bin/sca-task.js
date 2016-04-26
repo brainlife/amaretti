@@ -416,7 +416,7 @@ function init_task(task, resource, cb) {
                 if(!task.deps) return next(); //skip
                 async.forEach(task.deps, function(dep, next_dep) {
                     //if resource is the same, don't need to sync
-                    if(task.resource_id == dep.resource_id) return next_dep();
+                    if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
                     db.Resource.findById(dep.resource_id, function(err, source_resource) {
                         if(err) return cb(err);
                         if(!source_resource) return cb("couldn't find dep resource");

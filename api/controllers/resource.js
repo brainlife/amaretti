@@ -34,9 +34,11 @@ function mask_enc(resource) {
 
 //return all resource detail that belongs to the user
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Resource.find({
-        user_id: req.user.sub
-    })
+    var where = {};
+    if(req.query.where) where = JSON.parse(req.query.where);
+    where.user_id = req.user.sub;
+
+    db.Resource.find(where)
     .lean()
     .exec(function(err, resources) {
         if(err) return next(err);
