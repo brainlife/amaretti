@@ -170,6 +170,7 @@ function check_running() {
                     logger.debug("cd "+taskdir+" && ./_status.sh");
                     conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
                         if(err) return next(err);
+                        var out = "";
                         stream.on('close', function(code, signal) {
                             switch(code) {
                             case 0: //still running
@@ -193,7 +194,7 @@ function check_running() {
                             case 2:  //failed
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed"; 
-                                task.status_msg = err;
+                                task.status_msg = out;
                                 task.save(next);
                                 break; 
                             default:
@@ -204,8 +205,10 @@ function check_running() {
                         })
                         .on('data', function(data) {
                             logger.info(data.toString());
+                            out += data.toString();
                         }).stderr.on('data', function(data) {
                             logger.error(data.toString());
+                            out += data.toString();
                         });
                     });
                 });
