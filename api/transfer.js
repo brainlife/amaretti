@@ -37,8 +37,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         logger.error(data.toString());
                     });
                     common.decrypt_resource(source_resource);
-                    var keytab = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
-                    stream.write(keytab);
+                    var sshkey = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
+                    stream.write(sshkey);
                     stream.end();
                 });
             },
@@ -81,9 +81,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
                     });
-                    var keytab = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
-                    stream.write(keytab);
-                    stream.end();
+                    //var sshkey = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
+                    //stream.write(sshkey);
+                    //stream.end();
                 });
             },
         ], cb);

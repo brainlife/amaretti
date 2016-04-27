@@ -38,7 +38,8 @@ function check_requested() {
     //look for requested task that doesn't have _handled set
     db.Task
     .find({status: "requested", _handled: {$exists: false}})
-    .populate('deps', 'status resource_id') //populate dep status and resource_id
+    .populate('deps', 'status resource_id') //populate dep tasks status and resource_id
+    .populate('resource_deps')  //populate resource deps
     .exec(function(err, tasks) {
         if(err) throw err;
         logger.info("check_requested:"+tasks.length);
@@ -116,6 +117,7 @@ function check_stop() {
                     task.status = "stopped";
                     task.status_msg = "Stopped by user";
                     task.save(next);
+                    return;
                 }
 
                 common.get_ssh_connection(resource, function(err, conn) {
@@ -378,41 +380,45 @@ function init_task(task, resource, cb) {
                 });
             },
 
-            /*
-            //TODO - maybe this should be handled via deps
-            //process hpss resource (if exists..)
+            //install resource keys
             function(next) { 
-                if(!task.resources.hpss) return next();
-                logger.debug("installing hpss key");
-                db.Resource.findById(task.resources.hpss, function(err, resource) {
-                    if(err) return next(err);
+                if(!task.resource_deps) return next();
+                async.forEach(task.resource_deps, function(resource, next_dep) {
+                    if(resource.user_id != task.user_id) return next_dep("resource dep aren't owned by the same user");
+                    logger.info("storing resource key for "+resource._id+" as requested");
                     common.decrypt_resource(resource);
-                    
-                    //TODO - what if user uses nonkeytab?
-                    envs.HPSS_PRINCIPAL = resource.config.username;
-                    envs.HPSS_AUTH_METHOD = resource.config.auth_method;
-                    envs.HPSS_KEYTAB_PATH = "$HOME/.sca/keys/"+resource._id+".keytab";
 
-                    //now install the hpss key
-                    var key_filename = ".sca/keys/"+resource._id+".keytab";
-                    conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
-                        if(err) next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed write https keytab");
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
+                    //now handle things according to the resource type
+                    switch(resource.type) {
+                    case "hpss": 
+                        //envs.HPSS_PRINCIPAL = resource.config.username;
+                        //envs.HPSS_AUTH_METHOD = resource.config.auth_method;
+                        //envs.HPSS_KEYTAB_PATH = "$HOME/.sca/keys/"+resource._id+".keytab";
+
+                        //now install the hpss key
+                        var key_filename = ".sca/keys/"+resource._id+".keytab";
+                        conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
+                            if(err) return next_dep(err);
+                            stream.on('close', function(code, signal) {
+                                if(code) return next_dep("Failed to write keytab");
+                                logger.info("successfully stored keytab for resource:"+resource._id);
+                                next_dep();
+                            })
+                            .on('data', function(data) {
+                                logger.info(data.toString());
+                            }).stderr.on('data', function(data) {
+                                logger.error(data.toString());
+                            });
+                            var keytab = new Buffer(resource.config.enc_keytab, 'base64');
+                            stream.write(keytab);
+                            stream.end();
                         });
-                        var keytab = new Buffer(resource.config.enc_keytab, 'base64');
-                        stream.write(keytab);
-                        stream.end();
-                    });
-                });
+                        break;
+                    default: 
+                        next_dep("don't know how to handle resource_deps with type:"+resource.type);
+                    }
+                }, next);
             },
-            */
 
             //make sure dep task dirs are synced 
             function(next) {
@@ -421,9 +427,9 @@ function init_task(task, resource, cb) {
                     //if resource is the same, don't need to sync
                     if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
                     db.Resource.findById(dep.resource_id, function(err, source_resource) {
-                        if(err) return cb(err);
-                        if(!source_resource) return cb("couldn't find dep resource");
-                        if(source_resource.user_id != task.user_id) return cb("dep resource aren't owned by the same user");
+                        if(err) return next_dep(err);
+                        if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
+                        if(source_resource.user_id != task.user_id) return next_dep("dep resource aren't owned by the same user");
                         var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
                         var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
                         logger.debug("syncing from source:"+source_path);
@@ -615,7 +621,7 @@ function init_task(task, resource, cb) {
                                     if(err) return next(err);
                                     common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                     task.status = "finished"; 
-                                    task.status_msg = "service finished";
+                                    task.status_msg = "Service Completed";
                                     task.finish_date = new Date();
                                     task.save(next);
                                 });
@@ -662,36 +668,5 @@ function load_products(task, taskdir, conn, cb) {
         });
     });
 }
-
-/*
-function process_product_dep(task, dep, conn, resource, envs, cb) {
-    logger.debug("handling dependency");
-    logger.debug(dep);
-
-    db.Task.findById(dep.task_id).exec(function(err, dep_task) {
-        if(err) throw err;
-        if(!dep_task) return cb("can't find dependency task:"+dep.task_id);
-        if(dep_task.user_id != task.user_id) return cb("user_id doesn't match");
-
-        var dep_taskdir = common.gettaskdir(dep_task.instance_id, dep_task._id, resource);
-
-        //TODO - maybe I should store this in config.<dep.name>.json?
-        envs["SCA_TASK_DIR_"+dep.name] = dep_taskdir;
-        envs["SCA_PRODUCT_IDX_"+dep.name] = dep.product_idx;
-        
-        //if on the same resource, assume that it's there
-        if(resource._id == dep_task.resources.compute) return cb();
-        //always rsync for cross-resource dependency - it might not be synced yet, or out-of-sync
-        db.Resource.findById(dep_task.resources.compute, function(err, source_resource) {
-            if(err) return cb(err);
-            if(!source_resource) return cb("couldn't find dep resource");
-            if(source_resource.user_id != task.user_id) return cb("dep resource user_id doesn't match");
-            common.decrypt_resource(source_resource);
-            var source_taskdir = common.gettaskdir(dep_task.instance_id, dep_task._id, source_resource);
-            rsync_product(conn, source_resource, source_taskdir, dep_taskdir, cb);
-        });
-    });
-}
-*/
 
 

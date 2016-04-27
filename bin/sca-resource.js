@@ -55,10 +55,13 @@ function check_resource(resource, cb) {
     }
     logger.debug(detail);
     switch(detail.type) {
-    case "pbs": return check_ssh(resource, update_status);
-    case "osg": return check_ssh(resource, update_status);
-    case "xfer": return check_ssh(resource, update_status);
-    case "docker": return check_ssh(resource, update_status);
+    case "pbs":
+    case "osg": 
+    case "xfer": 
+    case "docker": 
+        return check_ssh(resource, update_status);
+    //case "hpss": 
+    //    return check_hpss(resource, update_status);
     default: 
         logger.error("don't know how to check "+resource.type);
         cb(); //continue
@@ -70,6 +73,10 @@ function check_resource(resource, cb) {
         resource.status_update = new Date();
         resource.save(cb);
     }
+}
+
+function check_hpss(resource, cb) {
+    //find best resource to run hpss
 }
 
 function check_ssh(resource, cb) {

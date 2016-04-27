@@ -114,6 +114,10 @@ var taskSchema = mongoose.Schema({
     //task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'} ],
 
+    //resource dependencies.. 
+    //for hpss, it will copy the heytab
+    resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
+
     //list of resource where the output directory is synchronized (TODO - not sure if I will use this or not)
     //resources: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
