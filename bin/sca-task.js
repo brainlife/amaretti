@@ -58,7 +58,7 @@ function check_requested() {
             if(dep_failed) {
                 logger.debug("one of dependency has failed.. stopping this task");
                 task.status = "stopped";
-                task.status_msg = "dependency: "+dep_failed+" failed.. stopping";
+                task.status_msg = "Dependency: "+dep_failed+" failed.. stopping";
                 task.save(next);
                 return;
             }
@@ -189,7 +189,8 @@ function check_running() {
                                     }
                                     common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                                     task.status = "finished";
-                                    task.status_msg = "service completed successfully";
+                                    task.status_msg = "Service completed successfully";
+                                    task.finish_date = new Date();
                                     task.save(next);
                                 });
                                 break;
@@ -233,7 +234,7 @@ function process_requested(task, cb) {
         //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
     }, function(err, resource) {
         if(err) return cb(err);
-        if(!resource) return cb("couldn't find a resource to execute this task");
+        if(!resource) return cb("Couldn't find a resource to execute this task");
         task.resource_id = resource._id;
 
         common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
@@ -585,7 +586,7 @@ function init_task(task, resource, cb) {
                             return next("Service startup failed with return code:"+code+" signal:"+signal);
                         } else {
                             task.status = "running";
-                            task.status_msg = "started service";
+                            task.status_msg = "Started service";
                             task.start_date = new Date();
                             task.save(next);
                         }
@@ -606,7 +607,7 @@ function init_task(task, resource, cb) {
                 common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', /*progress: 0,*/ msg: 'Running Service'});
 
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
-                task.status_msg = "running service";
+                task.status_msg = "Running service";
                 task.start_date = new Date();
                 task.save(function() {
                     conn.exec("cd "+taskdir+" && ./_boot.sh", {
@@ -621,7 +622,7 @@ function init_task(task, resource, cb) {
                                     if(err) return next(err);
                                     common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                     task.status = "finished"; 
-                                    task.status_msg = "Service Completed";
+                                    task.status_msg = "Service ran successfully";
                                     task.finish_date = new Date();
                                     task.save(next);
                                 });
