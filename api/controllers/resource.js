@@ -82,19 +82,53 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
     });
 });
 
+//http://stackoverflow.com/questions/770523/escaping-strings-in-javascript
+String.prototype.addSlashes = function() 
+{ 
+   //no need to do (str+'') anymore because 'this' can only be a string
+   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
+} 
+
+router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var resource_id = req.query.resource_id;
+    var _path = req.query.path; //TODO.. validate?
+    db.Resource.findById(resource_id, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
+        if(resource.user_id != req.user.sub) return res.status(401).end(); 
+
+        //append workdir if relateive
+        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+
+        logger.debug("getting ssh connection");
+        common.get_ssh_connection(resource, function(err, conn) {
+            if(err) return next(err);
+            console.log("rm \""+_path.addSlashes()+"\"");
+            conn.exec("rm \""+_path.addSlashes()+"\"", function(err, stream) {
+                if(err) return next(err);
+                stream.on('end', function() {
+                    res.json({msg: "file removed"});
+                });
+            }) 
+        });
+    });
+});
+
 //return a best resource for a given purpose / criteria (TODO..)
 //TODO should sca be the only one who should be query the *best* resource?
 //currently used by file upload service to pick which resource to upload files
 //also used by sca-cli backup to pick do file upload also
+//also used by sca-wf-freesurfer process controller to check to make sure user has a place to submit
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     resource_picker.select(req.user.sub, {
         service_id: req.query.service_id,  //service that resource must provide
         //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
-    }, function(err, resource) {
+    }, function(err, resource, score) {
         if(err) return next(err);
-        if(!resource) return res.status(404).end();
+        if(!resource) return res.json({nomatch: true});
         var resource_detail = config.resources[resource.resource_id];
         var ret = {
+            score: score,
             resource: mask_enc(resource),
             detail: resource_detail,
             workdir: common.getworkdir(null, resource),
@@ -150,6 +184,10 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
                         if(err) return next(err);
                         var escaped_filename = part.filename.replace(/"/g, '\\"');
                         var _path = fields.path+"/"+escaped_filename;
+
+                        //append workdir if relateive
+                        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+
                         logger.debug("streaming file to "+_path);
                         var stream = sftp.createWriteStream(_path);
                         part.pipe(stream).on('close', function() {
@@ -293,6 +331,7 @@ router.get('/download', jwt({
         
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+
         logger.debug("downloading: "+_path);
         logger.debug("from resource:"+resource._id);
 

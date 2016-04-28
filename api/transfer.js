@@ -70,9 +70,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to rsync content from source_resource:"+source_path+" to dest_resource:"+dest_path);
                         else next();
-                    })
-                    .on('data', function(data) {
-                        //TODO rsync --progress output tons of stuff. I should parser / pick message to show and send to progress service
+                    }).on('data', function(data) {
+                        //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
                         /*
                         logger.info(data.toString());
                         if(progress_cb) {

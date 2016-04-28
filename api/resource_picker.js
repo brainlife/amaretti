@@ -10,15 +10,14 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 
 exports.select = function(user_id, query, cb) {
-
     //select all resource available for the user and online
     db.Resource.find({
         user_id: user_id,
         status: 'ok', 
     })
+    //.lean()
     .exec(function(err, resources) {
         if(err) return cb(err);
-
         if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
 
         //select the best resource based on the query
@@ -26,6 +25,7 @@ exports.select = function(user_id, query, cb) {
         var best_score = null;
         resources.forEach(function(resource) {
             var score = score_resource(resource, query);
+            if(score == 0) return;
             //logger.debug(resource._id+" type:"+resource.type+" score="+score);
             if(!best || score > best_score) {
                 //normally pick the best score...
@@ -48,8 +48,7 @@ exports.select = function(user_id, query, cb) {
             logger.debug("no resource matched query");
             logger.debug(query);
         } 
-
-        cb(null, best);
+        cb(null, best, best_score);
     });
 }
 
