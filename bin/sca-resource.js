@@ -68,6 +68,8 @@ function check_resource(resource, cb) {
     }
 
     function update_status(err, status, msg) {
+        if(err) return cb(err); //failed to determine status
+        logger.info("status:"+status+" msg:"+msg);
         resource.status = status;
         resource.status_msg = msg;
         resource.status_update = new Date();
@@ -85,13 +87,18 @@ function check_ssh(resource, cb) {
         logger.debug("ssh connection ready");
         //run some command to make sure it's running
         conn.exec('whoami', function(err, stream) {
-            if (err) throw err;
+            if (err) return cb(nullerr);
             var ret_username = "";
             stream.on('close', function(code, signal) {
-                conn.end();
                 if(ret_username.trim() == resource.config.username) {
-                    cb(null, "ok", "ssh connection good and accepting command"); 
+                    check_sftp(resource, conn, function(err, status, msg) {
+                        conn.end();
+                        if(err) return cb(err);
+                        cb(null, status, msg);
+                    });
                 } else {
+                    conn.end();
+                    //TODO does it really matter that whois reports a wrong user?
                     cb(null, "ok", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username); 
                 }
             }).on('data', function(data) {
@@ -124,5 +131,41 @@ function check_ssh(resource, cb) {
     } catch (err) {
         cb(null, "failed", err.toString());
     }
+}
+
+//make sure I can open sftp connection and access workdir
+function check_sftp(resource, conn, cb) {
+    var workdir = common.getworkdir(null, resource);
+    //console.log("opening sftp connection");
+
+    /*
+    //make sure cb gets called once
+    var cb_called = false;
+    function cb_once(err, status, msg) {
+        if(cb_called) {
+            logger.error("check_sftp cb_once called more than once.. ignoring");
+            logger.error([err, status, msg]);
+            return;
+        }
+        cb_called = true;
+        cb(err, status, msg);
+    }
+    */
+
+    conn.sftp(function(err, sftp) {
+        if(err) return cb(err);
+        logger.debug("reading directory:"+workdir);
+        var t = setTimeout(function() {
+            t = null;
+            cb(null, "failed", "workdir is inaccessible");
+        }, 5000);
+        sftp.readdir(workdir, function(err, list) {
+            if(!t) return; //timeout already called
+            if(err) return cb(err);
+            clearTimeout(t);
+            //console.dir(list);
+            cb(null, "ok", "ssh connection good and workdir is accessible");
+        });
+    });
 }
 
