@@ -322,10 +322,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         });
     }
 
-    $scope.remove = function(inst) {
-        alert("todo");
-        //resources.add($scope.newresource_id);
-    }
 
     $scope.edit = function(resource, inst) {
         var modalInstance = create_dialog(resource, inst);
@@ -387,6 +383,9 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                 //console.dir(inst);
                 $scope.cancel = function() {
                     $uibModalInstance.dismiss('cancel');
+                }
+                $scope.remove = function() {
+                    alert("todo");
                 }
                 $scope.ok = function() {
                     $uibModalInstance.close($scope.inst);

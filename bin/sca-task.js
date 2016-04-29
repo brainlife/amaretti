@@ -24,7 +24,30 @@ db.init(function(err) {
     check_requested();
     check_running();
     check_stop();
+    check_stuck();
 });
+
+function check_stuck() {
+    logger.debug("checking for handled tasks that got stuck");
+    var whileago = new Date();
+    whileago.setHours(whileago.getHours()-1);
+    db.Task
+    .find({
+        "_handled.timestamp": { $lt: whileago }
+    })
+    .exec(function(err, tasks) {
+        if(err) throw err;
+        tasks.forEach(function(task) {
+            logger.error("detected stuck request.. please find out why this got stuck (unstucking it for now..)");
+            logger.error(JSON.stringify(task, null, 4));
+            task.status_msg = "Request handled but got stuck.. trying again.";
+            task._handled = undefined; //this is how you *delete*
+            task.save();
+        });
+        //wait for the next round
+        setTimeout(check_stuck, 1000*60);
+    });
+} 
 
 //var running = 0;
 function check_requested() {

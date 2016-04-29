@@ -17,10 +17,9 @@
                         <ul class="list-group" style="margin-bottom: 0px;">
                             <li class="list-group-item disabled" style="border: none;">
                                 <div class="row">
-                                    <div class="col-md-4">Your Accounts</div>
+                                    <div class="col-md-6">Your Accounts</div>
                                     <div class="col-md-2">Enabled</div>
                                     <div class="col-md-4">Status</div>
-                                    <div class="col-md-2"></div>
                                 </div>
                             </li>
                         </ul>
@@ -43,7 +42,7 @@
                         <ul class="list-group">
                             <li class="list-group-item clickable" ng-repeat="inst in myresources|filter:{resource_id:rid}" ng-click="edit(resource, inst)">
                                 <div class="row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         {{inst.name}}<br>
                                         <span class="text-muted">{{inst.config.username}}</span>
                                     </div>
@@ -57,13 +56,15 @@
                                             <small class="text-muted">{{inst.status_update|date:'short'}}</small>
                                         </span>
                                     </div>
+                                    <!--
                                     <div class="col-md-2">
                                         <div class="btn-group pull-right" role="group">
-                                            <!--
-                                            <button type="button" class="btn btn-default btn-xs" ng-click="edit(resource, inst)"><i class="fa fa-pencil" aria-hidden="true"></i></button>-->
+                                            <button type="button" class="btn btn-default btn-xs" ng-click="edit(resource, inst)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                                            
                                             <button type="button" class="btn btn-danger btn-xs" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
                                         </div>
                                     </div>
+                                    -->
                                 </div>
                             </li> 
                             <li class="list-group-item clickable" ng-click="addnew(resource)">
@@ -94,18 +95,16 @@
 <script type="text/ng-template" id="resources.hpss.html">
 <form ng-submit="ok()">
     <div class="modal-header">
-        <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+        <h3 class="modal-title">{{resource.name}}</h3>
     </div>
     <div class="modal-body">
         <div class="checkbox">
             <label><input type="checkbox" ng-model="inst.active">Enabled</label>
         </div>
-        <!--
         <div class="form-group">
-            <label>Hostname</label>
-            <input type="text" class="form-control" ng-model="resource.hostname" disabled required></textarea>
+            <label>Name</label>
+            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
         </div>
-        -->
         <div class="form-group">
             <label>Principal (username)</label>
             <input type="text" class="form-control" ng-model="inst.config.username" required></textarea>
@@ -128,6 +127,7 @@
         </div>
     </div>
     <div class="modal-footer">
+        <button type="button" class="btn btn-danger pull-left" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
         <button class="btn btn-primary" type="submit">OK</button>
         <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
     </div>
@@ -137,18 +137,16 @@
 <script type="text/ng-template" id="resources.ssh.html">
 <form ng-submit="ok()">
     <div class="modal-header">
-        <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+        <h3 class="modal-title">{{resource.name}}</h3>
     </div>
     <div class="modal-body">
         <div class="checkbox">
             <label><input type="checkbox" ng-model="inst.active">Enabled</label>
         </div>
-        <!--
         <div class="form-group">
-            <label>Hostname</label>
-            <input type="text" class="form-control" ng-model="resource.hostname" disabled required></textarea>
+            <label>Name</label>
+            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
         </div>
-        -->
         <div class="form-group">
             <label>Username</label>
             <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></textarea>
@@ -167,6 +165,7 @@
         </div>
     </div>
     <div class="modal-footer">
+        <button type="button" class="btn btn-danger pull-left" ng-click="remove()"><i class="fa fa-trash" aria-hidden="true"></i></button>
         <button class="btn btn-primary" type="submit">OK</button>
         <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
     </div>
