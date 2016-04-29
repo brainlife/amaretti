@@ -281,8 +281,8 @@ function($scope, $modalInstance, items, serverconf) {
     };
 }]);
 
-app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu',
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu) {
+app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal',
+function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
     scaMessage.show(toaster);
     $scope.settings_menu = scaSettingsMenu;
 
@@ -293,6 +293,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         });
     });
 
+    /*
     $scope.submit = function(resource) {
         resources.upsert(resource).then(function(res) {
             toaster.success("successfully updated the resource configuration");
@@ -303,11 +304,108 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             else toaster.error(res.statusText);
         });
     }
+    */
 
+    $scope.addnew = function(resource) {
+        var modalInstance = create_dialog(resource);
+        modalInstance.result.then(function(_inst) {
+            $http.post($scope.appconf.api+'/resource/', _inst)
+            .then(function(res) {
+                toaster.success("Updated resource");
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
+            });
+            $scope.myresources.push(_inst);
+        }, function () {
+            //anything to do when user dismiss?
+        });
+    }
+
+    $scope.remove = function(inst) {
+        alert("todo");
+        //resources.add($scope.newresource_id);
+    }
+
+    $scope.edit = function(resource, inst) {
+        var modalInstance = create_dialog(resource, inst);
+        modalInstance.result.then(function(_inst) {
+            $http.put($scope.appconf.api+'/resource/'+_inst._id, _inst)
+            .then(function(res) {
+                toaster.success("Updated resource");
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
+            });
+            //update original
+            for(var k in inst) inst[k] = _inst[k];
+        }, function () {
+            //anything to do when user dismiss?
+        });
+    }
+
+    $scope.autoconf = function() {
+        alert('todo.. please configure your resources manually for now');
+    }
+
+    function create_dialog(resource, inst) {
+        var template = null;
+
+        //TODO default username to SCA username?
+        var def = {active: true, config: {}, type: resource.type, resource_id: resource._rid};
+        switch(resource.type) {
+        case "hpss":
+            template = "resources.hpss.html"; 
+            def.config.auth_method = 'keytab';
+            break;
+        default:
+            template = "resources.ssh.html";
+        }
+
+        return $uibModal.open({
+            templateUrl: template,
+            controller: function($scope, inst, resource, $uibModalInstance, $http, appconf) {
+                if(inst) {
+                    //update
+                    $scope.inst = angular.copy(inst);
+                } else {
+                    //new
+                    $scope.inst = def;
+
+                    console.log("generating key");
+                    $http.get(appconf.api+'/resource/gensshkey/')
+                    .then(function(res) {
+                        $scope.inst.config.ssh_public = res.data.pubkey;
+                        $scope.inst.config.enc_ssh_private = res.data.key;
+                    }, function(res) {
+                        if(res.data && res.data.message) toaster.error(res.data.message);
+                        else toaster.error(res.statusText);
+                    });
+                }
+
+                $scope.resource = resource;
+                //console.dir(inst);
+                $scope.cancel = function() {
+                    $uibModalInstance.dismiss('cancel');
+                }
+                $scope.ok = function() {
+                    $uibModalInstance.close($scope.inst);
+                }
+            },
+            //size: 'lg',
+            backdrop: 'static',
+            resolve: {
+                inst: function () { return inst; },
+                resource: function () { return resource; }
+            }
+        });
+    }
+    /*
     $scope.newresource_id = null;
     $scope.add = function() {
         resources.add($scope.newresource_id);
     }
+
     $scope.reset_sshkey = function(resource) {
         $http.post($scope.appconf.api+'/resource/resetsshkeys/'+resource._id)
         .then(function(res) {
@@ -318,75 +416,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             else toaster.error(res.statusText);
         });
     }
+    */
 }]);
 
-/*
-app.controller('TaskController', ['$scope', 'toaster', '$http', 'jwtHelper', 'scaMessage', '$routeParams', '$location', '$timeout', 
-function($scope, toaster, $http, jwtHelper, scaMessage, $routeParams, $location, $timeout) {
-    scaMessage.show(toaster);
-    $scope.taskid = $routeParams.taskid; 
-    $scope.path = $routeParams.instid+"/"+$scope.taskid; //path to open by default
 
-    //for file service to show files to download
-    $scope.jwt = localStorage.getItem($scope.appconf.jwt_id);
-
-    load();
-
-    var tm = null;
-    function load() {
-        $http.get($scope.appconf.api+"/task/"+$scope.taskid)
-        .then(function(res) {
-            $scope.task = res.data;
-            $scope.resource_id = $scope.task.resource_id;
-
-            //load new task status unless it's finished/failed
-            if($scope.task.status != "finished" && $scope.task.status != "failed" && $scope.task.status != "stopped") {
-                tm = $timeout(load, 3*1000); //reload in 3 seconds
-            }
-
-            //load progress info
-            $http.get($scope.appconf.progress_api+"/status/"+$scope.task.progress_key, {params: { depth: 2, }})
-            .then(function(res) {
-                $scope.progress = res.data;
-            }, function(res) {
-                if(res.data && res.data.message) toaster.error(res.data.message);
-                else toaster.error(res.statusText);
-            });
-
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-    //setup task refresher
-    $scope.$on("$locationChangeSuccess", function() {
-        if(tm) $timeout.cancel(tm);
-    });
-
-    $scope.back = function(page) {
-        $location.path("/"+page+"/"+$routeParams.instid);
-    }
-
-    $scope.stop = function() {
-        $http.put($scope.appconf.api+"/task/stop/"+$scope.task._id)
-        .then(function(res) {
-            toaster.success("Requested to stop this task");
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-
-    $scope.rerun = function() {
-        $http.put($scope.appconf.api+"/task/rerun/"+$scope.task._id)
-        .then(function(res) {
-            toaster.success("Requested to rerun this task");
-            load();
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-
-}]);
-*/

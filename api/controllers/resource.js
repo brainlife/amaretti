@@ -71,7 +71,13 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
             logger.debug("reading directory:"+_path);
+            var t = setTimeout(function() {
+                res.status(500).json({message: "Timed out while reading directory"});
+                t = null;
+            }, 4000);
             sftp.readdir(_path, function(err, files) {
+                if(t) clearTimeout(t); 
+                else return; //timeout called
                 if(err) return next(err);
                 files.forEach(function(file) {
                     file.attrs.mode_string = modeString(file.attrs.mode);
@@ -137,6 +143,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
     });
 });
 
+//TODO - should use sftp/mkdir ?
 function mkdirp(conn, dir, cb) {
     //var dir = path.dirname(_path);
     //logger.debug("mkdir -p "+dir);
@@ -177,16 +184,17 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
+                
+                //append workdir if relateive (TODO should use node path module?)
+                if(fields.path[0] != "/") fields.path = common.getworkdir(fields.path, resource);
                 logger.debug("mkdirp: "+fields.path);
                 mkdirp(conn, fields.path, function(err) {
                     if(err) return next(err);
                     conn.sftp(function(err, sftp) {
                         if(err) return next(err);
-                        var escaped_filename = part.filename.replace(/"/g, '\\"');
-                        var _path = fields.path+"/"+escaped_filename;
-
-                        //append workdir if relateive
-                        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+                        //var escaped_filename = part.filename.replace(/"/g, '\\"');
+                        //var _path = fields.path+"/"+escaped_filename;
+                        var _path = fields.path+"/"+part.filename;
 
                         logger.debug("streaming file to "+_path);
                         var stream = sftp.createWriteStream(_path);
@@ -363,53 +371,7 @@ router.get('/download', jwt({
     });
 });
 
-/*
-//stream file content via ssh using cat..  through sca web server
-//TODO - I need to use something like data service - except that it does the fetching of data through resource information
-//TODO - should I use ssh2/sftp?
-function download_file(resource, _path, res, cb) {
-    common.get_ssh_connection(resource, function(err, conn) {
-        if(err) return cb(err);
-        //get filesize first (TODO - do this only if file.size isn't set)
-        console.log("stat --printf=%s "+_path);
-        var workdir = common.getworkdir("", resource);
-        _path = workdir + "/"+_path;
-        conn.exec("stat --printf=%s "+_path, function(err, stream) {
-            if(err) return cb(err);
-            var size = "";
-            stream.on('data', function(data) {
-                size += data;
-            });
-            stream.on('close', function() {
-                //report file size/type
-                var filename = path.basename(_path);
-                res.setHeader('Content-disposition', 'attachment; filename='+filename);
-                console.log("file size:"+size.toString());
-                //res.setHeader('Content-Length', size);
-                //if(file.size) res.setHeader('Content-Length', file.size);
-                //if(file.type) res.setHeader('Content-type', file.type);
-                //now stream
-                var escaped_path = _path.replace(/"/g, '\\"');
-                conn.exec("cat \""+escaped_path+"\"", function(err, stream) {
-                    if(err) return cb(err);
-                    stream.on('data', function(data) {
-                        res.write(data);
-                    });
-                    stream.on('end', function() {
-                        res.end();
-                    });
-                    stream.on('close', function() {
-                        cb();
-                        //conn.end();
-                    })
-                });
-            });
-        });
-    });
-}
-*/
-
-//update
+//update resource definition
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
@@ -419,6 +381,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
 
         //need to decrypt first so that I can preserve previous values
         common.decrypt_resource(resource);
+        
         //keep old value if enc_ fields are set to true
         for(var k in req.body.config) {
             if(k.indexOf("enc_") === 0) {
@@ -428,6 +391,8 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
                 }
             }
         }
+
+        //decrypt again and save
         common.encrypt_resource(req.body);
         db.Resource.update({_id: id}, { $set: req.body }, {new: true}, function(err) {
             if(err) return next(err);
@@ -442,6 +407,9 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     var resource = new db.Resource(req.body);
     resource.user_id = req.user.sub;
 
+    //expect resource.config.enc_ssh_private to be set to textual key
+
+    /*
     //if ssh_public is set (to anything), generate ssh_key and encrypt
     if(resource.config.ssh_public) {
         common.ssh_keygen(function(err, out){
@@ -454,15 +422,23 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     } else {
         save();
     }
-
-    function save() {
-        resource.save(function(err) {
-            if(err) return next(err);
-            res.json(mask_enc(resource));
-        });
-    }
+    */
+    common.encrypt_resource(resource);
+    resource.save(function(err) {
+        if(err) return next(err);
+        res.json(mask_enc(resource));
+    });
 });
 
+//used by resource editor to setup new resource
+router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    common.ssh_keygen(function(err, out){
+        if(err) next(err);
+        res.json(out);
+    });
+});
+
+/*
 router.post('/resetsshkeys/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
@@ -485,6 +461,7 @@ router.post('/resetsshkeys/:id', jwt({secret: config.sca.auth_pubkey}), function
         });
     });
 }); 
+*/
 
 module.exports = router;
 

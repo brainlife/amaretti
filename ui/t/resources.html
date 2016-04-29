@@ -5,60 +5,170 @@
 </div>
 <sca-menutab menu="settings_menu" active="'resources'" user="user"></sca-menutab>
 -->
-<div class="container-fluid">
-    <h2>My Resources</h2>
-    <p class="help-block">Register resources that you'd like SCA to use</p>
-    <div class="form-group">
-        <select class="form-control" ng-model="newresource_id" 
-            ng-options="rid as resource.name for (rid, resource) in serverconf.resources"
-            ng-change="add()">
-            <option value="">(Add New Resource)</option>
-        </select>
-        <!--
-        <ui-select ng-model="newresource" on-select="add($item, $model)">
-            <ui-select-match placeholder="Add New Resource...">{{$select.selected.name}}</ui-select-match>
-            <ui-select-choices repeat="rid in Object.keys(serverconf.resources)">
-                {{db.name}}<br><small>{{db.desc}}</small>
-            </ui-select-choices>
-        </ui-select>
-        -->
+<div class="container">
+<div class="row">
+    <div class="col-md-9">
+        <ul class="list-group">
+            <!--header-->
+            <li class="list-group-item disabled" style="padding-top: 0; padding-bottom: 0px;">
+                <div class="row">
+                    <div class="col-md-4"><p style="padding-top: 10px;">Systems</p></div>
+                    <div class="col-md-8">
+                        <ul class="list-group" style="margin-bottom: 0px;">
+                            <li class="list-group-item disabled" style="border: none;">
+                                <div class="row">
+                                    <div class="col-md-4">Your Accounts</div>
+                                    <div class="col-md-2">Enabled</div>
+                                    <div class="col-md-4">Status</div>
+                                    <div class="col-md-2"></div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </li>
+            
+            <!--systems-->
+            <li class="list-group-item" ng-repeat="(rid, resource) in serverconf.resources" ng-init="resource._rid = rid">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h4>{{resource.name}} <small class="text-muted">{{resource.hostname}}</small></h4>
+                        <p class="help-block">{{resource.desc}}</p>
+                        <!-- <p class="help-block">{{resource.hostname}}</p>-->
+                        <span ng-repeat="(sid, detail) in resource.services">
+                            <span class="label label-default">{{sid}}</span>&nbsp;
+                        </span>
+                    </div>
+                    <div class="col-md-8">
+                        <ul class="list-group">
+                            <li class="list-group-item clickable" ng-repeat="inst in myresources|filter:{resource_id:rid}" ng-click="edit(resource, inst)">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        {{inst.name}}<br>
+                                        <span class="text-muted">{{inst.config.username}}</span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="checkbox" ng-model="inst.active" disabled></input>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <span uib-tooltip="{{inst.status_msg||'no detail'}}">
+                                            <span class="label label-success" ng-if="inst.status == 'ok'"><i class="fa fa-check fa-fw" aria-hidden="true"></i></span>
+                                            <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
+                                            <small class="text-muted">{{inst.status_update|date:'short'}}</small>
+                                        </span>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="btn-group pull-right" role="group">
+                                            <!--
+                                            <button type="button" class="btn btn-default btn-xs" ng-click="edit(resource, inst)"><i class="fa fa-pencil" aria-hidden="true"></i></button>-->
+                                            <button type="button" class="btn btn-danger btn-xs" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </li> 
+                            <li class="list-group-item clickable" ng-click="addnew(resource)">
+                                <span class="text-muted"><i class="fa fa-plus" aria-hidden="true"></i> Add New Account</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </li>
+        </ul>
+    </div><!--col-md-9-->
+    <div class="col-md-3">
+        <div class="panel panel-info">
+            <div class="panel-heading">
+                <h3 class="panel-title">Auto Configuration</h3>
+            </div>
+            <div class="panel-body">
+                <p>You can enable all IU resources that you have access simply by entering your username and password.</p>
+                <button type="button" class="btn btn-info" ng-click="autoconf()"><i class="fa fa-arrow-right" aria-hidden="true"></i> Start</button>
+            </div>
+        </div>
+        <div class="panel">
+        </div>
     </div>
-    <ul class="list-group">
-        <li class="list-group-item" ng-repeat="resource in myresources">
-            <form ng-submit="submit(resource)" ng-init="def = serverconf.resources[resource.resource_id]">
-                <h4>{{def.name}}</h4>
-                <p class="help-block">{{def.desc}}</p>
-                <div class="form-group">
-                    <label>Name</label>
-                    <input type="text" class="form-control" ng-model="resource.name" name="enabled" placeholder="My XYZ resource" required></input>
-                </div>
-                <div ng-switch="def.type">
-                    <div ng-switch-when="pbs">
-                        <ng-include src="'t/resources.ssh.html'"></ng-include>
-                    </div>
-                    <div ng-switch-when="osg">
-                        <ng-include src="'t/resources.ssh.html'"></ng-include>
-                    </div>
-                    <div ng-switch-when="jetstream-vm">
-                        <ng-include src="'t/resources.ssh.html'"></ng-include>
-                    </div>
-                    <div ng-switch-when="hpss">
-                        <ng-include src="'t/resources.hpss.html'"></ng-include>
-                    </div>
-                    <div ng-switch-when="docker">
-                        <ng-include src="'t/resources.ssh.html'"></ng-include>
-                    </div>
-                    <div ng-switch-default>
-                        <pre>{{resource|json}}</pre>
-                    </div>
-                </div>
-                <input type="submit" class="btn" value="Update">
-                <!--
-                <pre>{{resource | json}}</pre>
-                <pre>{{myresources[rid] | json}}</pre>
-                -->
-            </form>
-        </li>
-    </ul>
-
+</div><!--row-->
 </div>
+
+<script type="text/ng-template" id="resources.hpss.html">
+<form ng-submit="ok()">
+    <div class="modal-header">
+        <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+    </div>
+    <div class="modal-body">
+        <div class="checkbox">
+            <label><input type="checkbox" ng-model="inst.active">Enabled</label>
+        </div>
+        <!--
+        <div class="form-group">
+            <label>Hostname</label>
+            <input type="text" class="form-control" ng-model="resource.hostname" disabled required></textarea>
+        </div>
+        -->
+        <div class="form-group">
+            <label>Principal (username)</label>
+            <input type="text" class="form-control" ng-model="inst.config.username" required></textarea>
+        </div>
+        <div class="form-group">
+            <label>Authentication Method</label>
+            <select class="form-control" ng-model="inst.config.auth_method" disabled required>
+                <option value="keytab">Keytab</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Keytab (base64)</label>
+            <div ng-if="inst.config.enc_keytab === true">
+                <button class="btn btn-xs" ng-click="inst.config.enc_keytab = ''">Reset</button>
+            </div>
+            <div ng-if="inst.config.enc_keytab !== true">
+                <p class="help-block">Issue your kerbros keytab, then run it with base64 command to genenerate the base64 formatted keytab</p>
+                <textarea class="form-control" ng-model="inst.config.enc_keytab" required></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">OK</button>
+        <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
+    </div>
+</form>
+</script>
+
+<script type="text/ng-template" id="resources.ssh.html">
+<form ng-submit="ok()">
+    <div class="modal-header">
+        <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+    </div>
+    <div class="modal-body">
+        <div class="checkbox">
+            <label><input type="checkbox" ng-model="inst.active">Enabled</label>
+        </div>
+        <!--
+        <div class="form-group">
+            <label>Hostname</label>
+            <input type="text" class="form-control" ng-model="resource.hostname" disabled required></textarea>
+        </div>
+        -->
+        <div class="form-group">
+            <label>Username</label>
+            <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></textarea>
+        </div>
+        <div class="form-group">
+            <label>SSH Public Key</label>
+            <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{resource.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
+            <!--<button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>-->
+            <pre class="well well-sm" style="overflow-y: auto; font-family: Courier; font-size: 60%;">#Public key to allow access to this resource through SCA ({{inst.name}})
+{{inst.config.ssh_public}} {{inst.config.username}}@sca</pre>
+            <!--
+            <label>SSH Private Key</label>
+            <pre class="well well-sm" style="overflow: auto; font-family: Courier; font-size: 60%; height: 150px;">
+{{inst.config.enc_ssh_private}}</pre>
+            -->
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">OK</button>
+        <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
+    </div>
+</form>
+</script>
