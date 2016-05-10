@@ -37,10 +37,14 @@ var instanceSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
+/*
+//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
+//I prefer doing this manually anyway, because it will be more visible 
 instanceSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
+*/
 exports.Instance = mongoose.model('Instance', instanceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,6 +73,7 @@ var resourceSchema = mongoose.Schema({
     update_date: {type: Date, default: Date.now },
 });
 
+/*
 //mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
 //I prefer doing this manually anyway, because it will be more visible 
 resourceSchema.pre('update', function(next) {
@@ -76,6 +81,7 @@ resourceSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
+*/
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -140,10 +146,14 @@ var taskSchema = mongoose.Schema({
     //time when this task was last updated
     update_date: {type: Date},
 });
+/*
+//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
+//I prefer doing this manually anyway, because it will be more visible 
 taskSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
+*/
 taskSchema.index({name: 'text', desc: 'text'});
 
 exports.Task = mongoose.model('Task', taskSchema);
