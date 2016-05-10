@@ -582,8 +582,8 @@ function init_task(task, resource, cb) {
                         }
                         stream.write("export "+k+"=\""+vs+"\"\n");
                     }
-                    if(service_detail.sca.bin.run) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.run+" > run.stdout 2>run.stderr\n");
-                    if(service_detail.sca.bin.start) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start+" > start.stdout 2>start.stderr\n");
+                    if(service_detail.sca.bin.run) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.run+"\n");
+                    if(service_detail.sca.bin.start) stream.write("~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start+"\n");
                     stream.end();
                 });
             },
@@ -600,7 +600,7 @@ function init_task(task, resource, cb) {
                 logger.debug("starting service: ~/.sca/services/"+service_id+"/"+service_detail.sca.bin.start);
                 common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
 
-                conn.exec("cd "+taskdir+" && ./_boot.sh", {
+                conn.exec("cd "+taskdir+" && ./_boot.sh > start.log 2>&1", {
                     /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
                 }, function(err, stream) {
                     if(err) next(err);
@@ -633,7 +633,7 @@ function init_task(task, resource, cb) {
                 task.status_msg = "Running service";
                 task.start_date = new Date();
                 task.save(function() {
-                    conn.exec("cd "+taskdir+" && ./_boot.sh", {
+                    conn.exec("cd "+taskdir+" && ./_boot.sh > run.log 2>&1", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
                     }, function(err, stream) {
                         if(err) next(err);
