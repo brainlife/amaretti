@@ -10,6 +10,7 @@ var bodyParser = require('body-parser');
 var winston = require('winston');
 var expressWinston = require('express-winston');
 var compression = require('compression');
+var cors = require('cors');
 
 //mine
 var config = require('../config');
@@ -20,6 +21,7 @@ var db = require('./models/db');
 
 //init express
 var app = express();
+app.use(cors());
 app.use(compression());
 
 //parse application/json
