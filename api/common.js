@@ -191,7 +191,7 @@ exports.install_sshkey = function(username, password, host, pubkey, comment, cb)
         ready = true;
         //TODO - move the script to soichih/sca
         //if(!comment) comment = "";
-        conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sciapt-helper/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
+        conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
         function(err, stream) {
             if (err) {
                 conn.end();
