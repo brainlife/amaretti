@@ -181,3 +181,61 @@ exports.progress = function(key, p, cb) {
     });
 }
 
+//ssh to host using username/password and insert ssh key in ~/.ssh/authorized_keys
+exports.install_sshkey = function(username, password, host, pubkey, comment, cb) {
+    var conn = new Client({/*readyTimeout:1000*60*/});
+    var out = "";
+    var ready = false;
+    var nexted = false;
+    conn.on('ready', function() {
+        ready = true;
+        //TODO - move the script to soichih/sca
+        //if(!comment) comment = "";
+        conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sciapt-helper/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
+        function(err, stream) {
+            if (err) {
+                conn.end();
+                nexted = true;
+                return cb(err);
+            }
+            stream.on('close', function(code, signal) {
+                conn.end();
+                nexted = true;
+                cb(code);
+            }).on('data', function(data) {
+                out += data;
+            }).stderr.on('data', function(data) {
+                out += data;
+            });
+        });
+    });
+    conn.on('error', function(err) {
+        console.error(err.toString());
+        //caused by invalid password, etc..
+        nexted = true;
+        if(err.level && err.level == "client-authentication") {
+            cb("Possibly incorrect username / password");
+        } else {
+            if(err.message) cb(err.message);
+            else cb(err.toString());
+        }
+    });
+    conn.on('end', function() {
+        if(!ready && !nexted) cb('SSH connection ended before it began.. maybe maintenance day?');
+    });
+    conn.on('keyboard-interactive', function(name, instructions, lang, prompts, cb) {
+        if(~prompts[0].prompt.indexOf("Password:")) cb([$scope.password]);
+        else {
+           cb("SSH server prompted something that I don't know how to answer");
+            console.dir(prompts);
+        }
+    });
+    conn.connect({
+        //debug: true,
+        port: 22,
+        host: host,
+        username: username,
+        password: password,
+        tryKeyboard: true, //in case password auth is disabled
+    });
+}

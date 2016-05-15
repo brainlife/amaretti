@@ -431,10 +431,26 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 });
 
 //used by resource editor to setup new resource
-router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+//jwt is optional.. since it doesn't really store this anywhere (should I?)
+//kdinstaller uses this to generate key
+router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
     common.ssh_keygen(function(err, out){
-        if(err) next(err);
+        if(err) return next(err);
         res.json(out);
+    });
+});
+
+//install user key to specified host via ssh using username/password auth
+//used by kdinstaller
+router.post('/installsshkey', function(req, res, next) {
+    var username = req.body.username;
+    var password = req.body.password;
+    var host = req.body.host; 
+    var pubkey = req.body.pubkey;
+    var comment = req.body.comment;
+    common.install_sshkey(username, password, host, pubkey, comment, function(err) {
+        if(err) return next(err);
+        res.json({message: 'ok'});
     });
 });
 
