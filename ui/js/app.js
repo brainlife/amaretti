@@ -38,6 +38,12 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         controller: 'InstsController',
         requiresLogin: true
     })
+    
+    .when('/services', {
+        templateUrl: 't/services.html',
+        controller: 'ServicesController',
+        requiresLogin: true
+    })
     /*
     .when('/task/:instid/:taskid', {
         templateUrl: 't/task.html',
@@ -303,6 +309,37 @@ function(appconf, $http, serverconf, toaster) {
         find: find,
 
         add: add, //just add to resources array - doesn't save it
+    }
+}]);
+
+app.factory('services', ['appconf', '$http', 'serverconf', 'toaster', 
+function(appconf, $http, serverconf, toaster) {
+    var services = null;
+
+    //return all devices configured for the user
+    function query(q) {
+        //TODO send q to server
+        return serverconf.then(function(serverconf) {
+            return $http.get(appconf.api+'/service')
+            .then(function(res) {
+                services = res.data;
+                return services;
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
+            });
+        });
+    }
+
+    /*
+    function upsert(service) {
+        return $http.put(appconf.api+'/service/'+service._id, service);
+    }
+    */
+
+    return {
+        query: query, 
+        //upsert: upsert,
     }
 }]);
 

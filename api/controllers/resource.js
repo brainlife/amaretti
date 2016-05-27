@@ -32,7 +32,16 @@ function mask_enc(resource) {
     return resource;
 }
 
-//return all resource detail that belongs to the user
+/**
+ * @api {get} /resource         Get resource registrations
+ * @apiParam {Object} where     Optional Mongo query to perform
+ * @apiDescription Returns all resource registration detail that belongs to a user
+ * @apiGroup Resource
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccess {Object[]} resources        Resource detail
+ */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var where = {};
     if(req.query.where) where = JSON.parse(req.query.where);
@@ -49,7 +58,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             resource.detail = config.resources[resource.resource_id];
             //resource.workdir = common.getworkdir(null, resource); //nobody uses this at the moment
             resource.salts = undefined;
-            resource.user_id = undefined; //no point
+            //resource.user_id = undefined;
         });
         res.json(resources);
     });
@@ -127,7 +136,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 //also used by sca-wf-freesurfer process controller to check to make sure user has a place to submit
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     resource_picker.select(req.user.sub, {
-        service_id: req.query.service_id,  //service that resource must provide
+        service: req.query.service,  //service that resource must provide
         //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
     }, function(err, resource, score) {
         if(err) return next(err);

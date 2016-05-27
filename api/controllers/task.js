@@ -14,46 +14,6 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
 
-/*
-//TODO deprecated by get:/?
-router.get('/recent', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Task.find({
-        user_id: req.user.sub,
-        create_date: { "$gte": new Date(2016,0,1)},  //TODO - make this not hardcoded..
-    }, function(err, tasks) {
-        if(err) return next(err);
-        res.json(tasks);
-    });
-});
-*/
-
-/*
-//TODO deprecated by get:/?
-router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    db.Task
-    .findById(req.params.id)
-    //.populate('deps')
-    //.populate('resource_id') //I think resource_id expand to resource is confusing.. I will populate it to _resource below
-    .lean()
-    .exec(function(err, task) {
-        if(err) return next(err);
-        if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end();
-
-        //populate resource info
-        if(task.resource_id) {
-            db.Resource.findById(task.resource_id)
-            .select('type name status status_msg')
-            .exec(function(err, resource) {
-                if(err) return next(err); 
-                task._resource = resource;
-                res.json(task);
-            });
-        } else res.json(task);
-    });
-});
-*/
-
 //get all tasks that belongs to a user (with query.)
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var where = {};
@@ -86,10 +46,11 @@ function check_resource_access(user, ids, cb) {
 //submit a task under a workflow instance
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance_id = req.body.instance_id;
-    var service_id = req.body.service_id;
+    var service = req.body.service;
 
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
+        if(!instance) return next("no such instance:"+instance_id);
         if(instance.user_id != req.user.sub) return res.status(401).end();
         var task = new db.Task(req.body);  //TODO should I validate?
         task.user_id = req.user.sub;
@@ -98,8 +59,9 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by SCA task handler";
 
+        //TODO - I am sure this is no longer used.. preferred_resource_id is set instead
         //setting this to resource_id doesn't gurantee that it will run there.. this is to help sca-task decide where to run the task
-        task.resource_id = req.body.resource_id;
+        //task.resource_id = req.body.resource_id;
 
         //now register!
         task.save(function(err, _task) {
@@ -116,7 +78,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         });
        
         //also send first progress update
-        common.progress(task.progress_key, {name: task.name||service_id, status: 'waiting', msg: service_id+' service requested'});
+        common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
     });
     //});
 });

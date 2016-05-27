@@ -60,7 +60,7 @@ function score_resource(resource, query) {
     //1... handle query.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
     //3... take resource utilization into account (pick least used docker host, for example)
-    var info = resource_detail.services[query.service_id];
+    var info = resource_detail.services[query.service];
     if(info === undefined) return 0;
     return info.score;
 }

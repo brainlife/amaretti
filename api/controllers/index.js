@@ -14,8 +14,8 @@ router.get('/health', function(req, res) {
 
 router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res) {
     var conf = {
-        resources: config.resources,
-        services: config.services,
+        resources: config.resources, //resoruce bases..
+        //services: config.services,
     };
     res.json(conf);
 });
@@ -24,6 +24,7 @@ router.use('/workflow', require('./workflow'));
 router.use('/instance', require('./instance')); //workflow instances
 router.use('/resource', require('./resource'));
 router.use('/task', require('./task'));
+router.use('/service', require('./service'));
 router.use('/comment', require('./comment'));
 
 module.exports = router;

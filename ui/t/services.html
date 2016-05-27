@@ -1,0 +1,11 @@
+<sca-menutab menu="appconf.menu" active="'services'" user="user"></sca-menutab>
+<div class="container">
+    <h2>Services</h2>
+    <ul class="list-group"> 
+        <li class="list-group-item" ng-repeat="service in services | orderBy:'name'">
+            <pre>{{service|json}}</pre>
+        </li>
+    </ul>
+</div>
+
+

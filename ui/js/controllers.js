@@ -170,7 +170,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location) {
     */
 }]);
 
-//TODO will be moved to inst.js
+//TODO will be moved to inst.js ... has this already happened?
 app.controller('InstController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', '$modal',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, $modal) {
     scaMessage.show(toaster);
@@ -197,7 +197,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                         product: product,
                         step: step,    
                         task: task, 
-                        service_detail: $scope.serverconf.services[task.service_id],
+                        service_detail: $scope.serverconf.services[task.service],
                         product_idx: product_idx
                     });
                 }
@@ -242,7 +242,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             //instantiate new step
             //var newstep = angular.copy(service.default);
             var newstep = {
-                service_id: service.id,
+                service: service.id,
                 name: 'untitled',
                 config: service.default,
                 tasks: [],
@@ -257,14 +257,15 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     };
 }]);
 
+/*
 app.controller('WorkflowStepSelectorController', ['$scope', '$modalInstance', 'items', 'serverconf', 
 function($scope, $modalInstance, items, serverconf) {
     serverconf.then(function(_serverconf) {
         $scope.groups = [];
         $scope.services_a = [];
-        for(var service_id in  _serverconf.services) {
-            var service = _serverconf.services[service_id];
-            service.id = service_id;
+        for(var service in  _serverconf.services) {
+            var service = _serverconf.services[service];
+            service.id = service;
             $scope.services_a.push(service);
             if(!~$scope.groups.indexOf(service.group)) $scope.groups.push(service.group);
         }
@@ -280,6 +281,7 @@ function($scope, $modalInstance, items, serverconf) {
         $modalInstance.dismiss('cancel');
     };
 }]);
+*/
 
 app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
@@ -418,4 +420,12 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     */
 }]);
 
+app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
+function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services) {
+    scaMessage.show(toaster);
+    services.query({}).then(function(ss) {
+        $scope.services = ss.services;
+        $scope.service_count = ss.count;
+    });
+}]);
 

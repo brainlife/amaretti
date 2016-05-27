@@ -11,7 +11,7 @@ var logger = new winston.Logger(config.logger.winston);
 exports.init = function(cb) {
     mongoose.connect(config.mongodb, {}, function(err) {
         if(err) return cb(err);
-        console.log("connected to mongo");
+        logger.info("connected to mongo");
         cb();
     });
 }
@@ -53,8 +53,9 @@ var resourceSchema = mongoose.Schema({
     ////////////////////////////////////////////////
     //key
     user_id: {type: String, index: true}, 
-    type: String, //like hpss, pbs, 
-    resource_id: String, //like sda, bigred2
+    type: String, //like hpss, pbs (from resource base)
+    resource_id: String, //like sda, bigred2 (resource base id..)
+    //TODO - allow resource to override parameters from resource base so that user can configure them
     //
     ////////////////////////////////////////////////
 
@@ -62,7 +63,7 @@ var resourceSchema = mongoose.Schema({
     status_msg: String,
     status_update: Date,
 
-    active: Boolean,
+    active: {type: Boolean, default: true},
 
     name: String, 
     config: mongoose.Schema.Types.Mixed,
@@ -91,7 +92,7 @@ var taskSchema = mongoose.Schema({
     user_id: String, //sub of user submitted this request
 
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
-    service_id: String,
+    service: String, // "soichih/sca-service-life"
     
     //resource where the service was executed (not set if it's not yet run)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
@@ -160,6 +161,7 @@ exports.Task = mongoose.model('Task', taskSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+//used to comments on various *things*
 var commentSchema = mongoose.Schema({
 
     type: String, //workflow, instance, task, etc..
@@ -175,5 +177,42 @@ var commentSchema = mongoose.Schema({
 });
 exports.Comment = mongoose.model('Comment', commentSchema);
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+//registered services
+var serviceSchema = mongoose.Schema({
+
+    //user who registered this service to SCA
+    user_id: String, 
+
+    giturl: String, //url used to register this service
+    
+    //unique service name used by SCA (normally a copy of git.full_name when registered -- "soichih/sca-service-life")
+    name: {type: String, index: {unique: true}}, 
+
+    //cache of https://api.github.com/repos/soichih/sca-service-life
+    git: mongoose.Schema.Types.Mixed, 
+    //important git fields
+    //git.description - repo desc
+    //git.clone_url
+
+    //cache of package.json (https://raw.githubusercontent.com/soichih/sca-service-freesurfer/master/package.json)
+    pkg: mongoose.Schema.Types.Mixed, 
+    //important pkg fields
+    //pkg.scripts.start
+    //pkg.scripts.stop
+    //pkg.scripts.status
+
+    //information about the last test
+    status: String,
+    status_msg: String,
+    status_update: Date,
+
+    //owner / admin can deactivate
+    active: {type: Boolean, default: true},
+
+    register_date: {type: Date, default: Date.now },
+});
+exports.Service = mongoose.model('Service', serviceSchema);
 
 
