@@ -16,7 +16,7 @@ var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../api/models/db');
 var common = require('../api/common');
-var resource_picker = require('../api/resource_picker');
+var resource_picker = require('../api/resource').select;
 var transfer = require('../api/transfer');
 
 db.init(function(err) {
@@ -193,6 +193,7 @@ function check_running() {
 
             db.Resource.findById(task.resource_id, function(err, resource) {
                 if(err) return next(err);
+                if(!resource) return next(new Error("can't find such resource:"+task.resource_id));
                 common.get_ssh_connection(resource, function(err, conn) {
                     var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                     //TODO - not all service provides bin.status.. how will this handle that?
@@ -255,7 +256,7 @@ function check_running() {
 }
 
 function process_requested(task, cb) {
-    resource_picker.select(task.user_id, {
+    resource_picker(task.user_id, {
         service: task.service,
         preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
         //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along

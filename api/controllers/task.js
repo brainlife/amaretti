@@ -19,8 +19,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     var where = {};
     if(req.query.where) where = JSON.parse(req.query.where);
     where.user_id = req.user.sub;
-    logger.debug("searching task with following where");
-    console.log(JSON.stringify(where, null, 4));
+    //logger.debug("searching task with following where");
+    //console.log(JSON.stringify(where, null, 4));
     var query = db.Task.find(where);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);

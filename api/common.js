@@ -36,8 +36,8 @@ exports.gettaskdir = function(workflow_id, task_id, resource) {
 exports.encrypt_resource = function(resource) { 
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
-            var v = resource.config[k];
             
+            /*
             //generate salt
             var salt = new Buffer(crypto.randomBytes(32)); //ensure that the IV (initialization vector) is random
             var iv = new Buffer(crypto.randomBytes(16)); //ensure that the IV (initialization vector) is random
@@ -51,6 +51,18 @@ exports.encrypt_resource = function(resource) {
             resource.config[k] = cipher.update(v, 'utf8', 'base64');
             resource.config[k] += cipher.final('base64');
             //resource.markModified('config');
+            */
+
+            //encrypt using configured password and resource._id as IV
+            if(!resource._id) throw new Error("can't encrypt without resource._id set");
+            var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
+            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
+            var c = crypto.createCipheriv(config.sca.resource_cipher_algo, key, iv);
+            var e = c.update(resource.config[k], 'utf8', 'hex');
+            e += c.final('hex');
+            
+            //base64 encode and store it back
+            resource.config[k] = e;//new Buffer(e, 'binary').toString('base64');
         }
     }
 }
@@ -59,11 +71,20 @@ exports.encrypt_resource = function(resource) {
 exports.decrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
+            /*
             var salt = resource.salts[k];
             var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt.salt.buffer, 100000, 32, 'sha512');
             var decipher = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, salt.iv.buffer);
             resource.config[k] = decipher.update(resource.config[k], 'base64', 'utf8');
             resource.config[k] += decipher.final('utf8'); 
+            */
+            var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
+            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
+            var c = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, iv);
+            //var v = new Buffer(resource.config[k], 'base64').toString('binary');
+            var e = c.update(resource.config[k], 'hex', 'utf8');
+            e += c.final('utf8');
+            resource.config[k] = e;
         }
     }
 }
@@ -71,6 +92,7 @@ exports.decrypt_resource = function(resource) {
 var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
+    //console.dir(resource);
     var old = ssh_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established ssh connection. # of connections:"+Object.keys(ssh_conns).length);
@@ -110,6 +132,7 @@ exports.get_ssh_connection = function(resource, cb) {
 //ssh closed connection eventually.
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
+    //console.dir(resource);
     var old = sftp_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established sftp connection. number of connections:"+Object.keys(sftp_conns).length);

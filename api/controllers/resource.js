@@ -19,7 +19,7 @@ var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
-var resource_picker = require('../resource_picker');
+var resource_lib = require('../resource');
 var transfer = require('../transfer');
 
 function mask_enc(resource) {
@@ -135,7 +135,8 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 //also used by sca-cli backup to pick do file upload also
 //also used by sca-wf-freesurfer process controller to check to make sure user has a place to submit
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    resource_picker.select(req.user.sub, {
+    logger.debug("choosing best resource for service:"+req.query.service);
+    resource_lib.select(req.user.sub, {
         service: req.query.service,  //service that resource must provide
         //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
     }, function(err, resource, score) {
@@ -380,6 +381,42 @@ router.get('/download', jwt({
     });
 });
 
+//test resource and update status
+/**
+ * @api {put} /resource/test/:resource_id Test resource 
+ * @apiName TestResource
+ * @apiGroup Resource
+ *
+ * @apiParam {String} resource_id Resource ID
+ * @apiDescription Test resource connectivity and availability. Store status on status/status_msg fields of the resource entry
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "status": "ok"
+ *     }
+ *
+ * @apiErrorExample {json} Error-Response:
+ *     HTTP/1.1 500 OK
+ *     {
+ *         "message": "SSH connection failed"
+ *     }
+ *
+ */
+router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var id = req.params.id;
+    db.Resource.findOne({_id: id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end();
+        if(resource.user_id != req.user.sub) return res.status(401).end();
+        resource_lib.check(resource, function(err) {
+            if(err) return next(err);
+            res.json({status: "ok"});
+        });
+    });
+});
+
 //update resource definition
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
@@ -411,31 +448,29 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     });
 });
 
-//new
+//test resource and update status
+/**
+ * @api {post} /resource Register new resource
+ * @apiName NewResource
+ * @apiGroup Resource
+ *
+ * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "status": "ok"
+ *     }
+ *
+ */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource = new db.Resource(req.body);
     resource.user_id = req.user.sub;
-
-    //expect resource.config.enc_ssh_private to be set to textual key
-
-    /*
-    //if ssh_public is set (to anything), generate ssh_key and encrypt
-    if(resource.config.ssh_public) {
-        common.ssh_keygen(function(err, out){
-            if(err) next(err);
-            resource.config.ssh_public = out.pubkey;
-            resource.config.enc_ssh_private = out.key;
-            common.encrypt_resource(resource);
-            save();
-        });
-    } else {
-        save();
-    }
-    */
     common.encrypt_resource(resource);
-    resource.save(function(err) {
+    resource.save(function(err, _resource) {
         if(err) return next(err);
-        res.json(mask_enc(resource));
+        res.json(mask_enc(_resource));
     });
 });
 

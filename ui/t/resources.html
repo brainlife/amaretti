@@ -55,6 +55,7 @@
                                             <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
                                             <small class="text-muted">{{inst.status_update|date:'short'}}</small>
                                         </span>
+                                        <button class="btn btn-xs" ng-click="test(resource, inst, $event)">Test</button>
                                     </div>
                                     <!--
                                     <div class="col-md-2">
@@ -123,6 +124,7 @@
             <div ng-if="inst.config.enc_keytab !== true">
                 <p class="help-block">Issue your kerbros keytab, then run it with base64 command to genenerate the base64 formatted keytab</p>
                 <textarea class="form-control" ng-model="inst.config.enc_keytab" required></textarea>
+                <intput type="button" ng-click="
             </div>
         </div>
     </div>
@@ -145,18 +147,18 @@
         </div>
         <div class="form-group">
             <label>Name</label>
-            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></input>
         </div>
         <div class="form-group">
             <label>Username</label>
-            <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></textarea>
+            <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></input>
         </div>
         <div class="form-group">
             <label>SSH Public Key</label>
             <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{resource.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
             <!--<button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>-->
-            <pre class="well well-sm" style="overflow-y: auto; font-family: Courier; font-size: 60%;">#Public key to allow access to this resource through SCA ({{inst.name}})
-{{inst.config.ssh_public}} {{inst.config.username}}@sca</pre>
+            <p class="well well-sm" style="font-family: Courier; font-size: 75%; word-wrap: break-word;">#Public key to allow access to this resource through SCA ({{inst.name}})
+{{inst.config.ssh_public}} {{inst.config.username}}@sca</p>
             <!--
             <label>SSH Private Key</label>
             <pre class="well well-sm" style="overflow: auto; font-family: Courier; font-size: 60%; height: 150px;">

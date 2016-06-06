@@ -257,32 +257,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     };
 }]);
 
-/*
-app.controller('WorkflowStepSelectorController', ['$scope', '$modalInstance', 'items', 'serverconf', 
-function($scope, $modalInstance, items, serverconf) {
-    serverconf.then(function(_serverconf) {
-        $scope.groups = [];
-        $scope.services_a = [];
-        for(var service in  _serverconf.services) {
-            var service = _serverconf.services[service];
-            service.id = service;
-            $scope.services_a.push(service);
-            if(!~$scope.groups.indexOf(service.group)) $scope.groups.push(service.group);
-        }
-    });
-    $scope.service_selected = null;
-    $scope.select = function(service) {
-        $scope.service_selected = service;
-    }
-    $scope.ok = function () {
-        $modalInstance.close($scope.service_selected);
-    };
-    $scope.cancel = function () {
-        $modalInstance.dismiss('cancel');
-    };
-}]);
-*/
-
 app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
     scaMessage.show(toaster);
@@ -295,30 +269,17 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         });
     });
 
-    /*
-    $scope.submit = function(resource) {
-        resources.upsert(resource).then(function(res) {
-            toaster.success("successfully updated the resource configuration");
-            //update with new content without updating anything else
-            for(var k in res.data) { resource[k] = res.data[k]; }
-        }, function(res) {     
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-    */
-
     $scope.addnew = function(resource) {
         var modalInstance = create_dialog(resource);
         modalInstance.result.then(function(_inst) {
             $http.post($scope.appconf.api+'/resource/', _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
+                $scope.myresources.push(res.data);
             }, function(res) {
                 if(res.data && res.data.message) toaster.error(res.data.message);
                 else toaster.error(res.statusText);
             });
-            $scope.myresources.push(_inst);
         }, function () {
             //anything to do when user dismiss?
         });
@@ -339,6 +300,17 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             for(var k in inst) inst[k] = _inst[k];
         }, function () {
             //anything to do when user dismiss?
+        });
+    }
+
+    $scope.test = function(resource, inst, $event) {
+        $event.stopPropagation();
+        $http.put($scope.appconf.api+'/resource/test/'+inst._id)
+        .then(function(res) {
+            toaster.success("Resource configured properly!");
+        }, function(res) {
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
         });
     }
 
@@ -401,23 +373,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             }
         });
     }
-    /*
-    $scope.newresource_id = null;
-    $scope.add = function() {
-        resources.add($scope.newresource_id);
-    }
-
-    $scope.reset_sshkey = function(resource) {
-        $http.post($scope.appconf.api+'/resource/resetsshkeys/'+resource._id)
-        .then(function(res) {
-            toaster.success("Successfully reset your ssh keys. Please update your public key in ~/.ssh/authorized_keys!");
-            resource.config.ssh_public = res.data.ssh_public;
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-    */
 }]);
 
 app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
