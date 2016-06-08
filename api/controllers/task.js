@@ -43,8 +43,38 @@ function check_resource_access(user, ids, cb) {
     }, cb);
 }
 
-//submit a task under a workflow instance
+/**
+ * @api {post} /task            NewTask
+ * @apiGroup Task
+ * @apiDescription              Submit a task under a workflow instance
+ *
+ * @apiParam {String} [name]    Name for this task
+ * @apiParam {String} [desc]    Description for this task
+ * @apiParam {String} instance_id 
+ *                              Instance ID to submit this task
+ * @apiParam {String} service   
+ *                              Name of the service to run
+ * @apiParam {String} [preferred_resource_id]
+ *                              resource that user prefers to run this service on 
+ *                              (may or may not be chosen)
+ * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
+ * @apiParam {String[]} [deps]  task IDs that this serivce depends on. This task will be executed as soon as
+ *                              all dependency tasks are completed.
+ * @apiParam {String[]} [resource_deps]
+ *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
+ *                              to allow access to the specified resource
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "message": "Task successfully registered",
+ *         "task": {},
+ *     }
+ *                              
+ */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    console.dir(req.body);
     var instance_id = req.body.instance_id;
     var service = req.body.service;
 

@@ -1,7 +1,7 @@
 {
   "name": "sca",
   "version": "0.1.0",
-  "description": "SCA sample portal",
+  "description": "SCA API",
   "main": "index.js",
   "dependencies": {
     "async": "^1.5.2",

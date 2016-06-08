@@ -16,18 +16,19 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 
 /**
- * @api {get} /service          Query SCA services
+ * @api {get} /service          GetService
+ * @apiGroup                    Service
  * @apiDescription              Query for SCA services 
  *
- * @apiParam {Object} find      Optional Mongo find query - defaults to {}
- * @apiParam {Object} sort      Optional Mongo sort object - defaults to {}
- * @apiParam {String} select    Optional Fields to load - defaults to 'logical_id'
- * @apiParam {Number} limit     Optional Maximum number of records to return - defaults to 100
- * @apiParam {Number} skip      Optional Record offset for pagination
+ * @apiParam {Object} [find]    Mongo find query - defaults to {}
+ * @apiParam {Object} [sort]    Mongo sort object - defaults to {}
+ * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'
+ * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
+ * @apiParam {Number} [skip]    Record offset for pagination
  *
- * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {Object[]} services Service detail
+ * @apiSuccess {Object[]}       Services Service detail
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
@@ -50,7 +51,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 /**
- * @api {post} /    Register new SCA service 
+ * @api {post} /service    NewService
  * @apiParam {String} giturl  Github URL to register service (like https://github.com/soichih/sca-service-life)
  * @apiDescription  From specified Github URL, this API will register new service using github repo info and package.json
  * @apiGroup Service
