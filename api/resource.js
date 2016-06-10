@@ -11,16 +11,20 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 var common = require('./common');
 
-exports.select = function(user_id, query, cb) {
+exports.select = function(user, query, cb) {
     //select all resource available for the user and online
     db.Resource.find({
-        user_id: user_id,
+        //assume user always has gids set..
+        $or: [
+            {user_id: user.sub},
+            {gids: {$in: user.gids }},
+        ],
         status: 'ok', 
     })
     //.lean()
     .exec(function(err, resources) {
         if(err) return cb(err);
-        if(resources.length == 0) logger.warn("user:"+user_id+" has no active resource");
+        if(resources.length == 0) logger.warn("user:"+user_id+" has no resource instance");
         if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
 
         //select the best resource based on the query

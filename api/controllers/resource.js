@@ -13,6 +13,7 @@ var path = require('path');
 var multiparty = require('multiparty');
 var mime = require('mime');
 var modeString = require('fs-mode-to-string');
+var request = require('request');
 
 //mine
 var config = require('../../config');
@@ -35,7 +36,7 @@ function mask_enc(resource) {
 /**
  * @api {get} /resource         Get resource registrations
  * @apiParam {Object} where     Optional Mongo query to perform
- * @apiDescription Returns all resource registration detail that belongs to a user
+ * @apiDescription Returns all resource registration detail that belongs to a user (doesn't include resource with group access)
  * @apiGroup Resource
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -56,13 +57,53 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //add / remove a few more things
         resources.forEach(function(resource) {
             resource.detail = config.resources[resource.resource_id];
-            //resource.workdir = common.getworkdir(null, resource); //nobody uses this at the moment
             resource.salts = undefined;
-            //resource.user_id = undefined;
         });
         res.json(resources);
     });
 });
+
+/* finds the intersection of 
+ * two arrays in a simple fashion.  
+ *
+ * PARAMS
+ *  a - first array, must already be sorted
+ *  b - second array, must already be sorted
+ *
+ * NOTES
+ *
+ *  Should have O(n) operations, where n is 
+ *    n = MIN(a.length(), b.length())
+ */
+function intersect_safe(a, b)
+{
+  var ai=0, bi=0;
+  var result = [];
+
+  while( ai < a.length && bi < b.length )
+  {
+     if      (a[ai] < b[bi] ){ ai++; }
+     else if (a[ai] > b[bi] ){ bi++; }
+     else /* they're equal */
+     {
+       result.push(a[ai]);
+       ai++;
+       bi++;
+     }
+  }
+
+  return result;
+}
+
+//return true if user hass access
+function check_access(user, resource) {
+    if(resource.user_id == req.user.sub) return retur;
+    if(resource.gids && req.user.gids) {
+        var inter = intersect_safe(resource.gids, req.user.gids);
+        if(inter.length) return true;
+    }
+    return false;
+}
 
 //use sftp/readir to list file entries
 router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
@@ -71,7 +112,8 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
 
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -110,7 +152,8 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
 
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -136,7 +179,25 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 //also used by sca-wf-freesurfer process controller to check to make sure user has a place to submit
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
-    resource_lib.select(req.user.sub, {
+
+    /*
+    //I first need a bit more information about the user (for gids)
+    console.log("loading user info from auth service");
+    console.log(config.api.auth);
+    request.get({
+        url: config.api.auth+"/user/groups/"+req.user.sub,
+        json: true,
+        //qs: { where: JSON.stringify({id: req.user.sub}), gids: true },
+        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+    }, function(err, res, users) {
+        if(err) return next(err);
+        console.log(res.statusCode);
+        console.log(res.statusMessage);
+        console.dir(users);
+    });
+    */
+
+    resource_lib.select(req.user, {
         service: req.query.service,  //service that resource must provide
         //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
     }, function(err, resource, score) {
@@ -190,7 +251,8 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
         db.Resource.findById(fields.resource_id, function(err, resource) {
             if(err) return next(err);
             if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-            if(resource.user_id != req.user.sub) return res.status(401).end(); 
+            //if(resource.user_id != req.user.sub) return res.status(401).end(); 
+            if(!check_access(req.user, resource)) return res.status(401).end(); 
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
@@ -231,7 +293,8 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        if(resource.user_id != req.user.sub) return res.status(401).end();
+        //if(resource.user_id != req.user.sub) return res.status(401).end();
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
@@ -345,7 +408,8 @@ router.get('/download', jwt({
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
         
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -381,7 +445,6 @@ router.get('/download', jwt({
     });
 });
 
-//test resource and update status
 /**
  * @api {put} /resource/test/:resource_id Test resource 
  * @apiName TestResource
@@ -409,7 +472,8 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        if(resource.user_id != req.user.sub) return res.status(401).end();
+        //if(resource.user_id != req.user.sub) return res.status(401).end();
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
         resource_lib.check(resource, function(err) {
             if(err) return next(err);
             res.json({status: "ok"});
@@ -417,7 +481,18 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
     });
 });
 
-//update resource definition
+/**
+ * @api {put} /resource/:resource_id Update resource instance
+ * @apiName UpdateResource
+ * @apiGroup Resource
+ *
+ * @apiParam {String} resource_id Resource ID
+ * @apiDescription Update the resource instance (only the resource that user owns)
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccess {Object} Resource Object
+ *
+ */
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
@@ -448,7 +523,6 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     });
 });
 
-//test resource and update status
 /**
  * @api {post} /resource Register new resource
  * @apiName NewResource
@@ -459,9 +533,20 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
- *     {
- *         "status": "ok"
- *     }
+ *     { __v: 0,
+ *      user_id: '9',
+ *      gids: [1,2,3],
+ *      type: 'pbs',
+ *      resource_id: 'karst',
+ *      name: 'use foo\'s karst account',
+ *      config: 
+ *       { ssh_public: 'my public key',
+ *         enc_ssh_private: true,
+ *         username: 'hayashis' },
+ *      _id: '5758759710168abc3562bf01',
+ *      update_date: '2016-06-08T19:44:23.205Z',
+ *      create_date: '2016-06-08T19:44:23.204Z',
+ *      active: true }
  *
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
@@ -474,9 +559,23 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     });
 });
 
-//used by resource editor to setup new resource
-//jwt is optional.. since it doesn't really store this anywhere (should I?)
-//kdinstaller uses this to generate key
+/**
+ * @api {get} /resource/gensshkey Generate ssh key pair
+ * @apiName GENSSHKEYResource
+ * @apiGroup Resource
+ *
+ * @apiDescription used by resource editor to setup new resource
+ *      jwt is optional.. since it doesn't really store this anywhere (should I?)
+ *      kdinstaller uses this to generate key (and scott's snapshot tool)
+ * 
+ * //@apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',
+ *       key: '-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\n-----END RSA PRIVATE KEY-----' }
+ *
+ */
 router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
     common.ssh_keygen(function(err, out){
         if(err) return next(err);
@@ -484,12 +583,10 @@ router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequire
     });
 });
 
-//install user key to specified host via ssh using username/password auth
-//used by kdinstaller
 router.post('/installsshkey', function(req, res, next) {
     var username = req.body.username;
     var password = req.body.password;
-    var host = req.body.host; 
+    var host = req.body.host;
     var pubkey = req.body.pubkey;
     var comment = req.body.comment;
     common.install_sshkey(username, password, host, pubkey, comment, function(err) {

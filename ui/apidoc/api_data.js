@@ -1,6 +1,26 @@
 define({ "api": [
   {
     "type": "get",
+    "url": "/resource/gensshkey",
+    "title": "Generate ssh key pair",
+    "name": "GENSSHKEYResource",
+    "group": "Resource",
+    "description": "<p>used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{ pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',\n  key: '-----BEGIN RSA PRIVATE KEY-----\\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\\n-----END RSA PRIVATE KEY-----' }",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource"
+  },
+  {
+    "type": "get",
     "url": "/resource",
     "title": "Get resource registrations",
     "parameter": {
@@ -16,7 +36,7 @@ define({ "api": [
         ]
       }
     },
-    "description": "<p>Returns all resource registration detail that belongs to a user</p>",
+    "description": "<p>Returns all resource registration detail that belongs to a user (doesn't include resource with group access)</p>",
     "group": "Resource",
     "header": {
       "fields": {
@@ -73,7 +93,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{\n    \"status\": \"ok\"\n}",
+          "content": "HTTP/1.1 200 OK\n{ __v: 0,\n user_id: '9',\n gids: [1,2,3],\n type: 'pbs',\n resource_id: 'karst',\n name: 'use foo\\'s karst account',\n config: \n  { ssh_public: 'my public key',\n    enc_ssh_private: true,\n    username: 'hayashis' },\n _id: '5758759710168abc3562bf01',\n update_date: '2016-06-08T19:44:23.205Z',\n create_date: '2016-06-08T19:44:23.204Z',\n active: true }",
           "type": "json"
         }
       ]
@@ -132,6 +152,56 @@ define({ "api": [
           "type": "json"
         }
       ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource"
+  },
+  {
+    "type": "put",
+    "url": "/resource/:resource_id",
+    "title": "Update resource instance",
+    "name": "UpdateResource",
+    "group": "Resource",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "resource_id",
+            "description": "<p>Resource ID</p>"
+          }
+        ]
+      }
+    },
+    "description": "<p>Update the resource instance (only the resource that user owns)</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "Resource",
+            "description": "<p>Object</p>"
+          }
+        ]
+      }
     },
     "version": "0.0.0",
     "filename": "api/controllers/resource.js",

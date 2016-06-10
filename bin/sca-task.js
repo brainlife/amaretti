@@ -5,6 +5,7 @@
 var fs = require('fs');
 var path = require('path');
 var os = require('os');
+var request = require('request');
 
 //contrib
 var winston = require('winston');
@@ -256,22 +257,36 @@ function check_running() {
 }
 
 function process_requested(task, cb) {
-    resource_picker(task.user_id, {
-        service: task.service,
-        preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-        //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
-    }, function(err, resource) {
+    
+    //need to lookup user's gids first
+    request.get({
+        url: config.api.auth+"/user/groups/"+task.user_id,
+        json: true,
+        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+    }, function(err, res, gids) {
         if(err) return cb(err);
-        if(!resource) return cb("Couldn't find a resource to execute this task");
-        task.resource_id = resource._id;
 
-        common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-        init_task(task, resource, function(err) {
-            if(err) {
-                common.progress(task.progress_key, {status: 'failed', /*progress: 0,*/ msg: err.toString()});
-                return cb(err);
-            }
-            cb();
+        //then pick best resource
+        resource_picker({
+            sub: task.user_id,
+            gids: gids,
+        }, {
+            service: task.service,
+            preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
+            //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
+        }, function(err, resource) {
+            if(err) return cb(err);
+            if(!resource) return cb("Couldn't find a resource to execute this task");
+            task.resource_id = resource._id;
+
+            common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+            init_task(task, resource, function(err) {
+                if(err) {
+                    common.progress(task.progress_key, {status: 'failed', /*progress: 0,*/ msg: err.toString()});
+                    return cb(err);
+                }
+                cb();
+            });
         });
     });
 }

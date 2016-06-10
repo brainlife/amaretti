@@ -1,4 +1,5 @@
 jwt=`cat ~/.sca/keys/cli.jwt`
+
 curl \
     -H "Authorization: Bearer $jwt" \
     -H "Content-Type: application/json" \
@@ -9,6 +10,6 @@ curl \
     "config": {
         "param1": "value1",
         "param2": "value2",
-        "param3": "value3",
+        "param3": "value3"
     }
 }'

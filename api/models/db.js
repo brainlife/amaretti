@@ -55,9 +55,12 @@ var resourceSchema = mongoose.Schema({
     user_id: {type: String, index: true}, 
     type: String, //like hpss, pbs (from resource base)
     resource_id: String, //like sda, bigred2 (resource base id..)
+    //
     //TODO - allow resource to override parameters from resource base so that user can configure them
     //
     ////////////////////////////////////////////////
+
+    gids: [{type: Number}], //if set, these set of group can access this resource
 
     status: String,
     status_msg: String,

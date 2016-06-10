@@ -81,7 +81,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
         if(!instance) return next("no such instance:"+instance_id);
-        if(instance.user_id != req.user.sub) return res.status(401).end();
+        if(instance.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+
         var task = new db.Task(req.body);  //TODO should I validate?
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
@@ -118,7 +119,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end();
+        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
         
         task.status = "requested";
         task.status_msg = "";
@@ -137,8 +138,8 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
     var task_id = req.params.task_id;
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
-        if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end();
+        if(!task) return res.status(404).end("couldn't find such task id");
+        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
         if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
 
         switch(task.status) {
