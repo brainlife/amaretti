@@ -21,8 +21,9 @@ db.init(function(err) {
 });
 
 function start_check_resources() {
-    check_resources(function(err) {
+    check_resources(function(err, ret) {
         if(err) logger.error(err); //continue
+        console.dir(ret);
         logger.debug("waiting before running another check_resource");
         setTimeout(start_check_resources, 3600*1000); //run every hour
     });
