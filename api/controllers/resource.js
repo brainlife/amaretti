@@ -97,9 +97,9 @@ function intersect_safe(a, b)
 
 //return true if user hass access
 function check_access(user, resource) {
-    if(resource.user_id == req.user.sub) return retur;
-    if(resource.gids && req.user.gids) {
-        var inter = intersect_safe(resource.gids, req.user.gids);
+    if(resource.user_id == user.sub) return retur;
+    if(resource.gids && user.gids) {
+        var inter = intersect_safe(resource.gids, user.gids);
         if(inter.length) return true;
     }
     return false;
