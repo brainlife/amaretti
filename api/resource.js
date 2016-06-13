@@ -13,6 +13,15 @@ var common = require('./common');
 
 exports.select = function(user, query, cb) {
     //select all resource available for the user and online
+    /*
+    //replace numeric gids with string
+    var gids = [];
+    if(user.gids) {
+        user.gids.forEach(function(id) { gids.push(id.toString()); });
+        user.gids = gids;
+    }
+    */
+    console.dir(user);
     db.Resource.find({
         //assume user always has gids set..
         $or: [
@@ -24,7 +33,7 @@ exports.select = function(user, query, cb) {
     //.lean()
     .exec(function(err, resources) {
         if(err) return cb(err);
-        if(resources.length == 0) logger.warn("user:"+user_id+" has no resource instance");
+        if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
 
         //select the best resource based on the query
