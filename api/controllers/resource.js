@@ -474,9 +474,9 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
         if(!check_access(req.user, resource)) return res.status(401).end(); 
-        resource_lib.check(resource, function(err) {
+        resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
-            res.json({status: "ok"});
+            res.json(ret);
         });
     });
 });

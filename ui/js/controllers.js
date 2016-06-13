@@ -307,7 +307,11 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         $event.stopPropagation();
         $http.put($scope.appconf.api+'/resource/test/'+inst._id)
         .then(function(res) {
-            toaster.success("Resource configured properly!");
+            if(res.data.status == "ok") {
+                toaster.success("Resource configured properly!");
+            } else {
+                toaster.error(res.data.message);
+            }
         }, function(res) {
             if(res.data && res.data.message) toaster.error(res.data.message);
             else toaster.error(res.statusText);

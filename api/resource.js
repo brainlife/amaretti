@@ -95,7 +95,9 @@ exports.check = function(resource, cb) {
         resource.status = status;
         resource.status_msg = msg;
         resource.status_update = new Date();
-        resource.save(cb);
+        resource.save(function(err) {
+            cb(err, {status: status, message: msg});
+        });
     }
 }
 
@@ -143,7 +145,7 @@ function check_ssh(resource, cb) {
     });
     common.decrypt_resource(resource);
     logger.debug("decrypted");
-    console.dir(resource);
+    //console.dir(resource);
     var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
