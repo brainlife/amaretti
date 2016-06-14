@@ -280,11 +280,11 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                 if(res.data && res.data.message) toaster.error(res.data.message);
                 else toaster.error(res.statusText);
             });
-        }, function () {
+        }, function (action) {
+            console.log(action);
             //anything to do when user dismiss?
         });
     }
-
 
     $scope.edit = function(resource, inst) {
         var modalInstance = create_dialog(resource, inst);
@@ -298,8 +298,27 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             });
             //update original
             for(var k in inst) inst[k] = _inst[k];
-        }, function () {
-            //anything to do when user dismiss?
+        }, function (action) {
+            switch(action) {
+            case "remove":
+                $scope.remove(inst);
+            }
+            
+        });
+    }
+
+    $scope.remove = function(inst) {
+        console.log("removing");
+        $http.delete($scope.appconf.api+'/resource/'+inst._id)
+        .then(function(res) {
+            toaster.success("Resource removed");
+            
+            //remove the resource from myresources
+            var pos = $scope.myresources.indexOf(inst);
+            $scope.myresources.splice(pos, 1);
+        }, function(res) {
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
         });
     }
 
@@ -358,18 +377,16 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                 }
 
                 $scope.resource = resource;
-                //console.dir(inst);
                 $scope.cancel = function() {
                     $uibModalInstance.dismiss('cancel');
                 }
                 $scope.remove = function() {
-                    alert("todo");
+                    $uibModalInstance.dismiss('remove');
                 }
                 $scope.ok = function() {
                     $uibModalInstance.close($scope.inst);
                 }
             },
-            //size: 'lg',
             backdrop: 'static',
             resolve: {
                 inst: function () { return inst; },

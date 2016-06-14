@@ -560,6 +560,40 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 });
 
 /**
+ * @api {delete} /resource Remove resource
+ * @apiName RemoveResource
+ * @apiGroup Resource
+ *
+ * @apiDescription Remove resource instance
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccess {String} status 'ok' or 'failed'
+ *
+ */
+router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var id = req.params.id;
+    db.Resource.findOne({_id: id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end("couldn't find such resource");
+        if(resource.user_id != req.user.sub) return res.status(401).end("you don't own this resource");
+        resource.remove(function(err) {
+            if(err) return next(err);
+            console.log("done removing");
+            res.json({status: 'ok'});
+        });
+    });
+
+    /*
+    var resource = new db.Resource(req.body);
+    resource.user_id = req.user.sub;
+    resource.save(function(err, _resource) {
+        if(err) return next(err);
+        res.json({status: 'ok'});
+    });
+    */
+});
+
+/**
  * @api {get} /resource/gensshkey Generate ssh key pair
  * @apiName GENSSHKEYResource
  * @apiGroup Resource

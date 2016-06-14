@@ -8,6 +8,14 @@ var jwt = require('express-jwt');
 //mine
 var config = require('../../config');
 
+/**
+ * @api {get} /health Get API status
+ * @apiDescription Get current API status
+ * @apiName GetHealth
+ * @apiGroup System
+ *
+ * @apiSuccess {String} status 'ok' or 'failed'
+ */
 router.get('/health', function(req, res) {
     res.json({status: 'ok'});
 });

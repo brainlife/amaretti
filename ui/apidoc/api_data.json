@@ -103,6 +103,43 @@
     "groupTitle": "Resource"
   },
   {
+    "type": "delete",
+    "url": "/resource",
+    "title": "Remove resource",
+    "name": "RemoveResource",
+    "group": "Resource",
+    "description": "<p>Remove resource instance</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "String",
+            "optional": false,
+            "field": "status",
+            "description": "<p>'ok' or 'failed'</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource"
+  },
+  {
     "type": "put",
     "url": "/resource/test/:resource_id",
     "title": "Test resource",
@@ -339,6 +376,30 @@
     "filename": "api/controllers/service.js",
     "groupTitle": "Service",
     "name": "PostService"
+  },
+  {
+    "type": "get",
+    "url": "/health",
+    "title": "Get API status",
+    "description": "<p>Get current API status</p>",
+    "name": "GetHealth",
+    "group": "System",
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "String",
+            "optional": false,
+            "field": "status",
+            "description": "<p>'ok' or 'failed'</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/index.js",
+    "groupTitle": "System"
   },
   {
     "type": "post",
