@@ -356,7 +356,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         var template = null;
 
         //TODO default username to SCA username?
-        var def = {active: true, config: {}, type: resource.type, resource_id: resource._rid};
+        var def = {active: true, config: {}, type: resource.type, resource_id: resource._rid, gids: []};
         switch(resource.type) {
         case "hpss":
             template = "resources.hpss.html"; 

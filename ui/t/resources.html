@@ -124,13 +124,12 @@
             <div ng-if="inst.config.enc_keytab !== true">
                 <p class="help-block">Issue your kerbros keytab, then run it with base64 command to genenerate the base64 formatted keytab</p>
                 <textarea class="form-control" ng-model="inst.config.enc_keytab" required></textarea>
-                <intput type="button" ng-click="
             </div>
         </div>
         <div class="form-group">
             <label>Groups</label>
             <p>Allow following groups to use this resource</p>
-            <access-groups gids="inst.config.gids"></access-groups>
+            <access-groups gids="inst.gids"></access-groups>
         </div>
     </div>
     <div class="modal-footer">
