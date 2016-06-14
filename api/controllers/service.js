@@ -81,13 +81,26 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var giturl = req.body.giturl;
 
-    //parse giturl 
-    var giturl_tokens = giturl.split("/");
-    var schema = giturl_tokens[0]; //https
-    var domain = giturl_tokens[2]; //github.com
-    var owner = giturl_tokens[3]; //soichih
-    var repo = giturl_tokens[4]; //sca-service-life
-    
+    if(giturl.indexOf("https://") == 0) {
+        //parse giturl 
+        var giturl_tokens = giturl.split("/");
+        //var schema = giturl_tokens[0]; //https
+        var domain = giturl_tokens[2]; //github.com
+        if(domain != "github.com") return next("Currently only supports github.com");
+        var owner = giturl_tokens[3]; //soichih
+        var repo = giturl_tokens[4]; //sca-service-life
+    } else if(giturl.indexOf("git@") == 0) {
+        var segments = giturl.split(":");
+        var user_domain = segments[0]; //git@github.com
+        if(user_domain != "git@github.com") return next("Currently only supports github.com");
+        var owner_repo = segments[1].split("/"); //soichih/sca-wf-qr.git
+        var owner = owner_repo[0]; //soichih
+        var repo_git = owner_repo[1]; //sca-wf-qr.git
+        var repo = repo_git.split(".")[0];
+    } else {
+        return next("Don't know how to parse :"+giturl);
+    }
+
     //first load the git repo json
     request('https://api.github.com/repos/'+owner+'/'+repo, {
         json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
@@ -102,18 +115,35 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         }, function(err, _res, pkg) {
             if(err) return next(err);
             //console.dir(pkg);
-            
-            //now I can register the service
-            var service = new db.Service({
+            var service_name = owner+"/"+repo;
+            var detail = {
                 user_id: req.user.sub,
                 giturl: giturl,
-                name: owner+"/"+repo,
+                name: service_name,
                 git: git,
                 pkg: pkg,
-            });
-            service.save(function(err, _s) {
+            };
+            db.Service.findOne({name: service_name}, function(err, service) {
                 if(err) return next(err);
-                res.json(_s);
+
+                //allow user to re-register.
+                //TODO - once we implement mechanism to update registration info automatically,
+                //we shouldn't have to allow re-register
+                if(service) {
+                    if(service.user_id != req.user.sub) return next("The service: "+service_name+ " is already registered by user sub:"+req.user.sub+". Only the original registrar can re-register");
+                    //update
+                    logger.info("updating service");
+                    service.git = git; 
+                    service.pkg = pkg; 
+                    
+                } else {
+                    service = new db.Service(detail);
+                }
+
+                service.save(function(err, _s) {
+                    if(err) return next(err);
+                    res.json(_s);
+                });
             });
         });
         
