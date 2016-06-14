@@ -482,11 +482,11 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
 });
 
 /**
- * @api {put} /resource/:resource_id Update resource instance
+ * @api {put} /resource/:id Update resource instance
  * @apiName UpdateResource
  * @apiGroup Resource
  *
- * @apiParam {String} resource_id Resource ID
+ * @apiParam {String} id Resource ID
  * @apiDescription Update the resource instance (only the resource that user owns)
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -560,14 +560,15 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 });
 
 /**
- * @api {delete} /resource Remove resource
+ * @api {delete} /resource/:id Remove resource
  * @apiName RemoveResource
  * @apiGroup Resource
  *
+ * @apiParam {String} id Resource ID
  * @apiDescription Remove resource instance
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
- * @apiSuccess {String} status 'ok' or 'failed'
+ * @apiSuccess {String} 'ok'
  *
  */
 router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {

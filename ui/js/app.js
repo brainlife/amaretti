@@ -7,6 +7,7 @@ var app = angular.module('app', [
     'angular-loading-bar',
     'angular-jwt',
     'ui.gravatar',
+    'ui.select',
     'ui.bootstrap',
     'ui.bootstrap.tooltip',
     'sca-shared',
@@ -477,4 +478,13 @@ app.directive('ngConfirmClick', [
     }
 ]);
 
+app.factory('groups', ['appconf', '$http', 'jwtHelper', 'toaster', function(appconf, $http, jwtHelper, toaster) {
+    return $http.get(appconf.auth_api+'/groups')
+    .then(function(res) {
+        return res.data;
+    }, function(res) {
+        if(res.data && res.data.message) toaster.error(res.data.message);
+        else toaster.error(res.statusText);
+    });
+}]);
 

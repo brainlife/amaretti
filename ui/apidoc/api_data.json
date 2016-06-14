@@ -104,10 +104,23 @@
   },
   {
     "type": "delete",
-    "url": "/resource",
+    "url": "/resource/:id",
     "title": "Remove resource",
     "name": "RemoveResource",
     "group": "Resource",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "id",
+            "description": "<p>Resource ID</p>"
+          }
+        ]
+      }
+    },
     "description": "<p>Remove resource instance</p>",
     "header": {
       "fields": {
@@ -196,7 +209,7 @@
   },
   {
     "type": "put",
-    "url": "/resource/:resource_id",
+    "url": "/resource/:id",
     "title": "Update resource instance",
     "name": "UpdateResource",
     "group": "Resource",
@@ -207,7 +220,7 @@
             "group": "Parameter",
             "type": "String",
             "optional": false,
-            "field": "resource_id",
+            "field": "id",
             "description": "<p>Resource ID</p>"
           }
         ]

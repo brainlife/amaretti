@@ -127,6 +127,11 @@
                 <intput type="button" ng-click="
             </div>
         </div>
+        <div class="form-group">
+            <label>Groups</label>
+            <p>Allow following groups to use this resource</p>
+            <access-groups gids="inst.config.gids"></access-groups>
+        </div>
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-danger pull-left" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
@@ -164,6 +169,11 @@
             <pre class="well well-sm" style="overflow: auto; font-family: Courier; font-size: 60%; height: 150px;">
 {{inst.config.enc_ssh_private}}</pre>
             -->
+        </div>
+        <div class="form-group">
+            <label>Share</label>
+            <!--<p class="help-block">Share this resource with other members</p>-->
+            <access-groups gids="inst.gids"></access-groups>
         </div>
     </div>
     <div class="modal-footer">

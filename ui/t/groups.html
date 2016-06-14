@@ -1,0 +1,17 @@
+
+<ui-select multiple ng-model="$ctrl.gids">
+    <ui-select-match placeholder="Select groups who can access this resource">
+        <b>{{$item.name}}</b>
+        <span class="text-muted">({{$item.Members.length}} users)</span>
+    </ui-select-match>
+    <ui-select-choices repeat="group in $ctrl.groups | propsFilter: {name: $select.search}">
+        <b>{{group.name}}</b> <span class="text-muted">{{group.desc}}</span>
+        <span class="text-muted">({{group.Members.length}} users)</span>
+    </ui-select-choices>
+</ui-select>
+
+<!--
+{{$ctrl.gids}}
+{{$ctrl.groups}}
+{{$ctrl.hello}}
+-->

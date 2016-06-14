@@ -257,21 +257,31 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     };
 }]);
 
-app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal',
+app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal', 
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
     scaMessage.show(toaster);
     $scope.settings_menu = scaSettingsMenu;
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 
+
         resources.getall().then(function(resources) {
             $scope.myresources = resources;
         });
+
     });
+
+    function groups_to_gids(inst) {
+        //convert gids to list of ids instead of groups
+        var gids = [];
+        inst.gids.forEach(function(group) { gids.push(group.id); });
+        inst.gids = gids;
+    }
 
     $scope.addnew = function(resource) {
         var modalInstance = create_dialog(resource);
         modalInstance.result.then(function(_inst) {
+            groups_to_gids(_inst);
             $http.post($scope.appconf.api+'/resource/', _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
@@ -289,6 +299,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     $scope.edit = function(resource, inst) {
         var modalInstance = create_dialog(resource, inst);
         modalInstance.result.then(function(_inst) {
+            groups_to_gids(_inst);
             $http.put($scope.appconf.api+'/resource/'+_inst._id, _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
@@ -404,4 +415,26 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
         $scope.service_count = ss.count;
     });
 }]);
+
+app.component('accessGroups', {
+    controller: function(groups) {
+        var ctrl = this;
+        //and we need to load groups
+        groups.then(function(_groups) {
+            ctrl.groups = _groups;
+
+            //convert list of gids to groups
+            var selected = [];
+            _groups.forEach(function(group) {
+                if(~ctrl.gids.indexOf(group.id)) selected.push(group);
+            });
+            ctrl.gids = selected;
+        });
+    },
+    bindings: {
+        gids: '='
+    },
+    templateUrl: 't/groups.html',
+});
+
 
