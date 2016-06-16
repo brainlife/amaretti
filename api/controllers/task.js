@@ -14,14 +14,21 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
 
-//get all tasks that belongs to a user (with query.)
+/**
+ * @api {get} /task             Query tasks
+ * @apiParam {Object} find      Optional Mongo query to perform
+ * @apiDescription              Returns all tasks that belongs to a user
+ * @apiGroup Task
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccess {Object[]} tasks Task detail
+ */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var where = {};
-    if(req.query.where) where = JSON.parse(req.query.where);
-    where.user_id = req.user.sub;
-    //logger.debug("searching task with following where");
-    //console.log(JSON.stringify(where, null, 4));
-    var query = db.Task.find(where);
+    var find = {};
+    if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    find.user_id = req.user.sub;
+    var query = db.Task.find(find);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);
     query.exec(function(err, tasks) {
@@ -74,7 +81,7 @@ function check_resource_access(user, ids, cb) {
  *                              
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    console.dir(req.body);
+    //console.dir(req.body);
     var instance_id = req.body.instance_id;
     var service = req.body.service;
 

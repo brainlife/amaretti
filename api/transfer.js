@@ -68,7 +68,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 conn.exec("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to rsync content from source_resource:"+source_path+" to dest_resource:"+dest_path);
+                        if(code) return next("Failed to rsync content from source_resource:"+source_path+" to dest_resource:"+dest_path+" Please check firewall / sshd configuration");
                         else next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service

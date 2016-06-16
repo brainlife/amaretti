@@ -26,17 +26,37 @@ function getinstance(instid, req, cb) {
     });
 }
  
-//query all instances that belongs to a user
+/**
+ * @api {get} /instance         GetInstance
+ * @apiGroup                    Instance
+ * @apiDescription              Query instances that belongs to a user with given query
+ *
+ * @apiParam {Object} [find]    Mongo find query - defaults to {}
+ * @apiParam {Object} [sort]    Mongo sort object - defaults to {}
+ * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'
+ * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
+ * @apiParam {Number} [skip]    Record offset for pagination
+ *
+ * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccess {Object[]}       Services Service detail
+ */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var where = {};
-    if(req.query.where) where = JSON.parse(req.query.where);
-    where.user_id = req.user.sub;
-    var query = db.Instance.find(where);
-    if(req.query.sort) query.sort(req.query.sort);
-    if(req.query.limit) query.limit(req.query.limit);
-    query.exec(function(err, instances) {
+    var find = {};
+    if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    find.user_id = req.user.sub;
+
+    db.Instance.find(find)
+    .select(req.query.select)
+    .limit(req.query.limit || 100)
+    .skip(req.query.skip || 0)
+    .sort(req.query.sort || '_id')
+    .exec(function(err, instances) {
         if(err) return next(err);
-        res.json(instances);
+        db.Instance.count(find).exec(function(err, count) {
+            if(err) return next(err);
+            res.json({instances: instances, count: count});
+        });
     });
 });
 

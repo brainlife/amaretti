@@ -24,7 +24,7 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
 
     $http.get(appconf.api+'/instance')
     .then(function(res) {
-        $scope.instances = res.data;
+        $scope.instances = res.data.instances;
     }, function(res) {
         if(res.data && res.data.message) toaster.error(res.data.message);
         else toaster.error(res.statusText);
@@ -66,7 +66,10 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
         $location.path("/workflow/"+wid);
     }
     $scope.openinst = function(inst) {
-        window.open($scope.workflows[inst.workflow_id].url+"#/start/"+inst._id, 'scainst:'+inst._id);
+        //window.open causes window block
+        //window.open($scope.workflows[inst.workflow_id].url+"#/start/"+inst._id, 'scainst:'+inst._id);
+
+        document.location = $scope.workflows[inst.workflow_id].url+"#/start/"+inst._id;//, 'scainst:'+inst._id);
     }
 }]);
 

@@ -185,3 +185,6 @@ li[ng-click]:hover {
   cursor: pointer;
   background-color: #666;
 }
+.resource-instance.shared-instance {
+  background-color: #ccc;
+}

@@ -1,6 +1,84 @@
 [
   {
     "type": "get",
+    "url": "/instance",
+    "title": "GetInstance",
+    "group": "Instance",
+    "description": "<p>Query instances that belongs to a user with given query</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "find",
+            "description": "<p>Mongo find query - defaults to {}</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "sort",
+            "description": "<p>Mongo sort object - defaults to {}</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "select",
+            "description": "<p>Fields to load - defaults to 'logical_id'</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "limit",
+            "description": "<p>Maximum number of records to return - defaults to 100</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "skip",
+            "description": "<p>Record offset for pagination</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "Authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object[]",
+            "optional": false,
+            "field": "Services",
+            "description": "<p>Service detail</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/instance.js",
+    "groupTitle": "Instance",
+    "name": "GetInstance"
+  },
+  {
+    "type": "get",
     "url": "/resource/gensshkey",
     "title": "Generate ssh key pair",
     "name": "GENSSHKEYResource",
@@ -22,7 +100,7 @@
   {
     "type": "get",
     "url": "/resource",
-    "title": "Get resource registrations",
+    "title": "Query resource registrations",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -30,7 +108,7 @@
             "group": "Parameter",
             "type": "Object",
             "optional": false,
-            "field": "where",
+            "field": "find",
             "description": "<p>Optional Mongo query to perform</p>"
           }
         ]
@@ -68,6 +146,57 @@
     "filename": "api/controllers/resource.js",
     "groupTitle": "Resource",
     "name": "GetResource"
+  },
+  {
+    "type": "get",
+    "url": "/resource/download",
+    "title": "Download file from resource",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "r",
+            "description": "<p>Resource ID</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "p",
+            "description": "<p>File path to download (relative to work directory - parent of all instance dir)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "at",
+            "description": "<p>JWT token - if user can't provide it via authentication header</p>"
+          }
+        ]
+      }
+    },
+    "description": "<p>Allows user to download any files from user's resource</p>",
+    "group": "Resource",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": true,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource",
+    "name": "GetResourceDownload"
   },
   {
     "type": "post",
@@ -142,8 +271,8 @@
             "group": "Success 200",
             "type": "String",
             "optional": false,
-            "field": "status",
-            "description": "<p>'ok' or 'failed'</p>"
+            "field": "ok",
+            "description": ""
           }
         ]
       }
@@ -413,6 +542,56 @@
     "version": "0.0.0",
     "filename": "api/controllers/index.js",
     "groupTitle": "System"
+  },
+  {
+    "type": "get",
+    "url": "/task",
+    "title": "Query tasks",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": false,
+            "field": "find",
+            "description": "<p>Optional Mongo query to perform</p>"
+          }
+        ]
+      }
+    },
+    "description": "<p>Returns all tasks that belongs to a user</p>",
+    "group": "Task",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object[]",
+            "optional": false,
+            "field": "tasks",
+            "description": "<p>Task detail</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "GetTask"
   },
   {
     "type": "post",

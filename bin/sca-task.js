@@ -79,13 +79,15 @@ function check_requested() {
                 if(dep.status != "finished") deps_all_done = false; 
                 if(dep.status == "failed") dep_failed = dep._id;
             });
+            //wait for it to recover instead of failing
             if(dep_failed) {
-                logger.debug("one of dependency has failed.. stopping this task");
-                task.status = "stopped";
-                task.status_msg = "Dependency: "+dep_failed+" failed.. stopping";
+                logger.debug("one of dependency has failed.. postponing");
+                //task.status = "stopped";
+                task.status_msg = "Dependency: "+dep_failed+" failed.. postponing";
                 task.save(next);
                 return;
             }
+
             if(!deps_all_done) {
                 logger.debug("task:"+task._id+" dependency not met.. postponing");
                 return next();

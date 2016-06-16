@@ -34,9 +34,9 @@ function mask_enc(resource) {
 }
 
 /**
- * @api {get} /resource         Get resource registrations
- * @apiParam {Object} where     Optional Mongo query to perform
- * @apiDescription Returns all resource registration detail that belongs to a user (doesn't include resource with group access)
+ * @api {get} /resource         Query resource registrations
+ * @apiParam {Object} find      Optional Mongo query to perform
+ * @apiDescription              Returns all resource registration detail that belongs to a user (doesn't include resource with group access)
  * @apiGroup Resource
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -44,11 +44,16 @@ function mask_enc(resource) {
  * @apiSuccess {Object[]} resources        Resource detail
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var where = {};
-    if(req.query.where) where = JSON.parse(req.query.where);
-    where.user_id = req.user.sub;
+    var find = {};
+    if(req.query.where) find = JSON.parse(req.query.where); //deprecated
+    if(req.query.find) find = JSON.parse(req.query.find);
+    //where.user_id = req.user.sub;
+    find["$or"] = [
+        {user_id: req.user.sub},
+        {gids: {"$in": req.user.gids}},
+    ];
 
-    db.Resource.find(where)
+    db.Resource.find(find)
     .lean()
     .exec(function(err, resources) {
         if(err) return next(err);
@@ -58,6 +63,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         resources.forEach(function(resource) {
             resource.detail = config.resources[resource.resource_id];
             resource.salts = undefined;
+
+            resource.canedit = (resource.user_id == req.user.sub);
         });
         res.json(resources);
     });
@@ -109,6 +116,7 @@ function check_access(user, resource) {
 router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource_id = req.query.resource_id;
     var _path = req.query.path; //TODO.. validate?
+    if(!_path) return next("no path specified");
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
@@ -387,6 +395,19 @@ router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, re
 //doing so increases the chance of user misusing the token, but unless I use HTML5 File API
 //there isn't a good way to let user download files..
 //getToken() below allows me to check jwt token via "at" query.
+/**
+ * @api {get} /resource/download         Download file from resource
+ * @apiParam {String} r         Resource ID
+ * @apiParam {String} p         File path to download (relative to work directory - parent of all instance dir)
+ * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
+ *
+ * @apiDescription              Allows user to download any files from user's resource
+ *
+ * @apiGroup Resource
+ * 
+ * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
+ *
+ */
 router.get('/download', jwt({
     secret: config.sca.auth_pubkey,
     getToken: function(req) { 
@@ -401,6 +422,9 @@ router.get('/download', jwt({
 }), function(req, res, next) {
     var resource_id = req.query.r;
     var _path = req.query.p;
+
+    if(!_path) return next("Please specify path(p)");
+    if(!resource_id) return next("Please specify resource id(r)");
     
     //TODO - this validation isn't good enough.. (use can use escape, etc..)
     //if(~_path.indexOf("..")) return next("invalid path");
@@ -568,7 +592,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  * @apiDescription Remove resource instance
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
- * @apiSuccess {String} 'ok'
+ * @apiSuccess {String} ok
  *
  */
 router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
