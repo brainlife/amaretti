@@ -201,9 +201,57 @@
   {
     "type": "post",
     "url": "/resource",
-    "title": "Register new resource",
+    "title": "Register new resource instance",
     "name": "NewResource",
     "group": "Resource",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "resource_id",
+            "description": "<p>ID of this resource instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "name",
+            "description": "<p>Name of this resource instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number[]",
+            "optional": false,
+            "field": "gids",
+            "description": "<p>List of groups that can use this resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": false,
+            "field": "envs",
+            "description": "<p>Key values to be inserted for service execution</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": false,
+            "field": "config",
+            "description": "<p>Configuration for resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Boolean",
+            "optional": false,
+            "field": "active",
+            "description": "<p>Set true to enable resource</p>"
+          }
+        ]
+      }
+    },
     "description": "<p>Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..</p>",
     "header": {
       "fields": {
@@ -339,7 +387,7 @@
   {
     "type": "put",
     "url": "/resource/:id",
-    "title": "Update resource instance",
+    "title": "Update resource instance configuration",
     "name": "UpdateResource",
     "group": "Resource",
     "parameter": {
@@ -350,7 +398,42 @@
             "type": "String",
             "optional": false,
             "field": "id",
-            "description": "<p>Resource ID</p>"
+            "description": "<p>Resource Instance ID to update</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "config",
+            "description": "<p>Resource Configuration to update</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "envs",
+            "description": "<p>Resource environment parameters to update</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "name",
+            "description": "<p>Name of this resource instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number[]",
+            "optional": true,
+            "field": "gids",
+            "description": "<p>List of groups that can use this resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Boolean",
+            "optional": true,
+            "field": "active",
+            "description": "<p>Set true to enable resource</p>"
           }
         ]
       }

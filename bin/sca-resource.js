@@ -21,9 +21,8 @@ db.init(function(err) {
 });
 
 function start_check_resources() {
-    check_resources(function(err, ret) {
+    check_resources(function(err) {
         if(err) logger.error(err); //continue
-        console.dir(ret);
         logger.debug("waiting before running another check_resource");
         setTimeout(start_check_resources, 3600*1000); //run every hour
     });
@@ -33,7 +32,9 @@ function start_check_resources() {
 function check_resources(cb) {
     db.Resource.find({}, function(err, resources) {
         async.eachSeries(resources, function(resource, next_resource) {
+            //logger.debug("checking "+resource._id);
             resource_lib.check(resource, function(err) {
+                //logger.debug("check called cb on "+resource._id);
                 if(err) logger.error(err); //ignore the err
                 next_resource();
             });

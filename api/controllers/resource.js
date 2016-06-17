@@ -506,11 +506,18 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
 });
 
 /**
- * @api {put} /resource/:id Update resource instance
+ * @api {put} /resource/:id     Update resource instance configuration
  * @apiName UpdateResource
  * @apiGroup Resource
  *
- * @apiParam {String} id Resource ID
+ * @apiParam {String} id        Resource Instance ID to update
+ *
+ * @apiParam {Object} [config]    Resource Configuration to update
+ * @apiParam {Object} [envs]      Resource environment parameters to update
+ * @apiParam {String} [name]      Name of this resource instance
+ * @apiParam {Number[]} [gids]    List of groups that can use this resource
+ * @apiParam {Boolean} [active]   Set true to enable resource
+ *
  * @apiDescription Update the resource instance (only the resource that user owns)
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -547,10 +554,21 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     });
 });
 
+//TODO - is it dangerous to allow anyone to share resources with any groups?
+//task could get submitted there without other user's being aware.. maybe I should
+//let user do 2 way binding? Or.. only let certain users share resources with others?
+
 /**
- * @api {post} /resource Register new resource
+ * @api {post} /resource        Register new resource instance
  * @apiName NewResource
  * @apiGroup Resource
+ *
+ * @apiParam {String} resource_id ID of this resource instance
+ * @apiParam {String} name      Name of this resource instance
+ * @apiParam {Number[]} gids    List of groups that can use this resource
+ * @apiParam {Object} envs      Key values to be inserted for service execution
+ * @apiParam {Object} config    Configuration for resource
+ * @apiParam {Boolean} active   Set true to enable resource
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
  * 

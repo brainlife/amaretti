@@ -317,6 +317,20 @@ function init_task(task, resource, cb) {
                 SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key/*+".service"*/,
             };
             task._envs = envs;
+            
+            //insert any task envs 
+            if(task.envs) for(var key in task.envs) {
+                envs[key] = task.envs[key];
+            }
+            //insert any resource envs
+            if(resource.envs) for(var key in resource.envs) {
+                envs[key] = resource.envs[key];
+            }
+            if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
+                if(resource_dep.envs) for(var key in resource_dep.envs) {
+                    envs[key] = resource_dep.envs[key];
+                }
+            });
 
             async.series([
                 function(next) {

@@ -21,17 +21,22 @@ exports.select = function(user, query, cb) {
         user.gids = gids;
     }
     */
-    console.dir(user);
+    logger.debug("resource.select with query");
+    logger.debug(query);
+    logger.debug("user id / groups");
+    logger.debug(user);
     db.Resource.find({
         //assume user always has gids set..
-        $or: [
+        "$or": [
             {user_id: user.sub},
-            {gids: {$in: user.gids }},
+            {gids: {"$in": user.gids }},
         ],
         status: 'ok', 
     })
     //.lean()
     .exec(function(err, resources) {
+        //console.dir(err);
+        //console.dir(resources);
         if(err) return cb(err);
         if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
@@ -41,8 +46,8 @@ exports.select = function(user, query, cb) {
         var best_score = null;
         resources.forEach(function(resource) {
             var score = score_resource(resource, query);
+            logger.debug("scoring "+resource._id+" type:"+resource.type+" score="+score);
             if(score == 0) return;
-            logger.debug(resource._id+" type:"+resource.type+" score="+score);
             if(!best || score > best_score) {
                 //normally pick the best score...
                 best_score = score;
@@ -76,6 +81,14 @@ function score_resource(resource, query) {
     //1... handle query.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
     //3... take resource utilization into account (pick least used docker host, for example)
+    if(!resource_detail) {
+        logger.error("can't find resource detail for resource_id:"+resource.resource_id);
+        return 0;
+    }
+    if(!resource_detail.services) {
+        logger.error("resource detail for resource_id:"+resource.resource_id+" has no services entry");
+        return 0;
+    }
     var info = resource_detail.services[query.service];
     if(info === undefined) return 0;
     return info.score;
@@ -93,9 +106,11 @@ exports.check = function(resource, cb) {
     case "osg": 
     case "xfer": 
     case "docker": 
-        return check_ssh(resource, update_status);
+        check_ssh(resource, update_status);
+        break;
     default: 
-        cb("don't know how to check "+resource.type);
+        update_status(null, "ok", "Don't know how to check "+resource.type + " .. assuming it to be ok");
+        //cb("don't know how to check "+resource.type);
     }
 
     function update_status(err, status, msg) {
@@ -120,11 +135,12 @@ function check_ssh(resource, cb) {
         logger.debug("ssh connection ready");
         //run some command to make sure it's running
         conn.exec('whoami', function(err, stream) {
-            if (err) return cb(nullerr);
+            if (err) return cb(err);
             var ret_username = "";
             stream.on('close', function(code, signal) {
                 if(ret_username.trim() == resource.config.username) {
                     check_sftp(resource, conn, function(err, status, msg) {
+                        console.log("check_sftp cb -------------------------- "+resource._id);
                         conn.end();
                         if(err) return cb(err);
                         cb(null, status, msg);
@@ -170,35 +186,28 @@ function check_ssh(resource, cb) {
 //make sure I can open sftp connection and access workdir
 function check_sftp(resource, conn, cb) {
     var workdir = common.getworkdir(null, resource);
-    //console.log("opening sftp connection");
-
-    /*
-    //make sure cb gets called once
-    var cb_called = false;
-    function cb_once(err, status, msg) {
-        if(cb_called) {
-            logger.error("check_sftp cb_once called more than once.. ignoring");
-            logger.error([err, status, msg]);
-            return;
-        }
-        cb_called = true;
-        cb(err, status, msg);
-    }
-    */
-
     conn.sftp(function(err, sftp) {
         if(err) return cb(err);
-        logger.debug("reading directory:"+workdir);
+        //logger.debug("reading directory:"+workdir);
+        /*
         var t = setTimeout(function() {
             t = null;
-            cb(null, "failed", "workdir is inaccessible");
+            cb(null, "failed", "workdir is inaccessible (timeout)");
         }, 5000);
+        */
+        //sftp.readdir(workdir, function(err, list) {
         sftp.readdir(workdir, function(err, list) {
-            if(!t) return; //timeout already called
-            if(err) return cb(err);
-            clearTimeout(t);
-            //console.dir(list);
-            cb(null, "ok", "ssh connection good and workdir is accessible");
+            //if(t == null) return; //timeout already called
+            if(err) {
+                //console.log("failed to readdir:"+workdir);
+                //maybe it doesn't exist yet.. try to create it
+                sftp.opendir(workdir, function(err) {
+                    if(err) return cb(err); //truely bad..
+                    cb(null, "ok", "ssh connection is good and workdir is accessible (created)");
+                });
+            }
+            //clearTimeout(t);
+            cb(null, "ok", "ssh connection is good and workdir is accessible");
         });
     });
 }

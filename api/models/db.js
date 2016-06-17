@@ -70,8 +70,9 @@ var resourceSchema = mongoose.Schema({
 
     name: String, 
     config: mongoose.Schema.Types.Mixed,
+    envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
 
-    salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
+    //salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
@@ -120,6 +121,9 @@ var taskSchema = mongoose.Schema({
     
     //object containing details for this task
     config: mongoose.Schema.Types.Mixed, 
+
+    //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
+    envs: mongoose.Schema.Types.Mixed, 
 
     //task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'} ],

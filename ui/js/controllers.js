@@ -274,17 +274,30 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
 
     });
 
-    function groups_to_gids(inst) {
+    function prepare_submission(inst) {
         //convert gids to list of ids instead of groups
         var gids = [];
         inst.gids.forEach(function(group) { gids.push(group.id); });
         inst.gids = gids;
+
+        //convert _envs to key/value in object
+        inst.envs = {};
+        if(inst._envs) {
+            inst._envs.split("\n").forEach(function(env) {
+                var pos = env.indexOf("=");
+                var key = env.substr(0, pos);
+                var value = env.substr(pos+1);
+                inst.envs[key] = value;
+            });
+        }
+        //console.dir(inst);
+        //debugger;
     }
 
     $scope.addnew = function(resource) {
         var modalInstance = create_dialog(resource);
         modalInstance.result.then(function(_inst) {
-            groups_to_gids(_inst);
+            prepare_submission(_inst);
             $http.post($scope.appconf.api+'/resource/', _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
@@ -302,7 +315,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     $scope.edit = function(resource, inst) {
         var modalInstance = create_dialog(resource, inst);
         modalInstance.result.then(function(_inst) {
-            groups_to_gids(_inst);
+            prepare_submission(_inst);
             $http.put($scope.appconf.api+'/resource/'+_inst._id, _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
@@ -369,6 +382,12 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             template = "resources.ssh.html";
         }
 
+        //stringify inst.envs
+        inst._envs = "";
+        for(var key in inst.envs) {
+            inst._envs += key+"="+inst.envs[key]+"\n";
+        }
+
         return $uibModal.open({
             templateUrl: template,
             controller: function($scope, inst, resource, $uibModalInstance, $http, appconf) {
@@ -420,6 +439,10 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
 }]);
 
 app.component('accessGroups', {
+    templateUrl: 't/groups.html',
+    bindings: {
+        gids: '='
+    },
     controller: function(groups) {
         var ctrl = this;
         //and we need to load groups
@@ -434,10 +457,6 @@ app.component('accessGroups', {
             ctrl.gids = selected;
         });
     },
-    bindings: {
-        gids: '='
-    },
-    templateUrl: 't/groups.html',
 });
 
 

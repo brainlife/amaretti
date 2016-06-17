@@ -130,9 +130,13 @@
             </div>
         </div>
         <div class="form-group">
-            <label>Groups</label>
+            <label>Sharing</label>
             <p>Allow following groups to use this resource</p>
             <access-groups gids="inst.gids"></access-groups>
+        </div>
+        <div class="form-group">
+            <label>Environment Parameters</label>
+            <textarea ng-model="inst._envs" class="form-control" placeholder="key1=value"></textarea>
         </div>
     </div>
     <div class="modal-footer">
@@ -173,9 +177,13 @@
             -->
         </div>
         <div class="form-group">
-            <label>Share</label>
+            <label>Sharing</label>
             <!--<p class="help-block">Share this resource with other members</p>-->
             <access-groups gids="inst.gids"></access-groups>
+        </div>
+        <div class="form-group">
+            <label>Environment Parameters</label>
+            <textarea ng-model="inst._envs" class="form-control" placeholder="key1=value"></textarea>
         </div>
     </div>
     <div class="modal-footer">
