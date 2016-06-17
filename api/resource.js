@@ -42,7 +42,7 @@ exports.select = function(user, query, cb) {
         resources.forEach(function(resource) {
             var score = score_resource(resource, query);
             if(score == 0) return;
-            //logger.debug(resource._id+" type:"+resource.type+" score="+score);
+            logger.debug(resource._id+" type:"+resource.type+" score="+score);
             if(!best || score > best_score) {
                 //normally pick the best score...
                 best_score = score;
