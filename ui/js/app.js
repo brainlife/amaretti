@@ -24,13 +24,15 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
     //list of all available workflows (that user can start)
     .when('/workflows', {
         templateUrl: 't/workflows.html',
-        controller: 'WorkflowsController'
+        controller: 'WorkflowsController',
+        requiresLogin: true
     })
 
     //detail for each workflow 
     .when('/workflow/:id', {
         templateUrl: 't/workflow.html',
-        controller: 'WorkflowController'
+        controller: 'WorkflowController',
+        requiresLogin: true
     })
     
     //list of all currently running workflows
@@ -59,7 +61,7 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         requiresLogin: true
     })
     .otherwise({
-        redirectTo: '/about'
+        redirectTo: '/workflows'
     });
     //console.dir($routeProvider);
 }]).run(['$rootScope', '$location', 'toaster', 'jwtHelper', 'appconf', '$http', 'scaMessage',
