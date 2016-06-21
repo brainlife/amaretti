@@ -32,6 +32,7 @@ exports.select = function(user, query, cb) {
             {gids: {"$in": user.gids }},
         ],
         status: 'ok', 
+        active: true,
     })
     //.lean()
     .exec(function(err, resources) {
