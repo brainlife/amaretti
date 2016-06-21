@@ -447,7 +447,8 @@ function init_task(task, resource, cb) {
                 function(next) { 
                     if(!task.resource_deps) return next();
                     async.forEach(task.resource_deps, function(resource, next_dep) {
-                        if(resource.user_id != task.user_id) return next_dep("resource dep aren't owned by the same user");
+                        //TODO - I need to allow group user access to the resource 
+                        //if(resource.user_id != task.user_id) return next_dep("resource dep aren't owned by the same user");
                         logger.info("storing resource key for "+resource._id+" as requested");
                         common.decrypt_resource(resource);
 
@@ -492,7 +493,8 @@ function init_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            if(source_resource.user_id != task.user_id) return next_dep("dep resource aren't owned by the same user");
+                            //TODO - I should allow task.user_id and all its groups
+                            //if(source_resource.user_id != task.user_id) return next_dep("dep resource aren't owned by the same user");
                             var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path);
