@@ -15,4 +15,4 @@ finished: tash has finished successfully
 
 Check for tasks that are stuck on the same status (like RUNNING for good..) and notify SCA admins (probably shouldn't change the task status, however)
 
-
+Put user_id checks back on sca-task (need to handle gids)

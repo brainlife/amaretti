@@ -199,6 +199,52 @@
     "name": "GetResourceDownload"
   },
   {
+    "type": "get",
+    "url": "/resource/ls/:resource_id",
+    "title": "List directory",
+    "group": "Resource",
+    "description": "<p>Get directory listing on a resource on specified path</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "path",
+            "description": "<p>Path to load directory (relative to workdir)</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "Authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "{\"files\":[{\"filename\":\"config.json\",\"longname\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\",\"attrs\":{\"mode\":33188,\"permissions\":33188,\"uid\":1170473,\"gid\":4160,\"size\":117,\"atime\":1466517617,\"mtime\":1466517617,\"mode_string\":\"-rw-r--r--\"}},{\"filename\":\"_status.sh\",\"longname\":\"-rwxr-xr-x    1 odidev   odi           620 Jun 21 10:00 _status.sh\",\"attrs\":{\"mode\":33261,\"permissions\":33261,\"uid\":1170473,\"gid\":4160,\"size\":620,\"atime\":1466517627,\"mtime\":1466517617,\"mode_string\":\"-rwxr-xr-x\"}}]}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource",
+    "name": "GetResourceLsResource_id"
+  },
+  {
     "type": "post",
     "url": "/resource",
     "title": "Register new resource instance",

@@ -12,7 +12,7 @@ var async = require('async');
 var path = require('path');
 var multiparty = require('multiparty');
 var mime = require('mime');
-var modeString = require('fs-mode-to-string');
+//var modeString = require('fs-mode-to-string');
 var request = require('request');
 
 //mine
@@ -112,9 +112,24 @@ function check_access(user, resource) {
     return false;
 }
 
-//use sftp/readir to list file entries
-router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var resource_id = req.query.resource_id;
+/**
+ * @api {get} /resource/ls/:resource_id      List directory
+ * @apiGroup                    Resource
+ * @apiDescription              Get directory listing on a resource on specified path
+ *
+ * @apiParam {String} path      Path to load directory (relative to workdir)
+ *
+ * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *  {"files":[{"filename":"config.json","longname":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json","attrs":{"mode":33188,"permissions":33188,"uid":1170473,"gid":4160,"size":117,"atime":1466517617,"mtime":1466517617,"mode_string":"-rw-r--r--"}},{"filename":"_status.sh","longname":"-rwxr-xr-x    1 odidev   odi           620 Jun 21 10:00 _status.sh","attrs":{"mode":33261,"permissions":33261,"uid":1170473,"gid":4160,"size":620,"atime":1466517627,"mtime":1466517617,"mode_string":"-rwxr-xr-x"}}]}
+ *
+ */
+//:resource_id is optional until I can migrate all existing client to use it (some uses req.query.resource_id still)
+router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+
+    //req.query.resource_id is deprecated .. use url param
+    var resource_id = req.params.resource_id || req.query.resource_id;
     var _path = req.query.path; //TODO.. validate?
     if(!_path) return next("no path specified");
     db.Resource.findById(resource_id, function(err, resource) {
@@ -137,10 +152,16 @@ router.get('/ls', jwt({secret: config.sca.auth_pubkey}), function(req, res, next
             sftp.readdir(_path, function(err, files) {
                 if(t) clearTimeout(t); 
                 else return; //timeout called
-                if(err) return next(err);
+                if(err) {
+                    logger.error("failed to ls:"+_path);
+                    logger.error(err);
+                    return next(err);
+                }
                 files.forEach(function(file) {
-                    file.attrs.mode_string = modeString(file.attrs.mode);
+                    //file.attrs.mode_string = modeString(file.attrs.mode);
+                    file.attrs.mode_string = file.longname.substr(0, 10);
                 });
+                //console.dir(files);
                 res.json({files: files});
             });
         });
