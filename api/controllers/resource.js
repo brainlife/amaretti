@@ -64,7 +64,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             resource.detail = config.resources[resource.resource_id];
             resource.salts = undefined;
 
-            resource.canedit = (resource.user_id == req.user.sub);
+            //resource.canedit = (resource.user_id == req.user.sub);
         });
         res.json(resources);
     });

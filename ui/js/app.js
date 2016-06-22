@@ -246,9 +246,13 @@ app.filter('reverse', function() {
     };
 });
 
-app.factory('resources', ['appconf', '$http', 'serverconf', 'toaster', 
-function(appconf, $http, serverconf, toaster) {
+app.factory('resources', ['appconf', '$http', 'serverconf', 'toaster', 'jwtHelper',
+function(appconf, $http, serverconf, toaster, jwtHelper) {
     var resources = null;
+
+    //needed to figure out if user has write access
+    var jwt = localStorage.getItem(appconf.jwt_id);
+    if(jwt) jwt = jwtHelper.decodeToken(jwt);
 
     //return all devices configured for the user
     function getall() {
@@ -260,6 +264,7 @@ function(appconf, $http, serverconf, toaster) {
                 resources.forEach(function(resource) {
                     //console.dir(resource);
                     resource.detail = serverconf.resources[resource.resource_id];
+                    if(jwt) resource._canedit = (resource.user_id == jwt.sub);
                 });
                 return resources;
             }, function(res) {

@@ -286,6 +286,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             inst._envs.split("\n").forEach(function(env) {
                 var pos = env.indexOf("=");
                 var key = env.substr(0, pos);
+                if(!key) return;//skip empty keys
                 var value = env.substr(pos+1);
                 inst.envs[key] = value;
             });
@@ -300,7 +301,8 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             prepare_submission(_inst);
             $http.post($scope.appconf.api+'/resource/', _inst)
             .then(function(res) {
-                toaster.success("Updated resource");
+                toaster.success("Created resource");
+                console.dir(res.data);
                 $scope.myresources.push(res.data);
             }, function(res) {
                 if(res.data && res.data.message) toaster.error(res.data.message);
@@ -381,7 +383,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         default:
             template = "resources.ssh.html";
         }
-
 
         return $uibModal.open({
             templateUrl: template,

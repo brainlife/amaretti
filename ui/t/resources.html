@@ -43,7 +43,7 @@
                             <li class="list-group-item resource-instance" 
                                 ng-repeat="inst in myresources|filter:{resource_id:rid}" 
                                 ng-click="edit(resource, inst)"
-                                ng-class="{'shared-instance': !inst.canedit}">
+                                ng-class="{'shared-instance': !inst._canedit}">
                                 <div class="row">
                                     <div class="col-md-6">
                                         {{inst.name}}<br>
