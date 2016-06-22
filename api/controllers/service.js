@@ -82,6 +82,12 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     var giturl = req.body.giturl;
 
     if(giturl.indexOf("https://") == 0) {
+        
+        //remove trailing .git if it exists
+        if(giturl.endsWith(".git")) {
+            giturl = giturl.substr(0, giturl.length-4);
+        }
+        
         //parse giturl 
         var giturl_tokens = giturl.split("/");
         //var schema = giturl_tokens[0]; //https
@@ -135,7 +141,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
                     logger.info("updating service");
                     service.git = git; 
                     service.pkg = pkg; 
-                    
+                    //service.giturl = giturl;  
                 } else {
                     service = new db.Service(detail);
                 }

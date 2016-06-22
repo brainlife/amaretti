@@ -372,7 +372,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         var template = null;
 
         //TODO default username to SCA username?
-        var def = {active: true, config: {}, type: resource.type, resource_id: resource._rid, gids: []};
+        var def = {active: true, config: {}, type: resource.type, resource_id: resource._rid, gids: [], envs: []};
         switch(resource.type) {
         case "hpss":
             template = "resources.hpss.html"; 
@@ -382,11 +382,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             template = "resources.ssh.html";
         }
 
-        //stringify inst.envs
-        inst._envs = "";
-        for(var key in inst.envs) {
-            inst._envs += key+"="+inst.envs[key]+"\n";
-        }
 
         return $uibModal.open({
             templateUrl: template,
@@ -407,6 +402,12 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                         if(res.data && res.data.message) toaster.error(res.data.message);
                         else toaster.error(res.statusText);
                     });
+                }
+        
+                //stringify inst.envs
+                $scope.inst._envs = "";
+                for(var key in $scope.inst.envs) {
+                    $scope.inst._envs += key+"="+$scope.inst.envs[key]+"\n";
                 }
 
                 $scope.resource = resource;
