@@ -46,7 +46,7 @@ function check_stuck() {
             task.save();
         });
         //wait for the next round
-        setTimeout(check_stuck, 1000*60);
+        setTimeout(check_stuck, 1000*30);
     });
 } 
 
@@ -69,28 +69,29 @@ function check_requested() {
         logger.info("check_requested:"+tasks.length);
         
         async.eachSeries(tasks, function(task, next) {
-            //console.dir(task);
             //make sure dependent tasks has all finished
-            //TODO - this is extremely inefficient. maybe I should set such request to "waiting_dep" and reset them to "requested" once
-            //depdendent task has finished
             var deps_all_done = true;
             var dep_failed = null;
             task.deps.forEach(function(dep) {
                 if(dep.status != "finished") deps_all_done = false; 
                 if(dep.status == "failed") dep_failed = dep._id;
             });
+            
+            /*
             //wait for it to recover instead of failing
             if(dep_failed) {
                 logger.debug("one of dependency has failed.. postponing");
-                //task.status = "stopped";
-                task.status_msg = "Dependency: "+dep_failed+" failed.. postponing";
+                task.status_msg = "Waiting on dependency(failed): "+dep_failed;
                 task.save(next);
                 return;
             }
+            */
 
             if(!deps_all_done) {
                 logger.debug("task:"+task._id+" dependency not met.. postponing");
-                return next();
+                task.status_msg = "Waiting on dependency: "+dep_failed;
+                task.save(next);
+                return;
             }
             
             //first of all... mark the task as _handled (so that another run won't pick this up..)
@@ -115,7 +116,7 @@ function check_requested() {
             });
         }, function(err) {
             //wait for the next round
-            setTimeout(check_requested, 1000*10);
+            setTimeout(check_requested, 1000*5);
         });
     });
 }
@@ -124,7 +125,6 @@ function check_stop() {
     db.Task.find({status: "stop_requested"}).exec(function(err, tasks) {
         if(err) throw err;
         logger.info("check_stop:"+tasks.length);
-        //logger.info("check_stop:: loaded "+tasks.length+" stop_requested tasks");
         async.eachSeries(tasks, function(task, next) {
             logger.info("handling stop request:"+task._id);
             db.Resource.findById(task.resource_id, function(err, resource) {
@@ -179,7 +179,7 @@ function check_stop() {
         }, function(err) {
             if(err) logger.error(err); //continue
             //all done for this round - schedule for next
-            setTimeout(check_stop, 1000*10); //check job status every few minutes
+            setTimeout(check_stop, 1000*5); //check job status every few minutes
         });
     });
 }
@@ -253,7 +253,7 @@ function check_running() {
             }
             
             //all done for this round - schedule for next
-            setTimeout(check_running, 1000*10); //check job status every few minutes
+            setTimeout(check_running, 1000*15); //check job status every few minutes
         });
     });
 }
@@ -275,7 +275,6 @@ function process_requested(task, cb) {
         }, {
             service: task.service,
             preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-            //other_service_id: [] //TODO - provide other service_ids that resource will be asked to run along
         }, function(err, resource) {
             if(err) return cb(err);
             if(!resource) return cb("Couldn't find a resource to execute this task");
@@ -366,15 +365,7 @@ function init_task(task, resource, cb) {
                 },
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
-                    /*
-                    var url = service_detail.repository.url;
-                    //trim "git+" from git+https
-                    if(url.indexOf("git+https://") == 0) {
-                        url = url.substring(4);
-                    }
-                    */
                     var repo_owner = service.split("/")[0];
-                    //logger.debug("ls .sca/services/"+service+ " >/dev/null 2>&1 || mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" git clone "+service_detail.git.clone_url+" .sca/services/"+service);
                     conn.exec("ls .sca/services/"+service+ " >/dev/null 2>&1 || (mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" git clone "+service_detail.git.clone_url+" .sca/services/"+service+")", function(err, stream) {
                         if(err) next(err);
                         stream.on('close', function(code, signal) {
@@ -405,27 +396,6 @@ function init_task(task, resource, cb) {
                     });
                 },
                 
-                /* can't get this thing to work..
-                //run service install.sh (if used)
-                //TODO - once installed file gets created, install.sh will never run..
-                //to reduce the confusion, I am 60% leaning toward not having install.sh and let service owner do any install step during start.sh or run.sh
-                function(next) {
-                    if(!service_detail.pkg.scripts.install) return next(); 
-                    conn.exec("ls .sca/services/"+service+ "/installed >/dev/null 2>&1 || cd .sca/services/"+service+"; ./install.sh && echo $! > installed", function(err, stream) {
-                        if(err) next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to run install.sh:"+code);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                    });
-                },
-                */
-
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                     logger.debug("making sure taskdir("+taskdir+") exists");
@@ -447,18 +417,12 @@ function init_task(task, resource, cb) {
                 function(next) { 
                     if(!task.resource_deps) return next();
                     async.forEach(task.resource_deps, function(resource, next_dep) {
-                        //TODO - I need to allow group user access to the resource 
-                        //if(resource.user_id != task.user_id) return next_dep("resource dep aren't owned by the same user");
                         logger.info("storing resource key for "+resource._id+" as requested");
                         common.decrypt_resource(resource);
 
                         //now handle things according to the resource type
                         switch(resource.type) {
                         case "hpss": 
-                            //envs.HPSS_PRINCIPAL = resource.config.username;
-                            //envs.HPSS_AUTH_METHOD = resource.config.auth_method;
-                            //envs.HPSS_KEYTAB_PATH = "$HOME/.sca/keys/"+resource._id+".keytab";
-
                             //now install the hpss key
                             var key_filename = ".sca/keys/"+resource._id+".keytab";
                             conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
@@ -493,12 +457,9 @@ function init_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            //TODO - I should allow task.user_id and all its groups
-                            //if(source_resource.user_id != task.user_id) return next_dep("dep resource aren't owned by the same user");
                             var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
-                            logger.debug("syncing from source:"+source_path);
-                            logger.debug("syncing from dest:"+dest_path);
+                            logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
@@ -643,7 +604,7 @@ function init_task(task, resource, cb) {
                     common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
 
                     conn.exec("cd "+taskdir+" && ./_boot.sh > start.log 2>&1", {
-                        /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
+                        /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
                     }, function(err, stream) {
                         if(err) next(err);
                         stream.on('close', function(code, signal) {
