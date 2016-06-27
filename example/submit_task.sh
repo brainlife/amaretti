@@ -6,8 +6,10 @@ curl \
     -X POST https://soichi7.ppa.iu.edu/api/sca/task -d '
 {
     "instance_id": "570d1ef166a1e2fc1ef5a847",
-    "service": "soichih/sca-service-tgzpipe",
+    "service": "soichih/sca-product-raw",
     "config": {
-        "input_dir": "/N/dc2/scratch/odiuser/SPIE_MasterCals_headers"
+        "tar": [
+            {"src": "/N/dc2/scratch/odiuser/SPIE_MasterCals_headers", "dest": "backup.tar.gz", "opts": "gz"}
+        ]
     }
 }'

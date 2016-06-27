@@ -146,16 +146,15 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
             if(err) return next(err);
             logger.debug("reading directory:"+_path);
             var t = setTimeout(function() {
-                res.status(500).json({message: "Timed out while reading directory"});
+                res.status(500).json({message: "Timed out while reading directory: "+_path});
                 t = null;
-            }, 4000);
+            }, 5000);
             sftp.readdir(_path, function(err, files) {
                 if(t) clearTimeout(t); 
                 else return; //timeout called
                 if(err) {
-                    logger.error("failed to ls:"+_path);
                     logger.error(err);
-                    return next(err);
+                    return next("failed to ls:"+_path);
                 }
                 files.forEach(function(file) {
                     //file.attrs.mode_string = modeString(file.attrs.mode);

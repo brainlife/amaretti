@@ -89,7 +89,7 @@ function check_requested() {
 
             if(!deps_all_done) {
                 logger.debug("task:"+task._id+" dependency not met.. postponing");
-                task.status_msg = "Waiting on dependency: "+dep_failed;
+                task.status_msg = "Waiting on dependency";
                 task.save(next);
                 return;
             }
