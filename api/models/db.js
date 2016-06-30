@@ -24,7 +24,7 @@ exports.disconnect = function(cb) {
 //workflow instance
 var instanceSchema = mongoose.Schema({
 
-    workflow_id: String, //"freesurfer"
+    workflow_id: String, //"sca-wf-life"
 
     name: String, //name of the workflow
     desc: String, //desc of the workflow

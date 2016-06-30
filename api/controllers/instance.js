@@ -84,10 +84,22 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
 });
 
-//create new instance
-router.post('/:workflowid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+/**
+ * @api {post} /instance        PostInstance
+ * @apiGroup                    Instance
+ * @apiDescription              Create a new instance
+ *
+ * @apiParam {String} workflow_id Name of workflow that this instance belongs to (sca-wf-life)
+ * @apiParam {String} name      Name of the instance
+ * @apiParam {String} [desc]    Description of the instance
+ * @apiParam {Object} [config]  Any information you'd like to associate with this instanace
+ *
+ * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
+ *
+ */
+router.post('/:wofkflowid?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance = new db.Instance({});
-    instance.workflow_id = req.params.workflowid;
+    instance.workflow_id = req.body.workflow_id || req.params.workflowid; //params.workflowid is dreprecated
     instance.name = req.body.name;
     instance.desc = req.body.desc;
     instance.config = req.body.config;

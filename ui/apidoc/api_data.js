@@ -78,6 +78,64 @@ define({ "api": [
     "name": "GetInstance"
   },
   {
+    "type": "post",
+    "url": "/instance",
+    "title": "PostInstance",
+    "group": "Instance",
+    "description": "<p>Create a new instance</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "workflow_id",
+            "description": "<p>Name of workflow that this instance belongs to (sca-wf-life)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "name",
+            "description": "<p>Name of the instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "desc",
+            "description": "<p>Description of the instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "config",
+            "description": "<p>Any information you'd like to associate with this instanace</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "Authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/instance.js",
+    "groupTitle": "Instance",
+    "name": "PostInstance"
+  },
+  {
     "type": "get",
     "url": "/resource/gensshkey",
     "title": "Generate ssh key pair",
