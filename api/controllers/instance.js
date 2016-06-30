@@ -85,7 +85,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 });
 
 /**
- * @api {post} /instance        PostInstance
+ * @api {post} /instance        NewInstance
  * @apiGroup                    Instance
  * @apiDescription              Create a new instance
  *
