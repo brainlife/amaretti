@@ -1,7 +1,7 @@
 {
-  "name": "sca",
-  "version": "0.1.0",
-  "description": "SCA API",
+  "name": "sca-wf",
+  "version": "0.1.1",
+  "description": "SCA Workflow Service",
   "main": "index.js",
   "dependencies": {
     "async": "^1.5.2",
@@ -31,5 +31,5 @@
     "apidoc": "apidoc -i api/ -o ui/apidoc/"
   },
   "author": "",
-  "license": "BSD"
+  "license": "MIT"
 }
