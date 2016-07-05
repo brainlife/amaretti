@@ -2,6 +2,7 @@
 
 var request = require('request');
 var fs = require('fs');
+var os = require('os');
 
 var sca = "https://soichi7.ppa.iu.edu/api";
 var jwt = fs.readFileSync('/home/hayashis/.sca/keys/cli.jwt', {encoding: 'ascii'}).trim();
@@ -62,6 +63,7 @@ function submit_hpss(karst_resource, sda_resource, tar_task, cb) {
         headers: { 'Authorization': 'Bearer '+jwt },
         body: {
             instance_id: instance_id,
+            name: "backup",
             service: "soichih/sca-service-hpss",
             preferred_resource_id: karst_resource._id, //not really needed but in case there are more than 1..
             deps: [tar_task._id],
@@ -77,14 +79,10 @@ function submit_hpss(karst_resource, sda_resource, tar_task, cb) {
                 },
                 //add a bit of extra info.. to help querying via backiup cli
                 info: {
-                    /*
                     hostname: os.hostname(),
-                    //platform: os.platform(), //bit redundant with os.type()
                     release: os.release(),
                     type: os.type(),
-                    path: process.cwd()+"/"+dir,
-                    files: fs.readdirSync(dir),
-                    */
+                    tags: ["tag1", "test"],
                 }
             },
         }

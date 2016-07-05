@@ -7,5 +7,6 @@ ui/config.js
 logs
 *.log
 .grunt
-config
-sample/*.jwt
+config/index.js
+config/resources.js
+config/*.jwt
