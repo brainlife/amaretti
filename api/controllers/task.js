@@ -6,7 +6,6 @@ var router = express.Router();
 var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
-var hpss = require('hpss');
 
 //mine
 var config = require('../../config');

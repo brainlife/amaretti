@@ -16,8 +16,6 @@ var cors = require('cors');
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
-//var migration = require('./migration');
-//var common = require('./common');
 
 //init express
 var app = express();
