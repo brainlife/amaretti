@@ -31,11 +31,11 @@ function getinstance(instid, req, cb) {
  * @apiGroup                    Instance
  * @apiDescription              Query instances that belongs to a user with given query
  *
- * @apiParam {Object} [find]    Mongo find query - defaults to {}
- * @apiParam {Object} [sort]    Mongo sort object - defaults to {}
- * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'
+ * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
+ * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
+ * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
- * @apiParam {Number} [skip]    Record offset for pagination
+ * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
  *
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
@@ -44,6 +44,10 @@ function getinstance(instid, req, cb) {
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+
+    //var sort = '_id';
+    //if(req.query.sort) sort = JSON.parse(req.query.sort);
+
     find.user_id = req.user.sub;
 
     db.Instance.find(find)
