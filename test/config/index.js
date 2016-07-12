@@ -4,7 +4,7 @@ var fs = require('fs');
 var winston = require('winston');
 
 exports.sca = {
-    auth_pubkey: fs.readFileSync('config/auth.pub'),
+    auth_pubkey: fs.readFileSync(__dirname+'/auth.pub'),
 
     //password to encrypt/decrypt confidential resource information
     resource_enc_password: 'hogehogehoge',

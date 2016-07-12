@@ -31,7 +31,8 @@
     "supertest": "^1.2.0"
   },
   "scripts": {
-    "test": "test/install.sh && mocha --reporter spec",
+    "test_dis": "test/install.sh && mocha --reporter spec",
+    "test": "mocha --reporter spec",
     "start": "app.js",
     "apidoc": "apidoc -i api/ -o ui/apidoc/",
     "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js"

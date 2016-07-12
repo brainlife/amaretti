@@ -12,7 +12,6 @@ exports.sca = {
 
     //jwt token used to access other services (like auth service)
     jwt: fs.readFileSync(__dirname+'/sca.jwt'),
-
 }
 
 //api endpoints

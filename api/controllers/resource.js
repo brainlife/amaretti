@@ -680,13 +680,22 @@ router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequire
     });
 });
 
+//intentionally left undocumented
 router.post('/installsshkey', function(req, res, next) {
     var username = req.body.username;
     var password = req.body.password;
-    var host = req.body.host;
+    var host = req.body.hostname || req.body.host;
     var pubkey = req.body.pubkey;
     var comment = req.body.comment;
-    common.install_sshkey(username, password, host, pubkey, comment, function(err) {
+
+    if(username === undefined) return next("missing username");
+    if(password === undefined) return next("missing password");
+    if(host === undefined) return next("missing hostname");
+    if(pubkey === undefined) return next("missing pubkey");
+    if(comment === undefined) return next("missing comment");
+
+    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash';
+    common.ssh_command(username, password, host, command, function(err) {
         if(err) return next(err);
         res.json({message: 'ok'});
     });

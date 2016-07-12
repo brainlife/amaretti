@@ -206,17 +206,15 @@ exports.progress = function(key, p, cb) {
 }
 
 //ssh to host using username/password and insert ssh key in ~/.ssh/authorized_keys
-exports.install_sshkey = function(username, password, host, pubkey, comment, cb) {
+exports.ssh_command = function(username, password, host, command, cb) {
     var conn = new Client({/*readyTimeout:1000*60*/});
     var out = "";
     var ready = false;
     var nexted = false;
     conn.on('ready', function() {
         ready = true;
-        //TODO - move the script to soichih/sca
-        //if(!comment) comment = "";
-        conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
-        function(err, stream) {
+        //conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
+        conn.exec(command, function(err, stream) {
             if (err) {
                 conn.end();
                 nexted = true;
@@ -263,3 +261,5 @@ exports.install_sshkey = function(username, password, host, pubkey, comment, cb)
         tryKeyboard: true, //in case password auth is disabled
     });
 }
+
+
