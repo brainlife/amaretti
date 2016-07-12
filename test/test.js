@@ -6,11 +6,11 @@ var assert = require('assert');
 var fs = require('fs');
 
 //mine
-var config = require('./config');
+var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-var jwt = fs.readFileSync("./config/sca.jwt");
+var jwt = fs.readFileSync(__dirname+"/../config/sca.jwt");
 
 before(function(done) {
     console.log("connecting to mongodb");

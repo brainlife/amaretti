@@ -31,7 +31,6 @@
     "supertest": "^1.2.0"
   },
   "scripts": {
-    "test_dis": "test/install.sh && mocha --reporter spec",
     "test": "mocha --reporter spec",
     "start": "app.js",
     "apidoc": "apidoc -i api/ -o ui/apidoc/",
