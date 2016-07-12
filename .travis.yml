@@ -10,7 +10,8 @@ services:
   - mongodb
 
 script:
-  - ./test/install.sh && npm run cover
+#  - ./test/install.sh && npm run cover
+  - npm run cover
 
 # Send coverage data to Coveralls
 after_script: "cat coverage/lcov.info | node_modules/coveralls/bin/coveralls.js"
