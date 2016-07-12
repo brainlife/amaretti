@@ -39,9 +39,9 @@ describe.only('test undocumented APIs', function() {
         .post('/resource/installsshkey')
         .set('Accept', 'application/json')
         .send({
-            username: "hayashis",
             hostname: "karst.uits.iu.edu",
-            password: "rudisoal1014#Iu",
+            username: process.env.TEST_USERNAME,
+            password: process.env.TEST_PASSWORD,
         })
         .expect(200, {message: 'ok'}, done);
     });
