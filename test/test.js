@@ -31,8 +31,8 @@ describe('GET /health', function() {
     });
 });
 
-describe.only('test undocumented APIs', function() {
-    it('return 200', function(done) {
+describe('test undocumented APIs', function() {
+    xit('return 200', function(done) {
         this.timeout(10000);
 
         request(app)
