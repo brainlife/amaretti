@@ -703,14 +703,15 @@ router.post('/installsshkey', function(req, res, next) {
 });
 
 //intentionally left undocumented
-router.post('/setkeytab', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+
+    var resource_id = req.params.resource_id;
+
     var username = req.body.username;
     var password = req.body.password;
-    var resource_id = req.body.resource_id;
 
     if(username === undefined) return next("missing username");
     if(password === undefined) return next("missing password");
-    if(resource_id === undefined) return next("missing resource_id");
 
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);

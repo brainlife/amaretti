@@ -51,7 +51,7 @@ describe.only('/resource', function() {
             config: {
                 "auth_method": "keytab",
                 "username": "hayashis",
-                "enc_keytab": "aloha",
+                "enc_keytab": "set later..",
             },
         })
         .expect('Content-Type', /json/) 
@@ -68,14 +68,14 @@ describe.only('/resource', function() {
 
     it('setkeytab', function(done) {
         request(app)
-        .post('/resource/setkeytab')
+        .post('/resource/setkeytab/'+resource._id)
         .set('Authorization', 'Bearer '+jwt)
         .set('Accept', 'application/json')
         .send({
             username: process.env.TEST_USERNAME,
             password: process.env.TEST_PASSWORD,
-            resource_id: resource._id,
         })
+        //TODO - I should validate if end_keytab is set properly.. but how?
         .expect(200, {message: 'ok'}, done);
     });
 
