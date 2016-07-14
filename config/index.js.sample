@@ -45,6 +45,7 @@ exports.progress = {
 
 exports.workflows = {};
 function register_workflow(pkg, url) { 
+    console.log("registering workflow "+url);    
     exports.workflows[pkg.name] = pkg;    
     exports.workflows[pkg.name].url = url;
 }
@@ -53,6 +54,7 @@ register_workflow(require("/home/hayashis/git/sca-wf-life/package.json"), "/wfui
 register_workflow(require("/home/hayashis/git/sca-wf-freesurfer/package.json"), "/wfui/freesurfer");
 register_workflow(require("/home/hayashis/git/sca-wf-blast/package.json"), "/wfui/blast");
 register_workflow(require("/home/hayashis/git/stardock/package.json"), "/wfui/stardock");
+register_workflow(require("/home/hayashis/git/sca-wf-test/package.json"), "/wfui/test");
 
 exports.resources = require('./resources');
 

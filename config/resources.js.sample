@@ -22,7 +22,7 @@ module.exports = {
         name: "IU / Karst", 
         desc: "IU's high throughput computing cluster",
         hostname: "karst.uits.iu.edu",
-        workdir: "/N/dcwan/scratch/__username__/sca/workflows",
+        workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
         default: {
             ssh_public: true, //this causes resource router to generate new ssh key
         },
@@ -33,6 +33,9 @@ module.exports = {
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-service-download": {score: 10},
             "soichih/sca-service-life": {score: 10},
+
+            "soichih/sca-service-noop": {score: 10},
+            "soichih/sca-service-helloworld1": {score: 10},
 
             //for kd backup tool
             "soichih/sca-service-tgzpipe": {score: 10},

@@ -111,13 +111,15 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $loc
 
     $scope.form = {};
     $scope.submit = function() {
-        return $http.post(appconf.api+'/instance/'+$routeParams.id, {
+        return $http.post(appconf.api+'/instance', {
+            workflow_id: $routeParams.id,
             name: $scope.form.name,
             desc: $scope.form.desc,
         }).then(function(res) {
             var instance = res.data;
             //scaMessage.success("Created a new workflow instance"); //TODO unnecessary?
-            window.open($scope.workflow.url+"#/start/"+instance._id, 'scainst:'+instance._id);
+            //window.open($scope.workflow.url+"#/start/"+instance._id, 'scainst:'+instance._id);
+            document.location = $scope.workflow.url+"#/start/"+instance._id;
         }, function(res) {
             if(res.data && res.data.message) toaster.error(res.data.message);
             else toaster.error(res.statusText);
@@ -136,7 +138,8 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $loc
         });
     }
     $scope.openinst = function(inst) {
-        window.open($scope.workflow.url+"#/start/"+inst._id, 'scainst:'+inst._id);
+        //window.open($scope.workflow.url+"#/start/"+inst._id, 'scainst:'+inst._id);
+        document.location = $scope.workflow.url+"#/start/"+inst._id;
     }
 }]);
 
