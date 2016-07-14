@@ -31,7 +31,7 @@ describe('GET /health', function() {
     });
 });
 
-describe.only('/resource', function() {
+describe('/resource', function() {
     var resource = null;
 
     it('create new resource', function(done) {
@@ -66,7 +66,7 @@ describe.only('/resource', function() {
         });
     });
 
-    it('setkeytab', function(done) {
+    xit('setkeytab', function(done) {
         request(app)
         .post('/resource/setkeytab/'+resource._id)
         .set('Authorization', 'Bearer '+jwt)
