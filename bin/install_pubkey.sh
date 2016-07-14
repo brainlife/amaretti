@@ -1,7 +1,8 @@
 #!/bin/bash
 
-#this script is meant to be executed via ssh2.Client.exec like following
-#conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', function(err, stream)..
+#required input environment
+#COMMENT=comment line for pubkey in authorized_keys
+#PUBKEY=public key to install
 
 if [ -z "$PUBKEY" ]; then
         echo "Please set PUBKEY in ENV"

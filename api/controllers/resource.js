@@ -2,6 +2,7 @@
 
 //node
 var fs = require('fs');
+var child_process = require('child_process');
 
 //contrib
 var express = require('express');
@@ -12,7 +13,6 @@ var async = require('async');
 var path = require('path');
 var multiparty = require('multiparty');
 var mime = require('mime');
-//var modeString = require('fs-mode-to-string');
 var request = require('request');
 
 //mine
@@ -583,8 +583,9 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiName NewResource
  * @apiGroup Resource
  *
- * @apiParam {String} resource_id ID of this resource instance
- * @apiParam {String} name      Name of this resource instance
+ * @apiParam {String} type      "hpss", "docker", "pbs", etc..
+ * @apiParam {String} resource_id ID of this resource instance ("karst", "mason", etc..)
+ * @apiParam {String} name      Name of this resource instance (like "soichi's karst account")
  * @apiParam {Number[]} gids    List of groups that can use this resource
  * @apiParam {Object} envs      Key values to be inserted for service execution
  * @apiParam {Object} config    Configuration for resource
@@ -698,6 +699,48 @@ router.post('/installsshkey', function(req, res, next) {
     common.ssh_command(username, password, host, command, function(err) {
         if(err) return next(err);
         res.json({message: 'ok'});
+    });
+});
+
+//intentionally left undocumented
+router.post('/setkeytab', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var username = req.body.username;
+    var password = req.body.password;
+    var resource_id = req.body.resource_id;
+
+    if(username === undefined) return next("missing username");
+    if(password === undefined) return next("missing password");
+    if(resource_id === undefined) return next("missing resource_id");
+
+    db.Resource.findById(resource_id, function(err, resource) {
+        if(err) return next(err);
+        //console.dir(resource);
+        if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
+        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(resource.type != "hpss") return res.status(404).json({message: "not a hpss resource"});
+
+        //need to decrypt first..
+        common.decrypt_resource(resource);
+
+        resource.config.auth_method = "keytab";
+        resource.config.username = username;
+
+        child_process.exec(__dirname+"/../../bin/gen_keytab.sh", {
+            env: {
+                USERNAME: username,
+                PASSWORD: password,
+            }
+        }, function(err, stdout, stderr) {
+            if(err) return next(err); //exit 1 will be handled here
+            resource.config.enc_keytab = stdout.trim();
+            
+            //decrypt again and save
+            common.encrypt_resource(resource);
+            resource.save(function(err) {
+                if(err) return next(err);
+                res.json({message: 'ok'});
+            });
+        })
     });
 });
 

@@ -25,3 +25,5 @@ Put user_id checks back on sca-task (need to handle gids)
 It is possible to initialize dependent services while dependnecies are still running?
 
 sync jobs can't be stopped.. or resumed in case of error? also, should it raise warning if it runs more than few minutes?
+
+Let user set timeout for a task - if task is running longer than expected, mark as failed - rather than keep checking (or.. maybe we should reduce the frequency of the status check?)

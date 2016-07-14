@@ -31,10 +31,55 @@ describe('GET /health', function() {
     });
 });
 
-describe('test undocumented APIs', function() {
-    xit('return 200', function(done) {
-        this.timeout(10000);
+describe.only('/resource', function() {
+    var resource = null;
 
+    it('create new resource', function(done) {
+        request(app)
+        .post('/resource')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+            resource_id: "test",
+            type: "hpss",
+            name: "test resource",
+            active: true,
+            gids: [0,1,2],
+            envs: {
+                "test": 123,
+            },
+            config: {
+                "auth_method": "keytab",
+                "username": "hayashis",
+                "enc_keytab": "aloha",
+            },
+        })
+        .expect('Content-Type', /json/) 
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            resource = res.body;
+            console.dir(resource);
+            assert(resource.name == "test resource");
+            assert.deepEqual(resource.gids, [0,1,2]);
+            done()
+        });
+    });
+
+    it('setkeytab', function(done) {
+        request(app)
+        .post('/resource/setkeytab')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+            username: process.env.TEST_USERNAME,
+            password: process.env.TEST_PASSWORD,
+            resource_id: resource._id,
+        })
+        .expect(200, {message: 'ok'}, done);
+    });
+
+    xit('installsshkey', function(done) {
         request(app)
         .post('/resource/installsshkey')
         .set('Accept', 'application/json')
@@ -45,6 +90,16 @@ describe('test undocumented APIs', function() {
         })
         .expect(200, {message: 'ok'}, done);
     });
+
+    it('delete the test resource', function(done) {
+        request(app)
+        .delete('/resource/'+resource._id)
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .expect('Content-Type', /json/) 
+        .expect(200, done);
+    });
+
 });
 
 describe('/instance', function() {
@@ -73,7 +128,6 @@ describe('/instance', function() {
         .end(function(err, res) {
                 if(err) return done(err);
                 instance = res.body;
-                //console.dir(instance);
                 assert(instance.workflow_id == "test");
                 assert(instance.name == "test");
                 assert(instance.desc == "test desc");
