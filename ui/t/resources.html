@@ -53,12 +53,11 @@
                                         <input type="checkbox" ng-model="inst.active" disabled></input>
                                     </div>
                                     <div class="col-md-4">
-                                        <span uib-tooltip="{{inst.status_msg||'no detail'}}">
+                                        <span uib-tooltip="{{inst.status_update|date:'short'}} {{inst.status_msg||'no detail'}}">
                                             <span class="label label-success" ng-if="inst.status == 'ok'"><i class="fa fa-check fa-fw" aria-hidden="true"></i></span>
                                             <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
-                                            <small class="text-muted">{{inst.status_update|date:'short'}}</small>
                                         </span>
-                                        <button class="btn btn-xs" ng-click="test(resource, inst, $event)">Test</button>
+                                        <button class="btn btn-xs pull-right" ng-click="test(resource, inst, $event)">Test</button>
                                     </div>
                                     <!--
                                     <div class="col-md-2">
