@@ -507,7 +507,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
                 name: $scope.userpass.username+"@"+resource.name,
                 active: true,
                 config: {
-                    username: "hayashis", 
+                    username: $scope.userpass.username,
                     enc_ssh_private: keys.key,
                     ssh_public: keys.pubkey,
                 },
