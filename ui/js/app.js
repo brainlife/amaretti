@@ -41,18 +41,11 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         controller: 'InstsController',
         requiresLogin: true
     })
-    
     .when('/services', {
         templateUrl: 't/services.html',
         controller: 'ServicesController',
         requiresLogin: true
     })
-    /*
-    .when('/task/:instid/:taskid', {
-        templateUrl: 't/task.html',
-        controller: 'TaskController',
-    })
-    */
 
     //allows user to edit list of resources that user has access to
     .when('/resources', {
@@ -60,6 +53,13 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         controller: 'ResourcesController',
         requiresLogin: true
     })
+    //resource configurator
+    .when('/autoconf', {
+        templateUrl: 't/autoconf.html',
+        controller: 'AutoconfController',
+        requiresLogin: true
+    })
+
     .otherwise({
         redirectTo: '/workflows'
     });

@@ -494,7 +494,6 @@ router.get('/download', jwt({
  * @apiName TestResource
  * @apiGroup Resource
  *
- * @apiParam {String} resource_id Resource ID
  * @apiDescription Test resource connectivity and availability. Store status on status/status_msg fields of the resource entry
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -586,10 +585,10 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiParam {String} type      "hpss", "docker", "pbs", etc..
  * @apiParam {String} resource_id ID of this resource instance ("karst", "mason", etc..)
  * @apiParam {String} name      Name of this resource instance (like "soichi's karst account")
- * @apiParam {Number[]} gids    List of groups that can use this resource
- * @apiParam {Object} envs      Key values to be inserted for service execution
  * @apiParam {Object} config    Configuration for resource
  * @apiParam {Boolean} active   Set true to enable resource
+ * @apiParam {Number[]} [gids]    List of groups that can use this resource
+ * @apiParam {Object} [envs]      Key values to be inserted for service execution
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
  * 

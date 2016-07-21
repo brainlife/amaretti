@@ -13,21 +13,21 @@
             "type": "Object",
             "optional": true,
             "field": "find",
-            "description": "<p>Mongo find query - defaults to {}</p>"
+            "description": "<p>Mongo find query JSON.stringify &amp; encodeURIComponent-ed - defaults to {}</p>"
           },
           {
             "group": "Parameter",
             "type": "Object",
             "optional": true,
             "field": "sort",
-            "description": "<p>Mongo sort object - defaults to {}</p>"
+            "description": "<p>Mongo sort object - defaults to _id. Enter in string format like &quot;-name%20desc&quot;</p>"
           },
           {
             "group": "Parameter",
             "type": "String",
             "optional": true,
             "field": "select",
-            "description": "<p>Fields to load - defaults to 'logical_id'</p>"
+            "description": "<p>Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter</p>"
           },
           {
             "group": "Parameter",
@@ -41,7 +41,7 @@
             "type": "Number",
             "optional": true,
             "field": "skip",
-            "description": "<p>Record offset for pagination</p>"
+            "description": "<p>Record offset for pagination (default to 0)</p>"
           }
         ]
       }
@@ -80,7 +80,7 @@
   {
     "type": "post",
     "url": "/instance",
-    "title": "PostInstance",
+    "title": "NewInstance",
     "group": "Instance",
     "description": "<p>Create a new instance</p>",
     "parameter": {
@@ -315,29 +315,22 @@
             "group": "Parameter",
             "type": "String",
             "optional": false,
+            "field": "type",
+            "description": "<p>&quot;hpss&quot;, &quot;docker&quot;, &quot;pbs&quot;, etc..</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
             "field": "resource_id",
-            "description": "<p>ID of this resource instance</p>"
+            "description": "<p>ID of this resource instance (&quot;karst&quot;, &quot;mason&quot;, etc..)</p>"
           },
           {
             "group": "Parameter",
             "type": "String",
             "optional": false,
             "field": "name",
-            "description": "<p>Name of this resource instance</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Number[]",
-            "optional": false,
-            "field": "gids",
-            "description": "<p>List of groups that can use this resource</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Object",
-            "optional": false,
-            "field": "envs",
-            "description": "<p>Key values to be inserted for service execution</p>"
+            "description": "<p>Name of this resource instance (like &quot;soichi's karst account&quot;)</p>"
           },
           {
             "group": "Parameter",
@@ -352,6 +345,20 @@
             "optional": false,
             "field": "active",
             "description": "<p>Set true to enable resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number[]",
+            "optional": true,
+            "field": "gids",
+            "description": "<p>List of groups that can use this resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "envs",
+            "description": "<p>Key values to be inserted for service execution</p>"
           }
         ]
       }
@@ -439,19 +446,6 @@
     "title": "Test resource",
     "name": "TestResource",
     "group": "Resource",
-    "parameter": {
-      "fields": {
-        "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "resource_id",
-            "description": "<p>Resource ID</p>"
-          }
-        ]
-      }
-    },
     "description": "<p>Test resource connectivity and availability. Store status on status/status_msg fields of the resource entry</p>",
     "header": {
       "fields": {

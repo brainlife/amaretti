@@ -1,0 +1,57 @@
+<sca-menutab menu="appconf.menu" active="'about'" user="user"></sca-menutab>
+<div class="container">
+    <div class="row">
+        <div class="col-md-10">
+            <h1>Resource Configurator</h1>
+
+            <div ng-if="page == 'select'">
+                <p>Select resources you'd like to allow SCA to access</p>
+                <table class="table">
+                    <tr ng-repeat="(resource_id, resource_detail) in resource_details" ng-if="resource_detail._show">
+                        <th>{{resource_detail.name}} <!--<small class="text-muted">{{resource_id}}</small>--></th>
+                        <td>{{resource_detail.hostname}}<br><p class="help-block">{{resource_detail.desc}}</p></td>
+                        <td>
+                            <input type="checkbox" ng-model="resource_detail._select"> <span ng-if="resource_detail._configured">Already Configured for {{resource_detail._configured}}</span>
+                        </td>
+                    </tr>
+                </table>
+                <button type="button" class="btn btn-primary pull-right" ng-click="gotopage('userpass');">Next</button>
+            </div>
+
+            <div ng-if="page == 'userpass'">
+                <p>Please enter IU username / password to configure selected resources</p>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" ng-model="userpass.username" class="form-control" placeholder="IU Username">
+                </div>
+                <div class="form-group">
+                    <labe>Password</label>
+                    <input type="password" ng-model="userpass.password" class="form-control"placeholder="Password">
+                </div>
+                <button type="button" class="btn btn-default" ng-click="gotopage('select')">Back</button>
+                <button type="button" class="btn btn-primary pull-right" ng-click="run();">Next</button>
+            </div>
+
+            <div ng-if="page == 'run'">
+                <p ng-if="!keys">Generating keys..</p>
+                <div ng-if="keys">
+                    <!--
+                    <div>
+                        <p class="help-block">Public Key to be installed</p>
+                        <div class="well"><small class="text-muted" style="word-wrap: break-word;">{{keys.pubkey}}</small></div>
+                    </div>
+                    -->
+                    <table class="table">
+                        <tr ng-repeat="(resource_id, resource_detail) in resource_details" ng-if="resource_detail._select">
+                            <th style="width: 150px;">{{resource_detail.name}} <!--<small class="text-muted">{{resource_id}}</small>--></th>
+                            <td>{{resource_detail._status}}</td>
+                        </tr>
+                    </table>
+                </div>
+                <button type="button" class="btn btn-primary pull-right" ng-click="finish();">Finish</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+

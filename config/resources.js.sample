@@ -36,8 +36,13 @@ module.exports = {
             "soichih/sca-service-download": {score: 10},
             "soichih/sca-service-life": {score: 10},
 
+            //probably temp names
+            "soichih/sca-service-neuro-tracking": {score: 10},
+
             "soichih/sca-service-noop": {score: 10},
             "soichih/sca-service-helloworld1": {score: 10},
+
+            "soichih/sca-service-helloworld2": {score: 9},
 
             //for kd backup tool
             "soichih/sca-service-tgzpipe": {score: 10},
@@ -140,6 +145,8 @@ module.exports = {
             "soichih/sca-service-qr": {score: 10},
             "soichih/sca-service-fits2png": {score: 10},
             "soichih/sca-product-raw": {score: 5},
+
+            "soichih/sca-service-helloworld2": {score: 10},
 
             "_upload": {score: 5},
         }

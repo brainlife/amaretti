@@ -113,6 +113,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     }, function(err, _res, git) {
         if(err) return next(err);
         //console.dir(git.clone_url);
+        if(_res.statusCode != 200) return next("failed to query requested repo. code:"+_res.statusCode);
         
         //then load package.json
         //TODO - should I always use master - or let user decide?

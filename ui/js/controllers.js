@@ -68,8 +68,11 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
     $scope.openinst = function(inst) {
         //window.open causes window block
         //window.open($scope.workflows[inst.workflow_id].url+"#/start/"+inst._id, 'scainst:'+inst._id);
-
-        document.location = $scope.workflows[inst.workflow_id].url+"#/start/"+inst._id;//, 'scainst:'+inst._id);
+        if($scope.workflows[inst.workflow_id] == undefined) {
+            toaster.pop('error', "Can't find Workflow UI with workflow_id:"+inst.workflow_id);
+        } else {
+            document.location = $scope.workflows[inst.workflow_id].url+"#/start/"+inst._id;//, 'scainst:'+inst._id);
+        }
     }
 }]);
 
@@ -138,7 +141,6 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $loc
         });
     }
     $scope.openinst = function(inst) {
-        //window.open($scope.workflow.url+"#/start/"+inst._id, 'scainst:'+inst._id);
         document.location = $scope.workflow.url+"#/start/"+inst._id;
     }
 }]);
@@ -156,24 +158,6 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location) {
         if(res.data && res.data.message) toaster.error(res.data.message);
         else toaster.error(res.statusText);
     });
-
-    /*
-    workflows.getInsts().then(function(mine) {
-        $scope.workflows = mine;
-    });
-    */
-    /*
-    $scope.create = function() {
-        workflows.create().then(function(res) {
-            var workflow = res.data;
-            scaMessage.success("Created a new workflow instance"); //TODO unnecessary?
-            document.location("inst/#/"+workflow._id);
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    };
-    */
 }]);
 
 //TODO will be moved to inst.js ... has this already happened?
@@ -370,7 +354,8 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     }
 
     $scope.autoconf = function() {
-        alert('todo.. please configure your resources manually for now');
+        //alert('todo.. please configure your resources manually for now');
+        document.location = "#/autoconf";
     }
 
     function create_dialog(resource, inst) {
@@ -464,4 +449,111 @@ app.component('accessGroups', {
     },
 });
 
+app.controller('AutoconfController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services', 'resources', 'appconf', '$http',
+function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services, resources, appconf, $http) {
+    scaMessage.show(toaster);
+
+    $scope.page = "select";
+    var jwt = localStorage.getItem(appconf.jwt_id);
+    if(jwt) var user = jwtHelper.decodeToken(jwt);
+
+    $scope.userpass = {};
+
+    serverconf.then(function(_c) { 
+        $scope.resource_details = _c.resources;
+
+        for(var id in $scope.resource_details) {
+            var detail = $scope.resource_details[id];
+            if(detail.type == "pbs") {
+                detail._show = true;
+                detail._select = true;
+            }
+        }
+
+        //find resources that user already configured
+        resources.getall().then(function(resources) {
+            resources.forEach(function(resource) {
+                var detail = $scope.resource_details[resource.resource_id];
+                if(detail && resource.config && resource.config.username) {
+                    //if(resource.config.username == user.profile.username) {
+                    detail._configured = resource.config.username;//true;
+                    detail._select = false; 
+                    //}
+                }
+            });
+        });
+    });
+
+    $scope.gotopage = function(page) {
+        $scope.page = page;
+    } 
+
+    function install(keys, resource_id, resource) {
+        resource._status = "Installing SSH public key";
+
+        $http.post(appconf.api+'/resource/installsshkey', {
+            username: $scope.userpass.username,
+            password: $scope.userpass.password,
+            host: resource.hostname,
+            comment: "Public key for sca resource (autoconf)",
+            pubkey: keys.pubkey,
+        })
+        .then(function(res) {
+            resource._status = "Registering resource with SCA";
+            //console.dir(resource);
+            $http.post(appconf.api+'/resource', {
+                type: resource.type,
+                resource_id: resource_id,
+                name: $scope.userpass.username+"@"+resource.name,
+                active: true,
+                config: {
+                    username: "hayashis", 
+                    enc_ssh_private: keys.key,
+                    ssh_public: keys.pubkey,
+                },
+            })
+            .then(function(res) {
+                resource._status = "Testing resource";
+                $http.put(appconf.api+"/resource/test/"+res.data._id)
+                .then(function(res) {
+                    resource._status = "Resource registered successfully";
+                }, function(res) {
+                    if(res.data && res.data.message) toaster.error(res.data.message);
+                    else toaster.error(res.statusText);
+                    resource._status = "Resource registered but test failed";
+                });
+            }, function(res) {
+                if(res.data && res.data.message) toaster.error(res.data.message);
+                else toaster.error(res.statusText);
+                resource._status = "Failed to register resource entry";
+            });
+        }, function(res) {
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
+            resource._status = "Failed to install SSH public key";
+        });
+    }
+
+    $scope.run = function() {
+        $scope.page = 'run';
+        $http.get(appconf.api+'/resource/gensshkey')
+        .then(function(res) {
+            $scope.keys = res.data;
+            //install all resources
+            for(var id in $scope.resource_details) {
+                var resource_detail = $scope.resource_details[id];
+                if(resource_detail._select) {
+                    install(res.data, id, resource_detail);
+                }
+            }
+        }, function(res) {
+            if(res.data && res.data.message) toaster.error(res.data.message);
+            else toaster.error(res.statusText);
+        });
+    }
+
+    $scope.finish = function() {
+        document.location = "#/resources/";
+    }
+}]);
 

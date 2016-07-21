@@ -99,7 +99,6 @@ describe('/resource', function() {
         .expect('Content-Type', /json/) 
         .expect(200, done);
     });
-
 });
 
 describe('/instance', function() {

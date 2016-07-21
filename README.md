@@ -27,3 +27,7 @@ It is possible to initialize dependent services while dependnecies are still run
 sync jobs can't be stopped.. or resumed in case of error? also, should it raise warning if it runs more than few minutes?
 
 Let user set timeout for a task - if task is running longer than expected, mark as failed - rather than keep checking (or.. maybe we should reduce the frequency of the status check?)
+
+for raw file viewer, display content of text file if the file size is small and all ascii in pre tag
+
+on auth service, let user issue long living (non-expiring?) jwt token to be used for command line / api access?
