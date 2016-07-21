@@ -33,7 +33,7 @@ var db = require('../models/db');
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find) find = JSON.parse(req.query.find);
-    find.user_id = req.user.sub; //always set this
+    //find.user_id = req.user.sub; //always set this
     //logger.debug(find);
 
     db.Service.find(find)
