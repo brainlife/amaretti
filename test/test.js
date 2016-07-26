@@ -117,12 +117,6 @@ describe('/instance', function() {
                         what: "ever"
                 }
         })  
-        /*
-        .expect(200, {
-                workflow_id: "test"
-        }, done);
-        /*
-        */
         .expect(200)
         .end(function(err, res) {
                 if(err) return done(err);
@@ -232,3 +226,89 @@ describe('/instance', function() {
     });
 });
 
+describe('/task', function() {
+    var instance = null;
+    var task = null;
+    before(function(done) {
+        console.log("find instance to test task submissions");
+        request(app)
+        .get('/instance/')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"workflow_id": "test"})))
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            var instances = res.body.instances;
+            if(instances.length == 0) {
+                console.log("creating new test instance");
+                request(app)
+                .post('/instance')
+                .set('Authorization', 'Bearer '+jwt)
+                .set('Accept', 'application/json')
+                .send({
+                    workflow_id: "test",    
+                    user_id: "testuser",        
+                    name: "test 2", 
+                    desc: "test desc 2",    
+                    config: {
+                        what: "ever"
+                    }
+                })  
+                .expect(200)
+                .end(function(err, res) {
+                    if(err) return done(err);
+                    instance = res.body;
+                    done();
+                });
+            } else {
+                instance = instances[0];
+                done();
+            }
+        });
+    });
+
+    it('should not create task with missing resource_dep', function(done) {
+        request(app)
+        .post('/task')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+                name: "test",   
+                desc: "test desc",      
+                instance_id: instance._id,
+                service: "soichih/sca-service-noop",
+                config: {
+                        what: "ever"
+                },
+                resource_deps: ["5760192fa6b6070a731af134"]
+        })  
+        .expect(500)
+        .end(function(err, res) {
+            if(err) return done(err);
+            done();
+        });
+    });
+
+    it('should not create task with resource preference set to missing resource', function(done) {
+        request(app)
+        .post('/task')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+                name: "test",   
+                desc: "test desc",      
+                instance_id: instance._id,
+                service: "soichih/sca-service-noop",
+                config: {
+                        what: "ever"
+                },
+                preferred_resource_id: "5760192fa6b6070a731af134",
+        })  
+        .expect(500)
+        .end(function(err, res) {
+            if(err) return done(err);
+            done();
+        });
+    });
+});

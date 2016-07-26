@@ -111,25 +111,29 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by SCA task handler";
+
+        //console.dir(task);
         
         //check for various resource parameters.. make sure user has access to them
-        console.dir("checking access");
         async.series([
             function(next_check) {
                 if(!task.preferred_resource_id) return next_check();
-                db.Resource.findById(resource_id, function(err, resource) {
+                console.log("preferreed_resource_id is set");
+                db.Resource.findById(task.preferred_resource_id, function(err, resource) {
                     if(err) return next_check(err);
-                    if(!common.check_access(req.user, resource)) return next_check("can't access preferred_resource_id"+task.preferred_resource_id);
+                    if(!resource) return next_check("can't find preferred_resource_id:"+task.preferred_resource_id);
+                    if(!common.check_access(req.user, resource)) return next_check("can't access preferred_resource_id:"+task.preferred_resource_id);
                     next_check();//ok
                 });
             },
             function(next_check) {
                 if(!task.resource_deps) return next_check();
                 //make sure user can access all resource_deps
-                async.eachSeries(task.resource_deps, function(resource_dep, next_resource) {
-                    db.Resource.findById(resource_dep, function(err, resource) {
+                async.eachSeries(task.resource_deps, function(resource_id, next_resource) {
+                    db.Resource.findById(resource_id, function(err, resource) {
                         if(err) return next_resource(err);
-                        if(!common.check_access(req.user, resource)) return next_resource("can't access preferred_resource_id"+task.preferred_resource_id);
+                        if(!resource) return next_check("can't find resource_id:"+resource_id);
+                        if(!common.check_access(req.user, resource)) return next_resource("can't access resource_dep:"+resource_id);
                         next_resource();
                     });
                 }, next_check);
@@ -140,6 +144,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
                 async.eachSeries(task.deps, function(taskid, next_task) {
                     db.Task.findById(taskid, function(err, task) {
                         if(err) return next_task(err);
+                        if(!task) return next_task("can't find task id:"+taskid);
                         if(task.user_id != req.user.sub) return next_task("user doesn't own the task_id"+taskid);
                         next_task();
                     });
