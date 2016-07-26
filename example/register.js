@@ -6,7 +6,6 @@ var fs = require('fs');
 var sca = "https://test.sca.iu.edu/api";
 var jwt = fs.readFileSync('test.sca.jwt', {encoding: 'ascii'}).trim();
 
-//register new user
 //using SCA local username and password
 request.post({
     url: sca+"/sca/resource", 

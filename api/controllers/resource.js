@@ -70,47 +70,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
-/* finds the intersection of 
- * two arrays in a simple fashion.  
- *
- * PARAMS
- *  a - first array, must already be sorted
- *  b - second array, must already be sorted
- *
- * NOTES
- *
- *  Should have O(n) operations, where n is 
- *    n = MIN(a.length(), b.length())
- */
-function intersect_safe(a, b)
-{
-  var ai=0, bi=0;
-  var result = [];
-
-  while( ai < a.length && bi < b.length )
-  {
-     if      (a[ai] < b[bi] ){ ai++; }
-     else if (a[ai] > b[bi] ){ bi++; }
-     else /* they're equal */
-     {
-       result.push(a[ai]);
-       ai++;
-       bi++;
-     }
-  }
-
-  return result;
-}
-
-//return true if user hass access
-function check_access(user, resource) {
-    if(resource.user_id == user.sub) return true;
-    if(resource.gids && user.gids) {
-        var inter = intersect_safe(resource.gids, user.gids);
-        if(inter.length) return true;
-    }
-    return false;
-}
 
 /**
  * @api {get} /resource/ls/:resource_id      List directory
@@ -136,7 +95,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         //if(resource.user_id != req.user.sub) return res.status(401).end(); 
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
 
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -154,7 +113,8 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                 else return; //timeout called
                 if(err) {
                     logger.error(err);
-                    return next("failed to ls:"+_path);
+                    err.lang = err.lang || "Failed to ls "+_path;
+                    return next(err); //err contains err code that I need to pass to client
                 }
                 files.forEach(function(file) {
                     //file.attrs.mode_string = modeString(file.attrs.mode);
@@ -181,7 +141,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         //if(resource.user_id != req.user.sub) return res.status(401).end(); 
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
 
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -280,7 +240,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(err) return next(err);
             if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
             //if(resource.user_id != req.user.sub) return res.status(401).end(); 
-            if(!check_access(req.user, resource)) return res.status(401).end(); 
+            if(!common.check_access(req.user, resource)) return res.status(401).end(); 
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
@@ -322,7 +282,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
@@ -453,7 +413,7 @@ router.get('/download', jwt({
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         //if(resource.user_id != req.user.sub) return res.status(401).end(); 
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -516,7 +476,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
             res.json(ret);
@@ -716,7 +676,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         if(err) return next(err);
         //console.dir(resource);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         if(resource.type != "hpss") return res.status(404).json({message: "not a hpss resource"});
 
         //need to decrypt first..

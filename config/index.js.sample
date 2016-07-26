@@ -56,7 +56,7 @@ register_workflow(require("/home/hayashis/git/sca-wf-blast/package.json"), "/wfu
 register_workflow(require("/home/hayashis/git/stardock/package.json"), "/wfui/stardock");
 
 register_workflow(require("/home/hayashis/git/sca-wf-test/package.json"), "/wfui/test");
-register_workflow(require("/home/hayashis/git/sca-wf-jouncy/package.json"), "/wfui/jouncy");
+register_workflow(require("/home/hayashis/git/sca-wf-conneval/package.json"), "/wfui/conneval");
 
 exports.resources = require('./resources');
 

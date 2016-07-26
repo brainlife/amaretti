@@ -6,7 +6,7 @@ var fs = require('fs');
 var sca = "https://test.sca.iu.edu/api";
 
 request.post({
-    url: sca+"/sca/resource/installsshkey", 
+    url: sca+"/wf/resource/installsshkey", 
     json: true, 
     body: {
         username: "hayashis",

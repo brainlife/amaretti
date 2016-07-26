@@ -69,6 +69,8 @@ function check_requested() {
         logger.info("check_requested:"+tasks.length);
         
         async.eachSeries(tasks, function(task, next) {
+            logger.info("handling requested task:"+task._id);
+            
             //make sure dependent tasks has all finished
             var deps_all_done = true;
             var dep_failed = null;
@@ -88,11 +90,13 @@ function check_requested() {
             */
 
             if(!deps_all_done) {
-                logger.debug("task:"+task._id+" dependency not met.. postponing");
+                logger.debug("dependency not met.. postponing");
                 task.status_msg = "Waiting on dependency";
                 task.save(next);
                 return;
             }
+
+            logger.debug(JSON.stringify(task, null, 4));
             
             //first of all... mark the task as _handled (so that another run won't pick this up..)
             task._handled = {hostname: os.hostname(), pid: process.pid, timestamp: new Date()}
@@ -697,5 +701,6 @@ function load_products(task, taskdir, conn, cb) {
         });
     });
 }
+
 
 

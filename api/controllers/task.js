@@ -36,6 +36,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+/*
 //make sure all resources exists, and are owned by the user.sub
 function check_resource_access(user, ids, cb) {
     async.forEachOf(ids, function(id, key, next) {
@@ -48,6 +49,7 @@ function check_resource_access(user, ids, cb) {
         });
     }, cb);
 }
+*/
 
 /**
  * @api {post} /task            NewTask
@@ -89,35 +91,72 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         if(!instance) return next("no such instance:"+instance_id);
         if(instance.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
 
-        var task = new db.Task(req.body);  //TODO should I validate?
+        var task = new db.Task();
+
+        //TODO validate?
+        task.name = req.body.name;
+        task.desc = req.body.desc;
+        task.service = req.body.service;
+        task.instance_id = req.body.instance_id;
+        task.config = req.body.config;
+
+        //checked later
+        task.deps = req.body.deps;
+        task.preferred_resource_id = req.body.preferred_resource_id;
+        task.resource_deps = req.body.resource_deps;
+
+        //others set by the API 
         task.user_id = req.user.sub;
         task.progress_key = "_sca."+instance_id+"."+task._id;
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by SCA task handler";
-
-        //TODO - I am sure this is no longer used.. preferred_resource_id is set instead
-        //setting this to resource_id doesn't gurantee that it will run there.. this is to help sca-task decide where to run the task
-        //task.resource_id = req.body.resource_id;
-
-        //now register!
-        task.save(function(err, _task) {
-            /*
-            //also add reference to the workflow
-            if(!instance.steps[step_id]) instance.steps[step_id] = {tasks: []};
-            instance.steps[step_id].tasks.push(_task._id);
-            workflow.save(function(err) {
+        
+        //check for various resource parameters.. make sure user has access to them
+        console.dir("checking access");
+        async.series([
+            function(next_check) {
+                if(!task.preferred_resource_id) return next_check();
+                db.Resource.findById(resource_id, function(err, resource) {
+                    if(err) return next_check(err);
+                    if(!common.check_access(req.user, resource)) return next_check("can't access preferred_resource_id"+task.preferred_resource_id);
+                    next_check();//ok
+                });
+            },
+            function(next_check) {
+                if(!task.resource_deps) return next_check();
+                //make sure user can access all resource_deps
+                async.eachSeries(task.resource_deps, function(resource_dep, next_resource) {
+                    db.Resource.findById(resource_dep, function(err, resource) {
+                        if(err) return next_resource(err);
+                        if(!common.check_access(req.user, resource)) return next_resource("can't access preferred_resource_id"+task.preferred_resource_id);
+                        next_resource();
+                    });
+                }, next_check);
+            },
+            function(next_check) {
+                if(task.deps) return next_check();
+                //make sure user owns the task
+                async.eachSeries(task.deps, function(taskid, next_task) {
+                    db.Task.findById(taskid, function(err, task) {
+                        if(err) return next_task(err);
+                        if(task.user_id != req.user.sub) return next_task("user doesn't own the task_id"+taskid);
+                        next_task();
+                    });
+                }, next_check);
+            }
+        ], function(err) {
+            if(err) return next(err);
+            //all good - now register!
+            task.save(function(err, _task) {
                 if(err) return next(err);
-                res.json({message: "Task successfully requested", task: _task});
+                res.json({message: "Task successfully registered", task: _task});
             });
-            */
-            res.json({message: "Task successfully registered", task: _task});
+           
+            //also send the first progress update
+            common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
         });
-       
-        //also send first progress update
-        common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
     });
-    //});
 });
 
 router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
