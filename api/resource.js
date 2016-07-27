@@ -12,15 +12,7 @@ var db = require('./models/db');
 var common = require('./common');
 
 exports.select = function(user, query, cb) {
-    //select all resource available for the user and online
-    /*
-    //replace numeric gids with string
-    var gids = [];
-    if(user.gids) {
-        user.gids.forEach(function(id) { gids.push(id.toString()); });
-        user.gids = gids;
-    }
-    */
+    //select all resource available for the user and active
     logger.debug("resource.select with query");
     logger.debug(query);
     logger.debug("user id / groups");
@@ -34,10 +26,7 @@ exports.select = function(user, query, cb) {
         status: 'ok', 
         active: true,
     })
-    //.lean()
     .exec(function(err, resources) {
-        //console.dir(err);
-        //console.dir(resources);
         if(err) return cb(err);
         if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);

@@ -25,9 +25,12 @@ db.init(function(err) {
     check_requested();
     check_running();
     check_stop();
-    check_stuck();
+    //check_stuck();
 });
 
+/*
+//now that I am looking for requested task that's handled_date that's old enough,
+//I shouldn't have to look for stuck tasks
 function check_stuck() {
     logger.debug("checking for handled tasks that got stuck");
     var whileago = new Date();
@@ -49,46 +52,47 @@ function check_stuck() {
         setTimeout(check_stuck, 1000*30);
     });
 } 
+*/
 
 //var running = 0;
 function check_requested() {
+    //look for requested task that haven't been handled for a while
+    var whileago = new Date();
+    whileago.setMinutes(whileago.getMinutes() - 10);
+
     /*
-    if(running > config.task_handler.concurrency) {
-        logger.info("running too many tasks already.. skipping this round");
-        return;
-    }
+    //debug
+    console.log(JSON.stringify({
+        status: "requested", 
+        $or: [
+            {handled_date: {$exists: false}},
+            {handled_date: {$lt: whileago}}
+        ] 
+    }, null, 4));
     */
 
-    //look for requested task that doesn't have _handled set
-    db.Task
-    .find({status: "requested", _handled: {$exists: false}})
+    db.Task.find({
+        status: "requested", 
+        $or: [
+            {handled_date: {$exists: false}},
+            {handled_date: {$lt: whileago}}
+        ] 
+    })
     .populate('deps', 'status resource_id') //populate dep tasks status and resource_id
     .populate('resource_deps')  //populate resource deps
     .exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("check_requested:"+tasks.length);
+        //logger.info("check_requested:"+tasks.length);
         
         async.eachSeries(tasks, function(task, next) {
             logger.info("handling requested task:"+task._id);
+            task.handled_date = new Date();
             
             //make sure dependent tasks has all finished
             var deps_all_done = true;
-            var dep_failed = null;
             task.deps.forEach(function(dep) {
                 if(dep.status != "finished") deps_all_done = false; 
-                if(dep.status == "failed") dep_failed = dep._id;
             });
-            
-            /*
-            //wait for it to recover instead of failing
-            if(dep_failed) {
-                logger.debug("one of dependency has failed.. postponing");
-                task.status_msg = "Waiting on dependency(failed): "+dep_failed;
-                task.save(next);
-                return;
-            }
-            */
-
             if(!deps_all_done) {
                 logger.debug("dependency not met.. postponing");
                 task.status_msg = "Waiting on dependency";
@@ -98,16 +102,17 @@ function check_requested() {
 
             logger.debug(JSON.stringify(task, null, 4));
             
-            //first of all... mark the task as _handled (so that another run won't pick this up..)
-            task._handled = {hostname: os.hostname(), pid: process.pid, timestamp: new Date()}
+            //task._handled = {hostname: os.hostname(), pid: process.pid, timestamp: new Date()}
+            //to save handled_date for sure
             task.save(function(err) {
                 if(err) throw err;
 
                 //asyncly handle each request
-                task._handled = undefined; //this is how you delete a key in mongoose
+                //task._handled = undefined; //this is how you delete a key in mongoose
                 process_requested(task, function(err) {
                     if(err) {
-                        logger.error(err); //continue
+                        logger.error(err); 
+                        //TODO - based on the error condition (and/or task configuration) I should reset it to requested
                         task.status = "failed";
                         task.status_msg = err;
                         task.save();
@@ -119,8 +124,8 @@ function check_requested() {
                 next(); 
             });
         }, function(err) {
-            //wait for the next round
-            setTimeout(check_requested, 1000*5);
+            //wait a bit and recheck again
+            setTimeout(check_requested, 1000);
         });
     });
 }
@@ -128,7 +133,7 @@ function check_requested() {
 function check_stop() {
     db.Task.find({status: "stop_requested"}).exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("check_stop:"+tasks.length);
+        //logger.info("check_stop:"+tasks.length);
         async.eachSeries(tasks, function(task, next) {
             logger.info("handling stop request:"+task._id);
             db.Resource.findById(task.resource_id, function(err, resource) {
@@ -192,8 +197,7 @@ function check_stop() {
 function check_running() {
     db.Task.find({status: "running"}).exec(function(err, tasks) {
         if(err) throw err;
-        logger.info("check_running:"+tasks.length);
-        //logger.info("check_running :: loaded "+tasks.length+" running tasks");
+        //logger.info("check_running:"+tasks.length);
         //process synchronously so that I don't accidentally overwrap with next check
         async.eachSeries(tasks, function(task, next) {
             logger.info("check_running "+task._id);
@@ -263,7 +267,6 @@ function check_running() {
 }
 
 function process_requested(task, cb) {
-    
     //need to lookup user's gids first
     request.get({
         url: config.api.auth+"/user/groups/"+task.user_id,
@@ -271,7 +274,7 @@ function process_requested(task, cb) {
         headers: { 'Authorization': 'Bearer '+config.sca.jwt }
     }, function(err, res, gids) {
         if(err) return cb(err);
-
+      
         //then pick best resource
         resource_picker({
             sub: task.user_id,
@@ -281,9 +284,12 @@ function process_requested(task, cb) {
             preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
         }, function(err, resource) {
             if(err) return cb(err);
-            if(!resource) return cb("Couldn't find a resource to execute this task");
+            if(!resource) {
+                task.status_msg = "No resource available to run this task.. postponing.";
+                task.save(cb);
+                return;
+            }
             task.resource_id = resource._id;
-
             common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
             init_task(task, resource, function(err) {
                 if(err) {
@@ -670,7 +676,6 @@ function init_task(task, resource, cb) {
                 cb(err); 
             }); 
         });
-
     });
 }
 
@@ -701,6 +706,5 @@ function load_products(task, taskdir, conn, cb) {
         });
     });
 }
-
 
 

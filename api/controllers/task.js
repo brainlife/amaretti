@@ -197,6 +197,8 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
             task.status = "stop_requested";
             task.status_msg = "";
             break;
+        case "running_sync":
+            //TODO - kill the process?
         default:
             task.status = "stopped";
             task.status_msg = "";

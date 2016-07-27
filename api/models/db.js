@@ -117,7 +117,7 @@ var taskSchema = mongoose.Schema({
     status_update: Date,
 
     //if this document is handled by sca-task, this will be set to hostname, pid, timestamp of the sca-task
-    _handled: mongoose.Schema.Types.Mixed,
+    //_handled: mongoose.Schema.Types.Mixed,
     
     //object containing details for this task
     config: mongoose.Schema.Types.Mixed, 
@@ -141,6 +141,9 @@ var taskSchema = mongoose.Schema({
 
     //time when this task was requested
     request_date: {type: Date},
+    
+    //time when this task was last attempted by sca-task
+    handled_date: {type: Date},
     
     //time when this task started running
     start_date: {type: Date},
