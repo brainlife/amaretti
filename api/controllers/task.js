@@ -174,6 +174,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.status = "requested";
         task.status_msg = "";
         task.request_date = new Date();
+        task.handled_date = undefined;
         //task.products = []; 
         task.save(function(err) {
             if(err) return next(err);
@@ -190,7 +191,9 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
-        if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
+
+        //TODO - _handled is deprecated, but I should still make sure that the task isn't currently handled? but how?
+        //if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
 
         switch(task.status) {
         case "running":
