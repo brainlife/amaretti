@@ -10,8 +10,6 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-var jwt = fs.readFileSync(__dirname+"/../config/sca.jwt");
-
 describe('/task', function() {
     var instance = null;
     var task = null;
@@ -19,7 +17,7 @@ describe('/task', function() {
     before(function(done) {
         request(app)
         .get('/instance/')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .query('limit=1&find='+encodeURIComponent(JSON.stringify({"workflow_id": "test"})))
         .expect(200)
@@ -30,7 +28,7 @@ describe('/task', function() {
                 console.log("creating new test instance");
                 request(app)
                 .post('/instance')
-                .set('Authorization', 'Bearer '+jwt)
+                .set('Authorization', 'Bearer '+config.sca.jwt)
                 .set('Accept', 'application/json')
                 .send({
                     workflow_id: "test",    
@@ -57,7 +55,7 @@ describe('/task', function() {
     it('should not create task with missing resource_dep', function(done) {
         request(app)
         .post('/task')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 name: "test",   
@@ -79,7 +77,7 @@ describe('/task', function() {
     it('should not create task with resource preference set to missing resource', function(done) {
         request(app)
         .post('/task')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 name: "test",   
@@ -101,7 +99,7 @@ describe('/task', function() {
     it('should create a task', function(done) {
         request(app)
         .post('/task')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 name: "test",   
@@ -124,7 +122,7 @@ describe('/task', function() {
     it('should update a task', function(done) {
         request(app)
         .put('/task/'+task._id)
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 name: "test 2",   
@@ -147,7 +145,7 @@ describe('/task', function() {
     it('should remove a task', function(done) {
         request(app)
         .delete('/task/'+task._id)
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect(200)
         .end(function(err, res) {

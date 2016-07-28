@@ -10,14 +10,12 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-var jwt = fs.readFileSync(__dirname+"/../config/sca.jwt");
-
 describe('/instance', function() {
     var instance = null;
     it('should create instance 1', function(done) {
         request(app)
         .post('/instance')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 workflow_id: "test",    
@@ -41,7 +39,7 @@ describe('/instance', function() {
     it('should create instance 2', function(done) {
         request(app)
         .post('/instance')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
                 workflow_id: "test",    
@@ -66,7 +64,7 @@ describe('/instance', function() {
     it('should find a single instance by id', function(done) {
         request(app)
         .get('/instance/'+instance._id)
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect(200)
         .end(function(err, res) {
@@ -81,7 +79,7 @@ describe('/instance', function() {
     it('should query instances by name', function(done) {
         request(app)
         .get('/instance/')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .query('limit=1&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
         .expect(200)
@@ -104,7 +102,7 @@ describe('/instance', function() {
         request(app)
         .get('/instance')
         .query('limit=1&find='+encodeURIComponent(JSON.stringify({"config.what": "ever"})))
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect(200)
         .end(function(err, res) {
@@ -122,7 +120,7 @@ describe('/instance', function() {
         .get('/instance')
         //.query('limit=1&select=name%20create_dae&sort='+encodeURIComponent(JSON.stringify({create_date: 1})))
         .query('limit=1&select=name%20create_dae&sort=-create_date')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect(200)
         .end(function(err, res) {

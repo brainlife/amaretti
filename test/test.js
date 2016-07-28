@@ -10,8 +10,6 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-var jwt = fs.readFileSync(__dirname+"/../config/sca.jwt");
-
 before(function(done) {
     console.log("connecting to mongodb");
     this.timeout(10000);

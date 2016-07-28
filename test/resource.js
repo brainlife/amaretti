@@ -10,15 +10,13 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-var jwt = fs.readFileSync(__dirname+"/../config/sca.jwt");
-
 describe('/resource', function() {
     var resource = null;
 
     it('create new resource', function(done) {
         request(app)
         .post('/resource')
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
             resource_id: "test",
@@ -50,7 +48,7 @@ describe('/resource', function() {
     xit('setkeytab', function(done) {
         request(app)
         .post('/resource/setkeytab/'+resource._id)
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
             username: process.env.TEST_USERNAME,
@@ -75,7 +73,7 @@ describe('/resource', function() {
     it('delete the test resource', function(done) {
         request(app)
         .delete('/resource/'+resource._id)
-        .set('Authorization', 'Bearer '+jwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect('Content-Type', /json/) 
         .expect(200, done);

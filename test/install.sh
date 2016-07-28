@@ -6,6 +6,7 @@ if [ -f config/index.js ]; then
     exit
 fi
 
+echo "installing test configuration"
 cp test/config/* config/
 
 #if [ ! -f config/auth.key ];
