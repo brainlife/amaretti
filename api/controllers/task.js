@@ -176,7 +176,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 /**
  * @api {put} /task/rerun/:taskid     Rerun finished / failed task
  * @apiGroup Task
- * @apiDescription              Reset the task status to "requested" and reset products / handled_date
+ * @apiDescription              Reset the task status to "requested" and reset products / next_date
  *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * 
@@ -198,7 +198,9 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.status = "requested";
         task.status_msg = "";
         task.request_date = new Date();
-        task.handled_date = undefined;
+        task.start_date = undefined;
+        task.finish_date = undefined;
+        task.next_date = undefined;
         task.products = undefined;
         task.save(function(err) {
             if(err) return next(err);

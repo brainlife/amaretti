@@ -54,28 +54,35 @@ function check_stuck() {
 } 
 */
 
+//set next_date incrementally longer between each checks
+function set_nextdate(task) {
+    task.next_date = new Date();
+    
+    //if not set, set it to check immediately!
+    if(!task.next_date) return;
+
+    if(task.start_date) {
+        var start = task.start_date.getTime();
+        var now = task.next_date.getTime();
+        var elapsed = now - start;
+        console.log("elapsed seconds: "+elapsed);
+        var next = now + elapsed/2;
+        console.log("next: "+next);
+        task.next_date.setTime(next);
+    } else {
+        //not yet started. check again in 10 minutes (maybe resource issue?)
+        //maybe I should increase the delay to something like an hour?
+        task.next_date.setMinutes(task.next_date.getMinutes() + 10);
+    }
+}
+
 //var running = 0;
 function check_requested() {
-    //look for requested task that haven't been handled for a while
-    var whileago = new Date();
-    whileago.setMinutes(whileago.getMinutes() - 10);
-
-    /*
-    //debug
-    console.log(JSON.stringify({
-        status: "requested", 
-        $or: [
-            {handled_date: {$exists: false}},
-            {handled_date: {$lt: whileago}}
-        ] 
-    }, null, 4));
-    */
-
     db.Task.find({
         status: "requested", 
         $or: [
-            {handled_date: {$exists: false}},
-            {handled_date: {$lt: whileago}}
+            {next_date: {$exists: false}},
+            {next_date: {$lt: new Date()}}
         ] 
     })
     .populate('deps', 'status resource_id') //populate dep tasks status and resource_id
@@ -86,7 +93,7 @@ function check_requested() {
         
         async.eachSeries(tasks, function(task, next) {
             logger.info("handling requested task:"+task._id);
-            task.handled_date = new Date();
+            set_nextdate(task);
             
             //make sure dependent tasks has all finished
             var deps_all_done = true;
@@ -102,8 +109,6 @@ function check_requested() {
 
             logger.debug(JSON.stringify(task, null, 4));
             
-            //task._handled = {hostname: os.hostname(), pid: process.pid, timestamp: new Date()}
-            //to save handled_date for sure
             task.save(function(err) {
                 if(err) throw err;
 
@@ -195,7 +200,13 @@ function check_stop() {
 
 //check for task status of already running tasks
 function check_running() {
-    db.Task.find({status: "running"}).exec(function(err, tasks) {
+    db.Task.find({
+        status: "running",
+        $or: [
+            {next_date: {$exists: false}},
+            {next_date: {$lt: new Date()}}
+        ] 
+    }).exec(function(err, tasks) {
         if(err) throw err;
         //logger.info("check_running:"+tasks.length);
         //process synchronously so that I don't accidentally overwrap with next check
@@ -215,7 +226,8 @@ function check_running() {
                         stream.on('close', function(code, signal) {
                             switch(code) {
                             case 0: //still running
-                                next();
+                                set_nextdate(task);
+                                task.save(next);
                                 break;
                             case 1: //finished
                                 load_products(task, taskdir, conn, function(err) {
@@ -231,12 +243,13 @@ function check_running() {
                                     task.status_msg = "Service completed successfully";
                                     task.finish_date = new Date();
                                     task.save(function(err) {
-                                        //invalidate handled_date on dependending tasks so that it will get started
-                                        db.Task.update({deps: task._id}, {$unset: {handled_date: 1}}, next);
+                                        //clear next_date on dependending tasks so that it will be checked immediately
+                                        db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
                                     });
                                 });
                                 break;
-                            case 2:  //failed
+                            case 2:  //job failed
+                                //TODO - let user specify retry count, and if we haven't met it, rerun it?
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed"; 
                                 task.status_msg = out;
@@ -264,7 +277,7 @@ function check_running() {
             }
             
             //all done for this round - schedule for next
-            setTimeout(check_running, 1000*15); //check job status every few minutes
+            setTimeout(check_running, 1000);
         });
     });
 }
@@ -627,6 +640,7 @@ function init_task(task, resource, cb) {
                                 task.status = "running";
                                 task.status_msg = "Started service";
                                 task.start_date = new Date();
+                                task.next_date = new Date(); 
                                 task.save(next);
                             }
                         })
@@ -664,8 +678,8 @@ function init_task(task, resource, cb) {
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();
                                         task.save(function(err) {
-                                            //invalidate handled_date on dependending tasks so that it will get started
-                                            db.Task.update({deps: task._id}, {$unset: {handled_date: 1}}, next);
+                                            //clear next_date on dependending tasks so that it will be checked immediately
+                                            db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
                                         });
                                     });
                                 }

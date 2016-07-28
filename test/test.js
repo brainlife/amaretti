@@ -10,7 +10,7 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
-console.log(JSON.stringify(config, null, 4));
+//console.log(JSON.stringify(config, null, 4));
 
 before(function(done) {
     console.log("connecting to mongodb");

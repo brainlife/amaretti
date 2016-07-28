@@ -145,8 +145,11 @@ var taskSchema = mongoose.Schema({
     //time when this task was requested
     request_date: {type: Date},
     
-    //time when this task was last attempted by sca-task
-    handled_date: {type: Date},
+    //time when this task was last attempted by sca-task (TODO - deprecate this and use timeout_date)
+    //handled_date: {type: Date},
+
+    //next time sca-task should check this task again (unset to check immediately)
+    next_date: {type: Date},
     
     //time when this task started running
     start_date: {type: Date},
@@ -157,7 +160,7 @@ var taskSchema = mongoose.Schema({
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },
 
-    //time when this task was last updated
+    //time when this task was last updated (only put put api?)
     update_date: {type: Date},
 });
 /*
