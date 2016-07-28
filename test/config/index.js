@@ -11,7 +11,7 @@ exports.sca = {
     resource_cipher_algo: 'aes-256-cbc',
 
     //jwt token used to access other services (like auth service)
-    jwt: fs.readFileSync(__dirname+'/sca.jwt'),
+    jwt: fs.readFileSync(__dirname+'/test.jwt'),
 
 }
 
