@@ -9,11 +9,3 @@ fi
 echo "installing test configuration"
 cp test/config/* config/
 
-echo "admin.jwt"
-cat config/admin.jwt 
-
-echo "auth.pub"
-cat config/auth.pub
-
-echo "auth.key"
-cat config/auth.key

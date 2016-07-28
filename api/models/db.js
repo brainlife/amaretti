@@ -96,6 +96,9 @@ var taskSchema = mongoose.Schema({
     user_id: String, //sub of user submitted this request
 
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
+
+    group_id: String, //optional field to group tasks inside an instance (used to create a progress_key)
+
     service: String, // "soichih/sca-service-life"
     
     //resource where the service was executed (not set if it's not yet run)

@@ -110,9 +110,11 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         //others set by the API 
         task.user_id = req.user.sub;
 
+        task.group_id = req.body.group_id;
+        
         //construct progress key
         task.progress_key = "_sca."+instance_id;
-        if(req.body.group_id) task.progress_key += "."+req.body.group_id;
+        if(task.group_id) task.progress_key += "."+task.group_id;
         task.progress_key +="."+task._id;
     
         task.status = "requested";

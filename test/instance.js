@@ -10,6 +10,9 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
+console.log("using config.sca.jwt");
+console.dir(config.sca.jwt.toString());
+
 describe('/instance', function() {
     var instance = null;
     it('should create instance 1', function(done) {

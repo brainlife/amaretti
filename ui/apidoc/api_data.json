@@ -877,6 +877,13 @@
           {
             "group": "Parameter",
             "type": "String",
+            "optional": true,
+            "field": "group_id",
+            "description": "<p>Group ID to group the task inside the instance for progress report</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
             "optional": false,
             "field": "service",
             "description": "<p>Name of the service to run</p>"

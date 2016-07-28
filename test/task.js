@@ -105,6 +105,7 @@ describe('/task', function() {
                 name: "test",   
                 desc: "test desc",      
                 instance_id: instance._id,
+                group_id: "ahoi",
                 service: "soichih/sca-service-noop",
                 config: {
                         what: "ever"
@@ -114,6 +115,7 @@ describe('/task', function() {
         .end(function(err, res) {
             if(err) return done(err);
             task = res.body.task;            
+            assert(task.progress_key == "_sca."+instance._id+".ahoi."+task._id); //make sure group id is added
             //console.dir(task);
             done();
         });
