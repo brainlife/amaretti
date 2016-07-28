@@ -7,7 +7,6 @@ var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
 var fs = require('fs');
-var ejs = require('ejs');
 
 //mine
 var config = require('../../config');
