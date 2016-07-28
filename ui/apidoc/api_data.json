@@ -1024,7 +1024,7 @@
     "url": "/task/:taskid",
     "title": "Update Task",
     "group": "Task",
-    "description": "<p>(Admin only) This API allows you to update task detail. Normally, you don't really want to update task detail after it's submitted. Doing so might cause task to become inconsistent with the actual state.</p>",
+    "description": "<p>(Admin only) This API allows you to update task detail. Normally, you don't really want to update task detail after it's submitted. Doing so might cause task to become inconsistent with the actual state. To remove a field, set the field to null (not undefined - since it's not valid JSON)</p>",
     "parameter": {
       "fields": {
         "Parameter": [

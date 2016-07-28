@@ -275,6 +275,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  * @apiDescription              (Admin only) This API allows you to update task detail. Normally, you don't really
  *                              want to update task detail after it's submitted. Doing so might cause task to become
  *                              inconsistent with the actual state. 
+ *                              To remove a field, set the field to null (not undefined - since it's not valid JSON)
  *
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
@@ -315,8 +316,15 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..
+            console.log(key)
 
             task[key] = req.body[key];
+
+            //user can't set field to undefined since it's not a valid json.
+            //but they can set it to null. so, to allow user to remove a field, 
+            //let them set it to null, then we convert it to undefined so that
+            //mongoose will remove the field when saved
+            if(task[key] == null) task[key] = undefined;
         }
         task.update_date = new Date();
 
