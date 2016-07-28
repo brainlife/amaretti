@@ -58,6 +58,8 @@ function check_resource_access(user, ids, cb) {
  *
  * @apiParam {String} instance_id 
  *                              Instance ID to submit this task
+ * @apiParam {String} [progress_group]
+ *                              Group ID to group the task inside the instance
  * @apiParam {String} service   
  *                              Name of the service to run
  * @apiParam {String} [name]    Name for this task
@@ -107,7 +109,12 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 
         //others set by the API 
         task.user_id = req.user.sub;
-        task.progress_key = "_sca."+instance_id+"."+task._id;
+
+        //construct progress key
+        task.progress_key = "_sca."+instance_id;
+        if(req.body.progress_group) task.progress_key += "."+req.body.progress_group
+        task.progress_key +="."+task._id;
+    
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by SCA task handler";
