@@ -311,4 +311,63 @@ describe('/task', function() {
             done();
         });
     });
+
+    it('should create a task', function(done) {
+        request(app)
+        .post('/task')
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+                name: "test",   
+                desc: "test desc",      
+                instance_id: instance._id,
+                service: "soichih/sca-service-noop",
+                config: {
+                        what: "ever"
+                },
+        })  
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            task = res.body.task;            
+            //console.dir(task);
+            done();
+        });
+    });
+
+    it('should update a task', function(done) {
+        request(app)
+        .put('/task/'+task._id)
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .send({
+                name: "test 2",   
+                desc: "test desc 2",      
+                instance_id: "123",
+                user_id: "123",
+                config: { what: "ever2" },
+        })  
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            var task2 = res.body;            
+            assert(task2.name == "test 2"); //should be new
+            assert(task2.desc == "test desc 2"); //should be new
+            assert(task2.instance_id == task.instance_id); //should remain the same
+            assert(task2.user_id == task.user_id); //should remain the same
+            done();
+        });
+    });
+
+    it('should remove a task', function(done) {
+        request(app)
+        .delete('/task/'+task._id)
+        .set('Authorization', 'Bearer '+jwt)
+        .set('Accept', 'application/json')
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            done();
+        });
+    });
 });

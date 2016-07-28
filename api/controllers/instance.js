@@ -27,7 +27,7 @@ function getinstance(instid, req, cb) {
 }
  
 /**
- * @api {get} /instance         GetInstance
+ * @api {get} /instance         Query Instance
  * @apiGroup                    Instance
  * @apiDescription              Query instances that belongs to a user with given query
  *
@@ -72,7 +72,18 @@ router.get('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
 });
 
-//update workflow instance *config*
+/**
+ * @api {put} /instance/:instid Update Instance
+ * @apiGroup                    Instance
+ * @apiDescription              Update Instance
+ *
+ * @apiParam {String} [name]    Name for this instance
+ * @apiParam {String} [desc]    Description for this instance
+ * @apiParam {Object} [config]  Configuration for this instance
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ */
 router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;
     var name = req.body.name;
@@ -81,7 +92,8 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     db.Instance.update({_id: id, user_id: req.user.sub}, {$set: {
         name: name,
         desc: desc,
-        config: config, update_date: new Date()
+        config: config, 
+        update_date: new Date(),
     }}, function(err, instance) {
         if(err) return next(err);
         res.json(instance);
@@ -89,7 +101,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 });
 
 /**
- * @api {post} /instance        NewInstance
+ * @api {post} /instance        New Instance
  * @apiGroup                    Instance
  * @apiDescription              Create a new instance
  *

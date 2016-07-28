@@ -14,7 +14,7 @@ var db = require('../models/db');
 var common = require('../common');
 
 /**
- * @api {get} /task             Query tasks
+ * @api {get} /task             Query Tasks
  * @apiParam {Object} find      Optional Mongo query to perform
  * @apiDescription              Returns all tasks that belongs to a user
  * @apiGroup Task
@@ -52,16 +52,16 @@ function check_resource_access(user, ids, cb) {
 */
 
 /**
- * @api {post} /task            NewTask
+ * @api {post} /task            New Task
  * @apiGroup Task
  * @apiDescription              Submit a task under a workflow instance
  *
- * @apiParam {String} [name]    Name for this task
- * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} instance_id 
  *                              Instance ID to submit this task
  * @apiParam {String} service   
  *                              Name of the service to run
+ * @apiParam {String} [name]    Name for this task
+ * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
@@ -164,6 +164,21 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     });
 });
 
+/**
+ * @api {put} /task/rerun/:taskid     Rerun finished / failed task
+ * @apiGroup Task
+ * @apiDescription              Reset the task status to "requested" and reset products / handled_date
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * 
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "message": "Task successfully re-requested",
+ *         "task": {},
+ *     }
+ *                              
+ */
 router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.params.task_id;
     db.Task.findById(task_id, function(err, task) {
@@ -175,7 +190,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.status_msg = "";
         task.request_date = new Date();
         task.handled_date = undefined;
-        //task.products = []; 
+        task.products = undefined;
         task.save(function(err) {
             if(err) return next(err);
             common.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, function() {
@@ -185,6 +200,21 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
     });
 });
 
+/**
+ * @api {put} /task/stop/:taskid  Request task to be stopped
+ * @apiGroup Task
+ * @apiDescription              Set the status to "stop_requested" if running.
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * 
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "message": "Task successfully requested to stop",
+ *         "task": {},
+ *     }
+ *                              
+ */
 router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.params.task_id;
     db.Task.findById(task_id, function(err, task) {
@@ -214,6 +244,103 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
             });
         });
     });
+});
+
+/**
+ * @api {delete} /task/:taskid  Remove a task
+ * @apiGroup Task
+ * @apiDescription              Physically remove a task from DB. Tasks that depends on deleted task will not be removed
+ *                              but will point to now missing task. Which may or may not fail.
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * 
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "message": "Task successfully removed",
+ *     }
+ *                              
+ */
+router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var task_id = req.params.task_id;
+    db.Task.remove({_id: task_id, user_id: req.user.sub}, function(err) {
+        if(err) return next(err);
+        res.json({message: "Task successfully removed"});
+    });
+});
+
+/**
+ * @api {put} /task/:taskid     Update Task
+ * @apiGroup Task
+ * @apiDescription              (Admin only) This API allows you to update task detail. Normally, you don't really
+ *                              want to update task detail after it's submitted. Doing so might cause task to become
+ *                              inconsistent with the actual state. 
+ *
+ * @apiParam {String} [name]    Name for this task
+ * @apiParam {String} [desc]    Description for this task
+ * @apiParam {String} [service]
+ *                              Name of the service to run
+ * @apiParam {String} [preferred_resource_id]
+ *                              resource that user prefers to run this service on 
+ *                              (may or may not be chosen)
+ * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
+ * @apiParam {String[]} [deps]  task IDs that this serivce depends on. This task will be executed as soon as
+ *                              all dependency tasks are completed.
+ * @apiParam {String[]} [resource_deps]
+ *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
+ *                              to allow access to the specified resource
+ *
+ * @apiParam {Object} [products] Products generated by this task
+ * @apiParam {String} [status]   Status of the task
+ * @apiParam {String} [status_msg] Status message
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ */
+router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var id = req.params.taskid;
+
+    //this is admin only api (for now..)
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
+
+    db.Task.findById(id, function(err, task) {
+        if(!task) return next("no such task:"+id);
+        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        //update fields
+        for(var key in req.body) {
+            //don't let some fields updated
+            if(key == "_id") continue;
+            if(key == "user_id") continue;
+            if(key == "instance_id") continue; 
+
+            //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
+            //and I should do other things as well..
+
+            task[key] = req.body[key];
+        }
+        task.update_date = new Date();
+
+        task.save(function(err) {
+            if(err) return next(err);
+            //TODO - should I update progress?
+            res.json(task);
+        });
+    });
+
+    /*
+    {
+        name: req.body.name,
+        desc: req.body.desc,
+        instance_id: req.body.instance_id,
+        service: req.body.service,
+        preferred_resource_id: req.body.preferred_resource_id,
+        config: req.body.config,
+        deps: req.body.deps,
+        resource_deps: req.body.resource_deps,
+        products: req.body.products,
+        status: req.body.status,
+        status_msg: req.body.status_msg,
+    }*/
 });
 
 module.exports = router;

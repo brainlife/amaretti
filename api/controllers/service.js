@@ -16,7 +16,7 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 
 /**
- * @api {get} /service          GetService
+ * @api {get} /service          Query Services
  * @apiGroup                    Service
  * @apiDescription              Query for SCA services 
  *
@@ -29,6 +29,7 @@ var db = require('../models/db');
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccess {Object[]}       Services Service detail
+ *
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
@@ -51,7 +52,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 /**
- * @api {post} /service    NewService
+ * @api {post} /service    New Service
  * @apiParam {String} giturl  Github URL to register service (like https://github.com/soichih/sca-service-life)
  * @apiDescription  From specified Github URL, this API will register new service using github repo info and package.json
  * @apiGroup Service
@@ -156,12 +157,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         
     });
 });
-
-/*
-router.get('/:workflowid', function(req, res, next) {
-    res.json(config.workflows[req.params.workflowid]);
-});
-*/
 
 module.exports = router;
 

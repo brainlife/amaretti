@@ -2,7 +2,7 @@ define({ "api": [
   {
     "type": "get",
     "url": "/instance",
-    "title": "GetInstance",
+    "title": "Query Instance",
     "group": "Instance",
     "description": "<p>Query instances that belongs to a user with given query</p>",
     "parameter": {
@@ -80,7 +80,7 @@ define({ "api": [
   {
     "type": "post",
     "url": "/instance",
-    "title": "NewInstance",
+    "title": "New Instance",
     "group": "Instance",
     "description": "<p>Create a new instance</p>",
     "parameter": {
@@ -134,6 +134,57 @@ define({ "api": [
     "filename": "api/controllers/instance.js",
     "groupTitle": "Instance",
     "name": "PostInstance"
+  },
+  {
+    "type": "put",
+    "url": "/instance/:instid",
+    "title": "Update Instance",
+    "group": "Instance",
+    "description": "<p>Update Instance</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "name",
+            "description": "<p>Name for this instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "desc",
+            "description": "<p>Description for this instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "config",
+            "description": "<p>Configuration for this instance</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/instance.js",
+    "groupTitle": "Instance",
+    "name": "PutInstanceInstid"
   },
   {
     "type": "get",
@@ -570,7 +621,7 @@ define({ "api": [
   {
     "type": "get",
     "url": "/service",
-    "title": "GetService",
+    "title": "Query Services",
     "group": "Service",
     "description": "<p>Query for SCA services</p>",
     "parameter": {
@@ -648,7 +699,7 @@ define({ "api": [
   {
     "type": "post",
     "url": "/service",
-    "title": "NewService",
+    "title": "New Service",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -725,9 +776,42 @@ define({ "api": [
     "groupTitle": "System"
   },
   {
+    "type": "delete",
+    "url": "/task/:taskid",
+    "title": "Remove a task",
+    "group": "Task",
+    "description": "<p>Physically remove a task from DB. Tasks that depends on deleted task will not be removed but will point to now missing task. Which may or may not fail.</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully removed\",\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "DeleteTaskTaskid"
+  },
+  {
     "type": "get",
     "url": "/task",
-    "title": "Query tasks",
+    "title": "Query Tasks",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -777,26 +861,12 @@ define({ "api": [
   {
     "type": "post",
     "url": "/task",
-    "title": "NewTask",
+    "title": "New Task",
     "group": "Task",
     "description": "<p>Submit a task under a workflow instance</p>",
     "parameter": {
       "fields": {
         "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "name",
-            "description": "<p>Name for this task</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "desc",
-            "description": "<p>Description for this task</p>"
-          },
           {
             "group": "Parameter",
             "type": "String",
@@ -810,6 +880,20 @@ define({ "api": [
             "optional": false,
             "field": "service",
             "description": "<p>Name of the service to run</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "name",
+            "description": "<p>Name for this task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "desc",
+            "description": "<p>Description for this task</p>"
           },
           {
             "group": "Parameter",
@@ -868,5 +952,171 @@ define({ "api": [
     "filename": "api/controllers/task.js",
     "groupTitle": "Task",
     "name": "PostTask"
+  },
+  {
+    "type": "put",
+    "url": "/task/rerun/:taskid",
+    "title": "Rerun finished / failed task",
+    "group": "Task",
+    "description": "<p>Reset the task status to &quot;requested&quot; and reset products / handled_date</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully re-requested\",\n    \"task\": {},\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "PutTaskRerunTaskid"
+  },
+  {
+    "type": "put",
+    "url": "/task/stop/:taskid",
+    "title": "Request task to be stopped",
+    "group": "Task",
+    "description": "<p>Set the status to &quot;stop_requested&quot; if running.</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully requested to stop\",\n    \"task\": {},\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "PutTaskStopTaskid"
+  },
+  {
+    "type": "put",
+    "url": "/task/:taskid",
+    "title": "Update Task",
+    "group": "Task",
+    "description": "<p>(Admin only) This API allows you to update task detail. Normally, you don't really want to update task detail after it's submitted. Doing so might cause task to become inconsistent with the actual state.</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "name",
+            "description": "<p>Name for this task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "desc",
+            "description": "<p>Description for this task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "service",
+            "description": "<p>Name of the service to run</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "preferred_resource_id",
+            "description": "<p>resource that user prefers to run this service on (may or may not be chosen)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "config",
+            "description": "<p>Configuration to pass to the service (will be stored as config.json in task dir)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String[]",
+            "optional": true,
+            "field": "deps",
+            "description": "<p>task IDs that this serivce depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String[]",
+            "optional": true,
+            "field": "resource_deps",
+            "description": "<p>List of resource_ids where the access credential to be installed on ~/.sca/keys to allow access to the specified resource</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "products",
+            "description": "<p>Products generated by this task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "status",
+            "description": "<p>Status of the task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "status_msg",
+            "description": "<p>Status message</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "PutTaskTaskid"
   }
 ] });

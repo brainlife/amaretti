@@ -114,7 +114,7 @@ var taskSchema = mongoose.Schema({
 
     status: String, 
     status_msg: String,
-    status_update: Date,
+    status_update: Date, //TODO - is this still used?
 
     //if this document is handled by sca-task, this will be set to hostname, pid, timestamp of the sca-task
     //_handled: mongoose.Schema.Types.Mixed,
