@@ -230,7 +230,10 @@ function check_running() {
                                     task.status = "finished";
                                     task.status_msg = "Service completed successfully";
                                     task.finish_date = new Date();
-                                    task.save(next);
+                                    task.save(function(err) {
+                                        //invalidate handled_date on dependending tasks so that it will get started
+                                        db.Task.update({deps: task._id}, {$unset: {handled_date: 1}}, next);
+                                    });
                                 });
                                 break;
                             case 2:  //failed
@@ -660,7 +663,10 @@ function init_task(task, resource, cb) {
                                         task.status = "finished"; 
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();
-                                        task.save(next);
+                                        task.save(function(err) {
+                                            //invalidate handled_date on dependending tasks so that it will get started
+                                            db.Task.update({deps: task._id}, {$unset: {handled_date: 1}}, next);
+                                        });
                                     });
                                 }
                             })
