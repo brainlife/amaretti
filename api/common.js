@@ -213,7 +213,6 @@ exports.ssh_command = function(username, password, host, command, cb) {
     var nexted = false;
     conn.on('ready', function() {
         ready = true;
-        //conn.exec('wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash', 
         conn.exec(command, function(err, stream) {
             if (err) {
                 conn.end();

@@ -119,15 +119,23 @@ function check_hpss(resource, cb) {
     //find best resource to run hpss
 }
 
+//this is too similar to common.js:ssh_command... can we refactor?
 function check_ssh(resource, cb) {
     var conn = new Client();
+    var ready = false;
+    var nexted = false;
     conn.on('ready', function() {
-        logger.debug("ssh connection ready");
-        //run some command to make sure it's running
+        ready = true;
         conn.exec('whoami', function(err, stream) {
-            if (err) return cb(err);
+            if (err) {
+                conn.end();
+                nexted = true;
+                return cb(err);
+            }
             var ret_username = "";
             stream.on('close', function(code, signal) {
+                //conn.end();
+                nexted = true;
                 if(ret_username.trim() == resource.config.username) {
                     check_sftp(resource, conn, function(err, status, msg) {
                         console.log("check_sftp cb -------------------------- "+resource._id);
@@ -154,8 +162,10 @@ function check_ssh(resource, cb) {
     });
     conn.on('close', function() {
         logger.debug("ssh connection closed");
+        if(!ready && !nexted) cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
     });
     conn.on('error', function(err) {
+        nexted = true;
         cb(null, "failed", err.toString());
     });
     common.decrypt_resource(resource);

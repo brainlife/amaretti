@@ -13,7 +13,7 @@ function($scope, appconf, $route, serverconf, menu) {
     $scope.title = appconf.title;
     serverconf.then(function(_c) { $scope.serverconf = _c; });
     $scope.menu = menu;
-    $scope.user = menu.user; //for app menu
+    $scope.user = menu.user; 
     $scope.i_am_header = true;
 }]);
 
@@ -422,11 +422,21 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
 app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services) {
     scaMessage.show(toaster);
+    console.dir($scope.user);
     services.query({}).then(function(ss) {
         $scope.services = ss.services;
         $scope.service_count = ss.count;
     });
 }]);
+
+app.component('serviceDetail', {
+    templateUrl: 't/service-detail.html',
+    bindings: {
+        service: '<'
+    },
+    controller: function() {
+    },
+});
 
 app.component('accessGroups', {
     templateUrl: 't/groups.html',

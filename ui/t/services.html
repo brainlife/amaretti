@@ -1,10 +1,17 @@
 <sca-menutab menu="appconf.menu" active="'services'" user="user"></sca-menutab>
 <div class="container">
-    <h2>Services</h2>
-    <p class="alert alert-warning">TODO..</p>
+    <!--<p class="alert alert-warning">TODO..</p>-->
+    <h2>Services <small>you have registered</small></h2>
     <ul class="list-group"> 
-        <li class="list-group-item" ng-repeat="service in services | orderBy:'name'">
-            <pre>{{service|json}}</pre>
+        <li class="list-group-item" ng-repeat="service in services | filter:{user_id:user.sub} | orderBy:'name'">
+            <service-detail service=service></service-detail>
+        </li>
+    </ul>
+
+    <h2>Services <small>others have registered</small></h2>
+    <ul class="list-group"> 
+        <li class="list-group-item" ng-repeat="service in services | filter:{user_id:'!'+user.sub} | orderBy:'name'">
+            <service-detail service=service></service-detail>
         </li>
     </ul>
 </div>

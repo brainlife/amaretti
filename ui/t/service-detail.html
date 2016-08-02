@@ -1,0 +1,11 @@
+<time class="pull-right text-muted">{{$ctrl.service.register_date|date:'short'}}</time>
+<h4>
+    {{$ctrl.service.name}}
+    <!-- active flags are not set on DB yet.. why? 
+    <span class="label label-success" ng-if="$ctrl.service.active == true">Active</span>
+    <span class="label label-danger" ng-if="$ctrl.service.active == false">Not Active</span>
+    -->
+</h4>
+<p class="help-block">{{$ctrl.service.git.description}}</p>
+<a href="{{$ctrl.service.git.clone_url}}">{{$ctrl.service.git.clone_url}}</a>
+
