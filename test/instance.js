@@ -10,6 +10,12 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
+console.log("dumping sca.auth_pubkey");
+console.log("##"+config.sca.auth_pubkey.toString()+"##");
+
+console.log("dumping jwt");
+console.log("##"+config.sca.jwt.toString()+"##");
+
 describe('/instance', function() {
     var instance = null;
     it('should create instance 1', function(done) {
