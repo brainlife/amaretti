@@ -97,7 +97,7 @@ var taskSchema = mongoose.Schema({
 
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
 
-    group_id: String, //optional field to group tasks inside an instance (used to create a progress_key)
+    //group_id: String, //optional field to group tasks inside an instance (used to create a progress_key)
 
     service: String, // "soichih/sca-service-life"
     

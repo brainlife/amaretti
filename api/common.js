@@ -304,3 +304,8 @@ exports.check_access = function(user, resource) {
     return false;
 }
 
+exports.create_progress_key = function(instance_id, task_id) {
+    var key = "_sca."+instance_id;
+    if(task_id) key += "."+task_id;
+    return key;
+}

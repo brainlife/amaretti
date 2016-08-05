@@ -11,8 +11,8 @@ var fs = require('fs');
 //mine
 var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
-//var common = require('../common');
 var db = require('../models/db');
+var common = require('../common');
 
 function getinstance(instid, req, cb) {
     db.Instance
@@ -96,6 +96,10 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     }}, function(err, instance) {
         if(err) return next(err);
         res.json(instance);
+        
+        //also update name on instance progress
+        var progress_key = common.create_progress_key(id);
+        common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
     });
 });
 
@@ -112,7 +116,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
  */
-router.post('/:wofkflowid?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/:workflowid?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance = new db.Instance({});
     instance.workflow_id = req.body.workflow_id || req.params.workflowid; //params.workflowid is dreprecated
     instance.name = req.body.name;
@@ -123,6 +127,11 @@ router.post('/:wofkflowid?', jwt({secret: config.sca.auth_pubkey}), function(req
     instance.save(function(err) {
         if(err) return next(err);
         res.json(instance);
+
+        //set the name for the instance grouping in case use wants to display instance level progress detail
+        var progress_key = common.create_progress_key(instance._id);
+        logger.debug("posting to progress ervice------------------------------------------- " + progress_key);
+        common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
     });
 });
 
