@@ -252,7 +252,7 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
 });
 
 /**
- * @api {delete} /task/:taskid  Remove a task (deprecated..)
+ * @api {delete} /task/:taskid  DEPRECATED: Remove a task
  * @apiGroup Task
  * @apiDescription              Physically remove a task from DB. Tasks that depends on deleted task will not be removed
  *                              but will point to now missing task. Which may or may not fail.

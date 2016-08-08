@@ -1,5 +1,6 @@
 <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 <div class="container">
+    <!--
     <h2>Your Workflow Instances</h2>
     <ul class="list-group"> 
         <li class="list-group-item" ng-repeat="inst in instances | orderBy:'workflow_id'" ng-click="openinst(inst)">
@@ -22,8 +23,8 @@
             </div>
         </li>
     </ul>
-
     <h2>Available Workflows</h2>
+    -->
     <div class="row">
     <div class="col-md-4" ng-repeat="(wid, workflow) in workflows">
         <div class="panel panel-default panel-workflow" ng-click="openwf(wid)" style="height: 150px;">

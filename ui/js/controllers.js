@@ -63,7 +63,9 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
     });
     */
     $scope.openwf = function(wid) {
-        $location.path("/workflow/"+wid);
+        //$location.path("/workflow/"+wid);
+        var wf = $scope.workflows[wid];
+        document.location = wf.url;
     }
     $scope.openinst = function(inst) {
         //window.open causes window block

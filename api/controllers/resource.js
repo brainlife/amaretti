@@ -140,22 +140,25 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
 
-        //append workdir if relateive
+        //append workdir if relateive (should use path instead?)
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
         logger.debug("getting ssh connection");
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
-            console.log("rm \""+_path.addSlashes()+"\"");
+            logger.debug("rm \""+_path.addSlashes()+"\"");
             conn.exec("rm \""+_path.addSlashes()+"\"", function(err, stream) {
                 if(err) return next(err);
                 stream.on('end', function() {
                     res.json({msg: "file removed"});
                 });
-            }) 
+                //stream.resume(); //needed now for ssh2>0.5 .. *IF* I don't use on('data')
+                stream.on('data', function(data) {
+                    logger.error(data.toString());
+                });  
+            });
         });
     });
 });
@@ -205,12 +208,24 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
 //TODO - should use sftp/mkdir ?
 function mkdirp(conn, dir, cb) {
     //var dir = path.dirname(_path);
-    //logger.debug("mkdir -p "+dir);
+    logger.debug("mkdir -p "+dir);
     conn.exec("mkdir -p "+dir, {}, function(err, stream) {
+    //conn.exec("whoami", {}, function(err, stream) {
         if(err) return cb(err);
+        /*
         stream.on('close', function(code, signal) {
             logger.log("mkdir -p done");
             cb();
+        });
+        */
+        stream.on('end', function(data) {
+            logger.debug("mkdirp done");
+            logger.debug(data);
+            cb();
+        });
+        //stream.resume(); //needed now for ssh2>0.5 .. IF I don't use on('data')
+        stream.on('data', function(data) {
+            logger.error(data.toString());
         });
     });
 }
@@ -220,6 +235,7 @@ function mkdirp(conn, dir, cb) {
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
 //TODO - deprecate this and use the streaming version below..
 router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    logger.error("(post)/upload is now deprecated - use (post)/upload/:resource_id/:path method instead");
     var form = new multiparty.Form({autoFields: true});
     //var resource_id = req.headers.resource_id;
     //var _path = req.headers.path;
@@ -244,12 +260,12 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
-                
                 //append workdir if relateive (TODO should use node path module?)
                 if(fields.path[0] != "/") fields.path = common.getworkdir(fields.path, resource);
-                logger.debug("mkdirp: "+fields.path);
+                //logger.debug("mkdirp: "+fields.path);
                 mkdirp(conn, fields.path, function(err) {
                     if(err) return next(err);
+                    logger.debug("opening sftp connection");
                     conn.sftp(function(err, sftp) {
                         if(err) return next(err);
                         //var escaped_filename = part.filename.replace(/"/g, '\\"');
@@ -286,7 +302,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
-            logger.debug("mkdirp "+path.dirname(fullpath));
+            //logger.debug("mkdirp "+path.dirname(fullpath));
             mkdirp(conn, path.dirname(fullpath), function(err) {
                 if(err) return next(err);
                 conn.sftp(function(err, sftp) {

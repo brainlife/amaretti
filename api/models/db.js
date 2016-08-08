@@ -94,34 +94,27 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 var taskSchema = mongoose.Schema({
 
     user_id: String, //sub of user submitted this request
+    
+    //time when this task was requested
+    request_date: {type: Date},
+
+    //progress service key for this task
+    progress_key: {type: String, index: true}, 
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // fields that user can set during request
 
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
 
-    //group_id: String, //optional field to group tasks inside an instance (used to create a progress_key)
-
     service: String, // "soichih/sca-service-life"
-    
-    //resource where the service was executed (not set if it's not yet run)
-    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
-
+       
+    //TEXT INDEX field (below) to be searchable with text search
+    name: String, 
+    desc: String, 
+  
     //resource to be selected if multiple resource is available and score ties
     preferred_resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
-    
-    //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
-    _envs: mongoose.Schema.Types.Mixed,
-    
-    //content of products.json once generated
-    products: mongoose.Schema.Types.Mixed,
 
-    progress_key: {type: String, index: true}, 
-
-    status: String, 
-    status_msg: String,
-    status_update: Date, //TODO - is this still used?
-
-    //if this document is handled by sca-task, this will be set to hostname, pid, timestamp of the sca-task
-    //_handled: mongoose.Schema.Types.Mixed,
-    
     //object containing details for this task
     config: mongoose.Schema.Types.Mixed, 
 
@@ -131,23 +124,29 @@ var taskSchema = mongoose.Schema({
     //task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'} ],
 
-    //resource dependencies.. 
-    //for hpss, it will copy the heytab
+    //resource dependencies..  (for hpss, it will copy the heytab)
     resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
-    //list of resource where the output directory is synchronized (TODO - not sure if I will use this or not)
-    //resources: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
+    //date when the task dir will be removed
+    //(TODO .. if not set,  task will be archived based on resource configuration - like in 30 days)
+    remove_date: Date,
+  
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // fields set by sca-task 
 
-    //TEXT INDEX field to be searchable with text search
-    name: String, 
-    desc: String, 
+    status: String, 
+    status_msg: String,
+    status_update: Date, //TODO - is this still used?
 
-    //time when this task was requested
-    request_date: {type: Date},
+    //resource where the service was executed (not set if it's not yet run)
+    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
     
-    //time when this task was last attempted by sca-task (TODO - deprecate this and use timeout_date)
-    //handled_date: {type: Date},
-
+    //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
+    _envs: mongoose.Schema.Types.Mixed,
+    
+    //content of products.json once generated
+    products: mongoose.Schema.Types.Mixed,
+ 
     //next time sca-task should check this task again (unset to check immediately)
     next_date: {type: Date},
     
@@ -160,7 +159,7 @@ var taskSchema = mongoose.Schema({
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },
 
-    //time when this task was last updated (only put put api?)
+    //time when this task was last updated (only used by put api?)
     update_date: {type: Date},
 });
 /*

@@ -130,7 +130,6 @@ router.post('/:workflowid?', jwt({secret: config.sca.auth_pubkey}), function(req
 
         //set the name for the instance grouping in case use wants to display instance level progress detail
         var progress_key = common.create_progress_key(instance._id);
-        logger.debug("posting to progress ervice------------------------------------------- " + progress_key);
         common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
     });
 });
