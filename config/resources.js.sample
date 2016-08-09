@@ -3,7 +3,7 @@
 module.exports = {
 
     bigred2: {
-        type: "pbs",
+        type: "ssh",
         name: "IU / BigRed2", 
         hostname: "bigred2.uits.iu.edu",
         desc: "IU's high performance computing cluster",
@@ -22,7 +22,7 @@ module.exports = {
     },
 
     karst: {
-        type: "pbs",
+        type: "ssh",
         name: "IU / Karst", 
         desc: "IU's high throughput computing cluster",
         hostname: "karst.uits.iu.edu",
@@ -52,7 +52,6 @@ module.exports = {
             "soichih/sca-product-nifti": {score: 10},
             "soichih/sca-product-raw": {score: 10},
             "soichih/sca-product-life": {score: 10},
-            "soichih/sca-product-odi": {score: 10},
             "soichih/sca-product-neuro-b": {score: 10},
 
             "_upload": {score: 10},
@@ -75,7 +74,7 @@ module.exports = {
     */
 
     mason: {
-        type: "pbs", 
+        type: "ssh", 
         name: "IU / Mason", 
         desc: "IU's high memory computing cluster",
         hostname: "mason.uits.iu.edu",
@@ -150,6 +149,8 @@ module.exports = {
             "soichih/sca-product-raw": {score: 5},
 
             "soichih/sca-service-onore": {score: 10},
+
+            "soichih/sca-product-odi": {score: 10},
 
             "_upload": {score: 5},
         }

@@ -92,10 +92,7 @@ exports.check = function(resource, cb) {
 
     logger.debug(detail);
     switch(detail.type) {
-    case "pbs":
-    case "osg": 
-    case "xfer": 
-    case "docker": 
+    case "ssh":
         check_ssh(resource, update_status);
         break;
     default: 

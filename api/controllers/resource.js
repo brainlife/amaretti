@@ -100,6 +100,9 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
+        console.dir(resource.type);
+        
+        //for ssh resource, simply readdir via sftp
         logger.debug("getting ssh connection");
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
@@ -559,7 +562,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiName NewResource
  * @apiGroup Resource
  *
- * @apiParam {String} type      "hpss", "docker", "pbs", etc..
+ * @apiParam {String} type      "hpss", or "ssh" for now
  * @apiParam {String} resource_id ID of this resource instance ("karst", "mason", etc..)
  * @apiParam {String} name      Name of this resource instance (like "soichi's karst account")
  * @apiParam {Object} config    Configuration for resource
@@ -575,7 +578,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  *     { __v: 0,
  *      user_id: '9',
  *      gids: [1,2,3],
- *      type: 'pbs',
+ *      type: 'ssh',
  *      resource_id: 'karst',
  *      name: 'use foo\'s karst account',
  *      config: 
