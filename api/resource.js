@@ -115,7 +115,7 @@ exports.check = function(resource, cb) {
 function check_hpss(resource, cb) {
     //find best resource to run hpss
     common.ls_hpss(resource, "./", function(err, files) {
-        if(err) return cb(null, "failed", err.toString());
+        if(err) return cb(null, "failed", err);
         cb(null, "ok", "hsi/ls returned "+files.length+" files on home directory");
     });
 }

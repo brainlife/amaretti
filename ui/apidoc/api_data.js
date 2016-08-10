@@ -64,10 +64,10 @@ define({ "api": [
         "Success 200": [
           {
             "group": "Success 200",
-            "type": "Object[]",
+            "type": "Object",
             "optional": false,
-            "field": "Services",
-            "description": "<p>Service detail</p>"
+            "field": "List",
+            "description": "<p>of instances (maybe limited / skipped) and total number of instances</p>"
           }
         ]
       }
@@ -343,7 +343,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "{\"files\":[{\"filename\":\"config.json\",\"longname\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\",\"attrs\":{\"mode\":33188,\"permissions\":33188,\"uid\":1170473,\"gid\":4160,\"size\":117,\"atime\":1466517617,\"mtime\":1466517617,\"mode_string\":\"-rw-r--r--\"}},{\"filename\":\"_status.sh\",\"longname\":\"-rwxr-xr-x    1 odidev   odi           620 Jun 21 10:00 _status.sh\",\"attrs\":{\"mode\":33261,\"permissions\":33261,\"uid\":1170473,\"gid\":4160,\"size\":620,\"atime\":1466517627,\"mtime\":1466517617,\"mode_string\":\"-rwxr-xr-x\"}}]}",
+          "content": "{\"files\":[\n    {   \n        \"filename\":\"config.json\",\n        \"longname\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\",\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        }\n    }\n]}",
           "type": "json"
         }
       ]
@@ -367,7 +367,7 @@ define({ "api": [
             "type": "String",
             "optional": false,
             "field": "type",
-            "description": "<p>&quot;hpss&quot;, &quot;docker&quot;, &quot;pbs&quot;, etc..</p>"
+            "description": "<p>&quot;hpss&quot;, or &quot;ssh&quot; for now</p>"
           },
           {
             "group": "Parameter",
@@ -432,7 +432,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{ __v: 0,\n user_id: '9',\n gids: [1,2,3],\n type: 'pbs',\n resource_id: 'karst',\n name: 'use foo\\'s karst account',\n config: \n  { ssh_public: 'my public key',\n    enc_ssh_private: true,\n    username: 'hayashis' },\n _id: '5758759710168abc3562bf01',\n update_date: '2016-06-08T19:44:23.205Z',\n create_date: '2016-06-08T19:44:23.204Z',\n active: true }",
+          "content": "HTTP/1.1 200 OK\n{ __v: 0,\n user_id: '9',\n gids: [1,2,3],\n type: 'ssh',\n resource_id: 'karst',\n name: 'use foo\\'s karst account',\n config: \n  { ssh_public: 'my public key',\n    enc_ssh_private: true,\n    username: 'hayashis' },\n _id: '5758759710168abc3562bf01',\n update_date: '2016-06-08T19:44:23.205Z',\n create_date: '2016-06-08T19:44:23.204Z',\n active: true }",
           "type": "json"
         }
       ]
@@ -778,7 +778,7 @@ define({ "api": [
   {
     "type": "delete",
     "url": "/task/:taskid",
-    "title": "Remove a task",
+    "title": "DEPRECATED: Remove a task",
     "group": "Task",
     "description": "<p>Physically remove a task from DB. Tasks that depends on deleted task will not be removed but will point to now missing task. Which may or may not fail.</p>",
     "header": {
@@ -877,13 +877,6 @@ define({ "api": [
           {
             "group": "Parameter",
             "type": "String",
-            "optional": true,
-            "field": "group_id",
-            "description": "<p>Group ID to group the task inside the instance for progress report</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
             "optional": false,
             "field": "service",
             "description": "<p>Name of the service to run</p>"
@@ -965,7 +958,7 @@ define({ "api": [
     "url": "/task/rerun/:taskid",
     "title": "Rerun finished / failed task",
     "group": "Task",
-    "description": "<p>Reset the task status to &quot;requested&quot; and reset products / handled_date</p>",
+    "description": "<p>Reset the task status to &quot;requested&quot; and reset products / next_date</p>",
     "header": {
       "fields": {
         "Header": [

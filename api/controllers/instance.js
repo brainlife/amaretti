@@ -38,7 +38,7 @@ function getinstance(instid, req, cb) {
  *
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {instances: [], count: 24}       List of instances (maybe limited / skipped) and total number of instances
+ * @apiSuccess {Object}       List of instances (maybe limited / skipped) and total number of instances
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
