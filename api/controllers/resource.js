@@ -116,6 +116,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
         switch(detail.type) {
         case "ssh":
             ls_resource(resource, _path, function(err, files) {
+                if(err) return next(err);
                 var ret = [];
                 //bit of standardization with ls_hpss
                 files.forEach(function(file) {

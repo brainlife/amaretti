@@ -635,6 +635,7 @@ function init_task(task, resource, cb) {
                         if(err) next(err);
                         stream.on('close', function(code, signal) {
                             if(code) {
+                                //TODO - I should pull more useful information (from start.log?)
                                 return next("Service startup failed with return code:"+code+" signal:"+signal);
                             } else {
                                 task.status = "running";
@@ -669,6 +670,7 @@ function init_task(task, resource, cb) {
                             if(err) next(err);
                             stream.on('close', function(code, signal) {
                                 if(code) {
+                                    //TODO - I should pull more useful information (from run.log?)
                                     return next("Service failed with return code:"+code+" signal:"+signal);
                                 } else {
                                     load_products(task, taskdir, conn, function(err) {
