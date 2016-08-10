@@ -19,8 +19,7 @@ describe('/resource', function() {
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
-            resource_id: "test",
-            type: "hpss",
+            resource_id: "sda",
             name: "test resource",
             active: true,
             gids: [0,1,2],
@@ -68,6 +67,20 @@ describe('/resource', function() {
             password: process.env.TEST_PASSWORD,
         })
         .expect(200, {message: 'ok'}, done);
+    });
+
+    //need to set a real hpss key
+    xit('ls_resource', function(done) {
+        request(app)
+        .get('/resource/ls/'+resource._id+"?path="+encodeURIComponent("/tmp"))
+        .set('Authorization', 'Bearer '+config.sca.jwt)
+        .set('Accept', 'application/json')
+        .end(function(err, res) {
+            if(err) return done(err);
+            console.log("got ls listing ");
+            console.dir(res.body);
+            done();            
+        });
     });
 
     it('delete the test resource', function(done) {
