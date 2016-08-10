@@ -83,7 +83,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *  {"files":[
  *      {   
  *          "filename":"config.json",
- *          "longname":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json",
  *          "attrs": {
  *              "mode":33188,
  *              "mode_string":"-rw-r--r--",
@@ -94,7 +93,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *              "size":117,
  *              "atime":1466517617,
  *              "mtime":1466517617
- *          }
+ *          },
+ *          "_raw":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json"
  *      }
  *  ]}
  */
