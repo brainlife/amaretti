@@ -16,7 +16,9 @@ var request = require('request');
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
-//var progress = require('./progress');
+var hpss = require('hpss');
+
+//hpss.init({behind_firewall: true});
 
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
@@ -37,22 +39,6 @@ exports.encrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
             
-            /*
-            //generate salt
-            var salt = new Buffer(crypto.randomBytes(32)); //ensure that the IV (initialization vector) is random
-            var iv = new Buffer(crypto.randomBytes(16)); //ensure that the IV (initialization vector) is random
-            if(!resource.salts) resource.salts = {};
-            resource.salts[k] = {salt: salt, iv: iv};
-            //resource.markModified('salts');
-
-            //create cipher
-            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt, 100000, 32, 'sha512');//, config.sca.resource_pbkdf2_algo);
-            var cipher = crypto.createCipheriv(config.sca.resource_cipher_algo, key, iv);
-            resource.config[k] = cipher.update(v, 'utf8', 'base64');
-            resource.config[k] += cipher.final('base64');
-            //resource.markModified('config');
-            */
-
             //encrypt using configured password and resource._id as IV
             if(!resource._id) throw new Error("can't encrypt without resource._id set");
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
@@ -71,13 +57,6 @@ exports.encrypt_resource = function(resource) {
 exports.decrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
-            /*
-            var salt = resource.salts[k];
-            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, salt.salt.buffer, 100000, 32, 'sha512');
-            var decipher = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, salt.iv.buffer);
-            resource.config[k] = decipher.update(resource.config[k], 'base64', 'utf8');
-            resource.config[k] += decipher.final('utf8'); 
-            */
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
             var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
             var c = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, iv);
@@ -205,7 +184,8 @@ exports.progress = function(key, p, cb) {
     });
 }
 
-//ssh to host using username/password and insert ssh key in ~/.ssh/authorized_keys
+//ssh to host using username/password
+//currently only used by sshkey installer
 exports.ssh_command = function(username, password, host, command, cb) {
     var conn = new Client({/*readyTimeout:1000*60*/});
     var out = "";
@@ -309,3 +289,17 @@ exports.create_progress_key = function(instance_id, task_id) {
     if(task_id) key += "."+task_id;
     return key;
 }
+
+//run hsi locally (where sca-wf is running) - used mainly to test the hpss account, and by resource/ls for hpss resource
+exports.ls_hpss = function(resource, _path, cb) {
+    exports.decrypt_resource(resource);
+    var keytab = new Buffer(resource.config.enc_keytab, 'base64');
+    //var good_keytab = fs.readFileSync("/home/hayashis/.ssh/soichi-hsi.keytab");
+    var context = new hpss.context({
+        username: resource.config.username,
+        keytab: keytab,
+    });    
+    context.ls(_path, cb);
+}
+
+

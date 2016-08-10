@@ -42,5 +42,3 @@ router.post('/:type/:subid', jwt({secret: config.sca.auth_pubkey}), function(req
 });
 
 module.exports = router;
-
-

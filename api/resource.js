@@ -96,8 +96,8 @@ exports.check = function(resource, cb) {
         check_ssh(resource, update_status);
         break;
     default: 
-        update_status(null, "ok", "Don't know how to check "+resource.type + " .. assuming it to be ok");
-        //cb("don't know how to check "+resource.type);
+        //update_status(null, "ok", "Don't know how to check "+resource.type + " .. assuming it to be ok");
+        check_hpss(resource, update_status);
     }
 
     function update_status(err, status, msg) {
@@ -114,9 +114,13 @@ exports.check = function(resource, cb) {
 
 function check_hpss(resource, cb) {
     //find best resource to run hpss
+    common.ls_hpss(resource, "./", function(err, files) {
+        if(err) return cb(null, "failed", err.toString());
+        cb(null, "ok", "hsi/ls returned "+files.length+" files on home directory");
+    });
 }
 
-//this is too similar to common.js:ssh_command... can we refactor?
+//TODO this is too similar to common.js:ssh_command... can we refactor?
 function check_ssh(resource, cb) {
     var conn = new Client();
     var ready = false;

@@ -106,7 +106,7 @@ module.exports = {
     */
 
     osgxd: {
-        type: "osg", 
+        type: "ssh", 
         name: "Open Science Grid (xd-login)", 
         desc: "National distributed high throughput computing cluster",
         hostname: "xd-login.opensciencegrid.org",
@@ -125,7 +125,6 @@ module.exports = {
         type: "hpss", 
         name: "IU / Scholary Data Archive", 
         hostname: "hsi.mdss.iu.edu", 
-        //port: "1219",
         desc: "IU's HPSS (Tape Archive) system which allows you to store research data",
         default: {
             auth_method: 'keytab',
@@ -133,7 +132,7 @@ module.exports = {
     },
 
     q6: {
-        type: "docker", 
+        type: "ssh", 
         name: "Q6 SCA docker executioner", 
         desc: "Handles SCA ",
         hostname: "q6.sca.iu.edu",

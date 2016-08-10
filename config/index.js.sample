@@ -76,13 +76,11 @@ exports.logger = {
                 colorize: true
             }),
             
-            /*
             //store all warnings / errors in error.log
             new (winston.transports.File)({ 
                 filename: 'error.log',
-                level: 'warn'
+                level: 'error'
             })
-            */
         ]
     },
 }

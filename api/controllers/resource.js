@@ -70,7 +70,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
-
 /**
  * @api {get} /resource/ls/:resource_id      List directory
  * @apiGroup                    Resource
@@ -81,12 +80,26 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccessExample {json} Success-Response:
- *  {"files":[{"filename":"config.json","longname":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json","attrs":{"mode":33188,"permissions":33188,"uid":1170473,"gid":4160,"size":117,"atime":1466517617,"mtime":1466517617,"mode_string":"-rw-r--r--"}},{"filename":"_status.sh","longname":"-rwxr-xr-x    1 odidev   odi           620 Jun 21 10:00 _status.sh","attrs":{"mode":33261,"permissions":33261,"uid":1170473,"gid":4160,"size":620,"atime":1466517627,"mtime":1466517617,"mode_string":"-rwxr-xr-x"}}]}
- *
+ *  {"files":[
+ *      {   
+ *          "filename":"config.json",
+ *          "longname":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json",
+ *          "attrs": {
+ *              "mode":33188,
+ *              "mode_string":"-rw-r--r--",
+ *              "uid":1170473,
+ *              "owner": "hayashis",
+ *              "gid":4160,
+ *              "group": "hpss",
+ *              "size":117,
+ *              "atime":1466517617,
+ *              "mtime":1466517617
+ *          }
+ *      }
+ *  ]}
  */
 //:resource_id is optional until I can migrate all existing client to use it (some uses req.query.resource_id still)
 router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-
     //req.query.resource_id is deprecated .. use url param
     var resource_id = req.params.resource_id || req.query.resource_id;
     var _path = req.query.path; //TODO.. validate?
@@ -94,41 +107,108 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
 
-        //append workdir if relateive
-        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
-
-        console.dir(resource.type);
-        
-        //for ssh resource, simply readdir via sftp
-        logger.debug("getting ssh connection");
-        common.get_sftp_connection(resource, function(err, sftp) {
-            if(err) return next(err);
-            logger.debug("reading directory:"+_path);
-            var t = setTimeout(function() {
-                res.status(500).json({message: "Timed out while reading directory: "+_path});
-                t = null;
-            }, 5000);
-            sftp.readdir(_path, function(err, files) {
-                if(t) clearTimeout(t); 
-                else return; //timeout called
-                if(err) {
-                    logger.error(err);
-                    err.lang = err.lang || "Failed to ls "+_path;
-                    return next(err); //err contains err code that I need to pass to client
-                }
+        var detail = config.resources[resource.resource_id];
+        switch(detail.type) {
+        case "ssh":
+            ls_resource(resource, _path, function(err, files) {
+                var ret = [];
+                //bit of standardization with ls_hpss
                 files.forEach(function(file) {
-                    //file.attrs.mode_string = modeString(file.attrs.mode);
                     file.attrs.mode_string = file.longname.substr(0, 10);
+                    ret.push({
+                        filename: file.filename,
+                        attrs: {
+                            mode: file.attrs.mode,     
+                            mode_string: file.attrs.mode_string,
+                            //permissions: file.mode,     
+                            uid: file.attrs.uid,
+                            gid: file.attrs.gid,
+                            size: file.attrs.size,
+                            atime: file.attrs.atime,
+                            mtime: file.attrs.mtime,
+
+                            owner: null,
+                            group: null,
+                        },
+                        _raw: file.longname,
+                        //_sftp: file,
+                    });
                 });
-                //console.dir(files);
-                res.json({files: files});
+                res.json({files: ret});
             });
-        });
+            break;
+        case "hpss":
+            common.ls_hpss(resource, _path, function(err, files) {
+                if(err) return next(err);
+                //need to convert output to the same format that ssh2.sftp returns
+                var ret = [];
+                files.forEach(function(file) {
+                    ret.push({
+                        filename: file.entry,
+                        attrs: {
+                            mode: null, //TODO (convert -rw-rw-r-- to 33261, etc..)
+                            mode_string: file.mode,
+                            
+                            //permissions: null, //TODO (convert -rw-rw-r-- to 33261, etc..)
+                            uid: parseInt(file.acct),
+                            gid: null, //hsi doesn't return gid (only group name)
+                            size: file.size,
+                            atime: file.size,
+                            mtime: file.size,
+
+                            //TODO not yet set for ssh ls
+                            owner: file.owner,
+                            group: file.group,
+                        },
+                        _raw: file._raw,
+                        //pass other hpss specific stuff
+                        _hpss: {
+                            where: file.where,
+                            directory: file.directory,
+                            links: file.links,
+                            cos: file.cos,
+                            date: file.date,
+                        }
+                    });
+                });  
+                res.json({files: ret});
+            });
+            break;
+        default:
+            return next("don't know how to ls resource type:"+resource.type);
+        }
     });
 });
+
+function ls_resource(resource, _path, cb) {
+    //append workdir if relateive
+    if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+    
+    //for ssh resource, simply readdir via sftp
+    logger.debug("getting ssh connection");
+    common.get_sftp_connection(resource, function(err, sftp) {
+        if(err) return cb(err);
+        logger.debug("reading directory:"+_path);
+        var t = setTimeout(function() {
+            cb("Timed out while reading directory: "+_path);
+            t = null;
+        }, 5000);
+        sftp.readdir(_path, function(err, files) {
+            if(t) clearTimeout(t); 
+            else return; //timeout called already
+            /*
+            if(err) {
+                logger.error(err);
+                err.lang = err.lang || "Failed to ls "+_path;
+                return cb(err); //err contains err code that I need to pass to client
+            }
+            */
+            cb(err, files);
+        });
+    });
+}
 
 //http://stackoverflow.com/questions/770523/escaping-strings-in-javascript
 String.prototype.addSlashes = function() 

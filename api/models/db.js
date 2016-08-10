@@ -53,7 +53,10 @@ var resourceSchema = mongoose.Schema({
     ////////////////////////////////////////////////
     //key
     user_id: {type: String, index: true}, 
+
+    //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
     type: String, //like hpss, pbs (from resource base)
+
     resource_id: String, //like sda, bigred2 (resource base id..)
     //
     //TODO - allow resource to override parameters from resource base so that user can configure them
