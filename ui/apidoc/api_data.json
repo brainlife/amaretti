@@ -312,7 +312,7 @@
     "url": "/resource/ls/:resource_id",
     "title": "List directory",
     "group": "Resource",
-    "description": "<p>Get directory listing on a resource on specified path</p>",
+    "description": "<p>Get directory listing on a resource on specified path. For HPSS resource, it will query HPSS directory under specified path. Use &quot;./&quot; to query home directory, since path is a required parameter.</p>",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -343,7 +343,7 @@
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "{\"files\":[\n    {   \n        \"filename\":\"config.json\",\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
+          "content": "{\"files\":[\n    {   \n        \"filename\":\"config.json\",\n        \"directory\":false,\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
           "type": "json"
         }
       ]

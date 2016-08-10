@@ -73,7 +73,9 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 /**
  * @api {get} /resource/ls/:resource_id      List directory
  * @apiGroup                    Resource
- * @apiDescription              Get directory listing on a resource on specified path
+ * @apiDescription              Get directory listing on a resource on specified path. For HPSS resource, it will
+ *                              query HPSS directory under specified path. Use "./" to query home directory, since
+ *                              path is a required parameter.
  *
  * @apiParam {String} path      Path to load directory (relative to workdir)
  *
@@ -83,6 +85,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *  {"files":[
  *      {   
  *          "filename":"config.json",
+ *          "directory":false,
  *          "attrs": {
  *              "mode":33188,
  *              "mode_string":"-rw-r--r--",
@@ -119,6 +122,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                     file.attrs.mode_string = file.longname.substr(0, 10);
                     ret.push({
                         filename: file.filename,
+                        directory: file.attrs.mode_string[0]=='d',
                         attrs: {
                             mode: file.attrs.mode,     
                             mode_string: file.attrs.mode_string,
@@ -147,6 +151,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                 files.forEach(function(file) {
                     ret.push({
                         filename: file.entry,
+                        directory: file.directory,
                         attrs: {
                             mode: null, //TODO (convert -rw-rw-r-- to 33261, etc..)
                             mode_string: file.mode,
@@ -155,8 +160,8 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                             uid: parseInt(file.acct),
                             gid: null, //hsi doesn't return gid (only group name)
                             size: file.size,
-                            atime: file.size,
-                            mtime: file.size,
+                            //atime: file.atime,
+                            mtime: new Date(file.date).getTime()/1000,
 
                             //TODO not yet set for ssh ls
                             owner: file.owner,
@@ -164,12 +169,11 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                         },
                         _raw: file._raw,
                         //pass other hpss specific stuff
+                        //_debug: file,
                         _hpss: {
                             where: file.where,
-                            directory: file.directory,
                             links: file.links,
                             cos: file.cos,
-                            date: file.date,
                         }
                     });
                 });  
