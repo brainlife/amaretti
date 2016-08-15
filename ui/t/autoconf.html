@@ -7,7 +7,7 @@
             <div ng-if="page == 'select'">
                 <p>Select resources you'd like to allow SCA to access</p>
                 <table class="table">
-                    <tr ng-repeat="(resource_id, resource_detail) in resource_details" ng-if="resource_detail._show">
+                    <tr ng-repeat="(resource_id, resource_detail) in resource_details" ng-if="resource_detail.type=='ssh'">
                         <th>{{resource_detail.name}} <!--<small class="text-muted">{{resource_id}}</small>--></th>
                         <td>{{resource_detail.hostname}}<br><p class="help-block">{{resource_detail.desc}}</p></td>
                         <td>

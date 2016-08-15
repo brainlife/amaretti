@@ -476,10 +476,12 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
 
         for(var id in $scope.resource_details) {
             var detail = $scope.resource_details[id];
-            if(detail.type == "pbs") {
-                detail._show = true;
-                detail._select = true;
+            /*
+            if(detail.type == "ssh") {
+                detail._ssh = true;
             }
+            */
+            detail._select = true;
         }
 
         //find resources that user already configured
