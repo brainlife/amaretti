@@ -2,23 +2,24 @@
 'use strict';
 
 //node
-var fs = require('fs');
-var path = require('path');
-var os = require('os');
-var request = require('request');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const request = require('request');
 
 //contrib
-var winston = require('winston');
-var async = require('async');
-var Client = require('ssh2').Client;
+const winston = require('winston');
+const async = require('async');
+const Client = require('ssh2').Client;
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('../api/models/db');
-var common = require('../api/common');
-var resource_picker = require('../api/resource').select;
-var transfer = require('../api/transfer');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('../api/models/db');
+const common = require('../api/common');
+const _resource_picker = require('../api/resource').select;
+const _transfer = require('../api/transfer');
+const _service = require('../api/service');
 
 db.init(function(err) {
     if(err) throw err;
@@ -245,7 +246,7 @@ function handle_requested(task, next) {
             if(err) return next(err);
           
             //then pick best resource
-            resource_picker({
+            _resource_picker({
                 sub: task.user_id,
                 gids: gids,
             }, {
@@ -275,8 +276,9 @@ function handle_requested(task, next) {
                         task.status_msg = err;
                         task.save();
                     }
-                    next();
+                    //next();
                 });
+                next(); //don't wait for start_task to end.. start next task concurrently
             });
         });
     });
@@ -290,7 +292,8 @@ function handle_stop(task, next) {
             return next(); //skip this task
         }
 
-        db.Service.findOne({name: task.service}, function(err, service_detail) {
+        get_service(service, function(err, service_detail) {
+        //db.Service.findOne({name: task.service}, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -410,7 +413,7 @@ function process_requested(task, cb) {
         if(err) return cb(err);
       
         //then pick best resource
-        resource_picker({
+        _resource_picker({
             sub: task.user_id,
             gids: gids,
         }, {
@@ -437,6 +440,27 @@ function process_requested(task, cb) {
 }
 */
 
+//
+function get_service(service_name, cb) {
+    db.Service.findOne({name: service_name}, function(err, service_detail) {
+        /*
+        var old = new Date();
+        old.setDate(old.getDate() - 1); //cache every day
+        if(service_detail.cached_date > old) return cb(service_detail);
+        */
+        //update cache
+        logger.info("caching service detail for "+service_name);
+        _service.loaddetail(service_name, function(err, new_service_detail) {
+            service_detail.cached_date = new Date();
+            service_detail.git = new_service_detail.git; //not necessary?
+            service_detail.pkg = new_service_detail.pkg;
+            service_detail.save(function(err) {
+                cb(err, service_detail);
+            });
+        });
+    });
+}
+
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
@@ -444,7 +468,8 @@ function start_task(task, resource, cb) {
         var service = task.service;
         if(service == null) return cb(new Error("service not set.."));
 
-        db.Service.findOne({name: service}, function(err, service_detail) {
+        //db.Service.findOne({name: service}, function(err, service_detail) {
+        get_service(service, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
@@ -608,7 +633,7 @@ function start_task(task, resource, cb) {
                             
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
-                            transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
+                            _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
                                 if(err) {
                                     common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
                                     next_dep(err);
@@ -756,14 +781,15 @@ function start_task(task, resource, cb) {
                     logger.debug("starting service: ~/.sca/services/"+service+"/"+service_detail.pkg.scripts.start);
                     common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
 
-                    conn.exec("cd "+taskdir+" && ./_boot.sh > start.log 2>&1", {
+                    //conn.exec("cd "+taskdir+" && set -o pipefail && ./_boot.sh 2>&1 | tee start.log", {
+                    conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
                     }, function(err, stream) {
                         if(err) next(err);
                         stream.on('close', function(code, signal) {
                             if(code) {
                                 //TODO - I should pull more useful information (from start.log?)
-                                return next("Service startup failed with return code:"+code+" signal:"+signal);
+                                return next("failed to start("+code+")");
                             } else {
                                 task.status = "running";
                                 task.status_msg = "Started service";
@@ -772,10 +798,14 @@ function start_task(task, resource, cb) {
                                 task.save(next);
                             }
                         })
+
+                        //NOTE - no stdout / err should be received since it's redirected to boot.log
                         .on('data', function(data) {
                             logger.info(data.toString());
+                            //stdout += data;
                         }).stderr.on('data', function(data) {
                             logger.error(data.toString());
+                            //stderr += data;
                         });
                     });
                 },            
@@ -791,14 +821,16 @@ function start_task(task, resource, cb) {
                     task.status_msg = "Running service";
                     task.start_date = new Date();
                     task.save(function() {
-                        conn.exec("cd "+taskdir+" && ./_boot.sh > run.log 2>&1", {
+                        //conn.exec("cd "+taskdir+" && set -o pipefail && ./_boot.sh 2>&1 | tee run.log", {
+                        conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
                             /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
                         }, function(err, stream) {
                             if(err) next(err);
+                            //var stdout = "";
+                            //var stderr = "";
                             stream.on('close', function(code, signal) {
                                 if(code) {
-                                    //TODO - I should pull more useful information (from run.log?)
-                                    return next("Service failed with return code:"+code+" signal:"+signal);
+                                    return next("failed to run("+code+")");
                                 } else {
                                     load_products(task, taskdir, conn, function(err) {
                                         if(err) return next(err);
@@ -813,10 +845,14 @@ function start_task(task, resource, cb) {
                                     });
                                 }
                             })
+                            
+                            //NOTE - no stdout / err should be received since it's redirected to boot.log
                             .on('data', function(data) {
                                 logger.info(data.toString());
+                                //stdout += data;
                             }).stderr.on('data', function(data) {
                                 logger.error(data.toString());
+                                //stderr += data;
                             });
                         });
                     });

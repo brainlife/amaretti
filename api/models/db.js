@@ -206,23 +206,16 @@ var serviceSchema = mongoose.Schema({
     //user who registered this service to SCA
     user_id: String, 
 
-    giturl: String, //url used to register this service
+    //giturl: String, //url used to register this service
     
     //unique service name used by SCA (normally a copy of git.full_name when registered -- "soichih/sca-service-life")
     name: {type: String, index: {unique: true}}, 
 
     //cache of https://api.github.com/repos/soichih/sca-service-life
     git: mongoose.Schema.Types.Mixed, 
-    //important git fields
-    //git.description - repo desc
-    //git.clone_url
 
     //cache of package.json (https://raw.githubusercontent.com/soichih/sca-service-freesurfer/master/package.json)
     pkg: mongoose.Schema.Types.Mixed, 
-    //important pkg fields
-    //pkg.scripts.start
-    //pkg.scripts.stop
-    //pkg.scripts.status
 
     //information about the last test
     status: String,
@@ -233,6 +226,9 @@ var serviceSchema = mongoose.Schema({
     active: {type: Boolean, default: true},
 
     register_date: {type: Date, default: Date.now },
+
+    //date when the pkg info is last cached
+    cache_date: {type: Date, default: Date.now },
 });
 exports.Service = mongoose.model('Service', serviceSchema);
 

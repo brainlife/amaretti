@@ -13,6 +13,7 @@ var request = require('request');
 var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
+const service = require('../service');
 
 /**
  * @api {get} /service          Query Services
@@ -51,12 +52,16 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 /**
- * @api {post} /service    New Service
- * @apiParam {String} giturl  Github URL to register service (like https://github.com/soichih/sca-service-life)
- * @apiDescription  From specified Github URL, this API will register new service using github repo info and package.json
  * @apiGroup Service
+ * @api {post} /service    Register Service
+ * @apiParam {String} giturl  
+ *                          Github URL to register service (like https://github.com/soichih/sca-service-life)
+ * @apiDescription          From specified Github URL, this API will register new service using github repo info 
+ *                          and package.json. You can not re-register already register service
  * 
- * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiHeader {String} authorization 
+ *                          A valid JWT token "Bearer: xxxxx"
+ *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
@@ -107,53 +112,22 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         return next("Don't know how to parse :"+giturl);
     }
 
-    //first load the git repo json
-    request('https://api.github.com/repos/'+owner+'/'+repo, {
-        json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
-    }, function(err, _res, git) {
-        if(err) return next(err);
-        //console.dir(git.clone_url);
-        if(_res.statusCode != 200) return next("failed to query requested repo. code:"+_res.statusCode);
-        
-        //then load package.json
-        //TODO - should I always use master - or let user decide?
-        request('https://raw.githubusercontent.com/'+owner+'/'+repo+'/master/package.json', {
-            json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
-        }, function(err, _res, pkg) {
+    var service_name = owner+"/"+repo;
+    service.loaddetail(service_name, function(err, service_detail) {
+
+        //see if the service is already registered
+        db.Service.findOne({name: service_name}, function(err, service) {
             if(err) return next(err);
-            //console.dir(pkg);
-            var service_name = owner+"/"+repo;
-            var detail = {
-                user_id: req.user.sub,
-                giturl: giturl,
-                name: service_name,
-                git: git,
-                pkg: pkg,
-            };
-            db.Service.findOne({name: service_name}, function(err, service) {
+            if(service) {
+                return next("service is already registered");
+            }
+            service_detail.user_id = req.user.sub;
+            service = new db.Service(service_detail);
+            service.save(function(err, _s) {
                 if(err) return next(err);
-
-                //allow user to re-register.
-                //TODO - once we implement mechanism to update registration info automatically,
-                //we shouldn't have to allow re-register
-                if(service) {
-                    if(service.user_id != req.user.sub) return next("The service: "+service_name+ " is already registered by user sub:"+req.user.sub+". Only the original registrar can re-register");
-                    //update
-                    logger.info("updating service");
-                    service.git = git; 
-                    service.pkg = pkg; 
-                    //service.giturl = giturl;  
-                } else {
-                    service = new db.Service(detail);
-                }
-
-                service.save(function(err, _s) {
-                    if(err) return next(err);
-                    res.json(_s);
-                });
+                res.json(_s);
             });
         });
-        
     });
 });
 
