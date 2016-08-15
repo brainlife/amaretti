@@ -292,7 +292,7 @@ function handle_stop(task, next) {
             return next(); //skip this task
         }
 
-        get_service(service, function(err, service_detail) {
+        get_service(task.service, function(err, service_detail) {
         //db.Service.findOne({name: task.service}, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
@@ -789,7 +789,7 @@ function start_task(task, resource, cb) {
                         stream.on('close', function(code, signal) {
                             if(code) {
                                 //TODO - I should pull more useful information (from start.log?)
-                                return next("failed to start("+code+")");
+                                return next("failed to start (code:"+code+")");
                             } else {
                                 task.status = "running";
                                 task.status_msg = "Started service";
@@ -830,7 +830,7 @@ function start_task(task, resource, cb) {
                             //var stderr = "";
                             stream.on('close', function(code, signal) {
                                 if(code) {
-                                    return next("failed to run("+code+")");
+                                    return next("failed to run (code:"+code+")");
                                 } else {
                                     load_products(task, taskdir, conn, function(err) {
                                         if(err) return next(err);
