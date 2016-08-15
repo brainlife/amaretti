@@ -62,6 +62,7 @@ function check_resource_access(user, ids, cb) {
  *                              Name of the service to run
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
+ * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
@@ -99,6 +100,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.service = req.body.service;
         task.instance_id = req.body.instance_id;
         task.config = req.body.config;
+        task.remove_date = req.body.remove_date;
 
         //checked later
         task.deps = req.body.deps;

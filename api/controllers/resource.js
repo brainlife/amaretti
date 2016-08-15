@@ -482,7 +482,7 @@ router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, re
 /**
  * @api {get} /resource/download         Download file from resource
  * @apiParam {String} r         Resource ID
- * @apiParam {String} p         File path to download (relative to work directory - parent of all instance dir)
+ * @apiParam {String} p         File path to download (relative to resource work directory - parent of all instance dir)
  * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
  *
  * @apiDescription              Allows user to download any files from user's resource

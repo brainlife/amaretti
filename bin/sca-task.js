@@ -126,7 +126,9 @@ function handle_housekeeping(task, cb) {
             var need_remove = false;
             var now = new Date();
             var maxage = new Date();
-            maxage.setDate(now.getDate() - 25); //25 days max
+            maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
+
+            logger.debug("handling book keeping "+task._id);
             
             //check for early remove specified by user
             if(task.remove_date && task.remove_date < now) {
@@ -188,6 +190,9 @@ function handle_housekeeping(task, cb) {
                     task.status = "removed";
                     task.status_msg = "taskdir removed from all resources";
                     task.save(next);
+
+                    //also post to progress.. (TODO - should I set the status?)
+                    common.progress(task.progress_key, {msg: 'Task directory Removed'});
                 }
             });
         }
