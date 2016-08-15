@@ -141,8 +141,11 @@ var taskSchema = mongoose.Schema({
     status_msg: String,
     status_update: Date, //TODO - is this still used?
 
-    //resource where the service was executed (not set if it's not yet run)
+    //resource where the task is running (or was)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
+
+    //resources where task dir exits
+    resource_ids: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
     
     //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
     _envs: mongoose.Schema.Types.Mixed,

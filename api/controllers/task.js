@@ -115,6 +115,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by SCA task handler";
 
+        task.resource_ids = [];
         //console.dir(task);
         
         //check for various resource parameters.. make sure user has access to them
@@ -233,6 +234,7 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         switch(task.status) {
         case "running":
             task.status = "stop_requested";
+            task.next_date = undefined; //handle immedidately(or not?)
             task.status_msg = "";
             break;
         case "running_sync":

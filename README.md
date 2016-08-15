@@ -32,6 +32,8 @@ for raw file viewer, display content of text file if the file size is small and 
 
 On auth service, let user issue long living (non-expiring?) jwt token to be used for command line / api access?
 
+Allow user to download entire taskdir.
+
 ** Implement task re-try strategy (just keep retrying - wait for resource?)
 
 

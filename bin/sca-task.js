@@ -22,10 +22,8 @@ var transfer = require('../api/transfer');
 
 db.init(function(err) {
     if(err) throw err;
-    check_requested();
-    check_running();
-    check_stop();
-    //check_stuck();
+    //start check loop
+    check(); 
 });
 
 /*
@@ -74,214 +72,334 @@ function set_nextdate(task) {
         //maybe I should increase the delay to something like an hour?
         task.next_date.setMinutes(task.next_date.getMinutes() + 10);
     }
+    task.save(next);
 }
 
-//var running = 0;
-function check_requested() {
+function check() {
+    //logger.info("checking..");
     db.Task.find({
-        status: "requested", 
+        status: {$ne: "removed"}, //ignore removed tasks
         $or: [
             {next_date: {$exists: false}},
             {next_date: {$lt: new Date()}}
         ] 
     })
-    .populate('deps', 'status resource_id') //populate dep tasks status and resource_id
-    .populate('resource_deps')  //populate resource deps
+    
+    //maybe I should do these later (only needed by requested task)
+    .populate('deps', 'status resource_id')
+    .populate('resource_deps') 
+
     .exec(function(err, tasks) {
         if(err) throw err;
-        //logger.info("check_requested:"+tasks.length);
-        
         async.eachSeries(tasks, function(task, next) {
-            logger.info("handling requested task:"+task._id);
+            logger.info("handling task:"+task._id);
             set_nextdate(task);
-            
-            //make sure dependent tasks has all finished
-            var deps_all_done = true;
-            task.deps.forEach(function(dep) {
-                if(dep.status != "finished") deps_all_done = false; 
-            });
-            if(!deps_all_done) {
-                logger.debug("dependency not met.. postponing");
-                task.status_msg = "Waiting on dependency";
-                task.save(next);
-                return;
+
+            switch(task.status) {
+            case "requested":
+                handle_requested(task, next); 
+                break;
+            case "stop_requested":
+                handle_stop(task, next); 
+                break;
+            case "running":
+                handle_running(task, next); 
+                break;
+            default:
+                handle_housekeeping(task, next);
             }
-
-            logger.debug(JSON.stringify(task, null, 4));
-            
-            task.save(function(err) {
-                if(err) throw err;
-
-                //asyncly handle each request
-                //task._handled = undefined; //this is how you delete a key in mongoose
-                process_requested(task, function(err) {
-                    if(err) {
-                        logger.error(err); 
-                        //TODO - based on the error condition (and/or task configuration) I should reset it to requested
-                        task.status = "failed";
-                        task.status_msg = err;
-                        task.save();
-                    }
-                });
-                
-                //intentially let outside of process_requested cb
-                //each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
-                next(); 
-            });
         }, function(err) {
+            if(err) logger.error(err);
             //wait a bit and recheck again
-            setTimeout(check_requested, 1000);
+            setTimeout(check, 500);
         });
     });
 }
 
-function check_stop() {
-    db.Task.find({status: "stop_requested"}).exec(function(err, tasks) {
-        if(err) throw err;
-        //logger.info("check_stop:"+tasks.length);
-        async.eachSeries(tasks, function(task, next) {
-            logger.info("handling stop request:"+task._id);
-            db.Resource.findById(task.resource_id, function(err, resource) {
-                if(err) {
-                    logger.error(err);
-                    return next(); //skip this task
-                }
+function handle_housekeeping(task, cb) {
+    //.. if to remove, iterate through all resources that this task has run or synchornized to)
+    async.series([
+        
+        //remove task dir
+        function(next) {
+            var need_remove = false;
+            var now = new Date();
+            var maxage = new Date();
+            maxage.setDate(now.getDate() - 25); //25 days max
+            
+            //check for early remove specified by user
+            if(task.remove_date && task.remove_date < now) {
+                logger.info("remove_date is set and task is passed the date");
+                need_remove = true;
+            }
+            //check for max life time
+            if(task.request_date < maxage) {
+                logger.info("this task was requested more than specified days ago..");
+                need_remove = true;
+            }
+        
+            if(!need_remove) return next();
 
-                db.Service.findOne({name: task.service}, function(err, service_detail) {
-                    if(err) {
-                        logger.error("Couldn't find such service:"+task.service);
-                        return next(); //skip this task
-                    }
-                    if(!service_detail.pkg || service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
-                        logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
-                        task.status = "stopped";
-                        task.status_msg = "Stopped by user";
-                        task.save(next);
-                        return;
-                    }
+            //if job is still running/running_sync, then I need to first stop it
+            if(task.status == "running") {
+                task.status = "stop_requested";
+                task.status_msg = "";
+                task.save(next);
+                return;
+            }
+            if(task.status == "running_sync") {
+                logger.debug("TODO - can't remove task that's still running_sync - maybe stuck?");
+                return next();
+            }
 
+            logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
+            async.forEach(task.resource_ids, function(resource_id, next_resource) {
+                db.Resource.findById(resource_id, function(err, resource) {
+                    if(resource.status != "ok") {
+                        logger.info("couldn't fail taskdir from resource_id:"+resource._id.toString()+" because resource status is not ok");
+                        return next_resource();
+                    }
                     common.get_ssh_connection(resource, function(err, conn) {
+                        if(err) return next_resource(err);
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                        conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
-                            if(err) return next(err);
+                        if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                        logger.info("rm -rf "+taskdir);
+                        conn.exec("rm -rf "+taskdir, function(err, stream) {
+                            if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
-                                logger.debug("stream closed "+code);
-                                task.status = "stopped";
-                                switch(code) {
-                                case 0: //cleanly stopped
-                                    task.status_msg = "Cleanly stopped by user";
-                                    task.save(next);
-                                    break;
-                                default:
-                                    task.status_msg = "Failed to stop the task cleanly -- code:"+code;
-                                    task.save(next);
-                                }
+                                if(code) return next_resource("Failed to remove taskdir "+taskdir);
+                                else next_resource();
                             })
                             .on('data', function(data) {
                                 logger.info(data.toString());
                             }).stderr.on('data', function(data) {
-                                logger.debug("receiveed stderr");
                                 logger.error(data.toString());
                             });
                         });
                     });
-
                 });
-
-
+            }, function(err) {
+                if(err) {
+                    logger.error(err); //continue 
+                    next();
+                } else {
+                    //done with removeal
+                    task.status = "removed";
+                    task.status_msg = "taskdir removed from all resources";
+                    task.save(next);
+                }
             });
-        }, function(err) {
-            if(err) logger.error(err); //continue
-            //all done for this round - schedule for next
-            setTimeout(check_stop, 1000*5); //check job status every few minutes
+        }
+
+        //onto.. next housekeeping task..
+        //TODO - stop tasks that got stuck in running / running_sync
+
+    ], function(err) {
+        //done with all house keeping..
+        if(err) logger.error(err); //skip this task
+        cb();
+    });
+}
+
+function handle_requested(task, next) {
+    //make sure dependent tasks has all finished
+    var deps_all_done = true;
+    task.deps.forEach(function(dep) {
+        if(dep.status != "finished") deps_all_done = false; 
+    });
+    if(!deps_all_done) {
+        logger.debug("dependency not met.. postponing");
+        task.status_msg = "Waiting on dependency";
+        task.save(next);
+        return;
+    }
+
+    logger.debug(JSON.stringify(task, null, 4));
+    
+    task.save(function(err) {
+        if(err) throw err;
+
+        /*
+        //asyncly handle each request
+        process_requested(task, function(err) {
+            if(err) {
+                logger.error(err); 
+                //TODO - based on the error condition (and/or task configuration) I should reset it to requested
+                task.status = "failed";
+                task.status_msg = err;
+                task.save();
+            }
+        });
+        
+        //intentially let outside of process_requested cb
+        //each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
+        next(); 
+        */
+        
+        //need to lookup user's gids to find all resources that user has access to
+        request.get({
+            url: config.api.auth+"/user/groups/"+task.user_id,
+            json: true,
+            headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+        }, function(err, res, gids) {
+            if(err) return next(err);
+          
+            //then pick best resource
+            resource_picker({
+                sub: task.user_id,
+                gids: gids,
+            }, {
+                service: task.service,
+                preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
+            }, function(err, resource) {
+                if(err) return next(err);
+                if(!resource) {
+                    task.status_msg = "No resource available to run this task.. postponing.";
+                    task.save(next);
+                    return;
+                }
+                task.resource_id = resource._id;
+                
+                //shouldn't be neede in the future.. since this should be initialized when task is requested
+                if(!task.resource_ids) task.resource_ids = []; 
+                //register this resource as task_dir
+                if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
+
+                common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+                start_task(task, resource, function(err) {
+                    if(err) {
+                        //failed to start (or running_sync failed).. mark the task as failed
+                        common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                        logger.error(err); 
+                        task.status = "failed";
+                        task.status_msg = err;
+                        task.save();
+                    }
+                    next();
+                });
+            });
+        });
+    });
+}
+
+function handle_stop(task, next) {
+    logger.info("handling stop request:"+task._id);
+    db.Resource.findById(task.resource_id, function(err, resource) {
+        if(err) {
+            logger.error(err);
+            return next(); //skip this task
+        }
+
+        db.Service.findOne({name: task.service}, function(err, service_detail) {
+            if(err) {
+                logger.error("Couldn't find such service:"+task.service);
+                return next(); //skip this task
+            }
+            if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
+                logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
+                console.dir(service_detail.pkg.scripts);
+                task.status = "stopped";
+                task.status_msg = "Stopped by user";
+                task.save(next);
+                return;
+            }
+
+            common.get_ssh_connection(resource, function(err, conn) {
+                var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
+                    if(err) return next(err);
+                    stream.on('close', function(code, signal) {
+                        logger.debug("stream closed "+code);
+                        task.status = "stopped";
+                        switch(code) {
+                        case 0: //cleanly stopped
+                            task.status_msg = "Cleanly stopped by user";
+                            task.save(next);
+                            break;
+                        default:
+                            task.status_msg = "Failed to stop the task cleanly -- code:"+code;
+                            task.save(next);
+                        }
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.debug("receiveed stderr");
+                        logger.error(data.toString());
+                    });
+                });
+            });
         });
     });
 }
 
 //check for task status of already running tasks
-function check_running() {
-    db.Task.find({
-        status: "running",
-        $or: [
-            {next_date: {$exists: false}},
-            {next_date: {$lt: new Date()}}
-        ] 
-    }).exec(function(err, tasks) {
-        if(err) throw err;
-        //logger.info("check_running:"+tasks.length);
-        //process synchronously so that I don't accidentally overwrap with next check
-        async.eachSeries(tasks, function(task, next) {
-            logger.info("check_running "+task._id);
+function handle_running(task, next) {
+    logger.info("check_running "+task._id);
+    
+    //TODO - request stop job that are stuck running for long time (look start_date)
 
-            db.Resource.findById(task.resource_id, function(err, resource) {
+    db.Resource.findById(task.resource_id, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return next(new Error("can't find such resource:"+task.resource_id));
+        common.get_ssh_connection(resource, function(err, conn) {
+            var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+            //TODO - not all service provides bin.status.. how will this handle that?
+            logger.debug("cd "+taskdir+" && ./_status.sh");
+            conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
                 if(err) return next(err);
-                if(!resource) return next(new Error("can't find such resource:"+task.resource_id));
-                common.get_ssh_connection(resource, function(err, conn) {
-                    var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                    //TODO - not all service provides bin.status.. how will this handle that?
-                    logger.debug("cd "+taskdir+" && ./_status.sh");
-                    conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
-                        if(err) return next(err);
-                        var out = "";
-                        stream.on('close', function(code, signal) {
-                            switch(code) {
-                            case 0: //still running
-                                set_nextdate(task);
+                var out = "";
+                stream.on('close', function(code, signal) {
+                    switch(code) {
+                    case 0: //still running
+                        set_nextdate(task);
+                        next();
+                        break;
+                    case 1: //finished
+                        load_products(task, taskdir, conn, function(err) {
+                            if(err) {
+                                common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                                task.status = "failed";
+                                task.status_msg = err;
                                 task.save(next);
-                                break;
-                            case 1: //finished
-                                load_products(task, taskdir, conn, function(err) {
-                                    if(err) {
-                                        common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                                        task.status = "failed";
-                                        task.status_msg = err;
-                                        task.save(next);
-                                        return;
-                                    }
-                                    common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
-                                    task.status = "finished";
-                                    task.status_msg = "Service completed successfully";
-                                    task.finish_date = new Date();
-                                    task.save(function(err) {
-                                        //clear next_date on dependending tasks so that it will be checked immediately
-                                        db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
-                                    });
-                                });
-                                break;
-                            case 2:  //job failed
-                                //TODO - let user specify retry count, and if we haven't met it, rerun it?
-                                common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
-                                task.status = "failed"; 
-                                task.status_msg = out;
-                                task.save(next);
-                                break; 
-                            default:
-                                //TODO - should I mark it as failed? or.. 3 strikes and out rule?
-                                logger.error("unknown return code:"+code+" returned from _status.sh");
-                                next();
+                                return;
                             }
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                            out += data.toString();
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                            out += data.toString();
+                            common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
+                            task.status = "finished";
+                            task.status_msg = "Service completed successfully";
+                            task.finish_date = new Date();
+                            task.save(function(err) {
+                                //clear next_date on dependending tasks (not this task!) so that it will be checked immediately
+                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
+                            });
                         });
-                    });
+                        break;
+                    case 2: //job failed
+                        //TODO - let user specify retry count, and if we haven't met it, rerun it?
+                        common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
+                        task.status = "failed"; 
+                        task.status_msg = out;
+                        task.save(next);
+                        break; 
+                    default:
+                        //TODO - should I mark it as failed? or.. 3 strikes and out rule?
+                        logger.error("unknown return code:"+code+" returned from _status.sh");
+                        next();
+                    }
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                    out += data.toString();
+                }).stderr.on('data', function(data) {
+                    logger.error(data.toString());
+                    out += data.toString();
                 });
             });
-        }, function(err) {
-            if(err) {
-                logger.error(err);
-            }
-            
-            //all done for this round - schedule for next
-            setTimeout(check_running, 1000);
         });
     });
 }
 
+/*
 function process_requested(task, cb) {
     //need to lookup user's gids first
     request.get({
@@ -307,9 +425,9 @@ function process_requested(task, cb) {
             }
             task.resource_id = resource._id;
             common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-            init_task(task, resource, function(err) {
+            start_task(task, resource, function(err) {
                 if(err) {
-                    common.progress(task.progress_key, {status: 'failed', /*progress: 0,*/ msg: err.toString()});
+                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                     return cb(err);
                 }
                 cb();
@@ -317,9 +435,10 @@ function process_requested(task, cb) {
         });
     });
 }
+*/
 
 //initialize task and run or start the service
-function init_task(task, resource, cb) {
+function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) return cb(err);
         var service = task.service;
@@ -486,12 +605,20 @@ function init_task(task, resource, cb) {
                             var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
+                            
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
-                                if(err) common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
-                                else common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
-                                next_dep(err);
+                                if(err) {
+                                    common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
+                                    next_dep(err);
+                                } else {
+                                    common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
+
+                                    //register new resource_id where the task_dir is synced to
+                                    if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
+                                    task.save(next_dep);
+                                }
                             }, function(progress) {
                                 common.progress(task.progress_key+".sync", progress);
                             });

@@ -35,6 +35,10 @@
     "apidoc": "apidoc -i api/ -o ui/apidoc/",
     "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js"
   },
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/soichih/sca-wf.git"
+  },
+  "author": "Soichi Hayashi <hayashis@iued>",
   "license": "MIT"
 }
