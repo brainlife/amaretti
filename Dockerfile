@@ -1,6 +1,6 @@
 FROM centos:7
 
-RUN yum -y install wget unxz
+RUN yum -y install wget unxz openssh
 
 #install hsi
 #COPY hpss/hsihtar-5.0.2.p5-RHEL6-64/* /bin/
