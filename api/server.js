@@ -1,32 +1,31 @@
 #!/usr/bin/node
 
 //node
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const path = require('path');
 
 //contrib
-var express = require('express');
-var bodyParser = require('body-parser');
-var winston = require('winston');
-var expressWinston = require('express-winston');
-var compression = require('compression');
-var cors = require('cors');
+const express = require('express');
+const bodyParser = require('body-parser');
+const winston = require('winston');
+const expressWinston = require('express-winston');
+const compression = require('compression');
+const cors = require('cors');
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('./models/db');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('./models/db');
+const events = require('./events');
 
 //init express
-var app = express();
+const app = express();
 app.use(cors());
 app.use(compression());
 
 //parse application/json
 app.use(bodyParser.json()); 
 app.use(bodyParser.urlencoded({ extended: false }));
-//app.use(bodyParser.json({limit: '50mb'}));
-//app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 
 app.use(expressWinston.logger(config.logger.winston));
 

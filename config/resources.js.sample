@@ -38,10 +38,13 @@ module.exports = {
             "soichih/sca-service-download": {score: 10},
             "soichih/life-1": {score: 10},
 
+            "soichih/sca-product-odi": {score: 10},
+
             //probably temp names
             "soichih/sca-service-neuro-tracking": {score: 10},
 
             "soichih/sca-service-noop": {score: 10},
+
             "soichih/sca-service-helloworld1": {score: 10},
 
             "soichih/sca-service-helloworld2": {score: 9},
@@ -149,7 +152,6 @@ module.exports = {
 
             "soichih/sca-service-onore": {score: 10},
 
-            "soichih/sca-product-odi": {score: 10},
 
             "_upload": {score: 5},
         }

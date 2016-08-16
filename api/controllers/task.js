@@ -199,6 +199,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.finish_date = undefined;
         task.next_date = undefined;
         task.products = undefined;
+        task.remove_date = undefined; //TODO - maybe I should reset this based on relationshio between previous request_date and remove_date
         task.save(function(err) {
             if(err) return next(err);
             common.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, function() {

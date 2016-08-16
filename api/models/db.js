@@ -1,12 +1,13 @@
 'use strict';
 
 //contrib
-var mongoose = require('mongoose');
-var winston = require('winston');
+const mongoose = require('mongoose');
+const winston = require('winston');
 
 //mine
-var config = require('../../config');
-var logger = new winston.Logger(config.logger.winston);
+const config = require('../../config');
+const logger = new winston.Logger(config.logger.winston);
+const events = require('../events');
 
 exports.init = function(cb) {
     mongoose.connect(config.mongodb, {}, function(err) {
@@ -168,14 +169,28 @@ var taskSchema = mongoose.Schema({
     //time when this task was last updated (only used by put api?)
     update_date: {type: Date},
 });
+
 /*
-//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
+//mongoose's pre/post middleware are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
+//see https://github.com/Automattic/mongoose/issues/964
+
 //I prefer doing this manually anyway, because it will be more visible 
 taskSchema.pre('update', function(next) {
     this.update_date = new Date();
     next();
 });
 */
+
+//TODO - not sure "init" does what I think it does.. 
+//from doc "called internally after a document is returned from mongodb"
+//taskSchema.post('init',events.create); 
+
+taskSchema.post('save', events.task);
+taskSchema.post('findOneAndUpdate', events.task);
+taskSchema.post('update', events.task);
+taskSchema.post('findOneAndRemove', events.task);
+taskSchema.post('remove', events.task);
+
 taskSchema.index({name: 'text', desc: 'text'});
 
 exports.Task = mongoose.model('Task', taskSchema);

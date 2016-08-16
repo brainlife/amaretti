@@ -91,5 +91,13 @@ describe('/resource', function() {
         .expect('Content-Type', /json/) 
         .expect(200, done);
     });
+
+    it('generate sshkey', function(done) {
+        request(app)
+        .get('/resource/gensshkey')
+        .set('Accept', 'application/json')
+        .expect('Content-Type', /json/) 
+        .expect(200, done);
+    });
 });
 

@@ -56,24 +56,17 @@ function check_stuck() {
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
     task.next_date = new Date();
-    
-    //if not set, set it to check immediately!
-    if(!task.next_date) return;
-
     if(task.start_date) {
         var start = task.start_date.getTime();
-        var now = task.next_date.getTime();
-        var elapsed = now - start;
-        console.log("elapsed seconds: "+elapsed);
-        var next = now + elapsed/2;
-        console.log("next: "+next);
+        var elapsed = task.next_date.getTime() - start;
+        //logger.debug("elapsed seconds: "+elapsed);
+        var next = task.next_date.getTime() + elapsed/2;
         task.next_date.setTime(next);
     } else {
         //not yet started. check again in 10 minutes (maybe resource issue?)
         //maybe I should increase the delay to something like an hour?
         task.next_date.setMinutes(task.next_date.getMinutes() + 10);
     }
-    task.save(next);
 }
 
 function check() {
@@ -89,13 +82,10 @@ function check() {
     //maybe I should do these later (only needed by requested task)
     .populate('deps', 'status resource_id')
     .populate('resource_deps') 
-
-    .exec(function(err, tasks) {
+    .exec((err, tasks) => {
         if(err) throw err;
-        async.eachSeries(tasks, function(task, next) {
+        async.eachSeries(tasks, (task, next) => {
             logger.info("handling task:"+task._id);
-            set_nextdate(task);
-
             switch(task.status) {
             case "requested":
                 handle_requested(task, next); 
@@ -109,6 +99,9 @@ function check() {
             default:
                 handle_housekeeping(task, next);
             }
+            set_nextdate(task);
+            logger.debug("reset next_date: "+task.next_date);
+            task.save();
         }, function(err) {
             if(err) logger.error(err);
             //wait a bit and recheck again
@@ -119,23 +112,23 @@ function check() {
 
 function handle_housekeeping(task, cb) {
     //.. if to remove, iterate through all resources that this task has run or synchornized to)
+    logger.debug("handling book keeping "+task._id);
+
     async.series([
-        
-        //remove task dir
+        //remove task dir?
         function(next) {
             var need_remove = false;
-            var now = new Date();
-            var maxage = new Date();
-            maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
-
-            logger.debug("handling book keeping "+task._id);
             
             //check for early remove specified by user
+            var now = new Date();
             if(task.remove_date && task.remove_date < now) {
                 logger.info("remove_date is set and task is passed the date");
                 need_remove = true;
             }
+            
             //check for max life time
+            var maxage = new Date();
+            maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
             if(task.request_date < maxage) {
                 logger.info("this task was requested more than specified days ago..");
                 need_remove = true;
@@ -189,6 +182,11 @@ function handle_housekeeping(task, cb) {
                     //done with removeal
                     task.status = "removed";
                     task.status_msg = "taskdir removed from all resources";
+
+                    //reset resource ids
+                    task.resource_id = undefined; //I wonder if I should keep this, but UI often depends on this to mean that task is executed
+                    task.resource_ids = []; 
+
                     task.save(next);
 
                     //also post to progress.. (TODO - should I set the status?)
@@ -216,75 +214,56 @@ function handle_requested(task, next) {
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependency";
-        task.save(next);
+        next();
         return;
     }
 
     logger.debug(JSON.stringify(task, null, 4));
     
-    task.save(function(err) {
-        if(err) throw err;
-
-        /*
-        //asyncly handle each request
-        process_requested(task, function(err) {
-            if(err) {
-                logger.error(err); 
-                //TODO - based on the error condition (and/or task configuration) I should reset it to requested
-                task.status = "failed";
-                task.status_msg = err;
-                task.save();
-            }
-        });
-        
-        //intentially let outside of process_requested cb
-        //each request will be handled asynchronously so that I don't wait on each task to start / run before processing next taxt
-        next(); 
-        */
-        
-        //need to lookup user's gids to find all resources that user has access to
-        request.get({
-            url: config.api.auth+"/user/groups/"+task.user_id,
-            json: true,
-            headers: { 'Authorization': 'Bearer '+config.sca.jwt }
-        }, function(err, res, gids) {
+    //need to lookup user's gids to find all resources that user has access to
+    request.get({
+        url: config.api.auth+"/user/groups/"+task.user_id,
+        json: true,
+        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+    }, function(err, res, gids) {
+        if(err) return next(err);
+      
+        //then pick best resource
+        _resource_picker({
+            sub: task.user_id,
+            gids: gids,
+        }, {
+            service: task.service,
+            preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
+        }, function(err, resource) {
             if(err) return next(err);
-          
-            //then pick best resource
-            _resource_picker({
-                sub: task.user_id,
-                gids: gids,
-            }, {
-                service: task.service,
-                preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-            }, function(err, resource) {
-                if(err) return next(err);
-                if(!resource) {
-                    task.status_msg = "No resource available to run this task.. postponing.";
-                    task.save(next);
-                    return;
-                }
-                task.resource_id = resource._id;
-                
-                //shouldn't be neede in the future.. since this should be initialized when task is requested
-                if(!task.resource_ids) task.resource_ids = []; 
-                //register this resource as task_dir
-                if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
+            if(!resource) {
+                task.status_msg = "No resource available to run this task.. postponing.";
+                task.save(next);
+                return;
+            }
+            task.resource_id = resource._id;
+            
+            //shouldn't be neede in the future.. since this should be initialized when task is requested
+            if(!task.resource_ids) task.resource_ids = []; 
+            //register this resource as task_dir
+            if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
 
-                common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-                start_task(task, resource, function(err) {
-                    if(err) {
-                        //failed to start (or running_sync failed).. mark the task as failed
-                        common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                        logger.error(err); 
-                        task.status = "failed";
-                        task.status_msg = err;
-                        task.save();
-                    }
-                    //next();
-                });
-                next(); //don't wait for start_task to end.. start next task concurrently
+            common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+            start_task(task, resource, function(err) {
+                if(err) {
+                    //failed to start (or running_sync failed).. mark the task as failed
+                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                    logger.error(err); 
+                    task.status = "failed";
+                    task.status_msg = err;
+                    task.save();
+                }
+                //next();
             });
+
+            //don't wait for start_task to end.. start next task concurrently
+            next(); 
         });
     });
 }
@@ -305,7 +284,7 @@ function handle_stop(task, next) {
             }
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
-                console.dir(service_detail.pkg.scripts);
+                //console.dir(service_detail.pkg.scripts);
                 task.status = "stopped";
                 task.status_msg = "Stopped by user";
                 task.save(next);
@@ -360,7 +339,7 @@ function handle_running(task, next) {
                 stream.on('close', function(code, signal) {
                     switch(code) {
                     case 0: //still running
-                        set_nextdate(task);
+                        //set_nextdate(task);
                         next();
                         break;
                     case 1: //finished
@@ -510,7 +489,7 @@ function start_task(task, resource, cb) {
                 function(next) {
                     common.progress(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0.05, msg: 'Installing sca install script', weight: 0});
                     conn.exec("mkdir -p ~/.sca && cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to write ~/.sca/install.sh");
                             else next();
@@ -526,7 +505,7 @@ function start_task(task, resource, cb) {
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.3, msg: 'Running sca install script (might take a while for the first time)'});
                     conn.exec("cd ~/.sca && ./install.sh", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to run ~/.sca/install.sh");
                             else next();
@@ -542,7 +521,7 @@ function start_task(task, resource, cb) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     conn.exec("ls .sca/services/"+service+ " >/dev/null 2>&1 || (mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" git clone "+service_detail.git.clone_url+" .sca/services/"+service+")", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git clone. code:"+code);
                             else next();
@@ -558,7 +537,7 @@ function start_task(task, resource, cb) {
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
                     conn.exec("cd .sca/services/"+service+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in ~/.sca/services/"+service);
                             else next();
@@ -575,7 +554,7 @@ function start_task(task, resource, cb) {
                     common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                     logger.debug("making sure taskdir("+taskdir+") exists");
                     conn.exec("mkdir -p "+taskdir, function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed create taskdir:"+taskdir);
                             else next();
@@ -666,7 +645,7 @@ function start_task(task, resource, cb) {
                     logger.debug("installing config.json");
                     logger.debug(task.config);
                     conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to write config.json");
                             else next();
@@ -688,7 +667,7 @@ function start_task(task, resource, cb) {
 
                     logger.debug("installing _status.sh");
                     conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to write _status.sh -- code:"+code);
                             next();
@@ -716,7 +695,7 @@ function start_task(task, resource, cb) {
 
                     logger.debug("installing _stop.sh");
                     conn.exec("cd "+taskdir+" && cat > _stop.sh && chmod +x _stop.sh", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to write _stop.sh -- code:"+code);
                             next();
@@ -740,14 +719,14 @@ function start_task(task, resource, cb) {
                 //write _boot.sh
                 function(next) { 
                     if(!service_detail.pkg.scripts.run && !service_detail.pkg.scripts.start) {
-                        console.dir(service_detail.pkg.scripts);
+                        //console.dir(service_detail.pkg.scripts);
                         return next("pkg.scripts.run nor pkg.scripts.start defined in package.json"); 
                     }
                     
                     //common.progress(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
                     logger.debug("installing _boot.sh");
                     conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to write _boot.sh -- code:"+code);
                             next();
@@ -790,7 +769,7 @@ function start_task(task, resource, cb) {
                     conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                         /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
                     }, function(err, stream) {
-                        if(err) next(err);
+                        if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) {
                                 //TODO - I should pull more useful information (from start.log?)
@@ -830,7 +809,7 @@ function start_task(task, resource, cb) {
                         conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
                             /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
                         }, function(err, stream) {
-                            if(err) next(err);
+                            if(err) return next(err);
                             //var stdout = "";
                             //var stderr = "";
                             stream.on('close', function(code, signal) {

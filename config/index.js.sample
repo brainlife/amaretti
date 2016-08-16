@@ -14,6 +14,12 @@ exports.sca = {
     jwt: fs.readFileSync(__dirname+'/sca.jwt'),
 }
 
+exports.events = {
+    //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
+    amqp: {url: "amqp://wf:test@localhost:5672/sca"},
+    exchange: "wf",
+}
+
 //api endpoints
 exports.api = {
     auth: "https://soichi7.ppa.iu.edu/api/auth",

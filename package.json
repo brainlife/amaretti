@@ -4,6 +4,7 @@
   "description": "SCA Workflow Service",
   "main": "index.js",
   "dependencies": {
+    "amqp": "^0.2.6",
     "async": "^2.0.1",
     "body-parser": "~1.15.1",
     "compression": "^1.6.0",
@@ -16,7 +17,7 @@
     "mongoose": "^4.5.7",
     "multiparty": "^4.1.2",
     "request": "^2.74.0",
-    "ssh-keygen": "^0.2.1",
+    "ssh-keygen": "^0.4.0",
     "ssh2": "^0.5.0",
     "winston": "~2.2.0"
   },
