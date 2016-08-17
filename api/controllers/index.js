@@ -20,6 +20,14 @@ router.get('/health', function(req, res) {
     res.json({status: 'ok'});
 });
 
+router.use('/task',     require('./task'));
+router.use('/service',  require('./service'));
+router.use('/comment',  require('./comment'));
+router.use('/workflow', require('./workflow'));
+router.use('/instance', require('./instance')); 
+router.use('/resource', require('./resource'));
+
+//TODO - who uses this?
 router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res) {
     var conf = {
         resources: config.resources, //resoruce bases..
@@ -27,13 +35,6 @@ router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: 
     };
     res.json(conf);
 });
-
-router.use('/task',     require('./task'));
-router.use('/service',  require('./service'));
-router.use('/comment',  require('./comment'));
-router.use('/workflow', require('./workflow'));
-router.use('/instance', require('./instance')); 
-router.use('/resource', require('./resource'));
 
 module.exports = router;
 

@@ -100,7 +100,7 @@ function check() {
                 handle_housekeeping(task, next);
             }
             set_nextdate(task);
-            logger.debug("reset next_date: "+task.next_date);
+            //logger.debug("reset next_date: "+task.next_date);
             task.save();
         }, function(err) {
             if(err) logger.error(err);

@@ -7,6 +7,7 @@ var winston = require('winston');
 var jwt = require('express-jwt');
 var async = require('async');
 var fs = require('fs');
+var jsonwebtoken = require('jsonwebtoken');
 
 //mine
 var config = require('../../config');
@@ -14,16 +15,6 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('../models/db');
 var common = require('../common');
 
-function getinstance(instid, req, cb) {
-    db.Instance
-    .findById(instid)
-    .exec(function(err, instance) {
-        if(err) return cb(err);
-        if(!instance) return cb("404");
-        if(req.user.sub != instance.user_id) return cb("401");
-        cb(null, instance);
-    });
-}
  
 /**
  * @api {get} /instance         Query Instance
@@ -63,11 +54,38 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+/*
+//DEPRECATED by (get)/
 //get a single workflow instance
 router.get('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    getinstance(req.params.instid, req, function(err, instance) {
-        if(err) return next(err);
+    db.Instance
+    .findById(req.params.instid)
+    .exec(function(err, instance) {
+        if(err) return cb(err);
+        if(!instance) return cb("404");
+        if(req.user.sub != instance.user_id) return cb("401");
         res.json(instance);
+    });
+});
+*/
+
+//return event service token for instance
+router.get('/eventtoken/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var instid = req.params.instid;
+
+    db.Instance.findById(instid).exec(function(err, instance) {
+        if(err) return cb(err);
+        if(!instance) return cb("404");
+        if(req.user.sub != instance.user_id) return cb("401");
+        //ok.. issue the token
+        jsonwebtoken.sign({
+            sub: req.user.sub, 
+            exp: (Date.now() + config.events.access_token_ttl)/1000,
+            exchange: config.events.exchange,
+            keys: ["task."+instid+".#"]
+        }, config.events.private_key, config.events.sign_opt, function(err, token) {    
+            res.json(token);
+        });
     });
 });
 

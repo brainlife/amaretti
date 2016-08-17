@@ -1,7 +1,7 @@
 'use strict';
 
-var fs = require('fs');
-var winston = require('winston');
+const fs = require('fs');
+const winston = require('winston');
 
 exports.sca = {
     auth_pubkey: fs.readFileSync('/home/hayashis/git/auth/api/config/auth.pub'),
@@ -18,6 +18,11 @@ exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://wf:test@localhost:5672/sca"},
     exchange: "wf",
+
+    //config used to generate event access token
+    private_key: fs.readFileSync(__dirname+'/wf.key'),
+    access_token_ttl: 12*3600*1000, //12 hours should be enough?
+    sign_opt: {algorithm: 'RS256'},
 }
 
 //api endpoints
