@@ -69,6 +69,7 @@ describe('/instance', function() {
                 done();
         });
     });
+    /* this api is now deprecated
     it('should find a single instance by id', function(done) {
         request(app)
         .get('/instance/'+instance._id)
@@ -84,6 +85,7 @@ describe('/instance', function() {
                 done();
         });
     });
+    */
     it('should query instances by name', function(done) {
         request(app)
         .get('/instance/')

@@ -178,6 +178,7 @@ function check_ssh(resource, cb) {
             host: detail.hostname,
             username: resource.config.username,
             privateKey: resource.config.enc_ssh_private,
+            //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
         });
     } catch (err) {
         cb(null, "failed", err.toString());

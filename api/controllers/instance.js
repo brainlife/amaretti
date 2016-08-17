@@ -19,7 +19,7 @@ var common = require('../common');
 /**
  * @api {get} /instance         Query Instance
  * @apiGroup                    Instance
- * @apiDescription              Query instances that belongs to a user with given query
+ * @apiDescription              Query instances that belongs to a user with given query (for admin returns all)
  *
  * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
  * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
@@ -38,7 +38,10 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     //var sort = '_id';
     //if(req.query.sort) sort = JSON.parse(req.query.sort);
 
-    find.user_id = req.user.sub;
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
+        //non admin can only query his/her own tasks
+        find.user_id = req.user.sub;
+    }
 
     db.Instance.find(find)
     .select(req.query.select)

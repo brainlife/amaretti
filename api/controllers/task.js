@@ -16,7 +16,7 @@ var common = require('../common');
 /**
  * @api {get} /task             Query Tasks
  * @apiParam {Object} find      Optional Mongo query to perform
- * @apiDescription              Returns all tasks that belongs to a user
+ * @apiDescription              Returns all tasks that belongs to a user (for admin returns all)
  * @apiGroup Task
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
@@ -26,7 +26,10 @@ var common = require('../common');
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
-    find.user_id = req.user.sub;
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
+        //non admin can only query his/her own tasks
+        find.user_id = req.user.sub;
+    }
     var query = db.Task.find(find);
     if(req.query.sort) query.sort(req.query.sort);
     if(req.query.limit) query.limit(req.query.limit);

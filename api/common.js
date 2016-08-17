@@ -104,7 +104,7 @@ exports.get_ssh_connection = function(resource, cb) {
         host: detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 50,
+        keepaliveInterval: 60*1000,
     });
 }
 
