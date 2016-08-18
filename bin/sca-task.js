@@ -27,32 +27,6 @@ db.init(function(err) {
     check(); 
 });
 
-/*
-//now that I am looking for requested task that's handled_date that's old enough,
-//I shouldn't have to look for stuck tasks
-function check_stuck() {
-    logger.debug("checking for handled tasks that got stuck");
-    var whileago = new Date();
-    whileago.setHours(whileago.getHours()-1);
-    db.Task
-    .find({
-        "_handled.timestamp": { $lt: whileago }
-    })
-    .exec(function(err, tasks) {
-        if(err) throw err;
-        tasks.forEach(function(task) {
-            logger.error("detected stuck request.. please find out why this got stuck (unstucking it for now..)");
-            logger.error(JSON.stringify(task, null, 4));
-            task.status_msg = "Request handled but got stuck.. trying again.";
-            task._handled = undefined; //this is how you *delete*
-            task.save();
-        });
-        //wait for the next round
-        setTimeout(check_stuck, 1000*30);
-    });
-} 
-*/
-
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
     task.next_date = new Date();
@@ -259,7 +233,8 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.save();
                 }
-                //next();
+                //start_task is no longer waited by anything.. all task gets processed asyncrhnously
+                
             });
 
             //don't wait for start_task to end.. start next task concurrently
@@ -602,7 +577,6 @@ function start_task(task, resource, cb) {
                         logger.info("no config object stored in task.. skipping writing config.json");
                         return next();
                     }
-                    //common.progress(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
                     logger.debug("installing config.json");
                     logger.debug(task.config);
                     conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
@@ -684,7 +658,6 @@ function start_task(task, resource, cb) {
                         return next("pkg.scripts.run nor pkg.scripts.start defined in package.json"); 
                     }
                     
-                    //common.progress(task.progress_key+".prep", {status: 'running', progress: 0.6, msg: 'Installing config.json'});
                     logger.debug("installing _boot.sh");
                     conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
                         if(err) return next(err);
@@ -726,31 +699,41 @@ function start_task(task, resource, cb) {
                     logger.debug("starting service: ~/.sca/services/"+service+"/"+service_detail.pkg.scripts.start);
                     common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
 
-                    //conn.exec("cd "+taskdir+" && set -o pipefail && ./_boot.sh 2>&1 | tee start.log", {
-                    conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
-                        /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
-                    }, function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) {
-                                //TODO - I should pull more useful information (from start.log?)
-                                return next("failed to start (code:"+code+")");
-                            } else {
-                                task.status = "running";
-                                task.status_msg = "Started service";
-                                task.start_date = new Date();
-                                task.next_date = new Date(); 
-                                task.save(next);
-                            }
-                        })
+                    task.status = "running";
+                    task.status_msg = "Starting service";
+                    task.start_date = new Date();
 
-                        //NOTE - no stdout / err should be received since it's redirected to boot.log
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                            //stdout += data;
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                            //stderr += data;
+                    //set next_date to some impossible date so that we won't run status.sh prematuely
+                    task.next_date = new Date(); 
+                    task.next_date.setDate(task.next_date.getDate() + 30);
+                    task.save(function() {
+                        conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
+                            /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
+                        }, function(err, stream) {
+                            if(err) return next(err);
+                            stream.on('close', function(code, signal) {
+                                if(code) {
+                                    //I should undo the impossible next_date set earlier..
+                                    task.next_date = new Date(); 
+                                    //TODO - I should pull more useful information (from start.log?)
+                                    return next("failed to start (code:"+code+")");
+                                } else {
+                                    //good.. now set the next_date to now so that we will check for its status
+                                    task.status_msg = "Service started";
+                                    task.next_date = new Date(); 
+                                    task.save(next);
+                                }
+                            });
+
+                            //NOTE - no stdout / err should be received since it's redirected to boot.log
+                            stream.on('data', function(data) {
+                                logger.info(data.toString());
+                                //stdout += data;
+                            });
+                            stream.stderr.on('data', function(data) {
+                                logger.error(data.toString());
+                                //stderr += data;
+                            });
                         });
                     });
                 },            
@@ -836,5 +819,4 @@ function load_products(task, taskdir, resource, cb) {
         });
     });
 }
-
 
