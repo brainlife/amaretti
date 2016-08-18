@@ -34,6 +34,10 @@ On auth service, let user issue long living (non-expiring?) jwt token to be used
 
 Allow user to download entire taskdir.
 
+Instead of storing private key on dest(or src?) resource for rsync, can I use agent forwarding?
+
+I should probably test each ssh sessions opened, or timeout eventually if not used for a long time?
+
 ** Implement task re-try strategy (just keep retrying - wait for resource?)
 
 

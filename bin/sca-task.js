@@ -343,7 +343,7 @@ function handle_running(task, next) {
                         next();
                         break;
                     case 1: //finished
-                        load_products(task, taskdir, conn, function(err) {
+                        load_products(task, taskdir, resource, function(err) {
                             if(err) {
                                 common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                 task.status = "failed";
@@ -386,45 +386,6 @@ function handle_running(task, next) {
     });
 }
 
-/*
-function process_requested(task, cb) {
-    //need to lookup user's gids first
-    request.get({
-        url: config.api.auth+"/user/groups/"+task.user_id,
-        json: true,
-        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
-    }, function(err, res, gids) {
-        if(err) return cb(err);
-      
-        //then pick best resource
-        _resource_picker({
-            sub: task.user_id,
-            gids: gids,
-        }, {
-            service: task.service,
-            preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-        }, function(err, resource) {
-            if(err) return cb(err);
-            if(!resource) {
-                task.status_msg = "No resource available to run this task.. postponing.";
-                task.save(cb);
-                return;
-            }
-            task.resource_id = resource._id;
-            common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-            start_task(task, resource, function(err) {
-                if(err) {
-                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                    return cb(err);
-                }
-                cb();
-            });
-        });
-    });
-}
-*/
-
-//
 function get_service(service_name, cb) {
     db.Service.findOne({name: service_name}, function(err, service_detail) {
         /*
@@ -816,7 +777,7 @@ function start_task(task, resource, cb) {
                                 if(code) {
                                     return next("failed to run (code:"+code+")");
                                 } else {
-                                    load_products(task, taskdir, conn, function(err) {
+                                    load_products(task, taskdir, resource, function(err) {
                                         if(err) return next(err);
                                         common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                         task.status = "finished"; 
@@ -848,10 +809,10 @@ function start_task(task, resource, cb) {
     });
 }
 
-function load_products(task, taskdir, conn, cb) {
+function load_products(task, taskdir, resource, cb) {
     logger.debug("loading "+taskdir+"/products.json");
     common.progress(task.progress_key, {msg: "Downloading products.json"});
-    conn.sftp(function(err, sftp) {
+    common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
         var stream = sftp.createReadStream(taskdir+"/products.json");
         var products_json = "";
