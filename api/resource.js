@@ -76,7 +76,8 @@ function score_resource(resource, query) {
         return 0;
     }
     if(!resource_detail.services) {
-        logger.error("resource detail for resource_id:"+resource.resource_id+" has no services entry");
+        //some resource has no services, but that's ok
+        //logger.error("resource detail for resource_id:"+resource.resource_id+" has no services entry");
         return 0;
     }
     var info = resource_detail.services[query.service];
