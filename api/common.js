@@ -54,6 +54,7 @@ exports.encrypt_resource = function(resource) {
 }
 
 //decrypt all config parameter that starts with enc_
+//TODO crypto could throw execption - but none of the client are handling it.. 
 exports.decrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {

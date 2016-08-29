@@ -139,7 +139,7 @@ function check_ssh(resource, cb) {
                 nexted = true;
                 if(ret_username.trim() == resource.config.username) {
                     check_sftp(resource, conn, function(err, status, msg) {
-                        console.log("check_sftp cb -------------------------- "+resource._id);
+                        //console.log("check_sftp cb -------------------------- "+resource._id);
                         conn.end();
                         if(err) return cb(err);
                         cb(null, status, msg);

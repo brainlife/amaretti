@@ -86,7 +86,7 @@ function check() {
 
 function handle_housekeeping(task, cb) {
     //.. if to remove, iterate through all resources that this task has run or synchornized to)
-    logger.debug("handling book keeping "+task._id);
+    //logger.debug("handling book keeping "+task._id);
 
     async.series([
         //remove task dir?

@@ -64,7 +64,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //TODO need to investigate why I need these -o options on q6>karst transfer
                 var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i .sca/keys/"+source_resource._id+".sshkey";
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
-                console.log("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path);
+                logger.debug("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path);
                 conn.exec("rsync -avL --progress -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {

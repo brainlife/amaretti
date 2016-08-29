@@ -9,9 +9,10 @@ const logger = new winston.Logger(config.logger.winston);
 
 var event_ex = null;
 if(config.events) {
+    logger.info("attempting to connect to amqp..");
     var conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
     conn.on('ready', function() {
-        //logger.info("amqp connection ready");
+        logger.info("amqp connection ready.. creating exchange");
         conn.exchange(config.events.exchange, {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             event_ex = ex;
             logger.info("amqp connection/exchange ready");

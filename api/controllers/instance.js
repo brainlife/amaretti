@@ -85,7 +85,7 @@ router.get('/eventtoken/:instid', jwt({secret: config.sca.auth_pubkey}), functio
             sub: req.user.sub, 
             exp: (Date.now() + config.events.access_token_ttl)/1000,
             exchange: config.events.exchange,
-            keys: ["task."+instid+".#"]
+            keys: ["task."+instid+".#"] //task.<instance_id>.<task_id>
         }, config.events.private_key, config.events.sign_opt, function(err, token) {    
             res.json(token);
         });

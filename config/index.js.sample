@@ -16,7 +16,7 @@ exports.sca = {
 
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
-    amqp: {url: "amqp://wf:test@localhost:5672/sca"},
+    amqp: {url: "amqp://wf:test@soichi7.ppa:5672/sca"},
     exchange: "wf",
 
     //config used to generate event access token
@@ -67,7 +67,7 @@ register_workflow(require("/home/hayashis/git/sca-wf-blast/package.json"), "/wfu
 register_workflow(require("/home/hayashis/git/stardock/package.json"), "/wfui/stardock");
 
 register_workflow(require("/home/hayashis/git/sca-wf-conneval/package.json"), "/wfui/conneval");
-register_workflow(require("/home/hayashis/git/sca-wf-onore/package.json"), "/wfui/onore");
+register_workflow(require("/home/hayashis/git/sca-wf-onere/package.json"), "/wfui/onere");
 
 register_workflow(require("/home/hayashis/git/sca-wf-test/package.json"), "/wfui/test");
 
@@ -75,6 +75,7 @@ exports.resources = require('./resources');
 
 exports.logger = {
     winston: {
+        //hide headers which may contain jwt
         requestWhitelist: ['url', /*'headers',*/ 'method', 'httpVersion', 'originalUrl', 'query'],
         transports: [
             //display all logs to console
@@ -87,11 +88,13 @@ exports.logger = {
                 colorize: true
             }),
             
+            /*
             //store all warnings / errors in error.log
             new (winston.transports.File)({ 
-                filename: 'error.log',
+                filename: '/var/log/sca/error.log',
                 level: 'error'
             })
+            */
         ]
     },
 }

@@ -16,7 +16,7 @@ const cors = require('cors');
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('./models/db');
-const events = require('./events');
+//const events = require('./events');
 
 //init express
 const app = express();
