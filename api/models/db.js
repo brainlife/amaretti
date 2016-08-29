@@ -9,7 +9,7 @@ const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
 const events = require('../events');
 
-mongoose.Promise = global.Promise; //use native promise for mongoose
+//mongoose.Promise = global.Promise; //use native promise for mongoose
 
 exports.init = function(cb) {
     mongoose.connect(config.mongodb, {}, function(err) {
