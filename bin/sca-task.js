@@ -125,8 +125,8 @@ function handle_housekeeping(task, cb) {
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
             async.forEach(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
-                    if(resource.status != "ok") {
-                        logger.info("couldn't fail taskdir from resource_id:"+resource._id.toString()+" because resource status is not ok");
+                    if(!resource.status || resource.status != "ok") {
+                        logger.info("couldn't test taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok");
                         return next_resource();
                     }
                     common.get_ssh_connection(resource, function(err, conn) {
