@@ -125,9 +125,15 @@ function handle_housekeeping(task, cb) {
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
             async.forEach(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
+                    if(err) {
+                        logger.error("failed to find resource_id:"+resource_id+" for removal");
+                        return next_resource(err);
+                    }
+                    if(!resource) {
+                        return next_resource("can't clean taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" couldn't be found");
+                    }
                     if(!resource.status || resource.status != "ok") {
-                        logger.info("couldn't test taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok");
-                        return next_resource();
+                        return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok");
                     }
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
@@ -248,6 +254,10 @@ function handle_stop(task, next) {
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) {
             logger.error(err);
+            return next(); //skip this task
+        }
+        if(!resource) {
+            logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" is missing");
             return next(); //skip this task
         }
 
