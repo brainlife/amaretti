@@ -123,6 +123,7 @@ function handle_housekeeping(task, cb) {
             }
 
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
+            var removed_count = 0;
             async.forEach(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
@@ -130,7 +131,8 @@ function handle_housekeeping(task, cb) {
                         return next_resource(err);
                     }
                     if(!resource) {
-                        return next_resource("can't clean taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" couldn't be found");
+                        logger.info("can't clean taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" no longer exist");
+                        return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok");
@@ -144,7 +146,10 @@ function handle_housekeeping(task, cb) {
                             if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
                                 if(code) return next_resource("Failed to remove taskdir "+taskdir);
-                                else next_resource();
+                                else {
+                                    removed_count++;
+                                    next_resource();
+                                }
                             })
                             .on('data', function(data) {
                                 logger.info(data.toString());
@@ -161,7 +166,7 @@ function handle_housekeeping(task, cb) {
                 } else {
                     //done with removeal
                     task.status = "removed";
-                    task.status_msg = "taskdir removed from all resources";
+                    task.status_msg = "taskdir removed from "+removed_count+" out of "+task.resource_ids.length+" resources";
 
                     //reset resource ids
                     task.resource_id = undefined; //I wonder if I should keep this, but UI often depends on this to mean that task is executed
@@ -257,8 +262,11 @@ function handle_stop(task, next) {
             return next(); //skip this task
         }
         if(!resource) {
-            logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" is missing");
-            return next(); //skip this task
+            logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
+            task.status = "stopped";
+            task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
+            task.save(next);
+            return;
         }
 
         get_service(task.service, function(err, service_detail) {
@@ -313,7 +321,12 @@ function handle_running(task, next) {
 
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
-        if(!resource) return next(new Error("can't find such resource:"+task.resource_id));
+        if(!resource) {
+            task.status = "failed";
+            task.status_msg = "Lost resource "+task.resource_id;
+            task.save(next);
+            return;
+        }
         common.get_ssh_connection(resource, function(err, conn) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
             //TODO - not all service provides bin.status.. how will this handle that?
