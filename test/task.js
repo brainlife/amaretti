@@ -16,8 +16,9 @@ var userjwt = fs.readFileSync(__dirname+'/config/user.jwt');
 describe('/task', function() {
     var instance = null;
     var task = null;
+    var task2 = null;
 
-    before(function(done) {
+    it('should create an instance to store task', function(done) {
         request(app)
         .get('/instance/')
         .set('Authorization', 'Bearer '+config.sca.jwt)
@@ -36,8 +37,8 @@ describe('/task', function() {
                 .send({
                     workflow_id: "test",    
                     user_id: "testuser",        
-                    name: "test 2", 
-                    desc: "test desc 2",    
+                    name: "test", 
+                    desc: "first test task test",    
                     config: {
                         what: "ever"
                     }
@@ -106,7 +107,7 @@ describe('/task', function() {
         .set('Accept', 'application/json')
         .send({
                 name: "test",   
-                desc: "test desc",      
+                desc: "test task",      
                 instance_id: instance._id,
                 service: "soichih/sca-service-noop",
                 config: {
@@ -119,6 +120,29 @@ describe('/task', function() {
             task = res.body.task;            
             assert(task.progress_key == "_sca."+instance._id+"."+task._id); //make sure group id is added
             //console.dir(task);
+            done();
+        });
+    });
+
+    it('should create another task', function(done) {
+        request(app)
+        .post('/task')
+        .set('Authorization', 'Bearer '+config.sca.jwt)
+        .set('Accept', 'application/json')
+        .send({
+                name: "test",   
+                desc: "test task 2",      
+                instance_id: instance._id,
+                service: "soichih/sca-service-noop",
+                config: {
+                        what: "ever 2"
+                },
+        })  
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            task2 = res.body.task;            
+            //TODO - anything new to test for this task?
             done();
         });
     });
@@ -152,7 +176,7 @@ describe('/task', function() {
         //.set('Authorization', 'Bearer '+userjwt)
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
-        .query('limit=2&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
+        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
         .expect(200)
         .end(function(err, res) {
             if(err) return done(err);
@@ -163,10 +187,8 @@ describe('/task', function() {
             assert(res.body.name == "test name");
             assert(res.body.desc == "test desc");
             */
-            assert(count > 2);
-            assert(tasks[0].name == "test");
-            assert(tasks.length == 2);
-            //console.dir(instances[0]);
+            assert(count > 1);
+            assert(tasks.length == 1);
             assert(tasks[0].name == "test");
             done();
         });
@@ -176,6 +198,18 @@ describe('/task', function() {
     it('should remove a task', function(done) {
         request(app)
         .delete('/task/'+task._id)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
+        .set('Accept', 'application/json')
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            done();
+        });
+    });
+
+    it('should remove task 2', function(done) {
+        request(app)
+        .delete('/task/'+task2._id)
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .expect(200)
