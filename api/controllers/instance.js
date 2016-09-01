@@ -17,8 +17,8 @@ var common = require('../common');
 
  
 /**
- * @api {get} /instance         Query Instance
  * @apiGroup                    Instance
+ * @api {get} /instance         Query Instance
  * @apiDescription              Query instances that belongs to a user with given query (for admin returns all)
  *
  * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
@@ -26,21 +26,23 @@ var common = require('../common');
  * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
+ * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  *
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {Object}       List of instances (maybe limited / skipped) and total number of instances
+ * @apiSuccess {Object}         List of instances (maybe limited / skipped) and total number of instances
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
 
-    //var sort = '_id';
-    //if(req.query.sort) sort = JSON.parse(req.query.sort);
-
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
-        //non admin can only query his/her own tasks
+    //handling user_id.
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
+        //non admin, or admin didn't set user_id
         find.user_id = req.user.sub;
+    } else if(find.user_id == null) {
+        //admin can set it to null and remove user_id filtering all together
+        delete find.user_id;
     }
 
     db.Instance.find(find)
@@ -71,26 +73,6 @@ router.get('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
 });
 */
-
-//return event service token for instance
-router.get('/eventtoken/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var instid = req.params.instid;
-
-    db.Instance.findById(instid).exec(function(err, instance) {
-        if(err) return cb(err);
-        if(!instance) return cb("404");
-        if(req.user.sub != instance.user_id) return cb("401");
-        //ok.. issue the token
-        jsonwebtoken.sign({
-            sub: req.user.sub, 
-            exp: (Date.now() + config.events.access_token_ttl)/1000,
-            exchange: config.events.exchange,
-            keys: ["task."+instid+".#"] //task.<instance_id>.<task_id>
-        }, config.events.private_key, config.events.sign_opt, function(err, token) {    
-            res.json(token);
-        });
-    });
-});
 
 /**
  * @api {put} /instance/:instid Update Instance

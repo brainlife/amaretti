@@ -25,12 +25,9 @@
   },
   "devDependencies": {
     "coveralls": "^2.11.9",
-    "grunt": "~0.4.5",
-    "mocha": "^2.5.3",
-    "grunt-contrib-less": "~1.0.1",
-    "grunt-contrib-watch": "~0.6.1",
     "istanbul": "^0.4.4",
-    "supertest": "^1.2.0"
+    "mocha": "^3.0.2",
+    "supertest": "^2.0.0"
   },
   "scripts": {
     "test": "mocha --reporter spec",

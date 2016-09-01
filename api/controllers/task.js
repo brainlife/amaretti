@@ -14,28 +14,46 @@ var db = require('../models/db');
 var common = require('../common');
 
 /**
- * @api {get} /task             Query Tasks
- * @apiParam {Object} find      Optional Mongo query to perform
- * @apiDescription              Returns all tasks that belongs to a user (for admin returns all)
  * @apiGroup Task
+ * @api {get} /task             Query Tasks
+ * @apiDescription              Returns all tasks that belongs to a user (for admin returns all)
+ *
+ * @apiParam {Object} [find]    Optional Mongo query to perform (you need to JSON.stringify)
+ * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
+ * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
+ * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
+ * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
+ * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {Object[]} tasks Task detail
+ * @apiSuccess {Object}         List of tasks (maybe limited / skipped) and total number of tasks
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
-        //non admin can only query his/her own tasks
+
+    //handling user_id.
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
+        //non admin, or admin didn't set user_id
         find.user_id = req.user.sub;
+    } else if(find.user_id == null) {
+        //admin can set it to null and remove user_id filtering all together
+        delete find.user_id;
     }
-    var query = db.Task.find(find);
-    if(req.query.sort) query.sort(req.query.sort);
-    if(req.query.limit) query.limit(req.query.limit);
-    query.exec(function(err, tasks) {
+
+    db.Task.find(find)
+    .select(req.query.select)
+    .limit(req.query.limit || 100)
+    .skip(req.query.skip || 0)
+    .sort(req.query.sort || '_id')
+    .exec(function(err, tasks) {
         if(err) return next(err);
-        res.json(tasks);
+        db.Task.count(find).exec(function(err, count) {
+            if(err) return next(err);
+            res.json({tasks: tasks, count: count});
+        });
+        //res.json(tasks);
     });
 });
 

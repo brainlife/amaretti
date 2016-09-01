@@ -10,6 +10,9 @@ var config = require('../config');
 var db = require('../api/models/db');
 var app = require('../api/server').app;
 
+//config.sca.jwt is admin token.. if I want to test as normal user, I need to use userjwt
+var userjwt = fs.readFileSync(__dirname+'/config/user.jwt');
+
 describe('/task', function() {
     var instance = null;
     var task = null;
@@ -141,6 +144,33 @@ describe('/task', function() {
             assert(task2.user_id == task.user_id); //should remain the same
             done();
         });
+    });
+
+    it('should query tasks by name', function(done) {
+        request(app)
+        .get('/task/')
+        //.set('Authorization', 'Bearer '+userjwt)
+        .set('Authorization', 'Bearer '+config.sca.jwt)
+        .set('Accept', 'application/json')
+        .query('limit=2&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
+        .expect(200)
+        .end(function(err, res) {
+            if(err) return done(err);
+            var tasks = res.body.tasks;
+            var count = res.body.count;
+            /*
+            assert(res.body.workflow_id == "test");
+            assert(res.body.name == "test name");
+            assert(res.body.desc == "test desc");
+            */
+            assert(count > 2);
+            assert(tasks[0].name == "test");
+            assert(tasks.length == 2);
+            //console.dir(instances[0]);
+            assert(tasks[0].name == "test");
+            done();
+        });
+        
     });
 
     it('should remove a task', function(done) {

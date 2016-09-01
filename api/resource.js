@@ -103,7 +103,7 @@ exports.check = function(resource, cb) {
 
     function update_status(err, status, msg) {
         if(err) return cb(err);
-        logger.info("status:"+status+" msg:"+msg);
+        logger.info("resource_id: "+resource._id+" status:"+status+" msg:"+msg);
         resource.status = status;
         resource.status_msg = msg;
         resource.status_update = new Date();

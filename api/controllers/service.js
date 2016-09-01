@@ -114,6 +114,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 
     var service_name = owner+"/"+repo;
     service.loaddetail(service_name, function(err, service_detail) {
+        if(err) return next(err);
 
         //see if the service is already registered
         db.Service.findOne({name: service_name}, function(err, service) {

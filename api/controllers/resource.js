@@ -34,26 +34,47 @@ function mask_enc(resource) {
 }
 
 /**
- * @api {get} /resource         Query resource registrations
- * @apiParam {Object} find      Optional Mongo query to perform
- * @apiDescription              Returns all resource registration detail that belongs to a user (doesn't include resource with group access)
  * @apiGroup Resource
+ * @api {get} /resource         Query resource registrations
+ * @apiDescription              Returns all resource registration instances that user has access to
+ *
+ * @apiParam {Object} [find]    Optional Mongo query to perform
+ * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
+ * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
+ * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
+ * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
+ * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {Object[]} resources        Resource detail
+ * @apiSuccess {Object}         List of resources (maybe limited / skipped) and total number of resources
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.where) find = JSON.parse(req.query.where); //deprecated
     if(req.query.find) find = JSON.parse(req.query.find);
-    //where.user_id = req.user.sub;
-    find["$or"] = [
-        {user_id: req.user.sub},
-        {gids: {"$in": req.user.gids}},
-    ];
+
+    //shouldn't be needed, but in case auth service doesn't set it (or admin issued jwt)
+    if(!req.user.gids) req.user.gids = [];
+
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
+        //non admin can only query resources that belongs to him/her or shared with his/her gids
+        find["$or"] = [
+            {user_id: req.user.sub},
+            {gids: {"$in": req.user.gids}},
+        ];
+    } else if(find.user_id == null) {
+        //admin can set it to null and remove user_id / gids filtering
+        delete find.user_id;
+    }
+    //console.log(JSON.stringify(req.user, null, 4));
+    //console.log(JSON.stringify(find, null, 4));
 
     db.Resource.find(find)
+    .select(req.query.select)
+    .limit(req.query.limit || 100)
+    .skip(req.query.skip || 0)
+    .sort(req.query.sort || '_id')
     .lean()
     .exec(function(err, resources) {
         if(err) return next(err);
@@ -63,10 +84,12 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         resources.forEach(function(resource) {
             resource.detail = config.resources[resource.resource_id];
             resource.salts = undefined;
-
             //resource.canedit = (resource.user_id == req.user.sub);
         });
-        res.json(resources);
+        db.Resource.count(find).exec(function(err, count) {
+            if(err) return next(err);
+            res.json({resources: resources, count: count});
+        });
     });
 });
 
