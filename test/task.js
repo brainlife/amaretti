@@ -153,7 +153,7 @@ describe('/task', function() {
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
-                name: "test 2",   
+                name: "test updated",   
                 desc: null,
                 instance_id: "123",
                 user_id: "123",
@@ -162,7 +162,7 @@ describe('/task', function() {
         .end(function(err, res) {
             if(err) return done(err);
             var task2 = res.body;            
-            assert(task2.name == "test 2"); //should be new
+            assert(task2.name == "test updated"); //should be new
             assert(task2.desc == undefined); //should be reset
             assert(task2.instance_id == task.instance_id); //should remain the same
             assert(task2.user_id == task.user_id); //should remain the same
@@ -176,7 +176,7 @@ describe('/task', function() {
         //.set('Authorization', 'Bearer '+userjwt)
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
-        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
+        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"$or": [{"name": "test"}, {"name": "test updated"}]})))
         .expect(200)
         .end(function(err, res) {
             if(err) return done(err);
