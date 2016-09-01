@@ -176,7 +176,7 @@ describe('/task', function() {
         //.set('Authorization', 'Bearer '+userjwt)
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
-        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"$or": [{"name": "test"}, {"name": "test updated"}]})))
+        .query('limit=1&sort=name&find='+encodeURIComponent(JSON.stringify({"$or": [{"name": "test"}, {"name": "test updated"}]})))
         .expect(200)
         .end(function(err, res) {
             if(err) return done(err);
@@ -187,6 +187,7 @@ describe('/task', function() {
             assert(res.body.name == "test name");
             assert(res.body.desc == "test desc");
             */
+            console.dir(JSON.stringify(res.body, null, 4));
             assert(count > 1);
             assert(tasks.length == 1);
             assert(tasks[0].name == "test");
