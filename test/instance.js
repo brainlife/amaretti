@@ -81,7 +81,7 @@ describe('/instance', function() {
         .set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
         .send({
-            workflow_id: "admin test",    
+            workflow_id: "test",    
             name: "admin test instance", 
             config: {
                 what: "ever"
@@ -91,7 +91,7 @@ describe('/instance', function() {
         .end(function(err, res) {
             if(err) return done(err);
             let instance3 = res.body;
-            assert(instance3.workflow_id == "admin test");
+            assert(instance3.workflow_id == "test");
             assert(instance3.name == "admin test instance");
             done();
         });
@@ -113,13 +113,13 @@ describe('/instance', function() {
         });
     });
     */
-    it('should query instances by name', function(done) {
+    it('should query instances by workflow_id', function(done) {
         request(app)
         .get('/instance/')
         .set('Authorization', 'Bearer '+userjwt)
         //.set('Authorization', 'Bearer '+config.sca.jwt)
         .set('Accept', 'application/json')
-        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"name": "test"})))
+        .query('limit=1&find='+encodeURIComponent(JSON.stringify({"workflow_id": "test"})))
         .expect(200)
         .end(function(err, res) {
             if(err) return done(err);
