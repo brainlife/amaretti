@@ -42,4 +42,4 @@ I should probably test each ssh sessions opened, or timeout eventually if not us
 
 ** Implement task re-try strategy (just keep retrying - wait for resource?)
 
-
+I should switch to use test mongo db to run mocha locally - instead of using the test db.. so that I can recreate exact same test output on travis

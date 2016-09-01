@@ -761,6 +761,7 @@ function start_task(task, resource, cb) {
                     });
                 },            
                 
+                //TODO - deprecated this?
                 //or run it synchronously (via run.sh)
                 function(next) {
                     if(!service_detail.pkg.scripts.run) return next(); //not all service uses run (they may use start/status)

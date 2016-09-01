@@ -28,7 +28,12 @@ const service = require('../service');
  *
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
- * @apiSuccess {Object[]}       Services Service detail
+ * @apiSuccessExample           Success-Response:
+ *                          HTTP/1.1 200 OK
+ *                          { 
+ *                                  "services": [..services..], 
+ *                                  "count": 123
+ *                          }
  *
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {

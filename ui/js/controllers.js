@@ -33,7 +33,7 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
     //load available workflows (TODO - add querying capability)
     $http.get(appconf.api+'/workflow')
     .then(function(res) {
-        $scope.workflows = res.data;
+        $scope.workflows = res.data.workflows;
     }, function(res) {
         if(res.data && res.data.message) toaster.error(res.data.message);
         else toaster.error(res.statusText);
@@ -46,7 +46,7 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
     .then(function(res) {
         $scope.running_tasks = {};
         //organize running tasks into each workflows
-        res.data.forEach(function(task) {
+        res.data.tasks.forEach(function(task) {
             if(!$scope.running_tasks[task.instance_id]) $scope.running_tasks[task.instance_id] = [];
             $scope.running_tasks[task.instance_id].push(task); 
         });
@@ -83,6 +83,7 @@ app.controller('WorkflowController', ['$scope', 'appconf', 'menu', 'serverconf',
 function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $location, $routeParams, $http) {
     scaMessage.show(toaster);
     
+    //TODO - using deprecated api.. switch to use query
     $http.get(appconf.api+'/workflow/'+$routeParams.id)
     .then(function(res) {
         $scope.workflow = res.data;
@@ -249,7 +250,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     };
 }]);
 
-app.controller('ResourcesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', 'resources', 'scaSettingsMenu', '$uibModal', 
+app.controller('ResourcesController', 
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
     scaMessage.show(toaster);
     $scope.settings_menu = scaSettingsMenu;
@@ -419,12 +420,11 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             }
         });
     }
-}]);
+});
 
 app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services) {
     scaMessage.show(toaster);
-    console.dir($scope.user);
     services.query({}).then(function(ss) {
         $scope.services = ss.services;
         $scope.service_count = ss.count;

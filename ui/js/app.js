@@ -260,7 +260,7 @@ function(appconf, $http, serverconf, toaster, jwtHelper) {
             return $http.get(appconf.api+'/resource')
             .then(function(res) {
                 //console.log("got serverconf and resources");
-                resources = res.data;
+                resources = res.data.resources;
                 resources.forEach(function(resource) {
                     //console.dir(resource);
                     resource.detail = serverconf.resources[resource.resource_id];
@@ -330,8 +330,7 @@ function(appconf, $http, serverconf, toaster) {
         return serverconf.then(function(serverconf) {
             return $http.get(appconf.api+'/service')
             .then(function(res) {
-                services = res.data;
-                return services;
+                return res.data;
             }, function(res) {
                 if(res.data && res.data.message) toaster.error(res.data.message);
                 else toaster.error(res.statusText);

@@ -1,10 +1,10 @@
 define({ "api": [
   {
+    "group": "Instance",
     "type": "get",
     "url": "/instance",
     "title": "Query Instance",
-    "group": "Instance",
-    "description": "<p>Query instances that belongs to a user with given query</p>",
+    "description": "<p>Query instances that belongs to a user with given query (for admin returns all)</p>",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -42,6 +42,13 @@ define({ "api": [
             "optional": true,
             "field": "skip",
             "description": "<p>Record offset for pagination (default to 0)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "user_id",
+            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
@@ -207,24 +214,59 @@ define({ "api": [
     "groupTitle": "Resource"
   },
   {
+    "group": "Resource",
     "type": "get",
     "url": "/resource",
     "title": "Query resource registrations",
+    "description": "<p>Returns all resource registration instances that user has access to</p>",
     "parameter": {
       "fields": {
         "Parameter": [
           {
             "group": "Parameter",
             "type": "Object",
-            "optional": false,
+            "optional": true,
             "field": "find",
             "description": "<p>Optional Mongo query to perform</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "sort",
+            "description": "<p>Mongo sort object - defaults to _id. Enter in string format like &quot;-name%20desc&quot;</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "select",
+            "description": "<p>Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "limit",
+            "description": "<p>Maximum number of records to return - defaults to 100</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "skip",
+            "description": "<p>Record offset for pagination (default to 0)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "user_id",
+            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
     },
-    "description": "<p>Returns all resource registration detail that belongs to a user (doesn't include resource with group access)</p>",
-    "group": "Resource",
     "header": {
       "fields": {
         "Header": [
@@ -243,10 +285,10 @@ define({ "api": [
         "Success 200": [
           {
             "group": "Success 200",
-            "type": "Object[]",
+            "type": "Object",
             "optional": false,
-            "field": "resources",
-            "description": "<p>Resource detail</p>"
+            "field": "List",
+            "description": "<p>of resources (maybe limited / skipped) and total number of resources</p>"
           }
         ]
       }
@@ -275,7 +317,7 @@ define({ "api": [
             "type": "String",
             "optional": false,
             "field": "p",
-            "description": "<p>File path to download (relative to work directory - parent of all instance dir)</p>"
+            "description": "<p>File path to download (relative to resource work directory - parent of all instance dir)</p>"
           },
           {
             "group": "Parameter",
@@ -679,17 +721,13 @@ define({ "api": [
       }
     },
     "success": {
-      "fields": {
-        "Success 200": [
-          {
-            "group": "Success 200",
-            "type": "Object[]",
-            "optional": false,
-            "field": "Services",
-            "description": "<p>Service detail</p>"
-          }
-        ]
-      }
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{ \n        \"services\": [..services..], \n        \"count\": 123\n}",
+          "type": "json"
+        }
+      ]
     },
     "version": "0.0.0",
     "filename": "api/controllers/service.js",
@@ -697,9 +735,10 @@ define({ "api": [
     "name": "GetService"
   },
   {
+    "group": "Service",
     "type": "post",
     "url": "/service",
-    "title": "New Service",
+    "title": "Register Service",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -713,8 +752,7 @@ define({ "api": [
         ]
       }
     },
-    "description": "<p>From specified Github URL, this API will register new service using github repo info and package.json</p>",
-    "group": "Service",
+    "description": "<p>From specified Github URL, this API will register new service using github repo info and package.json. You can not re-register already register service</p>",
     "header": {
       "fields": {
         "Header": [
@@ -752,12 +790,12 @@ define({ "api": [
     "name": "PostService"
   },
   {
+    "group": "System",
     "type": "get",
     "url": "/health",
     "title": "Get API status",
     "description": "<p>Get current API status</p>",
     "name": "GetHealth",
-    "group": "System",
     "success": {
       "fields": {
         "Success 200": [
@@ -809,24 +847,59 @@ define({ "api": [
     "name": "DeleteTaskTaskid"
   },
   {
+    "group": "Task",
     "type": "get",
     "url": "/task",
     "title": "Query Tasks",
+    "description": "<p>Returns all tasks that belongs to a user (for admin returns all)</p>",
     "parameter": {
       "fields": {
         "Parameter": [
           {
             "group": "Parameter",
             "type": "Object",
-            "optional": false,
+            "optional": true,
             "field": "find",
-            "description": "<p>Optional Mongo query to perform</p>"
+            "description": "<p>Optional Mongo query to perform (you need to JSON.stringify)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "sort",
+            "description": "<p>Mongo sort object - defaults to _id. Enter in string format like &quot;-name%20desc&quot;</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "select",
+            "description": "<p>Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "limit",
+            "description": "<p>Maximum number of records to return - defaults to 100</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "skip",
+            "description": "<p>Record offset for pagination (default to 0)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "user_id",
+            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
     },
-    "description": "<p>Returns all tasks that belongs to a user</p>",
-    "group": "Task",
     "header": {
       "fields": {
         "Header": [
@@ -845,10 +918,10 @@ define({ "api": [
         "Success 200": [
           {
             "group": "Success 200",
-            "type": "Object[]",
+            "type": "Object",
             "optional": false,
-            "field": "tasks",
-            "description": "<p>Task detail</p>"
+            "field": "List",
+            "description": "<p>of tasks (maybe limited / skipped) and total number of tasks</p>"
           }
         ]
       }
@@ -894,6 +967,13 @@ define({ "api": [
             "optional": true,
             "field": "desc",
             "description": "<p>Description for this task</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "remove_date",
+            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
           },
           {
             "group": "Parameter",
