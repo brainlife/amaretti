@@ -1,19 +1,18 @@
+/*
 body {
-  font-family: 'Lato', serif;
+    font-family: 'Lato', serif;
 }
+*/
 .container .page {
   background-color: white;
   box-shadow: 0 0 5px #ccc;
   padding: 20px;
 }
+/*
 h2 {
-  color: gray;
+    color: gray;
 }
-.navbar-static-top {
-  position: fixed;
-  top: 0px;
-  width: 100%;
-}
+*/
 .header {
   padding: 10px;
   padding-left: 20px;
@@ -187,4 +186,11 @@ li[ng-click]:hover {
 }
 .resource-instance.shared-instance {
   background-color: #ccc;
+}
+.fixed-top {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  z-index: 999;
+  width: 100%;
 }

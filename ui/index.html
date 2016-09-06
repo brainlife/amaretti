@@ -8,7 +8,7 @@
 
     <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="bower_components/bootswatch/yeti/bootstrap.min.css">
-    <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:400,700">
+    <!-- <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Lato:400,700">-->
     <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
     <link rel="stylesheet" href="bower_components/angular-loading-bar/build/loading-bar.min.css">
     <link rel="stylesheet" href="bower_components/angularjs-toaster/toaster.min.css">
@@ -21,11 +21,8 @@
 </head>
 <body>
     <toaster-container toaster-options="{'position-class': 'toast-bottom-full-width'}"></toaster-container>
-    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
-    <div class="content" style="margin-top: 45px;">
-        <ng-view></ng-view>
-        <ng-include src="'t/footer.html'"></ng-include> 
-    </div>
+    <ng-view></ng-view>
+    <ng-include src="'t/footer.html'"></ng-include> 
 
     <script src="bower_components/jquery/dist/jquery.min.js"></script><!--bootstrap requires jquery-->
     <script src="bower_components/angular/angular.min.js"></script>
@@ -41,27 +38,13 @@
     <script src="bower_components/angularjs-toaster/toaster.min.js"></script>
     <script src="bower_components/angular-gravatar/build/angular-gravatar.js"></script>
 
-    <!--
-    <script src="bower_components/ng-file-upload/ng-file-upload.min.js"></script>
-    -->
-
-    <script src="config.js"></script> 
-
+    <!-- TODO should be configurable? -->
     <script src="../shared/config.js"></script> 
     <script src="../shared/dist/shared.js"></script> 
 
+    <script src="config.js"></script> 
     <script src="js/app.js"></script>
     <script src="js/controllers.js"></script>
-
-    <!--
-    <script src="services/comment/comment.js"></script>
-    <script src="services/hpss/hpss.js"></script>
-    <script src="services/blast/blast.js"></script>
-    <script src="services/upload/upload.js"></script>
-
-    <script src="products/raw/raw.js"></script>
-    <script src="products/blast/blast.js"></script>
-    -->
 </body>
 </html>
 

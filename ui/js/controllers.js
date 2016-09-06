@@ -7,15 +7,16 @@ function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper) {
 }]);
 
 //load common stuff that most controller uses
-app.controller('PageController', ['$scope', 'appconf', '$route', 'serverconf', 'menu',
-function($scope, appconf, $route, serverconf, menu) {
+app.controller('PageController', 
+function($scope, appconf, $route, serverconf, menu, scaSettingsMenu) {
     $scope.appconf = appconf; 
     $scope.title = appconf.title;
     serverconf.then(function(_c) { $scope.serverconf = _c; });
     $scope.menu = menu;
     $scope.user = menu.user; 
     $scope.i_am_header = true;
-}]);
+    $scope.settings_menu = scaSettingsMenu;
+});
 
 //list all available workflows and instances
 app.controller('WorkflowsController', ['$scope', 'menu', 'scaMessage', 'toaster', 'jwtHelper', '$location', '$http', 'appconf',
@@ -251,9 +252,8 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
 }]);
 
 app.controller('ResourcesController', 
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, scaSettingsMenu, $uibModal) {
+function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, $uibModal) {
     scaMessage.show(toaster);
-    $scope.settings_menu = scaSettingsMenu;
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 

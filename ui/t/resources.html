@@ -1,92 +1,100 @@
-<sca-menutab menu="appconf.menu" active="'resources'" user="user"></sca-menutab>
-<div class="container">
-<div class="row">
-    <div class="col-md-9">
-        <ul class="list-group">
-            <!--header-->
-            <li class="list-group-item disabled" style="padding-top: 0; padding-bottom: 0px;">
-                <div class="row">
-                    <div class="col-md-4"><p style="padding-top: 10px;">Systems</p></div>
-                    <div class="col-md-8">
-                        <ul class="list-group" style="margin-bottom: 0px;">
-                            <li class="list-group-item disabled" style="border: none;">
-                                <div class="row">
-                                    <div class="col-md-6">Your Accounts</div>
-                                    <div class="col-md-2">Enabled</div>
-                                    <div class="col-md-4">Status</div>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </li>
-            
-            <!--systems-->
-            <li class="list-group-item" ng-repeat="(rid, resource) in serverconf.resources" ng-init="resource._rid = rid">
-                <div class="row">
-                    <div class="col-md-4">
-                        <h4>{{resource.name}} <small class="text-muted">{{resource.hostname}}</small></h4>
-                        <p class="help-block">{{resource.desc}}</p>
-                        <!-- <p class="help-block">{{resource.hostname}}</p>-->
-                        <span ng-repeat="(sid, detail) in resource.services">
-                            <span class="label label-default">{{sid}}</span>&nbsp;
-                        </span>
-                    </div>
-                    <div class="col-md-8">
-                        <ul class="list-group">
-                            <li class="list-group-item resource-instance" 
-                                ng-repeat="inst in myresources|filter:{resource_id:rid}" 
-                                ng-click="edit(resource, inst)"
-                                ng-class="{'shared-instance': !inst._canedit}">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        {{inst.name}}<br>
-                                        <span class="text-muted">{{inst.config.username}}</span>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <input type="checkbox" ng-model="inst.active" disabled></input>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <span uib-tooltip="{{inst.status_update|date:'short'}} {{inst.status_msg||'no detail'}}">
-                                            <span class="label label-success" ng-if="inst.status == 'ok'"><i class="fa fa-check fa-fw" aria-hidden="true"></i></span>
-                                            <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
-                                        </span>
-                                        <button class="btn btn-xs pull-right" ng-click="test(resource, inst, $event)">Test</button>
-                                    </div>
-                                    <!--
-                                    <div class="col-md-2">
-                                        <div class="btn-group pull-right" role="group">
-                                            <button type="button" class="btn btn-default btn-xs" ng-click="edit(resource, inst)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
-                                            
-                                            <button type="button" class="btn btn-danger btn-xs" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
-                                        </div>
-                                    </div>
-                                    -->
-                                </div>
-                            </li> 
-                            <li class="list-group-item clickable" ng-click="addnew(resource)">
-                                <span class="text-muted"><i class="fa fa-plus" aria-hidden="true"></i> Add New Account</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </li>
-        </ul>
-    </div><!--col-md-9-->
-    <div class="col-md-3">
-        <div class="panel panel-info">
-            <div class="panel-heading">
-                <h3 class="panel-title">Bulk Configuration</h3>
-            </div>
-            <div class="panel-body">
-                <p>You can auto configure various resources that you can login via username / password</p>
-                <button type="button" class="btn btn-info" ng-click="autoconf()"><i class="fa fa-arrow-right" aria-hidden="true"></i> Start</button>
-            </div>
-        </div>
-        <div class="panel">
+<div class="fixed-top">
+    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
+    <div class="header">
+        <div class="container">
+        <h2>Settings</h2>
         </div>
     </div>
-</div><!--row-->
+    <sca-menutab menu="settings_menu" active="'resources'" user="menu.user"></sca-menutab>
+</div>
+<div class="container" style="margin-top: 170px;">
+    <div class="row">
+        <div class="col-md-9">
+            <ul class="list-group">
+                <!--header-->
+                <li class="list-group-item disabled" style="padding-top: 0; padding-bottom: 0px;">
+                    <div class="row">
+                        <div class="col-md-4"><p style="padding-top: 10px;">Systems</p></div>
+                        <div class="col-md-8">
+                            <ul class="list-group" style="margin-bottom: 0px;">
+                                <li class="list-group-item disabled" style="border: none;">
+                                    <div class="row">
+                                        <div class="col-md-6">Your Accounts</div>
+                                        <div class="col-md-2">Enabled</div>
+                                        <div class="col-md-4">Status</div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+                
+                <!--systems-->
+                <li class="list-group-item" ng-repeat="(rid, resource) in serverconf.resources" ng-init="resource._rid = rid">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h4>{{resource.name}} <small class="text-muted">{{resource.hostname}}</small></h4>
+                            <p class="help-block">{{resource.desc}}</p>
+                            <!-- <p class="help-block">{{resource.hostname}}</p>-->
+                            <span ng-repeat="(sid, detail) in resource.services">
+                                <span class="label label-default">{{sid}}</span>&nbsp;
+                            </span>
+                        </div>
+                        <div class="col-md-8">
+                            <ul class="list-group">
+                                <li class="list-group-item resource-instance" 
+                                    ng-repeat="inst in myresources|filter:{resource_id:rid}" 
+                                    ng-click="edit(resource, inst)"
+                                    ng-class="{'shared-instance': !inst._canedit}">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            {{inst.name}}<br>
+                                            <span class="text-muted">{{inst.config.username}}</span>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <input type="checkbox" ng-model="inst.active" disabled></input>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <span uib-tooltip="{{inst.status_update|date:'short'}} {{inst.status_msg||'no detail'}}">
+                                                <span class="label label-success" ng-if="inst.status == 'ok'"><i class="fa fa-check fa-fw" aria-hidden="true"></i></span>
+                                                <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
+                                            </span>
+                                            <button class="btn btn-xs pull-right" ng-click="test(resource, inst, $event)">Test</button>
+                                        </div>
+                                        <!--
+                                        <div class="col-md-2">
+                                            <div class="btn-group pull-right" role="group">
+                                                <button type="button" class="btn btn-default btn-xs" ng-click="edit(resource, inst)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                                                
+                                                <button type="button" class="btn btn-danger btn-xs" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                                            </div>
+                                        </div>
+                                        -->
+                                    </div>
+                                </li> 
+                                <li class="list-group-item clickable" ng-click="addnew(resource)">
+                                    <span class="text-muted"><i class="fa fa-plus" aria-hidden="true"></i> Add New Account</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div><!--col-md-9-->
+        <div class="col-md-3">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Bulk Configuration</h3>
+                </div>
+                <div class="panel-body">
+                    <p>You can auto configure various resources that you can login via username / password</p>
+                    <button type="button" class="btn btn-info" ng-click="autoconf()"><i class="fa fa-arrow-right" aria-hidden="true"></i> Start</button>
+                </div>
+            </div>
+            <div class="panel">
+            </div>
+        </div>
+    </div><!--row-->
 </div>
 
 <script type="text/ng-template" id="resources.hpss.html">

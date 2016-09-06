@@ -47,7 +47,7 @@ function publish(ex, key, msg) {
 }
 
 exports.task = function(task) {
-    var key = "task."+task.user_id+"."+task.instance_id+"."+task._id;
+    var key = task.user_id+"."+task.instance_id+"."+task._id;
     publish(task_ex, key, task);
 }
 

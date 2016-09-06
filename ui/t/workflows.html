@@ -1,63 +1,21 @@
-<sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
-<div class="container">
-    <!--
-    <h2>Your Workflow Instances</h2>
-    <ul class="list-group"> 
-        <li class="list-group-item" ng-repeat="inst in instances | orderBy:'workflow_id'" ng-click="openinst(inst)">
-            <div class="row" ng-init="workflow = workflows[inst.workflow_id]">
-                <div class="col-md-3">
-                    {{inst.workflow_id}} <small class="text-muted">{{inst._id}}</small>
-                </div>
-                <div class="col-md-2">
-                    {{inst.name || 'untitled'}}
-                </div>
-                <div class="col-md-3">
-                    <span class="text-muted">{{inst.desc}}</span>
-                </div>
-                <div class="col-md-4">
-                    <span ng-if="running_tasks[inst._id]">
-                        <i class="fa fa-spinner fa-pulse fa-fw"></i> {{running_tasks[inst._id].length}} Running
-                    </span>
-                    <time class="pull-right">{{inst.create_date|date:'short'}}</time>
-                </div>
-            </div>
-        </li>
-    </ul>
-    <h2>Available Workflows</h2>
-    -->
+<div class="fixed-top">
+    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
+    <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
+</div>
+<div class="container" style="margin-top: 100px;">
     <div class="row">
-    <div class="col-md-4" ng-repeat="(wid, workflow) in workflows">
-        <div class="panel panel-default panel-workflow" ng-click="openwf(wid)" style="height: 150px;">
-            <div class="panel-heading">
-                <small class="pull-right text-muted">{{workflow.version}}</small>
-                {{workflow.sca.label || workflow.name}}
+        <div class="col-md-4" ng-repeat="(wid, workflow) in workflows">
+            <div class="panel panel-default panel-workflow" ng-click="openwf(wid)" style="height: 150px;">
+                <div class="panel-heading">
+                    <small class="pull-right text-muted">{{workflow.version}}</small>
+                    {{workflow.sca.label || workflow.name}}
+                </div>
+                <div class="panel-body"> 
+                    <p>{{workflow.description}}</p>
+                    <p class="text-muted">{{workflow.author}}</p>
+                </div>
             </div>
-            <div class="panel-body"> 
-                <p>{{workflow.description}}</p>
-                <p class="text-muted">{{workflow.author}}</p>
-                <!--
-                <button type="button" class="btn btn-xs" ng-click="openwf(wid)"><i class="fa fa-info-circle"></i> Detail</button>
-                <button type="button" class="btn btn-primary btn-xs" ng-click="create(wid)"><i class="fa fa-file"></i>&nbsp;&nbsp;New</button>
-                -->
-                <!--
-                <hr>
-                <pre class="slide-down" ng-if="workflow.showjson">{{workflow|json}}</pre>
-                <button type="button" class="btn btn-xs" ng-click="workflow.showjson = true"><i class="fa fa-download"></i> JSON</button>
-                -->
-            </div>
-            <!--
-            <div class="panel-footer">
-                <h5>Instances</h5>
-                <ul class="list-group">
-                    <li class="list-group-item" ng-repeat="(instid, inst) in workflow.insts" ng-click="openinst(wid, instid)">
-                        {{inst.config.description||'Untitled'}} <small class="text-muted">{{instid}}</small>
-                        <time class="pull-right">{{inst.create_date|date:'short'}}</time>
-                    </li>
-                </ul>
-            </div>
-            -->
         </div>
-    </div>
     </div><!--row-->
 </div>
 

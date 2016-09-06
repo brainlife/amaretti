@@ -23,8 +23,8 @@ function check_task(req, res, next) {
     var key = req.params.key;
     var key_tokens = key.split(".");
 
-    var usersub = key_tokens[1];
-    if(res.user.sub != usersub) return next("401");
+    var usersub = key_tokens[0];
+    if(req.user.sub != usersub) return next("401");
     res.json({status: "ok"});
 
     /*
@@ -40,17 +40,10 @@ function check_task(req, res, next) {
 }
 
 //return event service token for instance
-router.get('/checkaccess/:key', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/checkaccess/task/:key', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var key = req.params.key;
     var key_tokens = key.split(".");
-    var event_type = key_tokens[0];
-    switch(event_type) {
-    case "task":
-        check_task(req, res, next)
-        break;
-    default:
-        res.json({msg: "unknown event type:"+event_type});
-    }
+    check_task(req, res, next)
 });
 
 module.exports = router;

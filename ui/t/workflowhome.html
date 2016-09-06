@@ -1,11 +1,9 @@
-<sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
-<div style="background-color: #ddd; padding: 20px">
-    <h3 style="margin: 0px;">{{workflow.sca.label}} <small>/ Inst. {{inst._id}}</small></h3>
+<div class="fixed-top">
+    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
+    <sca-menutab menu="appconf.menu" active="'workflows'" user="user"></sca-menutab>
 </div>
-<div class="container-fluid">
-    <!--
-    <div class="row">
-        <div class="col-md-10">
-        </div>
+<div class="container" style="margin-top: 90px;">
+    <div style="background-color: #ddd; padding: 20px">
+        <h3 style="margin: 0px;">{{workflow.sca.label}} <small>/ Inst. {{inst._id}}</small></h3>
     </div>
 </div>
