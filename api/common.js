@@ -95,9 +95,12 @@ exports.get_ssh_connection = function(resource, cb) {
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
-        logger.error("ssh connection error");
-        logger.error(err);
-        //cb(err);
+        if(err.level && err.level == "client-timeout") {
+            logger.warn("ssh server is dead.. keepalive not returning.");
+        } else {
+            logger.error("ssh connection error");
+            logger.error(err);
+        }
         delete ssh_conns[resource._id];
     });
     exports.decrypt_resource(resource);
@@ -141,9 +144,12 @@ exports.get_sftp_connection = function(resource, cb) {
             delete sftp_conns[resource._id];
         });
         conn.on('error', function(err) {
-            logger.error("ssh connection error - used by sftp");
-            logger.error(err);
-            //cb(err);
+            if(err.level && err.level == "client-timeout") {
+                logger.warn("ssh server is dead (sftp).. keepalive not returning.");
+            } else {
+                logger.error("ssh connection error - used by sftp");
+                logger.error(err);
+            }
             delete sftp_conns[resource._id];
         });
     });
