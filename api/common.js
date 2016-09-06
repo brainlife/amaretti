@@ -106,6 +106,7 @@ exports.get_ssh_connection = function(resource, cb) {
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 60*1000,
+        keepaliveCountMax: 9999999, //default to 3 keepalive and error..
     });
 }
 
@@ -128,7 +129,7 @@ exports.get_sftp_connection = function(resource, cb) {
             sftp_conns[resource._id] = sftp;
             cb(null, sftp);
         });
-        //TODO - I thinks I should be listening events on sftp (not conn), but doc doesn't mention any event..
+        //TODO - I think I should be listening events on sftp (not conn), but doc doesn't mention any event..
         conn.on('end', function() {
             logger.debug("ssh connection ended - used by sftp");
             delete sftp_conns[resource._id];

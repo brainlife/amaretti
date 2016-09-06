@@ -7,39 +7,48 @@ const winston = require('winston');
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 
-var event_ex = null;
+var connected = false;
+var task_ex = null;
+var task_resource = null;
 if(config.events) {
     logger.info("attempting to connect to amqp..");
     var conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
     conn.on('ready', function() {
-        logger.info("amqp connection ready.. creating exchange");
-        conn.exchange(config.events.exchange, {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
-            event_ex = ex;
-            logger.info("amqp connection/exchange ready");
+        connected = true;
+        logger.info("amqp connection ready.. creating exchanges");
+
+        conn.exchange(config.events.exchange+".task", 
+            {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
+            task_ex = ex;
+        });
+
+        conn.exchange(config.events.exchange+".resource", 
+            {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
+            task_resource = ex;
         });
     });
     conn.on('error', function(err) {
         logger.error("amqp connection error");
         logger.error(err);
-        event_ex = null; //should I?
+        connected = false;
     });
 } else {
     logger.info("events configuration missing - won't publish to amqp");
 }
 
-function publish(key, msg) {
-    if(!event_ex) {
+function publish(ex, key, msg) {
+    if(!ex || !connected) {
         //if not connected, output to stdout..
         logger.info(key);
         logger.info(msg.toString());
     } else {
-        event_ex.publish(key, msg, {});
+        ex.publish(key, msg, {});
     }
 }
 
 exports.task = function(task) {
-    var key = "task."+task.instance_id+"."+task._id;
-    publish(key, task);
+    var key = "task."+task.user_id+"."+task.instance_id+"."+task._id;
+    publish(task_ex, key, task);
 }
 
 /*

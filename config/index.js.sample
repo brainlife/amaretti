@@ -17,7 +17,7 @@ exports.sca = {
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://wf:test@soichi7.ppa:5672/sca"},
-    exchange: "wf",
+    exchange: "wf", //used as prefix for full exchange name
 
     //config used to generate event access token
     private_key: fs.readFileSync(__dirname+'/wf.key'),

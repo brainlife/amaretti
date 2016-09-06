@@ -115,6 +115,7 @@ var taskSchema = mongoose.Schema({
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
 
     service: String, // "soichih/sca-service-life"
+    service_branch: String, //master by default
        
     //TEXT INDEX field (below) to be searchable with text search
     name: String, 

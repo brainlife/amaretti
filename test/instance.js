@@ -175,7 +175,7 @@ describe('/instance', function() {
         });
     });
 
-    it('should query instances as admin with user_id:null', function(done) {
+    it('should query all users instances as admin with user_id:null(', function(done) {
         request(app)
         .get('/instance')
         .query('find='+encodeURIComponent(JSON.stringify({user_id: null})))

@@ -57,21 +57,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
-/*
-//make sure all resources exists, and are owned by the user.sub
-function check_resource_access(user, ids, cb) {
-    async.forEachOf(ids, function(id, key, next) {
-        var id = ids[key];
-        db.Resource.findById(id, function(err, resource) {
-            if(err) return next(err);
-            if(!resource) return next("couldn't find hpss resources specified");
-            if(resource.user_id != user.sub) return next("404");
-            next(null);
-        });
-    }, cb);
-}
-*/
-
 /**
  * @api {post} /task            New Task
  * @apiGroup Task
@@ -79,8 +64,9 @@ function check_resource_access(user, ids, cb) {
  *
  * @apiParam {String} instance_id 
  *                              Instance ID to submit this task
- * @apiParam {String} service   
- *                              Name of the service to run
+ * @apiParam {String} service   Name of the service to run
+ * @apiParam {String} [service_branch]   
+ *                              Branch to use for the service (master by default)
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
@@ -119,6 +105,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.name = req.body.name;
         task.desc = req.body.desc;
         task.service = req.body.service;
+        task.service_branch = req.body.service_branch;
         task.instance_id = req.body.instance_id;
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
@@ -139,7 +126,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.status_msg = "Waiting to be processed by SCA task handler";
 
         task.resource_ids = [];
-        //console.dir(task);
         
         //check for various resource parameters.. make sure user has access to them
         async.series([
@@ -310,8 +296,9 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  *
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
- * @apiParam {String} [service]
- *                              Name of the service to run
+ * @apiParam {String} [service] Name of the service to run
+ * @apiParam {String} [service_branch]   
+ *                              Branch to use for the service (master by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
@@ -365,21 +352,6 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             res.json(task);
         });
     });
-
-    /*
-    {
-        name: req.body.name,
-        desc: req.body.desc,
-        instance_id: req.body.instance_id,
-        service: req.body.service,
-        preferred_resource_id: req.body.preferred_resource_id,
-        config: req.body.config,
-        deps: req.body.deps,
-        resource_deps: req.body.resource_deps,
-        products: req.body.products,
-        status: req.body.status,
-        status_msg: req.body.status_msg,
-    }*/
 });
 
 module.exports = router;

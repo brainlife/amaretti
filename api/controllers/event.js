@@ -16,32 +16,27 @@ var db = require('../models/db');
 var common = require('../common');
 
 function check_task(req, res, next) {
-    //task.<instance_id>.<task_id>
+    //task.<user_id>.<instance_id>.<task_id>
     //logger.debug("-----------------------------------------");
     //logger.debug(key_tokens);
 
     var key = req.params.key;
     var key_tokens = key.split(".");
 
-    var instid = key_tokens[1];
+    var usersub = key_tokens[1];
+    if(res.user.sub != usersub) return next("401");
+    res.json({status: "ok"});
+
+    /*
+    var instid = key_tokens[2];
     db.Instance.findById(instid).exec(function(err, instance) {
         if(err) return next(err);
         if(!instance) return next("404");
         logger.debug(instance.toString());
         if(req.user.sub != instance.user_id) return next("401");
-        /*
-        //ok.. issue the token
-        jsonwebtoken.sign({
-            sub: req.user.sub, 
-            exp: (Date.now() + config.events.access_token_ttl)/1000,
-            exchange: config.events.exchange,
-            keys: ["task."+instid+".#"] //task.<instance_id>.<task_id>
-        }, config.events.private_key, config.events.sign_opt, function(err, token) {    
-            res.json(token);
-        });
-        */
         res.json({status: "ok"});
     });
+    */
 }
 
 //return event service token for instance

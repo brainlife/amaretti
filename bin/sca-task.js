@@ -318,7 +318,6 @@ function handle_running(task, next) {
     logger.info("check_running "+task._id);
     
     //TODO - request stop job that are stuck running for long time (look start_date)
-
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) {
@@ -419,14 +418,20 @@ function start_task(task, resource, cb) {
             
             var workdir = common.getworkdir(task.instance_id, resource);
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+
+            //service dir includes branch name (optiona)
+            var servicedir = "$HOME/.sca/services/"+service;
+            if(task.service_branch) servicedir += ":"+task.service_branch;
+            
             var envs = {
                 SCA_WORKFLOW_ID: task.instance_id.toString(),
                 SCA_WORKFLOW_DIR: workdir,
                 SCA_TASK_ID: task._id.toString(),
                 SCA_TASK_DIR: taskdir,
                 SCA_SERVICE: service,
-                SCA_SERVICE_DIR: "$HOME/.sca/services/"+service,
-                SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key/*+".service"*/,
+                SCA_SERVICE_BRANCH: service.service_branch,
+                SCA_SERVICE_DIR: servicedir,
+                SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
             };
             task._envs = envs;
             
@@ -479,7 +484,16 @@ function start_task(task, resource, cb) {
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
-                    conn.exec("ls .sca/services/"+service+ " >/dev/null 2>&1 || (mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" git clone "+service_detail.git.clone_url+" .sca/services/"+service+")", function(err, stream) {
+                    //var cmd = "ls .sca/services/"+service+ " >/dev/null 2>&1 || "; //check to make sure if it's already installed
+                    var cmd = "ls "+servicedir+ " >/dev/null 2>&1 || "; //check to make sure if it's already installed
+                    cmd += "(";
+                    cmd += "mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" ";
+                    cmd += "git clone ";
+                    if(task.service_branch) cmd += "-b "+task.service_branch+" ";
+                    cmd += service_detail.git.clone_url+" "+servicedir;
+                    cmd += ")";
+                    logger.debug(cmd);
+                    conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git clone. code:"+code);
@@ -495,10 +509,11 @@ function start_task(task, resource, cb) {
 
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
-                    conn.exec("cd .sca/services/"+service+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
+                    //conn.exec("cd .sca/services/"+service+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
+                    conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to git pull in ~/.sca/services/"+service);
+                            if(code) return next("Failed to git pull in "+servicedir);
                             else next();
                         })
                         .on('data', function(data) {
@@ -641,7 +656,7 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        stream.write("~/.sca/services/"+service+"/"+service_detail.pkg.scripts.status);
+                        stream.write(servicedir+"/"+service_detail.pkg.scripts.status);
                         stream.end();
                     });
                 },
@@ -669,7 +684,7 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        stream.write("~/.sca/services/"+service+"/"+service_detail.pkg.scripts.stop);
+                        stream.write(servicedir+"/"+service_detail.pkg.scripts.stop);
                         stream.end();
                     });
                 },
@@ -704,8 +719,8 @@ function start_task(task, resource, cb) {
                             }
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        if(service_detail.pkg.scripts.run) stream.write("~/.sca/services/"+service+"/"+service_detail.pkg.scripts.run+"\n");
-                        if(service_detail.pkg.scripts.start) stream.write("~/.sca/services/"+service+"/"+service_detail.pkg.scripts.start+"\n");
+                        if(service_detail.pkg.scripts.run) stream.write(servicedir+"/"+service_detail.pkg.scripts.run+"\n");
+                        if(service_detail.pkg.scripts.start) stream.write(servicedir+"/"+service_detail.pkg.scripts.start+"\n");
                         stream.end();
                     });
                 },
@@ -719,8 +734,8 @@ function start_task(task, resource, cb) {
                 function(next) {
                     if(!service_detail.pkg.scripts.start) return next(); //not all service uses start
 
-                    logger.debug("starting service: ~/.sca/services/"+service+"/"+service_detail.pkg.scripts.start);
-                    common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', msg: 'Starting Service'});
+                    logger.debug("starting service: "+servicedir+"/"+service_detail.pkg.scripts.start);
+                    common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
                     task.status = "running";
                     task.status_msg = "Starting service";
@@ -766,8 +781,8 @@ function start_task(task, resource, cb) {
                 function(next) {
                     if(!service_detail.pkg.scripts.run) return next(); //not all service uses run (they may use start/status)
 
-                    logger.debug("running_sync service: ~/.sca/services/"+service+"/"+service_detail.pkg.scripts.run);
-                    common.progress(task.progress_key/*+".service"*/, {/*name: service_detail.label,*/ status: 'running', /*progress: 0,*/ msg: 'Running Service'});
+                    logger.debug("running_sync service: "+servicedir+"/"+service_detail.pkg.scripts.run);
+                    common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                     task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                     task.status_msg = "Running service";
