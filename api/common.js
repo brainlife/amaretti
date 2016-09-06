@@ -106,7 +106,9 @@ exports.get_ssh_connection = function(resource, cb) {
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 60*1000,
-        keepaliveCountMax: 9999999, //default to 3 keepalive and error..
+        //keepalive is used to detect dead connection.. default 3 is good enough
+        //https://github.com/mscdex/ssh2/issues/367#issuecomment-244975552
+        //keepaliveCountMax: 3, 
     });
 }
 
