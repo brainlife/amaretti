@@ -651,6 +651,7 @@ function start_task(task, resource, cb) {
                             logger.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
+                        console.dir(env);
                         for(var k in envs) {
                             if(!k) {
                                 logger.warn("skipping empty env key");
