@@ -652,6 +652,11 @@ function start_task(task, resource, cb) {
                         });
                         stream.write("#!/bin/bash\n");
                         for(var k in envs) {
+                            if(!k) {
+                                logger.warn("skipping empty env key");
+                                logger.debug(envs);
+                                continue;
+                            }
                             var v = envs[k];
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
