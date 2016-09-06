@@ -429,10 +429,13 @@ function start_task(task, resource, cb) {
                 SCA_TASK_ID: task._id.toString(),
                 SCA_TASK_DIR: taskdir,
                 SCA_SERVICE: service,
-                SCA_SERVICE_BRANCH: service.service_branch,
                 SCA_SERVICE_DIR: servicedir,
                 SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
             };
+
+            //optional envs
+            if(service.service_branch) envs.SCA_SERVICE_BRANCH = service.service_branch;
+
             task._envs = envs;
             
             //insert any task envs 
@@ -651,14 +654,13 @@ function start_task(task, resource, cb) {
                             logger.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
-                        console.dir(envs);
+                        //console.dir(envs);
                         for(var k in envs) {
-                            if(!k) {
-                                logger.warn("skipping empty env key");
-                                logger.debug(envs);
+                            var v = envs[k];
+                            if(typeof v !== 'string') {
+                                logger.warn("skipping non string value:"+v+" for key:"+k);
                                 continue;
                             }
-                            var v = envs[k];
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
