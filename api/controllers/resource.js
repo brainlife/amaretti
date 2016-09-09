@@ -234,6 +234,22 @@ function ls_resource(resource, _path, cb) {
             }
             */
             cb(err, files);
+
+            /*
+            //dereference symlink
+            if(err) return cb(err, files);
+            async.eachSeries(files, function(file, next) {
+                console.log(file.filename);
+                if(file.longname[0] != 'l') return next(); //not symlink
+                sftp.readlink(_path+"/"+file.filename, function(err, target) {
+                    console.log("readlink to "+target);    
+                    file.link_target = target;
+                    next(err);
+                });
+            }, function(err) {
+                cb(null, files);
+            });
+            */
         });
     });
 }
@@ -769,6 +785,7 @@ router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequire
 });
 
 //intentionally left undocumented
+//TODO - limit access to certain IP range
 router.post('/installsshkey', function(req, res, next) {
     var username = req.body.username;
     var password = req.body.password;

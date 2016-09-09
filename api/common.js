@@ -76,6 +76,7 @@ exports.get_ssh_connection = function(resource, cb) {
     var old = ssh_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established ssh connection. # of connections:"+Object.keys(ssh_conns).length);
+        old.last_used = new Date();
         return cb(null, old);
     }
     var detail = config.resources[resource.resource_id];
@@ -83,7 +84,7 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('ready', function() {
         ssh_conns[resource._id] = conn;
         logger.debug("ssh connection ready");
-        //logger.debug(detail);
+        conn.ready_time = new Date();
         cb(null, conn);
     });
     conn.on('end', function() {
@@ -98,7 +99,10 @@ exports.get_ssh_connection = function(resource, cb) {
         if(err.level && err.level == "client-timeout") {
             logger.warn("ssh server is dead.. keepalive not returning.");
         } else {
-            logger.error("ssh connection error");
+            logger.error("ssh connection error. resource_id:"+resource._id);
+            logger.error("was ready on:"+old.ready_time);
+            logger.error("was last used on:"+old.last_time);
+            logger.error("current time:"+new Date());
             logger.error(err);
         }
         delete ssh_conns[resource._id];
@@ -234,11 +238,11 @@ exports.ssh_command = function(username, password, host, command, cb) {
     conn.on('end', function() {
         if(!ready && !nexted) cb('SSH connection ended before it began.. maybe maintenance day?');
     });
-    conn.on('keyboard-interactive', function(name, instructions, lang, prompts, cb) {
-        if(~prompts[0].prompt.indexOf("Password:")) cb([$scope.password]);
+    conn.on('keyboard-interactive', function(name, instructions, lang, prompts, sshcb) {
+        if(~prompts[0].prompt.indexOf("Password:")) sshcb([password]);
         else {
-           cb("SSH server prompted something that I don't know how to answer");
-            console.dir(prompts);
+            sshcb("SSH server prompted something that I don't know how to answer");
+            logger.debug(prompts);
         }
     });
     conn.connect({

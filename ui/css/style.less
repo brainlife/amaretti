@@ -205,12 +205,18 @@ li[ng-click]:hover {
     cursor: pointer;
 }
 
-.panel-workflow{
-    transition: box-shadow 0.2s;
+.panel-workflow {
+    transition: background-color 0.2s;
+
     &:hover {
         cursor: pointer;
-        box-shadow: 3px 3px 3px #aaa;
+        /*box-shadow: 3px 3px 3px #aaa;*/
+        background-color: rgba(0, 140, 186, 0.47);
         position: relative;
+    }
+
+    .panel-heading {
+        background-color: inherit;
     }
 }
 
