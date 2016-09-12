@@ -180,9 +180,11 @@ li[ng-click]:hover {
   /*box-shadow: 3px 3px 3px #aaa;*/
   background-color: rgba(0, 140, 186, 0.47);
   position: relative;
-}
-.panel-workflow .panel-heading {
-  background-color: inherit;
+  /*
+        .panel-heading {
+            background-color: rgba(0, 140, 186, 0.47);
+        }
+        */
 }
 .clickable:hover {
   cursor: pointer;

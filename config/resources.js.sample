@@ -19,6 +19,7 @@ module.exports = {
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-product-nifti": {score: 10},
 
+
             "_upload": {score: 8},
         }
     },
@@ -60,6 +61,8 @@ module.exports = {
             "soichih/sca-product-raw": {score: 10},
             "soichih/sca-product-life": {score: 10},
             "soichih/sca-product-neuro-b": {score: 10},
+
+            "soichih/sca-service-onere": {score: 10}, //uses python/request - which only works on karst right now
 
             "_upload": {score: 10},
         }    

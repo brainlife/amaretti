@@ -220,6 +220,7 @@ exports.Comment = mongoose.model('Comment', commentSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
 //registered services
 var serviceSchema = mongoose.Schema({
 
@@ -251,5 +252,5 @@ var serviceSchema = mongoose.Schema({
     cache_date: {type: Date, default: Date.now },
 });
 exports.Service = mongoose.model('Service', serviceSchema);
-
+*/
 

@@ -357,10 +357,9 @@ function mkdirp(conn, dir, cb) {
     });
 }
 
-
+//TODO - deprecate this and use the streaming version below.. (ng-upload seems to work with streaming - see onere)
 //handle file upload request via multipart form
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
-//TODO - deprecate this and use the streaming version below..
 router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.error("(post)/upload is now deprecated - use (post)/upload/:resource_id/:path method instead");
     var form = new multiparty.Form({autoFields: true});
@@ -421,6 +420,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.resourceid;
     var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
+    logger.debug("path: "+_path);
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
@@ -568,8 +568,8 @@ router.get('/download', jwt({
             if(err) return next(err);
             sftp.stat(_path, function(err, stat) {
                 if(err) return next(err);
-                console.log(mime.lookup(_path));
-                //res.setHeader('Content-disposition', 'attachment; filename='+path.basename(_path));
+                logger.debug("mimetype:"+mime.lookup(_path));
+
                 res.setHeader('Content-disposition', 'filename='+path.basename(_path));
                 res.setHeader('Content-Length', stat.size);
                 res.setHeader('Content-Type', mime.lookup(_path));
@@ -584,8 +584,7 @@ router.get('/download', jwt({
             });
             /*
             sftp.on('error', function(err) {
-                console.dir(err);
-                res.status(500).json(err);
+                logger.error(err);
             });
             */
         });

@@ -384,13 +384,8 @@ function handle_running(task, next) {
 }
 
 function get_service(service_name, cb) {
+    /*
     db.Service.findOne({name: service_name}, function(err, service_detail) {
-        /*
-        var old = new Date();
-        old.setDate(old.getDate() - 1); //cache every day
-        if(service_detail.cached_date > old) return cb(service_detail);
-        */
-        //update cache
         logger.info("caching service detail for "+service_name);
         _service.loaddetail(service_name, function(err, new_service_detail) {
             service_detail.cached_date = new Date();
@@ -401,6 +396,8 @@ function get_service(service_name, cb) {
             });
         });
     });
+    */
+    _service.loaddetail(service_name, cb);
 }
 
 //initialize task and run or start the service
