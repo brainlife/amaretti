@@ -153,7 +153,8 @@ function check_ssh(resource, cb) {
             }).on('data', function(data) {
                 ret_username += data;
             }).stderr.on('data', function(data) {
-                logger.error('whoami error: ');
+                //I get \n stuff occasionally
+                logger.debug('whoami error: ');
             });
         })
         //conn.end();

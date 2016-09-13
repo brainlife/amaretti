@@ -357,7 +357,8 @@ function mkdirp(conn, dir, cb) {
     });
 }
 
-//TODO - deprecate this and use the streaming version below.. (ng-upload seems to work with streaming - see onere)
+//TODO - deprecate this and use the streaming version below.. 
+//ng-upload uses multipart so it won't work, but I can use XMLHttpRequest (see sca-wf-onere)
 //handle file upload request via multipart form
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
 router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
@@ -555,7 +556,6 @@ router.get('/download', jwt({
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        //if(resource.user_id != req.user.sub) return res.status(401).end(); 
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         
         //append workdir if relateive
@@ -568,11 +568,18 @@ router.get('/download', jwt({
             if(err) return next(err);
             sftp.stat(_path, function(err, stat) {
                 if(err) return next(err);
-                logger.debug("mimetype:"+mime.lookup(_path));
+                //logger.debug(stat);
+                
+                //npm-mime uses filename to guess mime type, so I can use this locally
+                var mimetype = mime.lookup(_path);
+                logger.debug("mimetype:"+mimetype);
 
-                res.setHeader('Content-disposition', 'filename='+path.basename(_path));
+                //without attachment, the file will replace the current page
+                //res.setHeader('Content-disposition', 'filename='+path.basename(_path));
+                res.setHeader('Content-disposition', 'attachment; filename='+path.basename(_path));
+
                 res.setHeader('Content-Length', stat.size);
-                res.setHeader('Content-Type', mime.lookup(_path));
+                res.setHeader('Content-Type', mimetype);
                 var stream = sftp.createReadStream(_path);
                 stream.pipe(res);               
                 /*
