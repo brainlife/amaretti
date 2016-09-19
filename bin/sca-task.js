@@ -44,7 +44,6 @@ function set_nextdate(task) {
 }
 
 function check() {
-    //logger.info("checking..");
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
         $or: [
@@ -193,9 +192,22 @@ function handle_housekeeping(task, cb) {
 function handle_requested(task, next) {
     //make sure dependent tasks has all finished
     var deps_all_done = true;
+    var failed_deps = [];
     task.deps.forEach(function(dep) {
         if(dep.status != "finished") deps_all_done = false; 
+        if(dep.status == "failed") failed_deps.push(dep);
     });
+    
+    //fail the task if any dependency fails 
+    //TODO - maybe make this optional based on task option?
+    if(failed_deps.length > 0) {
+        logger.debug("dependency failed.. failing this task");
+        task.status_msg = "Dependency failed.";
+        task.status = "failed";
+        task.save(next);
+        return;
+    }
+
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependency";
@@ -245,7 +257,6 @@ function handle_requested(task, next) {
                     task.save();
                 }
                 //start_task is no longer waited by anything.. all task gets processed asyncrhnously
-                
             });
 
             //don't wait for start_task to end.. start next task concurrently

@@ -35,25 +35,42 @@ exports.select = function(user, query, cb) {
         var best = null;
         var best_score = null;
         resources.forEach(function(resource) {
-            var score = score_resource(resource, query);
-            logger.debug("scoring "+resource._id+" type:"+resource.type+" score="+score);
+            var score = score_resource(user, resource, query);
+            logger.debug("scoring "+resource._id+" name:"+resource.name+" score="+score);
             if(score == 0) return;
+
+            //+10 score if it's owned by user
+            if(resource.user_id == user.sub) {
+                logger.debug("user owns this.. doubling score");
+                score = score+10;
+            }
+            //+15 score if it's preferred by user
+            if(query.preferred_resource_id && query.preferred_resource_id == resource._id.toString()) {
+                logger.debug("user prefers this.. tripling score");
+                score = score+15;
+            }
+
+            //pick the best score...
             if(!best || score > best_score) {
-                //normally pick the best score...
                 best_score = score;
                 best = resource;
-            } else if(score == best_score && 
-                query.preferred_resource_id && 
-                query.preferred_resource_id == resource._id.toString()) {
-                //but if score ties, give user preference into consideration
-                logger.debug("using "+query.preferred_resource_id+" since score tied");
-                best = resource; 
-            }
+            } /*else if(score == best_score) {
+                //if score ties..
+                if(query.preferred_resource_id && query.preferred_resource_id == resource._id.toString()) {
+                    //give user preference into consideration
+                    logger.debug("using this because user prefers this");
+                    best = resource; 
+                } else if(resource.user_id == user.sub) {
+                    //also pick user owned resource over shared one
+                    logger.debug("using this since it's owned by the user");
+                    best = resource; 
+                }
+            }*/
         });
 
         //for debugging
         if(best) {
-            logger.debug("best resource chosen:"+best._id);
+            logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
             logger.debug(config.resources[best.resource_id]);
         } else {
             logger.debug("no resource matched query");
@@ -63,7 +80,7 @@ exports.select = function(user, query, cb) {
     });
 }
 
-function score_resource(resource, query) {
+function score_resource(user, resource, query) {
     var resource_detail = config.resources[resource.resource_id];
     //logger.debug(resource_detail);
     //see if resource supports the service
@@ -80,9 +97,20 @@ function score_resource(resource, query) {
         //logger.error("resource detail for resource_id:"+resource.resource_id+" has no services entry");
         return 0;
     }
+    if(query.resource_type && resource.resource_id != query.resource_type) {
+        //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
+        //reject it
+        return 0;
+    }
     var info = resource_detail.services[query.service];
     if(info === undefined) return 0;
-    return info.score;
+    
+    var score = info.score;
+
+    //now, double the score if the resource is owned by user
+    //if(user.sub == resource.user_id) score = score*2;
+
+    return score;
 }
 
 //run appropriate tests based on resource type

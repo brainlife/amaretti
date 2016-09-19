@@ -19,6 +19,7 @@ module.exports = {
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-product-nifti": {score: 10},
 
+            "soichih/sca-service-bash": {score: 10}, 
 
             "_upload": {score: 8},
         }
@@ -63,6 +64,7 @@ module.exports = {
             "soichih/sca-product-neuro-b": {score: 10},
 
             "soichih/sca-service-onere": {score: 10}, //uses python/request - which only works on karst right now
+            "soichih/sca-service-bash": {score: 10}, 
 
             "_upload": {score: 10},
         }    
@@ -165,8 +167,9 @@ module.exports = {
             "soichih/sca-service-fits2png": {score: 10},
             "soichih/sca-product-raw": {score: 5},
 
-            "soichih/sca-service-onere-build": {score: 10},
-            "soichih/sca-service-onere-run": {score: 10},
+            //"soichih/sca-service-onere-build": {score: 10},
+            //"soichih/sca-service-onere-run": {score: 10},
+            "soichih/sca-service-docker": {score: 10},
 
             "_upload": {score: 5},
         }

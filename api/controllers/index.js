@@ -27,11 +27,11 @@ router.use('/instance', require('./instance'));
 router.use('/resource', require('./resource'));
 router.use('/event', require('./event'));
 
-//TODO - who uses this?
+//TODO DEPRECATED - find out who uses this and get rid of it
+//use (get) /resource/type instead
 router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res) {
     var conf = {
-        resources: config.resources, //resoruce bases..
-        //services: config.services,
+        resources: config.resources, //resoruce types
     };
     res.json(conf);
 });

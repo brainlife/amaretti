@@ -35,6 +35,19 @@ function mask_enc(resource) {
 
 /**
  * @apiGroup Resource
+ * @api {get} /resource/types   Get all resource types
+ * @apiDescription              Returns all resource types configured on the server
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccess {Object}         List of resources types (in key/value where key is resource type ID, and value is resource detail)
+ */
+router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    res.json(config.resources);
+});
+
+/**
+ * @apiGroup Resource
  * @api {get} /resource         Query resource registrations
  * @apiDescription              Returns all resource registration instances that user has access to
  *
@@ -82,7 +95,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             
         //add / remove a few more things
         resources.forEach(function(resource) {
-            resource.detail = config.resources[resource.resource_id];
+            resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
+            resource._detail = config.resources[resource.resource_id];
             resource.salts = undefined;
             //resource.canedit = (resource.user_id == req.user.sub);
         });
@@ -226,30 +240,7 @@ function ls_resource(resource, _path, cb) {
         sftp.readdir(_path, function(err, files) {
             if(t) clearTimeout(t); 
             else return; //timeout called already
-            /*
-            if(err) {
-                logger.error(err);
-                err.lang = err.lang || "Failed to ls "+_path;
-                return cb(err); //err contains err code that I need to pass to client
-            }
-            */
             cb(err, files);
-
-            /*
-            //dereference symlink
-            if(err) return cb(err, files);
-            async.eachSeries(files, function(file, next) {
-                console.log(file.filename);
-                if(file.longname[0] != 'l') return next(); //not symlink
-                sftp.readlink(_path+"/"+file.filename, function(err, target) {
-                    console.log("readlink to "+target);    
-                    file.link_target = target;
-                    next(err);
-                });
-            }, function(err) {
-                cb(null, files);
-            });
-            */
         });
     });
 }
@@ -290,36 +281,17 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
 });
 
-//return a best resource for a given purpose / criteria (TODO..)
-//TODO should sca be the only one who should be query the *best* resource?
-//currently used by file upload service to pick which resource to upload files
-//also used by sca-cli backup to pick do file upload also
-//also used by sca-wf-freesurfer process controller to check to make sure user has a place to submit
+//return a best resource for a given purpose / criteria
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
 
-    /*
-    //I first need a bit more information about the user (for gids)
-    console.log("loading user info from auth service");
-    console.log(config.api.auth);
-    request.get({
-        url: config.api.auth+"/user/groups/"+req.user.sub,
-        json: true,
-        //qs: { where: JSON.stringify({id: req.user.sub}), gids: true },
-        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
-    }, function(err, res, users) {
-        if(err) return next(err);
-        console.log(res.statusCode);
-        console.log(res.statusMessage);
-        console.dir(users);
-    });
-    */
+    var query = {};
+    if(req.query.service) query.service = req.query.service;
+    if(req.query.resource_type) query.resource_type = req.query.resource_type;
 
-    resource_lib.select(req.user, {
-        service: req.query.service,  //service that resource must provide
-        //other_service_ids: req.query.other_service_ids, //TODO -- helps to pick a better ID
-    }, function(err, resource, score) {
+    resource_lib.select(req.user, query, function(err, resource, score) {
         if(err) return next(err);
+        logger.debug(resource);
         if(!resource) return res.json({nomatch: true});
         var resource_detail = config.resources[resource.resource_id];
         var ret = {

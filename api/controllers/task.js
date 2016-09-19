@@ -76,6 +76,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
  * @apiParam {String[]} [deps]  task IDs that this serivce depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
+ * @apiParam {Object} [envs]    Dictionary of ENV parameter to set.
  * @apiParam {String[]} [resource_deps]
  *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
  *                              to allow access to the specified resource
@@ -109,6 +110,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.instance_id = req.body.instance_id;
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
+        task.envs = req.body.envs;
 
         //checked later
         task.deps = req.body.deps;
@@ -264,26 +266,36 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
 });
 
 /**
- * @api {delete} /task/:taskid  DEPRECATED: Remove a task
+ * @api {delete} /task/:taskid  Mark the task for immediate removal
  * @apiGroup Task
- * @apiDescription              Physically remove a task from DB. Tasks that depends on deleted task will not be removed
- *                              but will point to now missing task. Which may or may not fail.
+ * @apiDescription              Sets the remove_date to now, so that when the house keeping occurs in the next cycle,
+ *                              the task_dir will be removed and status will be set to "removed"
  *
- * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiHeader {String} authorization 
+ *                              A valid JWT token "Bearer: xxxxx"
  * 
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
- *         "message": "Task successfully removed",
+ *         "message": "Task successfully scheduled for removed",
  *     }
  *                              
  */
 router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.params.task_id;
+    db.Task.update({_id: task_id, user_id: req.user.sub}, {
+        remove_date: new Date(),
+        next_date: new Date(), //TODO - not sure if I should do this or not (without this, task maybe sitting for a long time)
+    }, function(err) {
+        if(err) return next(err);
+        res.json({message: "Task successfully scheduled for removed"});
+    });
+    /*
     db.Task.remove({_id: task_id, user_id: req.user.sub}, function(err) {
         if(err) return next(err);
-        res.json({message: "Task successfully removed"});
+        res.json({message: "Task successfully scheduled for removed"});
     });
+    */
 });
 
 /**
