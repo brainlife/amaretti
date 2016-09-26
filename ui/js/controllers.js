@@ -1,14 +1,8 @@
 'use strict';
 
-app.controller('AboutController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper',
-function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper) {
-    scaMessage.show(toaster);
-    $scope.appconf = appconf;
-}]);
-
 //load common stuff that most controller uses
 app.controller('PageController', 
-function($scope, appconf, $route, serverconf, menu, scaSettingsMenu) {
+function($scope, appconf, $route, serverconf, menu, scaSettingsMenu, $location) {
     $scope.appconf = appconf; 
     $scope.title = appconf.title;
     serverconf.then(function(_c) { $scope.serverconf = _c; });
@@ -16,11 +10,30 @@ function($scope, appconf, $route, serverconf, menu, scaSettingsMenu) {
     $scope.user = menu.user; 
     $scope.i_am_header = true;
     $scope.settings_menu = scaSettingsMenu;
+
+    //open another page inside the app.
+    $scope.openpage = function(page) {
+        console.log("path to "+page);
+        $location.path(page);
+    }
+
+    //relocate out of the app..
+    $scope.relocate = function(url) {
+        document.location = url;
+    }
+});
+
+app.controller('AboutController', 
+function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper) {
+    $scope.$parent.active_menu = "about";
+    scaMessage.show(toaster);
+    $scope.appconf = appconf;
 });
 
 //list all available workflows and instances
 app.controller('WorkflowsController', ['$scope', 'menu', 'scaMessage', 'toaster', 'jwtHelper', '$location', '$http', 'appconf',
 function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf) {
+    $scope.$parent.active_menu = "workflows";
     scaMessage.show(toaster);
 
     $http.get(appconf.api+'/instance')
@@ -79,6 +92,7 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
     }
 }]);
 
+/*
 //show workflow detail (not instance)
 app.controller('WorkflowController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', '$routeParams', '$http',
 function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $location, $routeParams, $http) {
@@ -250,9 +264,11 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         });
     };
 }]);
+*/
 
 app.controller('ResourcesController', 
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, $uibModal) {
+    $scope.$parent.active_menu = "settings";
     scaMessage.show(toaster);
 
     serverconf.then(function(_c) { 
@@ -422,6 +438,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     }
 });
 
+/*
 app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
 function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services) {
     scaMessage.show(toaster);
@@ -439,6 +456,7 @@ app.component('serviceDetail', {
     controller: function() {
     },
 });
+*/
 
 app.component('accessGroups', {
     templateUrl: 't/groups.html',

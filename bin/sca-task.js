@@ -521,7 +521,8 @@ function start_task(task, resource, cb) {
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
                     //conn.exec("cd .sca/services/"+service+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
-                    conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
+                    //-q to prevent git to send log to stderr
+                    conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git pull -q", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in "+servicedir);

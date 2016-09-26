@@ -7,7 +7,7 @@ var app = angular.module('app', [
     'angular-loading-bar',
     'angular-jwt',
     'ui.gravatar',
-    'ui.select',
+    //'ui.select',
     'ui.bootstrap',
     'ui.bootstrap.tooltip',
     'sca-shared',

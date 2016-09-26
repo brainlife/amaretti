@@ -1,13 +1,18 @@
+<!--
 <div class="fixed-top">
-    <sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>
+    <sca-menutab menu="settings_menu" active="'resources'" user="menu.user"></sca-menutab>
+</div>
+-->
+<div class="fixed-top">
+    <!--<sca-menubar header="menu.header" menu="menu.top" active="'scaportal'" profile="menu._profile" user="menu.user"></sca-menubar>-->
     <div class="header">
         <div class="container">
-        <h2>Settings</h2>
+            <h2>Settings</h2>
         </div>
     </div>
     <sca-menutab menu="settings_menu" active="'resources'" user="menu.user"></sca-menutab>
 </div>
-<div class="container" style="margin-top: 170px;">
+<div class="container" style="margin-top: 130px;">
     <div class="row">
         <div class="col-md-9">
             <ul class="list-group">
@@ -142,8 +147,8 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-danger pull-left" ng-click="remove(resource, inst)"><i class="fa fa-trash" aria-hidden="true"></i></button>
+        <button class="btn btn-default" type="button" ng-click="cancel()">Cancel</button>
         <button class="btn btn-primary" type="submit">OK</button>
-        <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
     </div>
 </form>
 </script>
@@ -189,8 +194,8 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-danger pull-left" ng-click="remove()"><i class="fa fa-trash" aria-hidden="true"></i></button>
+        <button class="btn btn-default" type="button" ng-click="cancel()">Cancel</button>
         <button class="btn btn-primary" type="submit">OK</button>
-        <button class="btn btn-warning" type="button" ng-click="cancel()">Cancel</button>
     </div>
 </form>
 </script>
