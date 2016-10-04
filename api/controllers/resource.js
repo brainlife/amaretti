@@ -148,6 +148,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(resource.status != "ok") return res.status(500).json({message: "resource is currently offline"});
 
         var detail = config.resources[resource.resource_id];
         switch(detail.type) {
@@ -259,6 +260,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(resource.status != "ok") return res.status(500).json({message: "resource is currently offline"});
 
         //append workdir if relateive (should use path instead?)
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
@@ -354,7 +356,8 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
         db.Resource.findById(fields.resource_id, function(err, resource) {
             if(err) return next(err);
             if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-            //if(resource.user_id != req.user.sub) return res.status(401).end(); 
+            if(resource.status != "ok") return res.status(500).json({message: "resource is currently offline"});
+
             if(!common.check_access(req.user, resource)) return res.status(401).end(); 
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
@@ -529,12 +532,13 @@ router.get('/download', jwt({
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(resource.status != "ok") return res.status(500).json({message: "resource is currently offline"});
         
         //append workdir if relateive
         if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
-        logger.debug("downloading: "+_path);
-        logger.debug("from resource:"+resource._id);
+        //logger.debug("downloading: "+_path);
+        //logger.debug("from resource:"+resource._id);
 
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
@@ -801,6 +805,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         if(resource.type != "hpss") return res.status(404).json({message: "not a hpss resource"});
+        if(resource.status != "ok") return res.status(500).json({message: "resource is currently offline"});
 
         //need to decrypt first..
         common.decrypt_resource(resource);
