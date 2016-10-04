@@ -1,49 +1,26 @@
 'use strict';
 
 //contrib
-var express = require('express');
-var router = express.Router();
-var winston = require('winston');
-var jwt = require('express-jwt');
-var async = require('async');
-var fs = require('fs');
-//var jsonwebtoken = require('jsonwebtoken');
+const express = require('express');
+const router = express.Router();
+const winston = require('winston');
+const jwt = require('express-jwt');
+//const async = require('async');
+//const fs = require('fs');
 
 //mine
-var config = require('../../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('../models/db');
-var common = require('../common');
+const config = require('../../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('../models/db');
 
-function check_task(req, res, next) {
-    //task.<user_id>.<instance_id>.<task_id>
-    //logger.debug("-----------------------------------------");
-    //logger.debug(key_tokens);
-
+//called by sca-event service to check to see if user should have access to this exchange / key
+router.get('/checkaccess/task/:key', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var key = req.params.key;
     var key_tokens = key.split(".");
 
     var usersub = key_tokens[0];
     if(req.user.sub != usersub) return next("401");
     res.json({status: "ok"});
-
-    /*
-    var instid = key_tokens[2];
-    db.Instance.findById(instid).exec(function(err, instance) {
-        if(err) return next(err);
-        if(!instance) return next("404");
-        logger.debug(instance.toString());
-        if(req.user.sub != instance.user_id) return next("401");
-        res.json({status: "ok"});
-    });
-    */
-}
-
-//return event service token for instance
-router.get('/checkaccess/task/:key', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var key = req.params.key;
-    var key_tokens = key.split(".");
-    check_task(req, res, next)
 });
 
 module.exports = router;

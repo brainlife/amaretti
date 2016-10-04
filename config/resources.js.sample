@@ -133,6 +133,18 @@ module.exports = {
         //services supported by this resource
         services: {
             "soichih/sca-service-hpss": {score: 5},
+        }
+    },
+
+    osgxd: {
+        type: "ssh", 
+        name: "OSG Connect (osgconnect.net)", 
+        desc: "National distributed high throughput computing submit node",
+        hostname: "login.osgconnect.net",
+        workdir: "/local-scratch/__username__/sca/workflows",
+        
+        //services supported by this resource
+        services: {
             "soichih/sca-service-osgblast": {score: 10},
         }
     },

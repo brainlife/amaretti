@@ -190,9 +190,11 @@ taskSchema.pre('update', function(next) {
 //from doc "called internally after a document is returned from mongodb"
 //taskSchema.post('init',events.create); 
 
+//'update' hook doesn't pass the object updated.. so it's useless
+//taskSchema.post('update', events.task); 
+
 taskSchema.post('save', events.task);
 taskSchema.post('findOneAndUpdate', events.task);
-taskSchema.post('update', events.task);
 taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 

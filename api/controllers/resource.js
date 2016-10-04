@@ -827,30 +827,5 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
     });
 });
 
-/*
-router.post('/resetsshkeys/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var id = req.params.id;
-    db.Resource.findOne({_id: id}, function(err, resource) {
-        if(err) return next(err);
-        if(!resource) return res.status(404).end();
-        if(resource.user_id != req.user.sub) return res.status(401).end();
-        common.ssh_keygen(function(err, out){
-            if(err) next(err);
-            var resource = {
-                config: {
-                    ssh_public: out.pubkey,
-                    enc_ssh_private: out.key,
-                }
-            }
-            common.encrypt_resource(resource);
-            db.Resource.update({_id: id}, { $set: resource }, {new: true}, function(err) {
-                if(err) return next(err);
-                res.json({ssh_public: resource.config.ssh_public, resource: resource});
-            });
-        });
-    });
-}); 
-*/
-
 module.exports = router;
 

@@ -35,7 +35,7 @@ function check_resources(cb) {
             //logger.debug("checking "+resource._id);
             resource_lib.check(resource, function(err) {
                 //logger.debug("check called cb on "+resource._id);
-                if(err) logger.error(err); //ignore the err
+                //if(err) logger.info(err); //I don't care if someone's resource status is failing or not
                 next_resource();
             });
         }, function(err) {

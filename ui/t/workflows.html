@@ -4,12 +4,12 @@
         <div class="col-md-4" ng-repeat="(wid, workflow) in workflows">
             <div class="panel panel-default panel-workflow" ng-click="openwf(wid)" style="height: 150px;">
                 <div class="panel-heading">
-                    <small class="pull-right text-muted">{{workflow.version}}</small>
+                    <small class="pull-right help-block">{{workflow.version}}</small>
                     {{workflow.sca.label || workflow.name}}
                 </div>
                 <div class="panel-body"> 
                     <p>{{workflow.description}}</p>
-                    <p class="text-muted">{{workflow.author}}</p>
+                    <p class="help-block">{{workflow.author}}</p>
                 </div>
             </div>
         </div>

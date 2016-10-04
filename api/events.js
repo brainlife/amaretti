@@ -9,7 +9,7 @@ const logger = new winston.Logger(config.logger.winston);
 
 var connected = false;
 var task_ex = null;
-var task_resource = null;
+//var resource_ex = null;
 if(config.events) {
     logger.info("attempting to connect to amqp..");
     var conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
@@ -22,10 +22,12 @@ if(config.events) {
             task_ex = ex;
         });
 
+        /*
         conn.exchange(config.events.exchange+".resource", 
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
-            task_resource = ex;
+            resource_ex = ex;
         });
+        */
     });
     conn.on('error', function(err) {
         logger.error("amqp connection error");
@@ -36,11 +38,11 @@ if(config.events) {
     logger.info("events configuration missing - won't publish to amqp");
 }
 
-function publish(ex, key, msg) {
+function publish_or_log(ex, key, msg) {
     if(!ex || !connected) {
         //if not connected, output to stdout..
         logger.info(key);
-        logger.info(msg.toString());
+        logger.info(msg);
     } else {
         ex.publish(key, msg, {});
     }
@@ -48,7 +50,7 @@ function publish(ex, key, msg) {
 
 exports.task = function(task) {
     var key = task.user_id+"."+task.instance_id+"."+task._id;
-    publish(task_ex, key, task);
+    publish_or_log(task_ex, key, task);
 }
 
 /*

@@ -19,10 +19,12 @@ exports.events = {
     amqp: {url: "amqp://wf:test@soichi7.ppa:5672/sca"},
     exchange: "wf", //used as prefix for full exchange name
 
+    /*
     //config used to generate event access token
     private_key: fs.readFileSync(__dirname+'/wf.key'),
     access_token_ttl: 12*3600*1000, //12 hours should be enough?
     sign_opt: {algorithm: 'RS256'},
+    */
 }
 
 //api endpoints
