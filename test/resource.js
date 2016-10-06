@@ -94,7 +94,7 @@ describe('/resource', function() {
             assert(res.body.name == "test name");
             assert(res.body.desc == "test desc");
             */
-            console.dir(res.body);
+            //console.dir(res.body);
             assert(res.body.count > 1);
             assert(resources.length == 1);
             //console.dir(instances[0]);
@@ -137,7 +137,7 @@ describe('/resource', function() {
         .end(function(err, res) {
             if(err) return done(err);
             console.log("got ls listing ");
-            console.dir(res.body);
+            //console.dir(res.body);
             done();            
         });
     });

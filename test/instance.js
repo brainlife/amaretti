@@ -66,7 +66,7 @@ describe('/instance', function() {
         .end(function(err, res) {
             if(err) return done(err);
             let instance2 = res.body;
-            console.dir(instance);
+            //console.dir(instance);
             assert(instance2.workflow_id == "test");
             assert(instance2.name == "test 2");
             assert(instance2.desc == "test desc 2");
