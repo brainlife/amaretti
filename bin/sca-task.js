@@ -27,13 +27,15 @@ db.init(function(err) {
     check(); 
 });
 
+var max_elapsed = 3600*1000*3;
+
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
     task.next_date = new Date();
     if(task.start_date) {
         var start = task.start_date.getTime();
         var elapsed = task.next_date.getTime() - start;
-        //logger.debug("elapsed seconds: "+elapsed);
+        if(elapsed > max_elapsed) elapsed = max_elapsed; //limit elapsed time
         var next = task.next_date.getTime() + elapsed/2;
         task.next_date.setTime(next);
     } else {
@@ -153,7 +155,7 @@ function handle_housekeeping(task, cb) {
             //check for max life time
             var maxage = new Date();
             maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
-            if(task.request_date < maxage) {
+            if(task.finish_date && task.finish_date < maxage) {
                 logger.info("this task was requested more than specified days ago..");
                 need_remove = true;
             }
@@ -811,7 +813,7 @@ function start_task(task, resource, cb) {
                     task.status_msg = "Starting service";
                     task.start_date = new Date();
 
-                    //set next_date to some impossible date so that we won't run status.sh prematuely
+                    //temporarily set next_date to some impossible date so that we won't run status.sh prematuely
                     task.next_date = new Date(); 
                     task.next_date.setDate(task.next_date.getDate() + 30);
                     task.save(function() {
