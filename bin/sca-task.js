@@ -88,6 +88,57 @@ function handle_housekeeping(task, cb) {
     //logger.debug("handling book keeping "+task._id);
 
     async.series([
+
+        //check to see if taskdir still exists
+        function(next) {
+            var good_resource_ids = [];
+            async.forEach(task.resource_ids, function(resource_id, next_resource) {
+                db.Resource.findById(resource_id, function(err, resource) {
+                    if(err) {
+                        logger.error("failed to find resource_id:"+resource_id+" for taskdir check will try later");
+                        return next_resource(err);
+                    }
+                    if(!resource) {
+                        logger.info("can't check taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" no longer exist");
+                        return next_resource(); //user sometimes removes resource.. but that's ok..
+                    }
+                    if(!resource.status || resource.status != "ok") {
+                        return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
+                    }
+                    
+                    //all good.. now check taskdir
+                    common.get_ssh_connection(resource, function(err, conn) {
+                        if(err) return next_resource(err);
+                        var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                        if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                        conn.exec("ls "+taskdir, function(err, stream) {
+                            if(err) return next_resource(err);
+                            stream.on('close', function(code, signal) {
+                                if(code == 0) good_resource_ids.push(resource_id);
+                                else logger.debug("taskdir:"+taskdir+" disappeared");
+                                next_resource();
+                            })
+                            .on('data', function(data) {
+                                logger.debug(data.toString());
+                            }).stderr.on('data', function(data) {
+                                logger.debug(data.toString());
+                            });
+                        });
+                    });
+                });
+            }, function(err) {
+                if(err) {
+                    logger.info(err); //continue 
+                    next();
+                } else {
+                    //task.resource_id = undefined; 
+                    task.resource_ids = good_resource_ids;
+                    if(good_resource_ids.length == 0) task.status = "removed";
+                    task.save(next);
+                }
+            });
+        },
+ 
         //remove task dir?
         function(next) {
             var need_remove = false;
@@ -134,8 +185,10 @@ function handle_housekeeping(task, cb) {
                         return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
                     if(!resource.status || resource.status != "ok") {
-                        return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok");
+                        return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
+
+                    //all good.. now try to remove taskdir for real
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -160,7 +213,7 @@ function handle_housekeeping(task, cb) {
                 });
             }, function(err) {
                 if(err) {
-                    logger.error(err); //continue 
+                    logger.info(err); //continue 
                     next();
                 } else {
                     //done with removeal
@@ -168,7 +221,7 @@ function handle_housekeeping(task, cb) {
                     task.status_msg = "taskdir removed from "+removed_count+" out of "+task.resource_ids.length+" resources";
 
                     //reset resource ids
-                    task.resource_id = undefined; //I wonder if I should keep this, but UI often depends on this to mean that task is executed
+                    //task.resource_id = undefined; //I wonder if I should keep this, but UI often depends on this to mean that task is executed
                     task.resource_ids = []; 
 
                     task.save(next);
