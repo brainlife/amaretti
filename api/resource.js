@@ -18,10 +18,9 @@ exports.select = function(user, query, cb) {
     logger.debug("user id / groups");
     logger.debug(user);
     db.Resource.find({
-        //assume user always has gids set..
         "$or": [
             {user_id: user.sub},
-            {gids: {"$in": user.gids }},
+            {gids: {"$in": user.gids||[] }},
         ],
         status: 'ok', 
         active: true,
@@ -36,7 +35,7 @@ exports.select = function(user, query, cb) {
         var best_score = null;
         resources.forEach(function(resource) {
             var score = score_resource(user, resource, query);
-            logger.debug("scoring "+resource._id+" name:"+resource.name+" score="+score);
+            logger.debug("scored "+resource._id+" name:"+resource.name+" score="+score);
             if(score == 0) return;
 
             //+10 score if it's owned by user
@@ -94,16 +93,20 @@ function score_resource(user, resource, query) {
     }
     if(!resource_detail.services) {
         //some resource has no services, but that's ok
-        //logger.error("resource detail for resource_id:"+resource.resource_id+" has no services entry");
+        logger.debug("resource detail for resource_id:"+resource.resource_id+" has no services entry");
         return 0;
     }
     if(query.resource_type && resource.resource_id != query.resource_type) {
         //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
         //reject it
+        logger.debug("resource_type:"+resource.resource_id+" mismatch with query: "+query.resource_type);
         return 0;
     }
     var info = resource_detail.services[query.service];
-    if(info === undefined) return 0;
+    if(info === undefined) {
+        logger.debug("no service detail for "+query.service);
+        return 0;
+    }
     
     var score = info.score;
 

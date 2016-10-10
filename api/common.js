@@ -85,6 +85,7 @@ exports.get_ssh_connection = function(resource, cb) {
         ssh_conns[resource._id] = conn;
         logger.debug("ssh connection ready");
         conn.ready_time = new Date();
+        conn.last_used = new Date();
         cb(null, conn);
     });
     conn.on('end', function() {
@@ -100,8 +101,8 @@ exports.get_ssh_connection = function(resource, cb) {
             logger.warn("ssh server is dead.. keepalive not returning.");
         } else {
             logger.error("ssh connection error. resource_id:"+resource._id);
-            logger.error("was ready on:"+old.ready_time);
-            logger.error("was last used on:"+old.last_time);
+            logger.error("was ready on:"+conn.ready_time);
+            logger.error("was last used on:"+conn.last_used);
             logger.error("current time:"+new Date());
             logger.error(err);
         }
