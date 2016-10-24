@@ -70,7 +70,7 @@ exports.select = function(user, query, cb) {
         //for debugging
         if(best) {
             logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
-            logger.debug(config.resources[best.resource_id]);
+            //logger.debug(config.resources[best.resource_id]);
         } else {
             logger.debug("no resource matched query");
             logger.debug(query);

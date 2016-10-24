@@ -56,6 +56,7 @@ exports.progress = {
     api: 'https://soichi7.ppa.iu.edu/api/progress',
 }
 
+/*
 exports.workflows = {};
 function register_workflow(pkg, url) { 
     console.log("registering workflow "+url);    
@@ -72,6 +73,7 @@ register_workflow(require("/home/hayashis/git/sca-wf-conneval/package.json"), "/
 register_workflow(require("/home/hayashis/git/sca-wf-onere/package.json"), "/wfui/onere");
 
 register_workflow(require("/home/hayashis/git/sca-wf-test/package.json"), "/wfui/test");
+*/
 
 exports.resources = require('./resources');
 

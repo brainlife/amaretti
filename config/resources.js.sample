@@ -42,18 +42,19 @@ module.exports = {
             "soichih/sca-service-freesurfer": {score: 10},
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-service-download": {score: 10},
-            "soichih/life-1": {score: 10},
 
             "soichih/sca-product-odi": {score: 10},
 
-            //probably temp names
+            "soichih/sca-service-conneval-validate": {score: 10},
             "soichih/sca-service-neuro-tracking": {score: 10},
+            "soichih/sca-service-life": {score: 10},
+            "soichih/sca-service-connectome-data-comparison": {score: 10},
 
             "soichih/sca-service-noop": {score: 10},
 
-            "soichih/sca-service-helloworld1": {score: 10},
+            //"soichih/sca-service-helloworld1": {score: 10},
 
-            "soichih/sca-service-helloworld2": {score: 9},
+            //"soichih/sca-service-helloworld2": {score: 9},
 
             //for kd backup tool
             "soichih/sca-service-tgzpipe": {score: 10},

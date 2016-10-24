@@ -22,7 +22,7 @@ router.get('/health', function(req, res) {
 
 router.use('/task',     require('./task'));
 //router.use('/service',  require('./service'));
-router.use('/workflow', require('./workflow'));
+//router.use('/workflow', require('./workflow'));
 router.use('/instance', require('./instance')); 
 router.use('/resource', require('./resource'));
 router.use('/event', require('./event'));

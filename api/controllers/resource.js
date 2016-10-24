@@ -286,6 +286,8 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 //return a best resource for a given purpose / criteria
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
+    //logger.debug("dumping req.user");
+    //logger.debug(req.user);
 
     var query = {};
     if(req.query.service) query.service = req.query.service;

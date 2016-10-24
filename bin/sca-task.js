@@ -27,7 +27,7 @@ db.init(function(err) {
     check(); 
 });
 
-var max_elapsed = 3600*1000*3;
+var max_elapsed = 3600*1000*12;
 
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
@@ -36,7 +36,7 @@ function set_nextdate(task) {
         var start = task.start_date.getTime();
         var elapsed = task.next_date.getTime() - start;
         if(elapsed > max_elapsed) elapsed = max_elapsed; //limit elapsed time
-        var next = task.next_date.getTime() + elapsed/2;
+        var next = task.next_date.getTime() + elapsed/3 + 1000*10; //don't check more often than every 10 seconds
         task.next_date.setTime(next);
     } else {
         //not yet started. check again in 10 minutes (maybe resource issue?)
@@ -59,6 +59,7 @@ function check() {
     .populate('resource_deps') 
     .exec((err, tasks) => {
         if(err) throw err;
+        if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         async.eachSeries(tasks, (task, next) => {
             logger.info("handling task:"+task._id);
             switch(task.status) {
@@ -71,9 +72,18 @@ function check() {
             case "running":
                 handle_running(task, next); 
                 break;
+            case "failed":
+                //TODO - I don't know what to do for failed tasks yet, but I don't want
+                //to run housekeeping because it sometimes think dependency failed tasks to be removed by cluster.
+                //I want to leave it in failed status)
+                //handle_failed(task, next);
+                next();
+                break;
             default:
                 handle_housekeeping(task, next);
             }
+            //TODO - finished job get processed also.. but it's ok?
+
             set_nextdate(task);
             //logger.debug("reset next_date: "+task.next_date);
             task.save();
@@ -135,7 +145,7 @@ function handle_housekeeping(task, cb) {
                 } else {
                     //task.resource_id = undefined; 
                     task.resource_ids = good_resource_ids;
-                    if(good_resource_ids.length == 0) task.status = "removed";
+                    if(good_resource_ids.length == 0) task.status = "removed"; //most likely removed by cluster
                     task.save(next);
                 }
             });
@@ -156,10 +166,11 @@ function handle_housekeeping(task, cb) {
             var maxage = new Date();
             maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
             if(task.finish_date && task.finish_date < maxage) {
-                logger.info("this task was requested more than specified days ago..");
+                logger.info("this task was requested more than 25 days ago..");
                 need_remove = true;
             }
         
+            //no need to remove, then no need to go further
             if(!need_remove) return next();
 
             //if job is still running/running_sync, then I need to first stop it
@@ -278,7 +289,12 @@ function handle_requested(task, next) {
         json: true,
         headers: { 'Authorization': 'Bearer '+config.sca.jwt }
     }, function(err, res, gids) {
-        if(err) return next(err);
+        if(err) {
+            if(res.statusCode == 404) {
+                //often user_id is set to non existing user_id on auth service (like "sca")
+                gids = [];  
+            } else return next(err);
+        }
       
         //then pick best resource
         _resource_picker({
@@ -403,7 +419,9 @@ function handle_running(task, next) {
                     switch(code) {
                     case 0: //still running
                         //set_nextdate(task);
-                        next();
+                        //next();
+                        task.status_msg = out; //should I?
+                        task.save(next);
                         break;
                     case 1: //finished
                         load_products(task, taskdir, resource, function(err) {
