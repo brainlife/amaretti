@@ -398,6 +398,12 @@ function handle_stop(task, next) {
 //check for task status of already running tasks
 function handle_running(task, next) {
     logger.info("check_running "+task._id);
+
+    if(!task.resource_id) {
+        //not yet submitted to any resource .. maybe just got submitted?
+        next();
+        return;
+    }
     
     //TODO - request stop job that are stuck running for long time (look start_date)
     db.Resource.findById(task.resource_id, function(err, resource) {
