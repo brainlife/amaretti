@@ -409,7 +409,7 @@ function handle_running(task, next) {
             return;
         }
         if(resource.status != "ok") {
-            task.status_msg = "Resource status is not ok.");
+            task.status_msg = "Resource status is not ok.";
             task.save(next);
             return;
         }
