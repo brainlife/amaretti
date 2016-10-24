@@ -8,7 +8,7 @@ exec 2> >(tee -a ${LOGFILE} >&2)
 #debug..
 #env | sort | grep SCA
 
-echo "installing sca shared libs"
+#echo "installing sca shared libs"
 
 mkdir -p keys
 chmod 700 keys

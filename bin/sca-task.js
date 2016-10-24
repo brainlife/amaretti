@@ -506,7 +506,10 @@ function start_task(task, resource, cb) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
-            
+
+            logger.debug("service_detail.pkg");
+            logger.debug(service_detail.pkg);
+
             var workdir = common.getworkdir(task.instance_id, resource);
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
@@ -575,6 +578,7 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
+
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
