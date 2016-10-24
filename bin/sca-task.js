@@ -408,7 +408,17 @@ function handle_running(task, next) {
             task.save(next);
             return;
         }
+        if(resource.status != "ok") {
+            task.status_msg = "Resource status is not ok.");
+            task.save(next);
+            return;
+        }
         common.get_ssh_connection(resource, function(err, conn) {
+            if(err) {
+                task.status_msg = err.toString();
+                task.save(next);
+                return next();
+            }
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
             //TODO - not all service provides bin.status.. how will this handle that?
             logger.debug("cd "+taskdir+" && ./_status.sh");
