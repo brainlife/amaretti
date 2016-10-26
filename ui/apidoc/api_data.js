@@ -396,6 +396,43 @@ define({ "api": [
     "name": "GetResourceLsResource_id"
   },
   {
+    "group": "Resource",
+    "type": "get",
+    "url": "/resource/types",
+    "title": "Get all resource types",
+    "description": "<p>Returns all resource types configured on the server</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "List",
+            "description": "<p>of resources types (in key/value where key is resource type ID, and value is resource detail)</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource",
+    "name": "GetResourceTypes"
+  },
+  {
     "type": "post",
     "url": "/resource",
     "title": "Register new resource instance",
@@ -730,7 +767,7 @@ define({ "api": [
       ]
     },
     "version": "0.0.0",
-    "filename": "api/controllers/service.js",
+    "filename": "api/controllers/barn/service.js",
     "groupTitle": "Service",
     "name": "GetService"
   },
@@ -785,7 +822,7 @@ define({ "api": [
       ]
     },
     "version": "0.0.0",
-    "filename": "api/controllers/service.js",
+    "filename": "api/controllers/barn/service.js",
     "groupTitle": "Service",
     "name": "PostService"
   },
@@ -816,9 +853,9 @@ define({ "api": [
   {
     "type": "delete",
     "url": "/task/:taskid",
-    "title": "DEPRECATED: Remove a task",
+    "title": "Mark the task for immediate removal",
     "group": "Task",
-    "description": "<p>Physically remove a task from DB. Tasks that depends on deleted task will not be removed but will point to now missing task. Which may or may not fail.</p>",
+    "description": "<p>Sets the remove_date to now, so that when the house keeping occurs in the next cycle, the task_dir will be removed and status will be set to &quot;removed&quot;</p>",
     "header": {
       "fields": {
         "Header": [
@@ -836,7 +873,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully removed\",\n}",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully scheduled for removed\",\n}",
           "type": "json"
         }
       ]
@@ -958,6 +995,13 @@ define({ "api": [
             "group": "Parameter",
             "type": "String",
             "optional": true,
+            "field": "service_branch",
+            "description": "<p>Branch to use for the service (master by default)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
             "field": "name",
             "description": "<p>Name for this task</p>"
           },
@@ -995,6 +1039,13 @@ define({ "api": [
             "optional": true,
             "field": "deps",
             "description": "<p>task IDs that this serivce depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object",
+            "optional": true,
+            "field": "envs",
+            "description": "<p>Dictionary of ENV parameter to set.</p>"
           },
           {
             "group": "Parameter",
@@ -1039,6 +1090,19 @@ define({ "api": [
     "title": "Rerun finished / failed task",
     "group": "Task",
     "description": "<p>Reset the task status to &quot;requested&quot; and reset products / next_date</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "remove_date",
+            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
+          }
+        ]
+      }
+    },
     "header": {
       "fields": {
         "Header": [
@@ -1128,6 +1192,13 @@ define({ "api": [
             "optional": true,
             "field": "service",
             "description": "<p>Name of the service to run</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "service_branch",
+            "description": "<p>Branch to use for the service (master by default)</p>"
           },
           {
             "group": "Parameter",

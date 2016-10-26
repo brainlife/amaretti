@@ -15,12 +15,12 @@ rm -f $keytab_name
 
 path=~/.sda-backup/
 ktutil > /dev/null <<INTER
-    addent -password -p $USERNAME@ADS.IU.EDU -k 1 -e rc4-hmac
-    $PASSWORD
-    addent -password -p $USERNAME@ADS.IU.EDU -k 1 -e aes256-cts
-    $PASSWORD
-    write_kt $keytab_name
-    quit
+addent -password -p $USERNAME@ADS.IU.EDU -k 1 -e rc4-hmac
+$PASSWORD
+addent -password -p $USERNAME@ADS.IU.EDU -k 1 -e aes256-cts
+$PASSWORD
+write_kt $keytab_name
+quit
 INTER
 
 if [ $? -eq 0 ]; then
