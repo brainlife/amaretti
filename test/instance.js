@@ -168,7 +168,7 @@ describe('/instance', function() {
             if(err) return done(err);
             var instances = res.body.instances;
             assert(instances.length == 1);
-            console.dir(instances);
+            //console.dir(instances);
             assert(instances[0].name === "test 2");
             assert(instances[0].desc === undefined);
             done();

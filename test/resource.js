@@ -160,7 +160,7 @@ describe('/resource', function() {
         .expect(200, done);
     });
 
-
+    /*
     it('generate sshkey', function(done) {
         request(app)
         .get('/resource/gensshkey')
@@ -168,5 +168,6 @@ describe('/resource', function() {
         .expect('Content-Type', /json/) 
         .expect(200, done);
     });
+    */
 });
 
