@@ -61,7 +61,7 @@ function check() {
         if(err) throw err;
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         async.eachSeries(tasks, (task, next) => {
-            logger.info("handling task:"+task._id);
+            logger.info("handling task:"+task._id+" ("+task.name+")");
             switch(task.status) {
             case "requested":
                 handle_requested(task, next); 
@@ -79,6 +79,7 @@ function check() {
                 //handle_failed(task, next);
                 next();
                 break;
+            case "remove_requested":
             default:
                 handle_housekeeping(task, next);
             }

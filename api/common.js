@@ -8,7 +8,7 @@ var crypto = require('crypto');
 //contrib
 var winston = require('winston');
 var async = require('async');
-var keygen = require('ssh-keygen');
+//var keygen = require('ssh-keygen');
 var Client = require('ssh2').Client;
 var request = require('request');
 
@@ -160,15 +160,11 @@ exports.get_sftp_connection = function(resource, cb) {
     });
 }
 
-exports.ssh_keygen = function(cb) {
+/*
+exports.ssh_keygen = function(opts, cb) {
     logger.info("generating ssh key");
     //this just calls ssh-keygen..
-    keygen({
-      //location: location,
-      //comment: "",
-      //password: password, 
-      read: true
-    }, function(err, out) {
+    keygen(opts, function(err, out) {
         if(err) cb(err);
         cb(null, {
             pubkey: out.pubKey.trim(),
@@ -176,6 +172,7 @@ exports.ssh_keygen = function(cb) {
         });
     });
 }
+*/
 
 exports.progress = function(key, p, cb) {
     request({

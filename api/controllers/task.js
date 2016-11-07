@@ -295,6 +295,7 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
 router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.params.task_id;
     db.Task.update({_id: task_id, user_id: req.user.sub}, {
+        status: "remove_requested", //so that task housekeeping runs on this task (some status doesn't process removal)
         remove_date: new Date(),
         next_date: new Date(), //TODO - not sure if I should do this or not (without this, task maybe sitting for a long time)
     }, function(err) {

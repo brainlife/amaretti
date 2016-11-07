@@ -749,9 +749,11 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
  * @apiName GENSSHKEYResource
  * @apiGroup Resource
  *
- * @apiDescription used by resource editor to setup new resource
+ * @apiDescription 
+ *      Used by resource editor to setup new resource
  *      jwt is optional.. since it doesn't really store this anywhere (should I?)
  *      kdinstaller uses this to generate key (and scott's snapshot tool)
+ *      In the future, this might be moved to a dedicated SCA util API service (or deprecated)
  * 
  * //@apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
@@ -760,13 +762,18 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
  *     { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',
  *       key: '-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\n-----END RSA PRIVATE KEY-----' }
  *
- */
 router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
-    common.ssh_keygen(function(err, out){
+    common.ssh_keygen({
+        //ssh-keygen opts (https://github.com/ericvicenti/ssh-keygen)
+        destroy: true,
+        comment: req.query.comment,
+        password: req.query.password,
+    }, function(err, out) {
         if(err) return next(err);
         res.json(out);
     });
 });
+*/
 
 //intentionally left undocumented
 //TODO - limit access to certain IP range
