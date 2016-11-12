@@ -126,7 +126,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
         inst.gids.forEach(function(group) { gids.push(group.id); });
         inst.gids = gids;
 
-        if(!isadmin) delete inst.gids;
+        //if(!isadmin) delete inst.gids;
 
         //convert _envs to key/value in object
         inst.envs = {};

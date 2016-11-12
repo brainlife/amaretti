@@ -622,7 +622,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  * @apiParam {Object} [config]    Resource Configuration to update
  * @apiParam {Object} [envs]      Resource environment parameters to update
  * @apiParam {String} [name]      Name of this resource instance
- * @apiParam {Number[]} [gids]    List of groups that can use this resource
+ * @apiParam {Number[]} [gids]    List of groups that can use this resource (only sca admin can update)
  * @apiParam {Boolean} [active]   Set true to enable resource
  *
  * @apiDescription Update the resource instance (only the resource that user owns)
@@ -633,10 +633,17 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  */
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
+
+
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         if(resource.user_id != req.user.sub) return res.status(401).end();
+
+        //only admin can update gids
+        if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
+            delete resource.gids;
+        }
 
         //need to decrypt first so that I can preserve previous values
         common.decrypt_resource(resource);
@@ -661,9 +668,9 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     });
 });
 
-//TODO - is it dangerous to allow anyone to share resources with any groups?
-//task could get submitted there without other user's being aware.. maybe I should
-//let user do 2 way binding? Or.. only let certain users share resources with others?
+//it's dangerous to allow anyone to share resources with any groups.
+//task could get submitted there without other user's being aware.. 
+//for now, only administrators can update gids
 
 /**
  * @api {post} /resource        Register new resource instance
@@ -675,7 +682,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiParam {String} name      Name of this resource instance (like "soichi's karst account")
  * @apiParam {Object} config    Configuration for resource
  * @apiParam {Boolean} active   Set true to enable resource
- * @apiParam {Number[]} [gids]    List of groups that can use this resource
+ * @apiParam {Number[]} [gids]    List of groups that can use this resource (only sca admin can enter this)
  * @apiParam {Object} [envs]      Key values to be inserted for service execution
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
@@ -701,6 +708,12 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource = new db.Resource(req.body);
+    
+    //only admin can update gids
+    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
+        delete resource.gids;
+    }
+
     resource.user_id = req.user.sub;
     common.encrypt_resource(resource);
     resource.save(function(err, _resource) {
