@@ -1,5 +1,5 @@
 
-<ui-select multiple ng-model="$ctrl.gids">
+<ui-select multiple ng-model="$ctrl.gids" ng-disabled="$ctrl.readonly">
     <ui-select-match placeholder="Select groups who can access this resource">
         <b>{{$item.name}}</b>
         <span class="text-muted">({{$item.Members.length}} users)</span>
@@ -10,8 +10,3 @@
     </ui-select-choices>
 </ui-select>
 
-<!--
-{{$ctrl.gids}}
-{{$ctrl.groups}}
-{{$ctrl.hello}}
--->

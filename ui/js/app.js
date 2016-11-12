@@ -7,8 +7,9 @@ var app = angular.module('app', [
     'angular-loading-bar',
     'angular-jwt',
     'ui.gravatar',
-    //'ui.select',
+    'ui.select',
     'ui.bootstrap',
+    'ui.bootstrap.modal',
     'ui.bootstrap.tooltip',
     'sca-shared',
 ]);
@@ -127,9 +128,9 @@ app.config(['cfpLoadingBarProvider', function(cfpLoadingBarProvider) {
 //configure httpProvider to send jwt unless skipAuthorization is set in config (not tested yet..)
 app.config(['appconf', '$httpProvider', 'jwtInterceptorProvider', 
 function(appconf, $httpProvider, jwtInterceptorProvider) {
-    jwtInterceptorProvider.tokenGetter = function(jwtHelper, config, $http) {
+    jwtInterceptorProvider.tokenGetter = function(jwtHelper, $http) {
         //don't send jwt for template requests (I don't think angular will ever load css/js - browsers do)
-        if (config.url.substr(config.url.length - 5) == '.html') return null;
+        //if (config.url.substr(config.url.length - 5) == '.html') return null;
         return localStorage.getItem(appconf.jwt_id);
     }
     $httpProvider.interceptors.push('jwtInterceptor');

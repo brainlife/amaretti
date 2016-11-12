@@ -8,8 +8,14 @@ function($scope, appconf, $route, serverconf, menu, scaSettingsMenu, $location) 
     serverconf.then(function(_c) { $scope.serverconf = _c; });
     $scope.menu = menu;
     $scope.user = menu.user; 
+
     $scope.i_am_header = true;
     $scope.settings_menu = scaSettingsMenu;
+
+    /*
+    var jwt = localStorage.getItem(appconf.jwt_id);
+    if(jwt) $scope.user = jwtHelper.decodeToken(jwt);
+    */
 
     //open another page inside the app.
     $scope.openpage = function(page) {
@@ -24,15 +30,14 @@ function($scope, appconf, $route, serverconf, menu, scaSettingsMenu, $location) 
 });
 
 app.controller('AboutController', 
-function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper) {
+function($scope, appconf, menu, serverconf, scaMessage, toaster) {
     $scope.$parent.active_menu = "about";
     scaMessage.show(toaster);
     $scope.appconf = appconf;
 });
 
 //list all available workflows and instances
-app.controller('WorkflowsController', ['$scope', 'menu', 'scaMessage', 'toaster', 'jwtHelper', '$location', '$http', 'appconf',
-function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf) {
+app.controller('WorkflowsController', function($scope, menu, scaMessage, toaster, $location, $http, appconf) {
     $scope.$parent.active_menu = "workflows";
     scaMessage.show(toaster);
 
@@ -90,186 +95,21 @@ function($scope, menu, scaMessage, toaster, jwtHelper, $location, $http, appconf
             document.location = $scope.workflows[inst.workflow_id].url+"#/start/"+inst._id;//, 'scainst:'+inst._id);
         }
     }
-}]);
-
-/*
-//show workflow detail (not instance)
-app.controller('WorkflowController', ['$scope', 'appconf', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', '$routeParams', '$http',
-function($scope, appconf, menu, serverconf, scaMessage, toaster, jwtHelper, $location, $routeParams, $http) {
-    scaMessage.show(toaster);
-    
-    //TODO - using deprecated api.. switch to use query
-    $http.get(appconf.api+'/workflow/'+$routeParams.id)
-    .then(function(res) {
-        $scope.workflow = res.data;
-
-        //load instances under this workflow (for this user)
-        $http.get(appconf.api+'/instance', {params: {
-            where: {workflow_id: $scope.workflow.name},
-        }})
-        .then(function(res) {
-            $scope.instances = res.data;
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }, function(res) {
-        if(res.data && res.data.message) toaster.error(res.data.message);
-        else toaster.error(res.statusText);
-    });
-
-    $http.get(appconf.api+'/comment/workflow/'+$routeParams.id)
-    .then(function(res) {
-        $scope.comments = res.data;
-    }, function(res) {
-        if(res.data && res.data.message) toaster.error(res.data.message);
-        else toaster.error(res.statusText);
-    });
-
-    $scope.back = function() {
-        $location.path("/workflows");
-    }
-
-    $scope.form = {};
-    $scope.submit = function() {
-        return $http.post(appconf.api+'/instance', {
-            workflow_id: $routeParams.id,
-            name: $scope.form.name,
-            desc: $scope.form.desc,
-        }).then(function(res) {
-            var instance = res.data;
-            //scaMessage.success("Created a new workflow instance"); //TODO unnecessary?
-            //window.open($scope.workflow.url+"#/start/"+instance._id, 'scainst:'+instance._id);
-            document.location = $scope.workflow.url+"#/start/"+instance._id;
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-
-    $scope.addcomment = function() {
-        //console.dir($scope.comment);
-        $http.post(appconf.api+'/comment/workflow/'+$routeParams.id, {
-            text: $scope.comment,
-        }).then(function(res) {
-            $scope.comments.push(res.data);
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-    $scope.openinst = function(inst) {
-        document.location = $scope.workflow.url+"#/start/"+inst._id;
-    }
-}]);
-
-//show list of all workflow instances that user owns
-app.controller('InstsController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location',
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location) {
-    scaMessage.show(toaster);
-    
-    //load available workflows (TODO - add querying capability)
-    $http.get(appconf.api+'/workflow')
-    .then(function(res) {
-        $scope.workflows = res.data;
-    }, function(res) {
-        if(res.data && res.data.message) toaster.error(res.data.message);
-        else toaster.error(res.statusText);
-    });
-}]);
-
-//TODO will be moved to inst.js ... has this already happened?
-app.controller('InstController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$routeParams', '$http', '$modal',
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, $modal) {
-    scaMessage.show(toaster);
-    serverconf.then(function(_serverconf) { $scope.serverconf = _serverconf; });
-
-    $scope.workflow = {steps: []}; //so that I can start watching workflow immediately
-    $scope._products = [];
-
-    $http.get($scope.appconf.api+'/workflow/'+$routeParams.id)
-    .then(function(res) {
-        $scope.workflow = res.data;
-    }, function(res) {
-        if(res.data && res.data.message) toaster.error(res.data.message);
-        else toaster.error(res.statusText);
-    });
-
-    $scope.$watch('workflow', function(nv, ov) {
-        $scope._products.length = 0; //clear without changing reference 
-        $scope.workflow.steps.forEach(function(step) {
-            step.tasks.forEach(function(task) {
-                for(var product_idx = 0;product_idx < task.products.length; product_idx++) {
-                    var product = task.products[product_idx];                
-                    $scope._products.push({
-                        product: product,
-                        step: step,    
-                        task: task, 
-                        service_detail: $scope.serverconf.services[task.service],
-                        product_idx: product_idx
-                    });
-                }
-            });
-        });
-    }, true);//deepwatch-ing the entire workflow maybe too expensive..
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////
-    //functions
-
-    //TODO rename to just save()?
-    $scope.save_workflow = function() {
-        $http.put($scope.appconf.api+'/workflow/'+$routeParams.id, $scope.workflow)
-        .then(function(res) {
-            console.log("workflow updated");
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
-        });
-    }
-
-    $scope.removestep = function(idx) {
-        $scope.workflow.steps.splice(idx, 1);
-        $scope.save_workflow();
-    }
-
-    $scope.addstep = function(idx) {
-        var modalInstance = $modal.open({
-            //animation: $scope.animationsEnabled,
-            templateUrl: 't/workflow.step_selector.html',
-            controller: 'WorkflowStepSelectorController',
-            size: 'lg',
-            resolve: {
-                //TODO what is this?
-                items: function () {
-                    return {'item': 'here'}
-                }
-            }
-        });
-
-        modalInstance.result.then(function(service) {
-            //instantiate new step
-            //var newstep = angular.copy(service.default);
-            var newstep = {
-                service: service.id,
-                name: 'untitled',
-                config: service.default,
-                tasks: [],
-            };
-            //finally, add the step and update workflow
-            if(idx === undefined) $scope.workflow.steps.push(newstep);
-            else $scope.workflow.steps.splice(idx, 0, newstep);
-            $scope.save_workflow();
-        }, function () {
-            //toaster.success('Modal dismissed at: ' + new Date());
-        });
-    };
-}]);
-*/
+});
 
 app.controller('ResourcesController', 
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams, $http, resources, $uibModal) {
+function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, resources, $modal) {
     $scope.$parent.active_menu = "settings";
     scaMessage.show(toaster);
+
+    var resource_scope = $scope;
+    
+    //set isadmin flag
+    var isadmin = false;
+    if( resource_scope.user && 
+        resource_scope.user.scopes &&
+        resource_scope.user.scopes.sca &&
+        ~resource_scope.user.scopes.sca.indexOf("admin") ) isadmin = true;
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 
@@ -285,6 +125,8 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         var gids = [];
         inst.gids.forEach(function(group) { gids.push(group.id); });
         inst.gids = gids;
+
+        if(!isadmin) delete inst.gids;
 
         //convert _envs to key/value in object
         inst.envs = {};
@@ -308,7 +150,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             $http.post($scope.appconf.api+'/resource/', _inst)
             .then(function(res) {
                 toaster.success("Created resource");
-                console.dir(res.data);
+                //console.dir(res.data);
                 $scope.myresources.push(res.data);
             }, function(res) {
                 if(res.data && res.data.message) toaster.error(res.data.message);
@@ -361,6 +203,7 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
         $event.stopPropagation();
         $http.put($scope.appconf.api+'/resource/test/'+inst._id)
         .then(function(res) {
+            inst.status = res.data.status;
             if(res.data.status == "ok") {
                 toaster.success("Resource configured properly!");
             } else {
@@ -391,17 +234,32 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
             template = "resources.ssh.html";
         }
 
-        return $uibModal.open({
+        return $modal.open({
             templateUrl: template,
-            controller: function($scope, inst, resource, $uibModalInstance, $http, appconf) {
+            controller: function($scope, inst, resource, $modalInstance, $http, appconf) {
+                $scope.isadmin = isadmin;
+
+                $scope.reset_sshkey = function(inst) {
+                    forge.pki.rsa.generateKeyPair({bits: 2048, workers: 2/*e: 0x10001*/}, function(err, keypair) {
+                        if(err) {
+                            toaster.error(err);
+                            return;
+                        }
+                        inst.config.ssh_public = forge.ssh.publicKeyToOpenSSH(keypair.publicKey);//, "pubkey comment");
+                        inst.config.enc_ssh_private = forge.ssh.privateKeyToOpenSSH(keypair.privateKey); //nokey?
+                        console.log("new public key");
+                        console.dir(inst.config.ssh_public);
+                    });
+                }
+
                 if(inst) {
                     //update
                     $scope.inst = angular.copy(inst);
                 } else {
                     //new
                     $scope.inst = def;
-
                     console.log("generating key");
+                    /*
                     $http.get(appconf.api+'/resource/gensshkey/')
                     .then(function(res) {
                         $scope.inst.config.ssh_public = res.data.pubkey;
@@ -410,6 +268,9 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
                         if(res.data && res.data.message) toaster.error(res.data.message);
                         else toaster.error(res.statusText);
                     });
+                    */
+
+                    $scope.reset_sshkey($scope.inst);
                 }
         
                 //stringify inst.envs
@@ -420,13 +281,13 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
 
                 $scope.resource = resource;
                 $scope.cancel = function() {
-                    $uibModalInstance.dismiss('cancel');
+                    $modalInstance.dismiss('cancel');
                 }
                 $scope.remove = function() {
-                    $uibModalInstance.dismiss('remove');
+                    $modalInstance.dismiss('remove');
                 }
                 $scope.ok = function() {
-                    $uibModalInstance.close($scope.inst);
+                    $modalInstance.close($scope.inst);
                 }
             },
             backdrop: 'static',
@@ -438,30 +299,11 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $routeParams,
     }
 });
 
-/*
-app.controller('ServicesController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services',
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services) {
-    scaMessage.show(toaster);
-    services.query({}).then(function(ss) {
-        $scope.services = ss.services;
-        $scope.service_count = ss.count;
-    });
-}]);
-
-app.component('serviceDetail', {
-    templateUrl: 't/service-detail.html',
-    bindings: {
-        service: '<'
-    },
-    controller: function() {
-    },
-});
-*/
-
 app.component('accessGroups', {
-    templateUrl: 't/groups.html',
+    templateUrl: 't/accessgroups.html',
     bindings: {
-        gids: '='
+        gids: '=',
+        readonly: '=',
     },
     controller: function(groups) {
         var ctrl = this;
@@ -479,13 +321,10 @@ app.component('accessGroups', {
     },
 });
 
-app.controller('AutoconfController', ['$scope', 'menu', 'serverconf', 'scaMessage', 'toaster', 'jwtHelper', '$location', 'services', 'resources', 'appconf', '$http',
-function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, services, resources, appconf, $http) {
+app.controller('AutoconfController', function($scope, menu, serverconf, scaMessage, toaster, $location, services, resources, appconf, $http) {
     scaMessage.show(toaster);
 
     $scope.page = "select";
-    var jwt = localStorage.getItem(appconf.jwt_id);
-    if(jwt) var user = jwtHelper.decodeToken(jwt);
 
     $scope.userpass = {};
 
@@ -504,10 +343,8 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
             resources.forEach(function(resource) {
                 var detail = $scope.resource_details[resource.resource_id];
                 if(detail && resource.config && resource.config.username) {
-                    //if(resource.config.username == user.profile.username) {
                     detail._configured = resource.config.username;//true;
                     detail._select = false; 
-                    //}
                 }
             });
         });
@@ -565,24 +402,26 @@ function($scope, menu, serverconf, scaMessage, toaster, jwtHelper, $location, se
 
     $scope.run = function() {
         $scope.page = 'run';
-        $http.get(appconf.api+'/resource/gensshkey')
-        .then(function(res) {
-            $scope.keys = res.data;
-            //install all resources
+        forge.pki.rsa.generateKeyPair({bits: 2048, workers: 2/*e: 0x10001*/}, function(err, keypair) {
+            if(err) {
+                toaster.error(err);
+                return;
+            }
+            $scope.keys = {
+                pubkey: forge.ssh.publicKeyToOpenSSH(keypair.publicKey, "pubkey comment"),
+                key: forge.ssh.privateKeyToOpenSSH(keypair.privateKey, null),
+            };
             for(var id in $scope.resource_details) {
                 var resource_detail = $scope.resource_details[id];
                 if(resource_detail._select) {
                     install(res.data, id, resource_detail);
                 }
             }
-        }, function(res) {
-            if(res.data && res.data.message) toaster.error(res.data.message);
-            else toaster.error(res.statusText);
         });
     }
 
     $scope.finish = function() {
         document.location = "#/resources/";
     }
-}]);
+});
 

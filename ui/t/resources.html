@@ -55,6 +55,7 @@
                                         <div class="col-md-6">
                                             {{inst.name}}<br>
                                             <span class="text-muted">{{inst.config.username}}</span>
+                                            <p ng-if="inst.gids.length > 0">Shared Groups: {{inst.gids}}</p>
                                         </div>
                                         <div class="col-md-2">
                                             <input type="checkbox" ng-model="inst.active" disabled></input>
@@ -137,8 +138,8 @@
         </div>
         <div class="form-group">
             <label>Sharing</label>
-            <p>Allow following groups to use this resource</p>
-            <access-groups gids="inst.gids"></access-groups>
+            <p class="help-block">* Only SCA administrator can share resources</p>
+            <access-groups gids="inst.gids" readonly="!isadmin"></access-groups>
         </div>
         <div class="form-group">
             <label>Environment Parameters</label>
@@ -173,7 +174,7 @@
         <div class="form-group">
             <label>SSH Public Key</label>
             <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{resource.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
-            <!--<button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>-->
+            <button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>
             <p class="well well-sm" style="font-family: Courier; font-size: 75%; word-wrap: break-word;">#Public key to allow access to this resource through SCA ({{inst.name}})<br>
 {{inst.config.ssh_public}} {{inst.config.username}}@sca</p>
             <!--
@@ -184,8 +185,8 @@
         </div>
         <div class="form-group">
             <label>Sharing</label>
-            <!--<p class="help-block">Share this resource with other members</p>-->
-            <access-groups gids="inst.gids"></access-groups>
+            <p class="help-block">Only SCA administrator can share resources</p>
+            <access-groups gids="inst.gids" readonly="!isadmin"></access-groups>
         </div>
         <div class="form-group">
             <label>Environment Parameters</label>
