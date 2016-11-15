@@ -14,7 +14,9 @@ const events = require('../events');
 mongoose.Promise = global.Promise; 
 
 exports.init = function(cb) {
-    mongoose.connect(config.mongodb, {}, function(err) {
+    mongoose.connect(config.mongodb, {
+        server: { auto_reconnect: true }
+    }, function(err) {
         if(err) return cb(err);
         logger.info("connected to mongo");
         cb();

@@ -21,8 +21,17 @@ const _resource_picker = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
+process.on('unhandledRejection', (reason, promise) => {
+    logger.error("sleeping for 10 seconds and killing");
+    logger.error(reason);
+    setTimeout(function() {
+        process.exit(1);
+    }, 1000*10);
+});
+
 db.init(function(err) {
     if(err) throw err;
+    logger.debug("db-initialized");
     //start check loop
     check(); 
 });
@@ -46,6 +55,7 @@ function set_nextdate(task) {
 }
 
 function check() {
+    logger.debug("checking...");
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
         $or: [
@@ -93,7 +103,10 @@ function check() {
             //wait a bit and recheck again
             setTimeout(check, 500);
         });
-    });
+    })/*.catch(function(err) {
+        logger.error("task/find error - throwing");
+        throw err;
+    })*/;
 }
 
 function handle_housekeeping(task, cb) {
@@ -352,8 +365,8 @@ function handle_stop(task, next) {
             return;
         }
 
-        get_service(task.service, function(err, service_detail) {
-        //db.Service.findOne({name: task.service}, function(err, service_detail) {
+        //get_service(task.service, function(err, service_detail) {
+        _service.loaddetail(task.service, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -484,22 +497,11 @@ function handle_running(task, next) {
     });
 }
 
+/*
 function get_service(service_name, cb) {
-    /*
-    db.Service.findOne({name: service_name}, function(err, service_detail) {
-        logger.info("caching service detail for "+service_name);
-        _service.loaddetail(service_name, function(err, new_service_detail) {
-            service_detail.cached_date = new Date();
-            service_detail.git = new_service_detail.git; //not necessary?
-            service_detail.pkg = new_service_detail.pkg;
-            service_detail.save(function(err) {
-                cb(err, service_detail);
-            });
-        });
-    });
-    */
     _service.loaddetail(service_name, cb);
 }
+*/
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
@@ -508,8 +510,8 @@ function start_task(task, resource, cb) {
         var service = task.service;
         if(service == null) return cb(new Error("service not set.."));
 
-        //db.Service.findOne({name: service}, function(err, service_detail) {
-        get_service(service, function(err, service_detail) {
+        //get_service(service, function(err, service_detail) {
+        _service.loaddetail(service, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
