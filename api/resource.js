@@ -122,7 +122,7 @@ exports.check = function(resource, cb) {
     if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
     if(detail.type === undefined) return cb(resource.resource_id+" doesn't have type defined.. don't know how to check");
 
-    logger.debug(detail);
+    //logger.debug(detail);
     switch(detail.type) {
     case "ssh":
         check_ssh(resource, update_status);
@@ -202,15 +202,17 @@ function check_ssh(resource, cb) {
         nexted = true;
         cb(null, "failed", err.toString());
     });
-    common.decrypt_resource(resource);
-    logger.debug("decrypted");
-    //console.dir(resource);
+
+    //clone resource so that decrypted content won't leak out of here
+    var decrypted_resource = JSON.parse(JSON.stringify(resource));
+    common.decrypt_resource(decrypted_resource);
+    logger.debug("check_ssh / decrypted");
     var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
             host: detail.hostname,
             username: resource.config.username,
-            privateKey: resource.config.enc_ssh_private,
+            privateKey: decrypted_resource.config.enc_ssh_private,
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
         });
     } catch (err) {

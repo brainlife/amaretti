@@ -2,18 +2,19 @@
 'use strict';
 
 //node
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const path = require('path');
 
 //contrib
-var winston = require('winston');
-var async = require('async');
+const winston = require('winston');
+const async = require('async');
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('../api/models/db');
-var resource_lib = require('../api/resource');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('../api/models/db');
+const resource_lib = require('../api/resource');
+const common = require('../api/common');
 
 db.init(function(err) {
     if(err) throw err;
@@ -33,10 +34,21 @@ function check_resources(cb) {
     db.Resource.find({}, function(err, resources) {
         async.eachSeries(resources, function(resource, next_resource) {
             //logger.debug("checking "+resource._id);
+            //logger.debug(resource.config);
             resource_lib.check(resource, function(err) {
-                //logger.debug("check called cb on "+resource._id);
-                //if(err) logger.info(err); //I don't care if someone's resource status is failing or not
-                next_resource();
+                //I don't care if someone's resource status is failing or not
+                //if(err) logger.info(err); 
+                if(err) next_resource();
+                else {
+                    var detail = config.resources[resource.resource_id];
+                    if(detail && detail.type == "ssh" && resource.status == "ok") {
+                        //console.dir(detail);
+                        clean_workdir(resource, function(err) {
+                            if(err) logger.error(err); //continue
+                            next_resource();
+                        });
+                    } else return next_resource();
+                }
             });
         }, function(err) {
             if(err) logger.error(err); //continue
@@ -44,6 +56,27 @@ function check_resources(cb) {
             cb();
         });
     });
+}
+
+//find empty & old(5 days) instance directory and remove it
+function clean_workdir(resource, cb) {
+    common.get_ssh_connection(resource, function(err, conn) {
+        if(err) return cb(err);
+        var workdir = common.getworkdir("", resource);
+        logger.debug("cleaning workdir:"+workdir+" for resource_id:"+resource._id);
+        //conn.exec("find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec echo {} \\;", function(err, stream) {
+        conn.exec("find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec rmdir {} \\;", function(err, stream) {
+            if(err) return cb(err);        
+            stream.on('close', function(code, signal) {
+                cb();
+            })
+            .on('data', function(data) {
+                logger.debug(data.toString());
+            }).stderr.on('data', function(data) {
+                logger.debug(data.toString());
+            });
+        });
+    }); 
 }
 
 

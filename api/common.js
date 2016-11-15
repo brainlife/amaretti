@@ -108,6 +108,7 @@ exports.get_ssh_connection = function(resource, cb) {
         }
         delete ssh_conns[resource._id];
     });
+    //var _resource = _.clone(resource);
     exports.decrypt_resource(resource);
     conn.connect({
         host: detail.hostname,

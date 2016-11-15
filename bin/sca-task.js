@@ -257,7 +257,14 @@ function handle_housekeeping(task, cb) {
                     common.progress(task.progress_key, {msg: 'Task directory Removed'});
                 }
             });
+        },
+
+        /*
+        //remove instance?
+        function(next) {
+        
         }
+        */
 
         //onto.. next housekeeping task..
         //TODO - stop tasks that got stuck in running / running_sync
