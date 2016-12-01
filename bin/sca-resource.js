@@ -31,10 +31,19 @@ function start_check_resources() {
 
 //go through all registered resources and check for connectivity & smoke test
 function check_resources(cb) {
-    db.Resource.find({}, function(err, resources) {
+    db.Resource.find({active: true}, function(err, resources) {
         async.eachSeries(resources, function(resource, next_resource) {
-            //logger.debug("checking "+resource._id);
-            //logger.debug(resource.config);
+
+            //deactivate resource if it's never been ok-ed for a weel
+            var weekold = new Date();
+            weekold.setDate(weekold.getDate() - 7);
+            if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
+                logger.info("deactivating resource "+resource._id+ " since it's never been active for long time");
+                resource.active = false;
+                resource.save(next_resource);
+                return;
+            }
+
             resource_lib.check(resource, function(err) {
                 //I don't care if someone's resource status is failing or not
                 //if(err) logger.info(err); 
@@ -64,8 +73,7 @@ function clean_workdir(resource, cb) {
         if(err) return cb(err);
         var workdir = common.getworkdir("", resource);
         logger.debug("cleaning workdir:"+workdir+" for resource_id:"+resource._id);
-        //conn.exec("find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec echo {} \\;", function(err, stream) {
-        conn.exec("find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec rmdir {} \\;", function(err, stream) {
+        conn.exec("if [ -d \""+workdir+"\" ]; then find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec rmdir {} \\; fi", function(err, stream) {
             if(err) return cb(err);        
             stream.on('close', function(code, signal) {
                 cb();

@@ -62,7 +62,7 @@ var resourceSchema = mongoose.Schema({
     user_id: {type: String, index: true}, 
 
     //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
-    type: String, //like hpss, pbs (from resource base)
+    type: String, 
 
     resource_id: String, //like sda, bigred2 (resource base id..)
     //
@@ -74,15 +74,14 @@ var resourceSchema = mongoose.Schema({
 
     status: String,
     status_msg: String,
-    status_update: Date,
+    status_update: Date, //update_date is for updating the resource config.. status_update is the date of last status check
+    lastok_date: Date, //date which status was last ok... used to auto-deactivate if status remains non-ok for long period of time
 
     active: {type: Boolean, default: true},
 
     name: String, 
     config: mongoose.Schema.Types.Mixed,
     envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
-
-    //salts: mongoose.Schema.Types.Mixed, //salts used to encrypt fields in config (that starts with enc_)
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },

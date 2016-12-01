@@ -282,10 +282,8 @@ function intersect_safe(a, b)
        bi++;
      }
   }
-
   return result;
 }
-
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {

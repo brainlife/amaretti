@@ -138,6 +138,7 @@ exports.check = function(resource, cb) {
         resource.status = status;
         resource.status_msg = msg;
         resource.status_update = new Date();
+        if(status == "ok") resource.lastok_date = new Date();
         resource.save(function(err) {
             cb(err, {status: status, message: msg});
         });
