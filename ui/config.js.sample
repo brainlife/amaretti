@@ -1,0 +1,57 @@
+'use strict';
+
+angular.module('app.config', [])
+.constant('appconf', {
+
+    //brand: {label : 'soichi7'},
+
+    title: 'SCA Portal',
+    api: '../api/wf',
+
+    //shared servive api and ui urls (for menus and stuff)
+    profile_api: '../api/profile',
+    profile_url: '../profile',
+
+    //shared servive api and ui urls (for menus and stuff)
+    shared_api: '../api/shared',
+    shared_url: '../shared',
+    
+    progress_api: '../api/progress',
+    progress_url: '../progress',
+
+    //authentcation service API to refresh token, etc.
+    auth_api: '../api/auth',
+    //authentication service URL to jump if user needs to login
+    auth_url: '../auth',
+
+    jwt_id: 'jwt',
+
+    menu: [
+        {
+            id: "workflows",
+            label: "Workflows",
+            url: "#/workflows",
+            show: function(scope) {
+                if(~scope.sca.indexOf('user')) return true;
+                return false;
+            }
+        },
+        /*
+        {
+            id: "services",
+            label: "Services",
+            url: "#/services",
+            show: function(scope) {
+                if(~scope.sca.indexOf('user')) return true;
+                return false;
+            }
+        },
+        */
+        {
+            id: "about",
+            label: "About",
+            url: "#/about",
+        },
+    ]
+});
+
