@@ -475,7 +475,7 @@ function handle_running(task, next) {
                             task.finish_date = new Date();
                             task.save(function(err) {
                                 //clear next_date on dependending tasks (not this task!) so that it will be checked immediately
-                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
+                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, next);
                             });
                         });
                         break;
@@ -927,7 +927,7 @@ function start_task(task, resource, cb) {
                                         task.finish_date = new Date();
                                         task.save(function(err) {
                                             //clear next_date on dependending tasks so that it will be checked immediately
-                                            db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, next);
+                                            db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, next);
                                         });
                                     });
                                 }
