@@ -46,6 +46,7 @@ module.exports = {
             "soichih/sca-product-odi": {score: 10},
 
             "soichih/sca-service-dtiinit": {score: 10},
+            "brain-life/sca-service-autoalignacpc": {score: 10},
             "brain-life/sca-service-tractclassification": {score: 10},
             "soichih/sca-service-conneval-validate": {score: 10},
             "soichih/sca-service-neuro-tracking": {score: 10},

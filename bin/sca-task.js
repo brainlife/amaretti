@@ -36,16 +36,16 @@ db.init(function(err) {
     check(); 
 });
 
-var max_elapsed = 3600*1000*12;
 
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
     task.next_date = new Date();
     if(task.start_date) {
-        var start = task.start_date.getTime();
-        var elapsed = task.next_date.getTime() - start;
-        if(elapsed > max_elapsed) elapsed = max_elapsed; //limit elapsed time
-        var next = task.next_date.getTime() + elapsed/3 + 1000*10; //don't check more often than every 10 seconds
+        var elapsed = new Date() - task.start_date.getTime();
+        var delta = elapsed/30;
+        var delta = Math.min(delta, 30*60*1000); //max 30 minutes
+        var delta = Math.max(delta, 10*1000); //min 10 seconds
+        var next = task.next_date.getTime() + delta; 
         task.next_date.setTime(next);
     } else {
         //not yet started. check again in 10 minutes (maybe resource issue?)
