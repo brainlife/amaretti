@@ -36,14 +36,22 @@ db.init(function(err) {
     check(); 
 });
 
-
 //set next_date incrementally longer between each checks
 function set_nextdate(task) {
+    var max;
+    switch(task.status) {
+    case "failed":
+    case "finished":
+        max = 24*3600*1000; //24 hours
+        break;
+    default:
+        max = 30*60*1000; //30 minutes defaul
+    }
     task.next_date = new Date();
     if(task.start_date) {
         var elapsed = new Date() - task.start_date.getTime();
         var delta = elapsed/30;
-        var delta = Math.min(delta, 30*60*1000); //max 30 minutes
+        var delta = Math.min(delta, max);
         var delta = Math.max(delta, 10*1000); //min 10 seconds
         var next = task.next_date.getTime() + delta; 
         task.next_date.setTime(next);
@@ -58,6 +66,7 @@ function check() {
     logger.debug("checking...");
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
+        //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
         $or: [
             {next_date: {$exists: false}},
             {next_date: {$lt: new Date()}}
@@ -72,32 +81,33 @@ function check() {
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         async.eachSeries(tasks, (task, next) => {
             logger.info("handling task:"+task._id+" ("+task.name+")");
-            switch(task.status) {
-            case "requested":
-                handle_requested(task, next); 
-                break;
-            case "stop_requested":
-                handle_stop(task, next); 
-                break;
-            case "running":
-                handle_running(task, next); 
-                break;
-            case "failed":
-                //TODO - I don't know what to do for failed tasks yet, but I don't want
-                //to run housekeeping because it sometimes think dependency failed tasks to be removed by cluster.
-                //I want to leave it in failed status)
-                //handle_failed(task, next);
-                next();
-                break;
-            case "remove_requested":
-            default:
-                handle_housekeeping(task, next);
-            }
-            //TODO - finished job get processed also.. but it's ok?
-
             set_nextdate(task);
-            //logger.debug("reset next_date: "+task.next_date);
-            task.save();
+            task.save(function() {
+                switch(task.status) {
+                case "requested":
+                    handle_requested(task, next); 
+                    break;
+                case "stop_requested":
+                    handle_stop(task, next); 
+                    break;
+                case "running":
+                    handle_running(task, next); 
+                    break;
+                /*
+                case "failed":
+                    //TODO - I don't know what to do for failed tasks yet, but I don't want
+                    //to run housekeeping because it sometimes think dependency failed tasks to be removed by cluster.
+                    //I want to leave it in failed status)
+                    //handle_failed(task, next);
+                    next();
+                    break;
+                case "remove_requested":
+                case "finished":
+                */
+                default:
+                    handle_housekeeping(task, next);
+                }
+            });
         }, function(err) {
             if(err) logger.error(err);
             //wait a bit and recheck again
@@ -449,10 +459,17 @@ function handle_running(task, next) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
             //TODO - not all service provides bin.status.. how will this handle that?
             logger.debug("cd "+taskdir+" && ./_status.sh");
-            conn.exec("cd "+taskdir+" && ./_status.sh", {}, function(err, stream) {
+            var scatoken = "======SCA======"; //delimite output from .bashrc to _status.sh
+            conn.exec("cd "+taskdir+" && echo '"+scatoken+"' && ./_status.sh", {}, function(err, stream) {
                 if(err) return next(err);
                 var out = "";
                 stream.on('close', function(code, signal) {
+                    
+                    //remove everything before sca token (to ignore output from .bashrc)
+                    var pos = out.indexOf(scatoken);
+                    out = out.substring(pos+scatoken.length);
+                    logger.info(out);
+
                     switch(code) {
                     case 0: //still running
                         //set_nextdate(task);
@@ -463,12 +480,14 @@ function handle_running(task, next) {
                     case 1: //finished
                         load_products(task, taskdir, resource, function(err) {
                             if(err) {
+                                logger.info("failed to load products");
                                 common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                 task.status = "failed";
                                 task.status_msg = err;
                                 task.save(next);
                                 return;
                             }
+                            logger.info("loaded products");
                             common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                             task.status = "finished";
                             task.status_msg = "Service completed successfully";
@@ -486,6 +505,10 @@ function handle_running(task, next) {
                         task.status_msg = out;
                         task.save(next);
                         break; 
+                    case 3: //status temporarly unknown
+                        logger.error("couldn't determine the job state. could be an issue with status script");
+                        next();
+                        break;
                     default:
                         //TODO - should I mark it as failed? or.. 3 strikes and out rule?
                         logger.error("unknown return code:"+code+" returned from _status.sh");
@@ -493,10 +516,10 @@ function handle_running(task, next) {
                     }
                 })
                 .on('data', function(data) {
-                    logger.info(data.toString());
+                    //logger.info(str);
                     out += data.toString();
                 }).stderr.on('data', function(data) {
-                    logger.error(data.toString());
+                    //logger.error(str);
                     out += data.toString();
                 });
             });
@@ -969,7 +992,9 @@ function load_products(task, taskdir, resource, cb) {
             if(code) return cb("Failed to retrieve products.json from the task directory");
             if(error_msg) return cb(error_msg);
             try {
-                console.log(products_json);
+                logger.info("loaded products.json");
+                logger.debug(products_json);
+                //console.log(products_json);
                 task.products = JSON.parse(products_json);
                 cb();
             } catch(e) {

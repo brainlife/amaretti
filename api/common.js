@@ -72,7 +72,6 @@ exports.decrypt_resource = function(resource) {
 var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
-    //console.dir(resource);
     var old = ssh_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established ssh connection. # of connections:"+Object.keys(ssh_conns).length);
@@ -125,7 +124,6 @@ exports.get_ssh_connection = function(resource, cb) {
 //ssh closed connection eventually.
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
-    //console.dir(resource);
     var old = sftp_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established sftp connection. number of connections:"+Object.keys(sftp_conns).length);
@@ -135,6 +133,8 @@ exports.get_sftp_connection = function(resource, cb) {
     exports.get_ssh_connection(resource, function(err, conn) {
         if(err) return cb(err);
         conn.sftp(function(err, sftp) {
+            logger.debug("sftp cb");
+            logger.debug(err);
             if(err) return cb(err);
             logger.debug("sftp connection ready");
             sftp_conns[resource._id] = sftp;

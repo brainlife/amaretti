@@ -179,8 +179,8 @@ function check_ssh(resource, cb) {
                     });
                 } else {
                     conn.end();
-                    //TODO does it really matter that whois reports a wrong user?
-                    cb(null, "ok", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username); 
+                    //I need to fail if user is outputing something on the terminal (right now, it kills ssh2/sftp)
+                    cb(null, "failed", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username+" Please make sure your .bashrc is not outputting any content for non-interactive session."); 
                 }
             }).on('data', function(data) {
                 ret_username += data;
