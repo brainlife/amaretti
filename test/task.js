@@ -119,7 +119,6 @@ describe('/task', function() {
             if(err) return done(err);
             task = res.body.task;            
             assert(task.progress_key == "_sca."+instance._id+"."+task._id); //make sure group id is added
-            //console.dir(task);
             done();
         });
     });

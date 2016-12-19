@@ -140,6 +140,9 @@ var taskSchema = mongoose.Schema({
     //date when the task dir will be removed
     //(TODO .. if not set,  task will be archived based on resource configuration - like in 30 days)
     remove_date: Date,
+
+    //array of notification objects to handle (see apidoc for tasks)
+    //notifications: [ mongoose.Schema.Types.Mixed ] ,
   
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 

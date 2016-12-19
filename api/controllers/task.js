@@ -1,17 +1,17 @@
 'use strict';
 
 //contrib
-var express = require('express');
-var router = express.Router();
-var winston = require('winston');
-var jwt = require('express-jwt');
-var async = require('async');
+const express = require('express');
+const router = express.Router();
+const winston = require('winston');
+const jwt = require('express-jwt');
+const async = require('async');
 
 //mine
-var config = require('../../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('../models/db');
-var common = require('../common');
+const config = require('../../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('../models/db');
+const common = require('../common');
 
 /**
  * @apiGroup Task
@@ -170,6 +170,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
             //all good - now register!
             task.save(function(err, _task) {
                 if(err) return next(err);
+                //TODO - should I update to just return _task..?
                 res.json({message: "Task successfully registered", task: _task});
             });
            

@@ -199,12 +199,12 @@ define({ "api": [
     "title": "Generate ssh key pair",
     "name": "GENSSHKEYResource",
     "group": "Resource",
-    "description": "<p>used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
+    "description": "<p>Used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool) In the future, this might be moved to a dedicated SCA util API service (or deprecated)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
     "success": {
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{ pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',\n  key: '-----BEGIN RSA PRIVATE KEY-----\\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\\n-----END RSA PRIVATE KEY-----' }",
+          "content": "    HTTP/1.1 200 OK\n    { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',\n      key: '-----BEGIN RSA PRIVATE KEY-----\\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\\n-----END RSA PRIVATE KEY-----' }\n\nrouter.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {\n    common.ssh_keygen({\n        //ssh-keygen opts (https://github.com/ericvicenti/ssh-keygen)\n        destroy: true,\n        comment: req.query.comment,\n        password: req.query.password,\n    }, function(err, out) {\n        if(err) return next(err);\n        res.json(out);\n    });\n});",
           "type": "json"
         }
       ]
@@ -481,7 +481,7 @@ define({ "api": [
             "type": "Number[]",
             "optional": true,
             "field": "gids",
-            "description": "<p>List of groups that can use this resource</p>"
+            "description": "<p>List of groups that can use this resource (only sca admin can enter this)</p>"
           },
           {
             "group": "Parameter",
@@ -654,7 +654,7 @@ define({ "api": [
             "type": "Number[]",
             "optional": true,
             "field": "gids",
-            "description": "<p>List of groups that can use this resource</p>"
+            "description": "<p>List of groups that can use this resource (only sca admin can update)</p>"
           },
           {
             "group": "Parameter",
