@@ -295,7 +295,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
 
     resource_lib.select(req.user, query, function(err, resource, score) {
         if(err) return next(err);
-        logger.debug(resource);
+        //logger.debug(resource);
         if(!resource) return res.json({nomatch: true});
         var resource_detail = config.resources[resource.resource_id];
         var ret = {
