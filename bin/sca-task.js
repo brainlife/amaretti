@@ -36,7 +36,7 @@ db.init(function(err) {
     check(); 
 });
 
-//set next_date incrementally longer between each checks
+//set next_date incrementally longer between each checks (you need to save it persist it)
 function set_nextdate(task) {
     var max;
     switch(task.status) {
@@ -45,14 +45,14 @@ function set_nextdate(task) {
         max = 24*3600*1000; //24 hours
         break;
     default:
-        max = 30*60*1000; //30 minutes defaul
+        max = 30*60*1000; 
     }
     task.next_date = new Date();
     if(task.start_date) {
         var elapsed = new Date() - task.start_date.getTime();
         var delta = elapsed/30;
-        var delta = Math.min(delta, max);
-        var delta = Math.max(delta, 10*1000); //min 10 seconds
+        var delta = Math.min(delta, max); //limit to max
+        var delta = Math.max(delta, 10*1000); //min to 10 seconds
         var next = task.next_date.getTime() + delta; 
         task.next_date.setTime(next);
     } else {
@@ -113,10 +113,7 @@ function check() {
             //wait a bit and recheck again
             setTimeout(check, 500);
         });
-    })/*.catch(function(err) {
-        logger.error("task/find error - throwing");
-        throw err;
-    })*/;
+    });
 }
 
 function handle_housekeeping(task, cb) {
@@ -155,7 +152,7 @@ function handle_housekeeping(task, cb) {
                                 next_resource();
                             })
                             .on('data', function(data) {
-                                logger.debug(data.toString());
+                                //logger.debug(data.toString());
                             }).stderr.on('data', function(data) {
                                 logger.debug(data.toString());
                             });
@@ -269,16 +266,8 @@ function handle_housekeeping(task, cb) {
             });
         },
 
-        /*
-        //remove instance?
-        function(next) {
-        
-        }
-        */
-
         //onto.. next housekeeping task..
         //TODO - stop tasks that got stuck in running / running_sync
-
     ], function(err) {
         //done with all house keeping..
         if(err) logger.error(err); //skip this task
@@ -472,8 +461,6 @@ function handle_running(task, next) {
 
                     switch(code) {
                     case 0: //still running
-                        //set_nextdate(task);
-                        //next();
                         task.status_msg = out; //should I?
                         task.save(next);
                         break;
@@ -493,7 +480,7 @@ function handle_running(task, next) {
                             task.status_msg = "Service completed successfully";
                             task.finish_date = new Date();
                             task.save(function(err) {
-                                //clear next_date on dependending tasks (not this task!) so that it will be checked immediately
+                                //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
                                 db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, next);
                             });
                         });
@@ -526,12 +513,6 @@ function handle_running(task, next) {
         });
     });
 }
-
-/*
-function get_service(service_name, cb) {
-    _service.loaddetail(service_name, cb);
-}
-*/
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
