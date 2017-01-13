@@ -1,12 +1,13 @@
 'use strict';
 
 //contrib
-var express = require('express');
-var router = express.Router();
-var jwt = require('express-jwt');
+const express = require('express');
+const router = express.Router();
+const jwt = require('express-jwt');
 
 //mine
-var config = require('../../config');
+const config = require('../../config');
+const db = require('../models/db');
 
 /**
  * @apiGroup System
@@ -17,7 +18,12 @@ var config = require('../../config');
  * @apiSuccess {String} status 'ok' or 'failed'
  */
 router.get('/health', function(req, res) {
-    res.json({status: 'ok'});
+    //make sure I can query from db
+    db.Instance.find({name: 'nobother'}).exec(function(err, record) {
+        if(err) {
+            res.json({status: 'fail', message: err});
+        } else res.json({status: 'ok'});
+    });
 });
 
 router.use('/task',     require('./task'));

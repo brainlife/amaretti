@@ -15,7 +15,7 @@ mongoose.Promise = global.Promise;
 
 exports.init = function(cb) {
     mongoose.connect(config.mongodb, {
-        server: { auto_reconnect: true }
+        server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
     }, function(err) {
         if(err) return cb(err);
         logger.info("connected to mongo");
@@ -28,7 +28,7 @@ exports.disconnect = function(cb) {
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-//workflow instance
+//*workflow* instance
 var instanceSchema = mongoose.Schema({
 
     workflow_id: String, //"sca-wf-life"
@@ -113,6 +113,7 @@ var taskSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // fields that user can set during request
 
+    //workflow instance id
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
 
     service: String, // "soichih/sca-service-life"

@@ -297,7 +297,7 @@ function handle_requested(task, next) {
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependency";
-        next();
+        task.save(next);
         return;
     }
 

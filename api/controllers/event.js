@@ -11,7 +11,7 @@ const jwt = require('express-jwt');
 //mine
 const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('../models/db');
+//const db = require('../models/db');
 
 //called by sca-event service to check to see if user should have access to this exchange / key
 router.get('/checkaccess/task/:key', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
