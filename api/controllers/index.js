@@ -21,7 +21,7 @@ router.get('/health', function(req, res) {
     //make sure I can query from db
     db.Instance.find({name: 'nobother'}).exec(function(err, record) {
         if(err) {
-            res.json({status: 'fail', message: err});
+            res.json({status: 'failed', message: err});
         } else res.json({status: 'ok'});
     });
 });

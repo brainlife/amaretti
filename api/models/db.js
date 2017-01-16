@@ -31,13 +31,15 @@ exports.disconnect = function(cb) {
 //*workflow* instance
 var instanceSchema = mongoose.Schema({
 
-    workflow_id: String, //"sca-wf-life"
 
     name: String, //name of the workflow
     desc: String, //desc of the workflow
 
     //user that this workflow instance belongs to
     user_id: {type: String, index: true}, 
+
+    //(DEPRECATE?) name of workflow you'd like to use
+    workflow_id: String, 
 
     config: mongoose.Schema.Types.Mixed,
 
