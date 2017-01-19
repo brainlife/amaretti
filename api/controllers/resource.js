@@ -428,78 +428,16 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
     });
 });
 
-/* I believe noone uses this 
-router.post('/exec', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var resource_id = req.body.resource_id;
-    var cmd = req.body.cmd;
-    db.Resource.findById(resource_id, function(err, resource) {
-        if(err) return next(err);
-        if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(resource.user_id != req.user.sub) return res.status(401).end(); 
-        common.get_ssh_connection(resource, function(err, conn) {
-            if(err) return next (err);
-            var workdir = common.getworkdir("", resource);
-            conn.exec("cd "+workdir+" && "+cmd, function(err, stream) {
-                if(err) return cb(err);
-                stream.on('data', function(data) {
-                    res.write(data);
-                });
-                stream.on('end', function(data) {
-                    res.end();
-                    //conn.end();
-                });
-            });
-        });
-    });
-});
-*/
-
-//currently used by sca-cli cp 
-//deprecated
-//you can just submit a task that requires other taskdir
-/*
-router.post('/transfer', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var task_id = req.body.task_id;
-    var dest_resource_id = req.body.dest_resource_id;
-
-    db.Task.findById(task_id, function(err, task) {
-        if(err) return next(err);
-        if(!task) return res.status(404).json({message: "couldn't find the task specified"});
-        if(task.user_id != req.user.sub) return res.status(401).end(); 
-        db.Resource.findById(task.resource_id, function(err, source_resource) {
-            if(err) return next(err);
-            //if(!source_resource) return res.status(404).json({message: "couldn't find the source resource specified in a task"});
-            //if(source_resource.user_id != req.user.sub) return res.status(401).end(); 
-            db.Resource.findById(dest_resource_id, function(err, dest_resource) {
-                if(err) return next(err);
-                if(!dest_resource) return res.status(404).json({message: "couldn't find the dest resource specified"});
-                if(dest_resource.user_id != req.user.sub) return res.status(401).end(); 
-
-                var source_path = common.gettaskdir(task.instance_id, task_id, source_resource);
-                var dest_path = common.gettaskdir(task.instance_id, task_id, dest_resource);
-
-                //now start rsync
-                transfer.rsync_resource(source_resource, dest_resource, source_path, dest_path, function(err) {
-                    if(err) throw err; //TODO - don't throw here.. mark this transfer as failed (no such collection yet)
-                }, function(progress) {
-                    //event stream?
-                });
-                res.json({message: "data transfer requested.."});
-            });
-        });
-    });
-});
-*/
-
 //this API allows user to download any files under user's workflow directory
 //TODO - since I can't let <a> pass jwt token via header, I have to expose it via URL.
 //doing so increases the chance of user misusing the token, but unless I use HTML5 File API
 //there isn't a good way to let user download files..
 //getToken() below allows me to check jwt token via "at" query.
+//Another way to mitigate this is to issue a temporary jwt token used to do file download (or permanent token that's tied to the URL?)
 /**
- * @api {get} /resource/download         Download file from resource
+ * @api {get} /resource/download         Download file from resource. If directory path is specified, it will stream tar -gz content
  * @apiParam {String} r         Resource ID
- * @apiParam {String} p         File path to download (relative to resource work directory - parent of all instance dir)
+ * @apiParam {String} p         File/directory path to download (relative to resource work directory - parent of all instance dir)
  * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
  *
  * @apiDescription              Allows user to download any files from user's resource
@@ -524,11 +462,16 @@ router.get('/download', jwt({
     var resource_id = req.query.r;
     var _path = req.query.p;
 
+    //logger.debug("downoad request on resource_id:"+resource_id);
+    //logger.debug("path:"+_path);
+
     if(!_path) return next("Please specify path(p)");
     if(!resource_id) return next("Please specify resource id(r)");
     
-    //TODO - this validation isn't good enough.. (use can use escape, etc..)
-    //if(~_path.indexOf("..")) return next("invalid path");
+    //make sure user is loading things under the sca workdir and nothing else
+    //TODO this is nowhere near good enough..
+    if(_path[0] == "/") return next("only download relateive to workdir");
+    if(~_path.indexOf("..")) return next("only download relateive to workdir");
 
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
@@ -536,42 +479,43 @@ router.get('/download', jwt({
         if(!common.check_access(req.user, resource)) return res.status(401).end(); 
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
         
-        //append workdir if relateive
-        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
-
-        //logger.debug("downloading: "+_path);
-        //logger.debug("from resource:"+resource._id);
+        //append workdir if relateive (TODO - or should I limit under workdir?)
+        //if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
-            sftp.stat(_path, function(err, stat) {
+            var fullpath = common.getworkdir(_path, resource);
+            sftp.stat(fullpath, function(err, stat) {
                 if(err) return next(err);
                 //logger.debug(stat);
-                
-                //npm-mime uses filename to guess mime type, so I can use this locally
-                var mimetype = mime.lookup(_path);
-                logger.debug("mimetype:"+mimetype);
+                if(stat.isDirectory()) {   
+                    //it's directory - need to use tar -gz
+                    common.get_ssh_connection(resource, function(err, conn) {
+                        if(err) return next(err);
+                        res.setHeader('Content-disposition', 'attachment; filename=test.tar.gz');
+                        res.setHeader('Content-Type', "application/x-tgz");
+                        var workdir = common.getworkdir("", resource);
+                        conn.exec("cd \""+workdir+"\" && tar cz \""+_path.addSlashes()+"\" | gzip -f", function(err, stream) {
+                            if(err) return next(err);
+                            //stream.on('data', res.write);
+                            //stream.on('end', res.end);
+                            stream.pipe(res);
+                        });
+                    });
+                } else {
+                    //file - just stream using sftp stream
+                    //npm-mime uses filename to guess mime type, so I can use this locally
+                    var mimetype = mime.lookup(fullpath);
+                    logger.debug("mimetype:"+mimetype);
 
-                //without attachment, the file will replace the current page
-                //res.setHeader('Content-disposition', 'filename='+path.basename(_path));
-                res.setHeader('Content-disposition', 'attachment; filename='+path.basename(_path));
-
-                res.setHeader('Content-Length', stat.size);
-                res.setHeader('Content-Type', mimetype);
-                var stream = sftp.createReadStream(_path);
-                stream.pipe(res);               
-                /*
-                stream.on('close', function() {
-                    //logger.debug("download streaming ended");
-                    sftp.close();
-                });
-                */
+                    //without attachment, the file will replace the current page
+                    res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
+                    res.setHeader('Content-Length', stat.size);
+                    res.setHeader('Content-Type', mimetype);
+                    var stream = sftp.createReadStream(fullpath);
+                    stream.pipe(res);               
+                }
             });
-            /*
-            sftp.on('error', function(err) {
-                logger.error(err);
-            });
-            */
         });
     });
 });

@@ -3,8 +3,15 @@
 
 # SCA Workflow Service
 
+## Background
 
-* sca-task
+Scientists have been writing programs and scripts to do computations on their local computers or remote resources submited through interfaces such as Matlab UI interfaces and *bash terminals*. Each application will have its unique way to execute (dependencies, environment) and input file must be organized in specific ways. In order to reuse the application, or to reproduce the results, each user must carefully install required software and prepare input files in the way that application author has intended. 
+
+Recently, people have started containerising their application (as a Docker container, for example) 
+
+
+
+model > https://github.com/flywheel-io/gears/tree/master/spec
 
 Handles tasks.
 
