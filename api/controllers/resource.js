@@ -489,21 +489,21 @@ router.get('/download', jwt({
                 if(err) return next(err);
                 //logger.debug(stat);
                 if(stat.isDirectory()) {   
-                    //it's directory - need to use tar -gz
+                    //it's directory .. stream using tar | gzip
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next(err);
-                        res.setHeader('Content-disposition', 'attachment; filename=test.tar.gz');
+                        //create a nice tar.gz name
+                        var name = _path.replace(/\//g, '.')+'.tar.gz';
+                        res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
                         var workdir = common.getworkdir("", resource);
                         conn.exec("cd \""+workdir+"\" && tar cz \""+_path.addSlashes()+"\" | gzip -f", function(err, stream) {
                             if(err) return next(err);
-                            //stream.on('data', res.write);
-                            //stream.on('end', res.end);
                             stream.pipe(res);
                         });
                     });
                 } else {
-                    //file - just stream using sftp stream
+                    //file .. just stream using sftp stream
                     //npm-mime uses filename to guess mime type, so I can use this locally
                     var mimetype = mime.lookup(fullpath);
                     logger.debug("mimetype:"+mimetype);
