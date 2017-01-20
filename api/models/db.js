@@ -30,18 +30,27 @@ exports.disconnect = function(cb) {
 
 //*workflow* instance
 var instanceSchema = mongoose.Schema({
-
-
     name: String, //name of the workflow
     desc: String, //desc of the workflow
 
     //user that this workflow instance belongs to
     user_id: {type: String, index: true}, 
 
-    //(DEPRECATE?) name of workflow you'd like to use
+    //(DEPRECATE? - use config.workflow or such..) name of workflow you'd like to use
     workflow_id: String, 
 
     config: mongoose.Schema.Types.Mixed,
+
+    /*
+    //(TODO) this is an experimental object to be used by sca-event
+    task_status: mongoose.Schema.Types.Mixed,
+    //example....
+    //stores list of all task status {
+    //"12345<taskid>": {
+    //    status: "running",
+    //    }
+    //}
+    */
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
@@ -54,6 +63,12 @@ instanceSchema.pre('update', function(next) {
     next();
 });
 */
+
+instanceSchema.post('save', events.instance);
+instanceSchema.post('findOneAndUpdate', events.instance);
+instanceSchema.post('findOneAndRemove', events.instance);
+instanceSchema.post('remove', events.instance);
+
 exports.Instance = mongoose.model('Instance', instanceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -255,7 +255,6 @@ function handle_housekeeping(task, cb) {
                     task.status_msg = "taskdir removed from "+removed_count+" out of "+task.resource_ids.length+" resources";
 
                     //reset resource ids
-                    //task.resource_id = undefined; //I wonder if I should keep this, but UI often depends on this to mean that task is executed
                     task.resource_ids = []; 
 
                     task.save(next);
@@ -379,7 +378,6 @@ function handle_stop(task, next) {
             }
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
-                //console.dir(service_detail.pkg.scripts);
                 task.status = "stopped";
                 task.status_msg = "Stopped by user";
                 task.save(next);
@@ -890,11 +888,9 @@ function start_task(task, resource, cb) {
                             //NOTE - no stdout / err should be received since it's redirected to boot.log
                             stream.on('data', function(data) {
                                 logger.info(data.toString());
-                                //stdout += data;
                             });
                             stream.stderr.on('data', function(data) {
                                 logger.error(data.toString());
-                                //stderr += data;
                             });
                         });
                     });
@@ -940,10 +936,8 @@ function start_task(task, resource, cb) {
                             //NOTE - no stdout / err should be received since it's redirected to boot.log
                             .on('data', function(data) {
                                 logger.info(data.toString());
-                                //stdout += data;
                             }).stderr.on('data', function(data) {
                                 logger.error(data.toString());
-                                //stderr += data;
                             });
                         });
                     });
