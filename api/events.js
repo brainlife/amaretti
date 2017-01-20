@@ -58,7 +58,7 @@ exports.task = function(task) {
 }
 
 exports.instance = function(instance) {
-    var key = task.user_id+"."+task.instance_id;
+    var key = instance.user_id+"."+instance.instance_id;
     publish_or_log(instance_ex, key, instance);
 }
 

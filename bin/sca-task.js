@@ -489,6 +489,16 @@ function handle_running(task, next) {
                         task.status = "failed"; 
                         task.status_msg = out;
                         task.save(next);
+
+                        //TODO I'd like to notify admin, or service author that the service has failed
+                        //for that, I need to lookup the instance detail (for like .. workflow name)
+                        //and probably the task owner info,
+                        //then, I can publish to a dedicated service.error type exchange with all the information
+                        //sca-event can be made to allow admin or certain users subscribe to that event and
+                        //send email..
+
+                        //or..another way to deal with this is to create another service that generates a report.
+
                         break; 
                     case 3: //status temporarly unknown
                         logger.error("couldn't determine the job state. could be an issue with status script");
