@@ -25,6 +25,7 @@
     "jquery": "^3.1.1",
     "node-forge": "^0.6.46",
     "sca-ng-wf": "^1.0.13",
+    "sca-shared": "0.0.4",
     "ui-select": "^0.19.6"
   }
 }
