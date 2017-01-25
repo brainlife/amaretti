@@ -127,7 +127,7 @@ exports.get_sftp_connection = function(resource, cb) {
     var old = sftp_conns[resource._id];
     if(old) {
         logger.debug("reusing previously established sftp connection. number of connections:"+Object.keys(sftp_conns).length);
-        logger.debug(old);  
+        //logger.debug(old);  
         return cb(null, old);
     }
     //get new ssh connection
