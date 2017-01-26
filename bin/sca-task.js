@@ -906,8 +906,9 @@ function start_task(task, resource, cb) {
                     });
                 },            
                 
-                //TODO - deprecated this?
-                //or run it synchronously (via run.sh)
+                //TODO - DEPRECATE THIS
+                //short sync job can be accomplished by using start.sh to run the (short) process and
+                //status.sh checking for its output (or just assume that it worked)
                 function(next) {
                     if(!service_detail.pkg.scripts.run) return next(); //not all service uses run (they may use start/status)
 

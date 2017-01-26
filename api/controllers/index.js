@@ -8,6 +8,7 @@ const jwt = require('express-jwt');
 //mine
 const config = require('../../config');
 const db = require('../models/db');
+//const common = require('../common');
 
 /**
  * @apiGroup System
@@ -19,10 +20,21 @@ const db = require('../models/db');
  */
 router.get('/health', function(req, res) {
     //make sure I can query from db
+    var ret = {
+        status: "ok", //assume to be good
+
+        //I am not sure if I should publish this or not...
+        //ssh: common.ssh_connection_counts(),
+    }
+
     db.Instance.find({name: 'nobother'}).exec(function(err, record) {
         if(err) {
-            res.json({status: 'failed', message: err});
-        } else res.json({status: 'ok'});
+            ret.status = 'failed';
+            ret.message = err;
+            res.json(ret);
+        } else {
+            res.json(ret);
+        }
     });
 });
 

@@ -176,6 +176,23 @@ exports.ssh_keygen = function(opts, cb) {
 }
 */
 
+function report_ssh() {
+    logger.info("ssh/sftp status-----------------------------------------------");
+    logger.info("ssh connections : ", Object.keys(ssh_conns).length);
+    for(var rid in ssh_conns) {
+        var c = ssh_conns[rid];
+        logger.info(rid);
+        logger.info("\tready time:",c.ready_time);
+        logger.info("\tlast used:",c.last_used);
+    }
+    logger.info("sftp connections : ", Object.keys(sftp_conns).length);
+    for(var rid in sftp_conns) {
+        var c = sftp_conns[rid];
+        logger.info(rid);
+    }
+}
+setInterval(report_ssh, 1000*60*10); //report every 10 minutes
+
 exports.progress = function(key, p, cb) {
     request({
         method: 'POST',
