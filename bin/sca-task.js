@@ -962,29 +962,35 @@ function start_task(task, resource, cb) {
 
 function load_products(task, taskdir, resource, cb) {
     logger.debug("loading "+taskdir+"/products.json");
-    common.progress(task.progress_key, {msg: "Downloading products.json"});
+    //common.progress(task.progress_key, {msg: "Downloading products.json"});
     common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
         var stream = sftp.createReadStream(taskdir+"/products.json");
         var products_json = "";
         var error_msg = "";
         stream.on('error', function(err) {
-            error_msg = "Failed to download products.json: "+err;
+            error_msg += err;
         }); 
         stream.on('data', function(data) {
             products_json += data;
         })
         stream.on('close', function(code, signal) {
-            if(code) return cb("Failed to retrieve products.json from the task directory");
-            if(error_msg) return cb(error_msg);
+            if(code) return cb("Failed to retrieve products.json from the task directory - code:",code);
+            if(error_msg) {
+                logger.info("Failed to load products.json (continuing)");
+                logger.info(error_msg);
+                return cb();
+            }
             try {
-                logger.info("loaded products.json");
+                logger.debug("parsing products");
                 logger.debug(products_json);
-                //console.log(products_json);
+
                 task.products = JSON.parse(products_json);
+                logger.info("successfully loaded products.json");
                 cb();
             } catch(e) {
-                cb("Failed to parse products.json: "+e.toString());
+                logger.error("Failed to parse products.json (continuing): "+e.toString());
+                cb();
             }
         });
     });

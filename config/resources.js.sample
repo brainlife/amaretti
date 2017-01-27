@@ -18,8 +18,10 @@ module.exports = {
         services: {
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-product-nifti": {score: 10},
-
             "soichih/sca-service-bash": {score: 10}, 
+
+            "soichih/sca-service-freesurfer": {score: 10},
+            "soichih/sca-service-networkneuro": {score: 10}, 
 
             "_upload": {score: 8},
         }
@@ -39,7 +41,7 @@ module.exports = {
         
         //services supported by this resource
         services: {
-            "soichih/sca-service-freesurfer": {score: 10},
+            "soichih/sca-service-freesurfer": {score: 8},
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-service-download": {score: 10},
 
