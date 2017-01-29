@@ -66,12 +66,12 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
                 //-v writes output to stderr.. even though it's not error..
                 //--progress goes to stderr (I think..) so removing it for now.
-                logger.debug("rsync -aL -e \""+sshopts+"\" "+source+" "+dest_path);
-                conn.exec("rsync -aL -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                logger.debug("rsync -a --safe-links -e \""+sshopts+"\" "+source+" "+dest_path);
+                conn.exec("rsync -a --safe-links -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to rsync content from source_resource:"+source_path+" to dest_resource:"+dest_path+" Please check firewall / sshd configuration / disk space");
-                        else next();
+                        if(code) logger.error("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space - continuing in case we have *enough* data to run the task");//continue
+                        next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
                         /*
@@ -88,6 +88,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     //stream.end();
                 });
             },
+            //TODO - should I remove the ssh key? what if there is another task using it?
         ], cb);
     });
 }

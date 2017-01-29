@@ -98,7 +98,7 @@ app.controller('WorkflowsController', function($scope, menu, scaMessage, toaster
 });
 
 app.controller('ResourcesController', 
-function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, resources, $modal) {
+function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, resources, $modal, $location) {
     $scope.$parent.active_menu = "settings";
     scaMessage.show(toaster);
 
@@ -216,8 +216,8 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
     }
 
     $scope.autoconf = function() {
-        //alert('todo.. please configure your resources manually for now');
-        document.location = "#/autoconf";
+        //document.location = "#/autoconf";
+        $location.path("/autoconf");
     }
 
     function create_dialog(resource, inst) {
