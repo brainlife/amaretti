@@ -161,6 +161,9 @@ var taskSchema = mongoose.Schema({
 
     //array of notification objects to handle (see apidoc for tasks)
     //notifications: [ mongoose.Schema.Types.Mixed ] ,
+
+    run: {type: Number, default: 0 }, //number of time this task has been attempted to run
+    retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
   
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 

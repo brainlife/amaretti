@@ -70,6 +70,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
+ * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
@@ -111,6 +112,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
         task.envs = req.body.envs;
+        task.retry = req.body.retry;
 
         //checked later
         task.deps = req.body.deps;
@@ -220,6 +222,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         task.finish_date = undefined;
         task.next_date = undefined; //reprocess asap
         task.products = undefined;
+        task.run = 0;
 
         task.save(function(err) {
             if(err) return next(err);
@@ -319,11 +322,13 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  *                              inconsistent with the actual state. 
  *                              To remove a field, set the field to null (not undefined - since it's not valid JSON)
  *
- * @apiParam {String} [name]    Name for this task
- * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} [service] Name of the service to run
  * @apiParam {String} [service_branch]   
  *                              Branch to use for the service (master by default)
+ * @apiParam {String} [name]    Name for this task
+ * @apiParam {String} [desc]    Description for this task
+ * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
+ * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)

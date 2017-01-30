@@ -13,7 +13,7 @@
             "type": "Object",
             "optional": true,
             "field": "find",
-            "description": "<p>Mongo find query JSON.stringify &amp; encodeURIComponent-ed - defaults to {}</p>"
+            "description": "<p>Mongo find query JSON.stringify &amp; encodeURIComponent-ed - defaults to {} To pass regex, you need to use {$regex: &quot;....&quot;} format instead of js: /.../</p>"
           },
           {
             "group": "Parameter",
@@ -301,7 +301,7 @@
   {
     "type": "get",
     "url": "/resource/download",
-    "title": "Download file from resource",
+    "title": "Download file from resource. If directory path is specified, it will stream tar -gz content",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -317,7 +317,7 @@
             "type": "String",
             "optional": false,
             "field": "p",
-            "description": "<p>File path to download (relative to resource work directory - parent of all instance dir)</p>"
+            "description": "<p>File/directory path to download (relative to resource work directory - parent of all instance dir)</p>"
           },
           {
             "group": "Parameter",
@@ -1021,6 +1021,13 @@
           },
           {
             "group": "Parameter",
+            "type": "Number",
+            "optional": true,
+            "field": "retry",
+            "description": "<p>Number of time this task should be retried (0 by default)</p>"
+          },
+          {
+            "group": "Parameter",
             "type": "String",
             "optional": true,
             "field": "preferred_resource_id",
@@ -1176,6 +1183,20 @@
             "group": "Parameter",
             "type": "String",
             "optional": true,
+            "field": "service",
+            "description": "<p>Name of the service to run</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "service_branch",
+            "description": "<p>Branch to use for the service (master by default)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
             "field": "name",
             "description": "<p>Name for this task</p>"
           },
@@ -1190,15 +1211,15 @@
             "group": "Parameter",
             "type": "String",
             "optional": true,
-            "field": "service",
-            "description": "<p>Name of the service to run</p>"
+            "field": "remove_date",
+            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
           },
           {
             "group": "Parameter",
-            "type": "String",
+            "type": "Number",
             "optional": true,
-            "field": "service_branch",
-            "description": "<p>Branch to use for the service (master by default)</p>"
+            "field": "retry",
+            "description": "<p>Number of time this task should be retried (0 by default)</p>"
           },
           {
             "group": "Parameter",

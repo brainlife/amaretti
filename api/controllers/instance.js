@@ -21,6 +21,7 @@ const common = require('../common');
  * @apiDescription              Query instances that belongs to a user with given query (for admin returns all)
  *
  * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
+ *                              To pass regex, you need to use {$regex: "...."} format instead of js: /.../ 
  * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
  * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100

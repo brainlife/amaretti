@@ -479,25 +479,36 @@ function handle_running(task, next) {
                             task.finish_date = new Date();
                             task.save(function(err) {
                                 //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
-                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, next);
+                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}).then(function() {
+                                    //also.. if deps tasks has failed, set to *requested* again so that it will be re-tried
+                                    //this allows task retried to resume the workflow where it fails.
+                                    logger.info("resetting failed deps");
+                                    db.Task.update({deps: task._id, status: "failed"}, {$set: {status: "requested", run: 0}}, {multi: true}, next);
+                                });
                             });
                         });
                         break;
                     case 2: //job failed
-                        //TODO - let user specify retry count, and if we haven't met it, rerun it?
-                        common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
-                        task.status = "failed"; 
-                        task.status_msg = out;
-                        task.save(next);
+                        if(task.retry >= task.run) {
+                            common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
+                            task.status = "requested"; 
+                            task.status_msg = out;
+                            task.save(next);
+                        } else {
+                            common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
+                            task.status = "failed"; 
+                            task.status_msg = out;
+                            task.save(next);
 
-                        //TODO I'd like to notify admin, or service author that the service has failed
-                        //for that, I need to lookup the instance detail (for like .. workflow name)
-                        //and probably the task owner info,
-                        //then, I can publish to a dedicated service.error type exchange with all the information
-                        //sca-event can be made to allow admin or certain users subscribe to that event and
-                        //send email..
+                            //TODO I'd like to notify admin, or service author that the service has failed
+                            //for that, I need to lookup the instance detail (for like .. workflow name)
+                            //and probably the task owner info,
+                            //then, I can publish to a dedicated service.error type exchange with all the information
+                            //sca-event can be made to allow admin or certain users subscribe to that event and
+                            //send email..
 
-                        //or..another way to deal with this is to create another service that generates a report.
+                            //or..another way to deal with this is to create another service that generates a report.
+                        }
 
                         break; 
                     case 3: //status temporarly unknown
@@ -869,6 +880,7 @@ function start_task(task, resource, cb) {
                     logger.debug("starting service: "+servicedir+"/"+service_detail.pkg.scripts.start);
                     common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
+                    task.run++;
                     task.status = "running";
                     task.status_msg = "Starting service";
                     task.start_date = new Date();
@@ -915,6 +927,7 @@ function start_task(task, resource, cb) {
                     logger.debug("running_sync service: "+servicedir+"/"+service_detail.pkg.scripts.run);
                     common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
+                    task.run++;
                     task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                     task.status_msg = "Running service";
                     task.start_date = new Date();
