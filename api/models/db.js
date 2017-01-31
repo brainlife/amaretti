@@ -168,7 +168,7 @@ var taskSchema = mongoose.Schema({
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
 
-    status: String,  //requested, running, failed, stop_requested, stopped, running_sync, removed, 
+    status: String,  //requested, running, failed, stop_requested, stopped, (running_sync), removed, 
     status_msg: String,
     status_update: Date, //TODO - is this still used?
 

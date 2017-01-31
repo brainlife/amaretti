@@ -13,11 +13,18 @@ var common = require('./common');
 
 exports.loaddetail = function(service_name, cb) {
     //first load git info
-    request('https://api.github.com/repos/'+service_name, {
-        json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
-    }, function(err, _res, git) {
+    var repourl = 'https://api.github.com/repos/'+service_name;
+    if(config.github) {
+        repourl += "?client_id="+config.github.client_id;
+        repourl += "?client_secret="+config.github.client_secret;
+    }
+    request(repourl, { json: true, headers: {'User-Agent': 'IU/SciApt/SCA'} }, function(err, _res, git) {
         if(err) return cb(err);
-        if(_res.statusCode != 200) return cb("failed to query requested repo. code:"+_res.statusCode);
+        if(_res.statusCode != 200) {
+            logger.error(repourl);//could contain github key... but
+            logger.error(_res.body);
+            return cb("failed to query requested repo. code:"+_res.statusCode);
+        }
 
         //then load package.json
         //TODO - should I always use master - or let user decide?

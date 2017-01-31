@@ -117,11 +117,9 @@ function check() {
 }
 
 function handle_housekeeping(task, cb) {
-    //.. if to remove, iterate through all resources that this task has run or synchornized to)
-    //logger.debug("handling book keeping "+task._id);
 
     async.series([
-
+        
         //check to see if taskdir still exists
         function(next) {
             var good_resource_ids = [];
@@ -194,6 +192,11 @@ function handle_housekeeping(task, cb) {
             //no need to remove, then no need to go further
             if(!need_remove) return next();
 
+            /////////////////////////////////////////////////////////////////////////
+            //
+            // housekeeping won't be done on running task now
+            //
+            /*
             //if job is still running/running_sync, then I need to first stop it
             if(task.status == "running") {
                 task.status = "stop_requested";
@@ -205,6 +208,7 @@ function handle_housekeeping(task, cb) {
                 logger.debug("TODO - can't remove task that's still running_sync - maybe stuck?");
                 return next();
             }
+            */
 
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
             var removed_count = 0;
@@ -264,8 +268,9 @@ function handle_housekeeping(task, cb) {
                 }
             });
         },
+        
+        //removal of empty instance directory is done by sca-wf-resource service
 
-        //onto.. next housekeeping task..
         //TODO - stop tasks that got stuck in running / running_sync
     ], function(err) {
         //done with all house keeping..
@@ -478,13 +483,14 @@ function handle_running(task, next) {
                             task.status_msg = "Service completed successfully";
                             task.finish_date = new Date();
                             task.save(function(err) {
-                                //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
-                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}).then(function() {
+                                db.Task.update({deps: task._id}, {
+                                    //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
+                                    $unset: {next_date: 1},
+
                                     //also.. if deps tasks has failed, set to *requested* again so that it will be re-tried
                                     //this allows task retried to resume the workflow where it fails.
-                                    logger.info("resetting failed deps");
-                                    db.Task.update({deps: task._id, status: "failed"}, {$set: {status: "requested", run: 0}}, {multi: true}, next);
-                                });
+                                    $set: {status: "requested", run: 0}, 
+                                }, {multi: true}, next);
                             });
                         });
                         break;

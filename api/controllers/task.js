@@ -284,7 +284,9 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  * @api {delete} /task/:taskid  Mark the task for immediate removal
  * @apiGroup Task
  * @apiDescription              Sets the remove_date to now, so that when the house keeping occurs in the next cycle,
- *                              the task_dir will be removed and status will be set to "removed"
+ *                              the task_dir will be removed and status will be set to "removed". If the task is 
+ *                              running, it will also set the status to "stop_requested" so that it will be 
+ *                              stopped, then removed.
  *
  * @apiHeader {String} authorization 
  *                              A valid JWT token "Bearer: xxxxx"
@@ -298,20 +300,16 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  */
 router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var task_id = req.params.task_id;
-    db.Task.update({_id: task_id, user_id: req.user.sub}, {
-        status: "remove_requested", //so that task housekeeping runs on this task (some status doesn't process removal)
-        remove_date: new Date(),
-        next_date: new Date(), //TODO - not sure if I should do this or not (without this, task maybe sitting for a long time)
-    }, function(err) {
+    db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
-        res.json({message: "Task successfully scheduled for removed"});
+        if(!task) return res.status(404).end("couldn't find such task id");
+        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        //if running, request for stop
+        common.request_task_removal(task, function(err) {
+            if(err) return next(err);
+            res.json({message: "Task successfully scheduled for removed"});
+        }); 
     });
-    /*
-    db.Task.remove({_id: task_id, user_id: req.user.sub}, function(err) {
-        if(err) return next(err);
-        res.json({message: "Task successfully scheduled for removed"});
-    });
-    */
 });
 
 /**

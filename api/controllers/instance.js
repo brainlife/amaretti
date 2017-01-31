@@ -122,5 +122,42 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     });
 });
 
+/**
+ * @api {delete} /instance/:instid 
+ *                              Remove the instance
+ * @apiGroup                    Instance
+ * @apiDescription              Sets the remove_date to now, so that when the house keeping occurs in the next cycle,
+ *                              the task_dir will be removed and status will be set to "removed". If the task is 
+ *                              running, it will also set the status to "stop_requested" so that it will be 
+ *                              stopped, then removed.
+ *                              Then, it will set config.removing on the instance
+  *
+ * @apiHeader {String} authorization 
+ *                              A valid JWT token "Bearer: xxxxx"
+ * 
+ * @apiSuccessExample {json} Success-Response:
+ *     HTTP/1.1 200 OK
+ *     {
+ *         "message": "Instance successfully scheduled for removed",
+ *     }
+ *                              
+ */
+router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var instid = req.params.instid;
+
+    //request all child tasks to be removed
+    db.Task.find({instance_id: instid, user_id: req.user.sub}, function(err, tasks) {
+        async.eachSeries(tasks, function(task, next_task) {
+            common.request_task_removal(task, next_task);
+        }, function(err) {
+            if(err) return next(err);
+            db.Instance.update({_id: instid, user_id: req.user.sub}, {$set: {'config.removing': true}}, function(err, instance) {
+                if(err) return next(err);
+                res.json({message: "Instance successfully scheduled for removed"});
+            });
+        });
+    });
+});
+
 module.exports = router;
 

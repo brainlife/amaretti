@@ -14,6 +14,12 @@ exports.sca = {
     jwt: fs.readFileSync(__dirname+'/sca.jwt'),
 }
 
+//used to use github api (like service.js)
+exports.github = {
+    client_id: "6a581b698021c7f38c52",
+    client_secret: fs.readFileSync(__dirname+"/github.client.secret"),
+}
+
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://wf:test@soichi7.ppa:5672/sca"},

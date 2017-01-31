@@ -331,4 +331,11 @@ exports.ls_hpss = function(resource, _path, cb) {
     context.ls(_path, cb);
 }
 
-
+exports.request_task_removal = function(task, cb) {
+    if(task.status == "running") task.status = "stop_requested";
+    //set remove_date to now - so that it will be removed soon
+    task.remove_date = new Date();
+    //task.next_date = new Date();
+    task.next_date = undefined;
+    task.save(cb);
+}
