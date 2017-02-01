@@ -162,7 +162,10 @@ function handle_housekeeping(task, cb) {
                     logger.info(err); //continue 
                     next();
                 } else {
+                    //why I don't clear this? because current task.resource_id 
+                    //is defined as "resouce id used" (not where it's at currently)
                     //task.resource_id = undefined; 
+
                     task.resource_ids = good_resource_ids;
                     if(good_resource_ids.length == 0) task.status = "removed"; //most likely removed by cluster
                     task.save(next);

@@ -1,5 +1,38 @@
 [
   {
+    "type": "delete",
+    "url": "/instance/:instid",
+    "title": "Remove the instance",
+    "group": "Instance",
+    "description": "<p>Sets the remove_date to now, so that when the house keeping occurs in the next cycle, the task_dir will be removed and status will be set to &quot;removed&quot;. If the task is running, it will also set the status to &quot;stop_requested&quot; so that it will be stopped, then removed. Then, it will set config.removing on the instance</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Instance successfully scheduled for removed\",\n}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/instance.js",
+    "groupTitle": "Instance",
+    "name": "DeleteInstanceInstid"
+  },
+  {
     "group": "Instance",
     "type": "get",
     "url": "/instance",
@@ -855,7 +888,7 @@
     "url": "/task/:taskid",
     "title": "Mark the task for immediate removal",
     "group": "Task",
-    "description": "<p>Sets the remove_date to now, so that when the house keeping occurs in the next cycle, the task_dir will be removed and status will be set to &quot;removed&quot;</p>",
+    "description": "<p>Sets the remove_date to now, so that when the house keeping occurs in the next cycle, the task_dir will be removed and status will be set to &quot;removed&quot;. If the task is running, it will also set the status to &quot;stop_requested&quot; so that it will be stopped, then removed.</p>",
     "header": {
       "fields": {
         "Header": [
