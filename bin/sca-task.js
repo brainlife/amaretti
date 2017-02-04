@@ -566,6 +566,7 @@ function start_task(task, resource, cb) {
             if(task.service_branch) servicedir += ":"+task.service_branch;
             
             var envs = {
+                //deprecated
                 SCA_WORKFLOW_ID: task.instance_id.toString(),
                 SCA_WORKFLOW_DIR: workdir,
                 SCA_TASK_ID: task._id.toString(),
@@ -573,10 +574,24 @@ function start_task(task, resource, cb) {
                 SCA_SERVICE: service,
                 SCA_SERVICE_DIR: servicedir,
                 SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
+
+                //WORKFLOW_ID: task.instance_id.toString(),
+                //WORKFLOW_DIR: workdir,
+                //TASK_ID: task._id.toString(),
+                //TASK_DIR: taskdir,
+                //SERVICE: service,
+                SERVICE_DIR: servicedir,
+                //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
+
             };
 
             //optional envs
-            if(service.service_branch) envs.SCA_SERVICE_BRANCH = service.service_branch;
+            if(service.service_branch) {
+                //deprecated
+                envs.SCA_SERVICE_BRANCH = service.service_branch; 
+
+                envs.SERVICE_BRANCH = service.service_branch;
+            }
 
             task._envs = envs;
             
@@ -655,9 +670,9 @@ function start_task(task, resource, cb) {
 
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
-                    //conn.exec("cd .sca/services/"+service+" && LD_LIBRARY_PATH=\"\" git pull", function(err, stream) {
                     //-q to prevent git to send log to stderr
-                    conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git pull -q", function(err, stream) {
+                    //conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git reset --hard && git pull -q", function(err, stream) {
+                    conn.exec("cd "+servicedir+" && git reset --hard && git pull -q", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in "+servicedir);
@@ -808,7 +823,8 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        stream.write(servicedir+"/"+service_detail.pkg.scripts.status);
+                        //stream.write(servicedir+"/"+service_detail.pkg.scripts.status);
+                        stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.status);
                         stream.end();
                     });
                 },
@@ -836,7 +852,8 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        stream.write(servicedir+"/"+service_detail.pkg.scripts.stop);
+                        //stream.write(servicedir+"/"+service_detail.pkg.scripts.stop);
+                        stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.stop);
                         stream.end();
                     });
                 },
@@ -871,8 +888,10 @@ function start_task(task, resource, cb) {
                             }
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        if(service_detail.pkg.scripts.run) stream.write(servicedir+"/"+service_detail.pkg.scripts.run+"\n");
-                        if(service_detail.pkg.scripts.start) stream.write(servicedir+"/"+service_detail.pkg.scripts.start+"\n");
+                        //if(service_detail.pkg.scripts.run) stream.write(servicedir+"/"+service_detail.pkg.scripts.run+"\n");
+                        if(service_detail.pkg.scripts.run) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.run+"\n");
+                        //if(service_detail.pkg.scripts.start) stream.write(servicedir+"/"+service_detail.pkg.scripts.start+"\n");
+                        if(service_detail.pkg.scripts.start) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.start+"\n");
                         stream.end();
                     });
                 },
@@ -943,7 +962,7 @@ function start_task(task, resource, cb) {
                     task.save(function() {
                         //conn.exec("cd "+taskdir+" && set -o pipefail && ./_boot.sh 2>&1 | tee run.log", {
                         conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
-                            /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SCA_SOMETHING: 'whatever', }*/
+                            /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SOMETHING: 'whatever', }*/
                         }, function(err, stream) {
                             if(err) return next(err);
                             //var stdout = "";

@@ -8,11 +8,6 @@ module.exports = {
         hostname: "bigred2.uits.iu.edu",
         desc: "IU's high performance computing cluster",
         workdir: "/N/dc2/scratch/__username__/sca/workflows",
-        /*
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        */
 
         //services supported by this resource and score
         services: {
@@ -33,11 +28,6 @@ module.exports = {
         desc: "IU's high throughput computing cluster",
         hostname: "karst.uits.iu.edu",
         workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
-        /*
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        */
         
         //services supported by this resource
         services: {
@@ -57,10 +47,6 @@ module.exports = {
 
             "soichih/sca-service-noop": {score: 10},
 
-            //"soichih/sca-service-helloworld1": {score: 10},
-
-            //"soichih/sca-service-helloworld2": {score: 9},
-
             //for kd backup tool
             "soichih/sca-service-tgzpipe": {score: 10},
 
@@ -76,32 +62,12 @@ module.exports = {
         }    
     },
 
-    /*
-    gw183: {
-        type: "jetstream-vm", 
-        name: "gw183.iu.xsede.org", 
-        desc: "IU's high throughput computing cluster",
-        hostname: "gw183.iu.xsede.org",
-        workdir: "/home/__username__/sca/workflows",
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        //services supported by this resource
-        services: [],
-    },
-    */
-
     mason: {
         type: "ssh", 
         name: "IU / Mason", 
         desc: "IU's high memory computing cluster",
         hostname: "mason.uits.iu.edu",
         workdir: "/N/dc2/scratch/__username__/sca/workflows",
-        /*
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        */
         
         //services supported by this resource
         services: {
@@ -111,31 +77,13 @@ module.exports = {
         }       
     },
     
-    /*
-    dtaxfer: {
-        type: "xfer", 
-        name: "BigRed2 Data Transfer Node",
-        desc: "Allows fast data transfer between IU file systems.",
-        hostname: "dataxfer.bigred2.uits.iu.edu",
-        workdir: "/N/dc2/scratch/__username__/sca/workflows",
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        supports: [],
-    },
-    */
-
     osgxd: {
         type: "ssh", 
         name: "Open Science Grid (xd-login)", 
         desc: "National distributed high throughput computing cluster",
         hostname: "xd-login.opensciencegrid.org",
         workdir: "/local-scratch/__username__/sca/workflows",
-        /*
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        */
+       
         //services supported by this resource
         services: {
             "soichih/sca-service-hpss": {score: 5},
@@ -160,36 +108,20 @@ module.exports = {
         name: "IU / Scholary Data Archive", 
         hostname: "hsi.mdss.iu.edu", 
         desc: "IU's HPSS (Tape Archive) system which allows you to store research data",
-        /*
-        default: {
-            auth_method: 'keytab',
-        },
-        */
     },
 
-    q6: {
+    vm: {
         type: "ssh", 
-        name: "Q6 SCA docker executioner", 
-        desc: "Handles SCA ",
-        hostname: "q6.sca.iu.edu",
+        name: "Generic VM Instance", 
+        desc: "Such as Jetstream Instance",
+        //hostname: "q6.sca.iu.edu",
         workdir: "/home/__username__/workflows", //could run out of disk easily
-        //workdir: "/N/dcwan/scratch/__username__/q6/workflows", //causes workflow output directory to lock up with -- Device or resource busy
-        /*
-        default: {
-            ssh_public: true, //this causes resource router to generate new ssh key
-        },
-        */
+      
         //services supported by this resource
         services: {
-            "soichih/sca-service-qr": {score: 10},
-            "soichih/sca-service-fits2png": {score: 10},
-            "soichih/sca-product-raw": {score: 5},
-
-            //"soichih/sca-service-onere-build": {score: 10},
-            //"soichih/sca-service-onere-run": {score: 10},
-            "soichih/sca-service-docker": {score: 10},
-
-            "_upload": {score: 5},
+            "soichih/sca-service-noop": {score: 10},
+            //"_upload": {score: 5},
         }
     },
 }
+

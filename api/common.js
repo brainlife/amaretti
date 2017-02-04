@@ -110,7 +110,7 @@ exports.get_ssh_connection = function(resource, cb) {
     //var _resource = _.clone(resource);
     exports.decrypt_resource(resource);
     conn.connect({
-        host: detail.hostname,
+        host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 60*1000,

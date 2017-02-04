@@ -24,8 +24,8 @@
     "font-awesome": "^4.7.0",
     "jquery": "^3.1.1",
     "node-forge": "^0.6.48",
-    "sca-ng-wf": "^1.0.14",
-    "sca-shared": "^0.0.5",
+    "sca-ng-wf": "^1.0.16",
+    "sca-shared": "0.0.7",
     "ui-select": "^0.19.6"
   }
 }

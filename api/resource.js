@@ -80,9 +80,17 @@ exports.select = function(user, query, cb) {
 }
 
 function score_resource(user, resource, query) {
+
+    //apply resource_type filter..........
+    if(query.resource_type && resource.resource_id != query.resource_type) {
+        //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
+        //reject it
+        logger.debug("resource_type:"+resource.resource_id+" mismatch with query: "+query.resource_type);
+        return 0;
+    }
+
+    //see if this resource supports requested service
     var resource_detail = config.resources[resource.resource_id];
-    //logger.debug(resource_detail);
-    //see if resource supports the service
     //TODO other things we could do..
     //1... handle query.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
@@ -91,29 +99,25 @@ function score_resource(user, resource, query) {
         logger.error("can't find resource detail for resource_id:"+resource.resource_id);
         return 0;
     }
-    if(!resource_detail.services) {
-        //some resource has no services, but that's ok
-        logger.debug("resource detail for resource_id:"+resource.resource_id+" has no services entry");
-        return 0;
-    }
-    if(query.resource_type && resource.resource_id != query.resource_type) {
-        //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
-        //reject it
-        logger.debug("resource_type:"+resource.resource_id+" mismatch with query: "+query.resource_type);
-        return 0;
-    }
-    var info = resource_detail.services[query.service];
-    if(info === undefined) {
-        logger.debug("no service detail for "+query.service);
-        return 0;
+
+    //see if the resource.config has score
+    if( resource.config && 
+        resource.config.services) {
+        var score = null;
+        resource.config.services.forEach(function(service) {
+            if(service.name == query.service) score = service.score;
+        });
+        if(score) return score;
     }
     
-    var score = info.score;
-
-    //now, double the score if the resource is owned by user
-    //if(user.sub == resource.user_id) score = score*2;
-
-    return score;
+    //pull resource_detail info
+    if( resource_detail && 
+        resource_detail.services &&
+        resource_detail.services[query.service]) {
+        return resource_detail.services[query.service].score;
+    }
+    logger.debug("this resource doesn't support "+query.service);
+    return 0;
 }
 
 //run appropriate tests based on resource type
@@ -211,7 +215,7 @@ function check_ssh(resource, cb) {
     var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
-            host: detail.hostname,
+            host: resource.config.hostname || detail.hostname,
             username: resource.config.username,
             privateKey: decrypted_resource.config.enc_ssh_private,
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second

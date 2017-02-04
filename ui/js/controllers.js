@@ -126,8 +126,6 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
         inst.gids.forEach(function(group) { gids.push(group.id); });
         inst.gids = gids;
 
-        //if(!isadmin) delete inst.gids;
-
         //convert _envs to key/value in object
         inst.envs = {};
         if(inst._envs) {
@@ -139,8 +137,10 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
                 inst.envs[key] = value;
             });
         }
-        //console.dir(inst);
-        //debugger;
+
+        inst.config.services.forEach(function(service) {
+            delete service.isTag;
+        });
     }
 
     $scope.addnew = function(resource) {
@@ -166,6 +166,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
         var modalInstance = create_dialog(resource, inst);
         modalInstance.result.then(function(_inst) {
             prepare_submission(_inst);
+            console.dir(_inst);
             $http.put($scope.appconf.api+'/resource/'+_inst._id, _inst)
             .then(function(res) {
                 toaster.success("Updated resource");
@@ -252,6 +253,10 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
                     });
                 }
 
+                $scope.service_transform = function(it) {
+                    return {name: it, score: 10}
+                }
+
                 if(inst) {
                     //update
                     $scope.inst = angular.copy(inst);
@@ -259,17 +264,6 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
                     //new
                     $scope.inst = def;
                     console.log("generating key");
-                    /*
-                    $http.get(appconf.api+'/resource/gensshkey/')
-                    .then(function(res) {
-                        $scope.inst.config.ssh_public = res.data.pubkey;
-                        $scope.inst.config.enc_ssh_private = res.data.key;
-                    }, function(res) {
-                        if(res.data && res.data.message) toaster.error(res.data.message);
-                        else toaster.error(res.statusText);
-                    });
-                    */
-
                     $scope.reset_sshkey($scope.inst);
                 }
         

@@ -566,6 +566,8 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  * @apiParam {Object} [config]    Resource Configuration to update
  * @apiParam {Object} [envs]      Resource environment parameters to update
  * @apiParam {String} [name]      Name of this resource instance
+ * @apiParam {String} [hostname]  Hostname to override the resource base hostname
+ * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
  * @apiParam {Number[]} [gids]    List of groups that can use this resource (only sca admin can update)
  * @apiParam {Boolean} [active]   Set true to enable resource
  *
@@ -577,8 +579,6 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  */
 router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
-
-
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
@@ -623,11 +623,13 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  *
  * @apiParam {String} type      "hpss", or "ssh" for now
  * @apiParam {String} resource_id ID of this resource instance ("karst", "mason", etc..)
- * @apiParam {String} name      Name of this resource instance (like "soichi's karst account")
  * @apiParam {Object} config    Configuration for resource
- * @apiParam {Boolean} active   Set true to enable resource
- * @apiParam {Number[]} [gids]    List of groups that can use this resource (only sca admin can enter this)
- * @apiParam {Object} [envs]      Key values to be inserted for service execution
+ * @apiParam {Object} [envs]    Key values to be inserted for service execution
+ * @apiParam {String} [name]    Name of this resource instance (like "soichi's karst account")
+ * @apiParam {String} [hostname]  Hostname to override the resource base hostname
+ * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
+ * @apiParam {Number[]} [gids]  List of groups that can use this resource (only sca admin can enter this)
+ * @apiParam {Boolean} [active] Set true to enable resource
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
  * 
@@ -690,15 +692,6 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
             res.json({status: 'ok'});
         });
     });
-
-    /*
-    var resource = new db.Resource(req.body);
-    resource.user_id = req.user.sub;
-    resource.save(function(err, _resource) {
-        if(err) return next(err);
-        res.json({status: 'ok'});
-    });
-    */
 });
 
 /**

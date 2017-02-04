@@ -78,41 +78,37 @@ var resourceSchema = mongoose.Schema({
     //key
     user_id: {type: String, index: true}, 
 
+    active: {type: Boolean, default: true},
+
+    name: String, 
+    
     //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
     type: String, 
 
     resource_id: String, //like sda, bigred2 (resource base id..)
-    //
-    //TODO - allow resource to override parameters from resource base so that user can configure them
-    //
-    ////////////////////////////////////////////////
 
-    gids: [{type: Number}], //if set, these set of group can access this resource
+    /* stored in config
+    hostname: String, //hostname to override from base hostname
+    services: [ new mongoose.Schema({
+        name: String, //soichih/sca-service-noop,
+        score: Number,
+    }) ],  //services to allow running (additional to base services)
+    */
 
+    config: mongoose.Schema.Types.Mixed,
+    envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
+
+    gids: [{type: Number}], //if set, these set of group can access this resource (only admin can set it)
+
+    //current resource status
     status: String,
     status_msg: String,
     status_update: Date, //update_date is for updating the resource config.. status_update is the date of last status check
     lastok_date: Date, //date which status was last ok... used to auto-deactivate if status remains non-ok for long period of time
 
-    active: {type: Boolean, default: true},
-
-    name: String, 
-    config: mongoose.Schema.Types.Mixed,
-    envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
-
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
-
-/*
-//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
-//I prefer doing this manually anyway, because it will be more visible 
-resourceSchema.pre('update', function(next) {
-    //this._update.$set.update_date = new Date();
-    this.update_date = new Date();
-    next();
-});
-*/
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -70,7 +70,12 @@
                                             </div>
                                         </div>
                                         -->
-                                    </div>
+                                    </div><!--row-->
+                                    <p ng-if="inst.config.services.length > 0">
+                                        <span ng-repeat="service in inst.config.services">
+                                            <span class="label label-default">{{service.name}} ({{service.score}})</span>&nbsp;
+                                        </span>
+                                    </p>
                                 </li> 
                                 <li class="list-group-item clickable" ng-click="addnew(resource)">
                                     <span class="text-muted"><i class="fa fa-plus" aria-hidden="true"></i> Add New Account</span>
@@ -108,21 +113,21 @@
             <label><input type="checkbox" ng-model="inst.active">Enabled</label>
         </div>
         <div class="form-group">
-            <label>Name</label>
-            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></textarea>
+            <label>Name *</label>
+            <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose any resource name you like"></textarea>
         </div>
         <div class="form-group">
-            <label>Principal (username)</label>
+            <label>Principal (username) *</label>
             <input type="text" class="form-control" ng-model="inst.config.username" required></textarea>
         </div>
         <div class="form-group">
-            <label>Authentication Method</label>
+            <label>Authentication Method *</label>
             <select class="form-control" ng-model="inst.config.auth_method" disabled required>
                 <option value="keytab">Keytab</option>
             </select>
         </div>
         <div class="form-group">
-            <label>Keytab (base64)</label>
+            <label>Keytab (base64) *</label>
             <div ng-if="inst.config.enc_keytab === true">
                 <button class="btn btn-xs" ng-click="inst.config.enc_keytab = ''">Reset</button>
             </div>
@@ -159,11 +164,15 @@
             <label><input type="checkbox" ng-model="inst.active">Enabled</label>
         </div>
         <div class="form-group">
-            <label>Name</label>
+            <label>Name *</label>
             <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></input>
         </div>
         <div class="form-group">
-            <label>Username</label>
+            <label>Hostname</label>
+            <input type="text" class="form-control" ng-model="inst.config.hostname" placeholder="{{resource.hostname}}"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Username *</label>
             <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></input>
         </div>
         <div class="form-group">
@@ -186,6 +195,13 @@
         <div class="form-group">
             <label>Environment Parameters</label>
             <textarea ng-model="inst._envs" class="form-control" placeholder="key1=value"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Services</label>
+            <ui-select multiple tagging="service_transform" ng-model="inst.config.services" title="Enter services to run">
+                <ui-select-match placeholder="Specify Services..">{{$item.name}} {{$item.score}}</ui-select-match>
+                <ui-select-choices repeat="service in []">{{service.name}} (score:{{service.score}})</ul-select-choices> 
+            </ui-select>
         </div>
     </div>
     <div class="modal-footer">
