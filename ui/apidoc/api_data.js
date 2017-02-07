@@ -332,6 +332,52 @@ define({ "api": [
     "name": "GetResource"
   },
   {
+    "group": "Resource",
+    "type": "get",
+    "url": "/resource/best",
+    "title": "Find best resource to run a task",
+    "description": "<p>Return a best resource to run specified service using algorithm used by sca-wf-task when it determines which resource to use for a task request</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "service",
+            "description": "<p>Name of service to run (like &quot;soichih/sca-service-life&quot;)</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "{score: 10, resource: <resourceobj>, detail: <resourcedetail>, workdir: <workdir>}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource",
+    "name": "GetResourceBest"
+  },
+  {
     "type": "get",
     "url": "/resource/download",
     "title": "Download file from resource. If directory path is specified, it will stream tar -gz content",
@@ -490,13 +536,6 @@ define({ "api": [
           },
           {
             "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "name",
-            "description": "<p>Name of this resource instance (like &quot;soichi's karst account&quot;)</p>"
-          },
-          {
-            "group": "Parameter",
             "type": "Object",
             "optional": false,
             "field": "config",
@@ -504,10 +543,31 @@ define({ "api": [
           },
           {
             "group": "Parameter",
-            "type": "Boolean",
-            "optional": false,
-            "field": "active",
-            "description": "<p>Set true to enable resource</p>"
+            "type": "Object",
+            "optional": true,
+            "field": "envs",
+            "description": "<p>Key values to be inserted for service execution</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "name",
+            "description": "<p>Name of this resource instance (like &quot;soichi's karst account&quot;)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "hostname",
+            "description": "<p>Hostname to override the resource base hostname</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object[]",
+            "optional": true,
+            "field": "services",
+            "description": "<p>Array of name: and score: to add to the service provides on resource base</p>"
           },
           {
             "group": "Parameter",
@@ -518,10 +578,10 @@ define({ "api": [
           },
           {
             "group": "Parameter",
-            "type": "Object",
+            "type": "Boolean",
             "optional": true,
-            "field": "envs",
-            "description": "<p>Key values to be inserted for service execution</p>"
+            "field": "active",
+            "description": "<p>Set true to enable resource</p>"
           }
         ]
       }
@@ -681,6 +741,20 @@ define({ "api": [
             "optional": true,
             "field": "name",
             "description": "<p>Name of this resource instance</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "hostname",
+            "description": "<p>Hostname to override the resource base hostname</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "Object[]",
+            "optional": true,
+            "field": "services",
+            "description": "<p>Array of name: and score: to add to the service provides on resource base</p>"
           },
           {
             "group": "Parameter",

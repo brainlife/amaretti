@@ -81,6 +81,7 @@ exports.select = function(user, query, cb) {
 
 function score_resource(user, resource, query) {
 
+    /*
     //apply resource_type filter..........
     if(query.resource_type && resource.resource_id != query.resource_type) {
         //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
@@ -88,6 +89,7 @@ function score_resource(user, resource, query) {
         logger.debug("resource_type:"+resource.resource_id+" mismatch with query: "+query.resource_type);
         return 0;
     }
+    */
 
     //see if this resource supports requested service
     var resource_detail = config.resources[resource.resource_id];

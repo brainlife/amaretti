@@ -253,6 +253,9 @@ String.prototype.addSlashes = function()
    return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
 } 
 
+/*
+* I am not sure who uses this, but this looks dangerous..
+*/
 router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource_id = req.query.resource_id;
     var _path = req.query.path; //TODO.. validate?
@@ -283,28 +286,36 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
 });
 
-//return a best resource for a given purpose / criteria
+/**
+ * @apiGroup Resource
+ * @api {get} /resource/best    Find best resource to run a task
+ * @apiDescription              Return a best resource to run specified service using algorithm used by sca-wf-task 
+ *                              when it determines which resource to use for a task request
+ *
+ * @apiParam {String} [service] Name of service to run (like "soichih/sca-service-life")
+ * @apiHeader {String} authorization 
+ *                              A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *                              {score: 10, resource: <resourceobj>, detail: <resourcedetail>, workdir: <workdir>}
+ */
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
-    //logger.debug("dumping req.user");
-    //logger.debug(req.user);
 
     var query = {};
     if(req.query.service) query.service = req.query.service;
-    if(req.query.resource_type) query.resource_type = req.query.resource_type;
+    //if(req.query.resource_type) query.resource_type = req.query.resource_type;
 
     resource_lib.select(req.user, query, function(err, resource, score) {
         if(err) return next(err);
-        //logger.debug(resource);
         if(!resource) return res.json({nomatch: true});
         var resource_detail = config.resources[resource.resource_id];
-        var ret = {
+        res.json({
             score: score,
             resource: mask_enc(resource),
             detail: resource_detail,
             workdir: common.getworkdir(null, resource),
-        };
-        res.json(ret);
+        });
     });
 });
 
@@ -412,7 +423,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                 if(err) return next(err);
                 conn.sftp(function(err, sftp) {
                     if(err) return next(err);
-                    logger.debug("streaming file to "+_path);
+                    logger.debug("streaming file to "+fullpath);
                     req.pipe(sftp.createWriteStream(fullpath))
                     .on('close', function() {
                         logger.debug("streaming closed");
@@ -421,6 +432,10 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                             if(err) return next(err);
                             res.json({filename: path.basename(fullpath), attrs: stat});
                         });
+                    })
+                    .on('error', function(err) {
+                        logger.error(err);
+                        next("Failed to upload file to "+_path);
                     });
                 });
             });
