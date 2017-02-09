@@ -29,8 +29,7 @@ describe('GET /health', function() {
         .expect('Content-Type', /json/) 
         .end(function(err, res) {
             if (err) throw err;
-            //var ret = JSON.parse(res.body);
-            assert(res.body.status == "ok", "status is not ok");
+            assert(res.body.status == "failed", "initial status should be failed");
             done();
         });
     });
