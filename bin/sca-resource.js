@@ -4,10 +4,9 @@
 //node
 const fs = require('fs');
 const path = require('path');
-
-//contrib
 const winston = require('winston');
 const async = require('async');
+const request = require('request');
 
 //mine
 const config = require('../config');
@@ -47,28 +46,50 @@ function check_resources(cb) {
             resource_lib.check(resource, function(err) {
                 //I don't care if someone's resource status is failing or not
                 //if(err) logger.info(err); 
+                /*
                 if(err) next_resource();
                 else {
                     var detail = config.resources[resource.resource_id];
                     if(detail && detail.type == "ssh" && resource.status == "ok") {
                         //console.dir(detail);
-                        clean_workdir(resource, function(err) {
+                        clean_oldworkdir(resource, function(err) {
                             if(err) logger.error(err); //continue
                             next_resource();
                         });
                     } else return next_resource();
                 }
+                */
+                next_resource();
             });
         }, function(err) {
             if(err) logger.error(err); //continue
-            else logger.debug("checked all resource");
-            cb();
+            else logger.debug("checked "+resources.length+" resources");
+
+            var info = {
+                ssh: common.report_ssh(),
+                resources: resources.length,
+                //message: "sca-wf-resource here!",
+            }
+            //report health status to sca-wf
+            logger.info("reporting health");
+            logger.info(info);
+            var url = "http://"+(config.express.host||"localhost")+":"+config.express.port;
+            request.post({url: url+"/health/resource", json: info}, function(err, res, body) {
+                if(err) logger.error(err);
+                cb();
+            });
         });
     });
 }
 
+/* TODO ... 2 issues with this.
+ * 1. I shouldn't be using common.get_ssh_connection - which persists. I will end up having connection
+ * with every single resource registeres
+ * 2. I should probably trust the SCA instance / tasks registration. Find instance with all tasks removed
+ * and last one removed to be 5 days old
+
 //find empty & old(5 days) instance directory and remove it
-function clean_workdir(resource, cb) {
+function clean_oldworkdir(resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) return cb(err);
         var workdir = common.getworkdir("", resource);
@@ -86,5 +107,5 @@ function clean_workdir(resource, cb) {
         });
     }); 
 }
-
+*/
 

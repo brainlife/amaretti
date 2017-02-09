@@ -4,11 +4,19 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('express-jwt');
+const winston = require('winston');
 
 //mine
 const config = require('../../config');
+const logger = new winston.Logger(config.logger.winston);
 const db = require('../models/db');
-//const common = require('../common');
+const common = require('../common');
+
+//remote service status (used by /health to analyze)
+var _status = {
+    task: null,
+    resource: null,
+};
 
 /**
  * @apiGroup System
@@ -22,20 +30,71 @@ router.get('/health', function(req, res) {
     //make sure I can query from db
     var ret = {
         status: "ok", //assume to be good
-
-        //I am not sure if I should publish this or not...
-        //ssh: common.ssh_connection_counts(),
+        ssh: common.report_ssh(),
     }
 
-    db.Instance.find({name: 'nobother'}).exec(function(err, record) {
+    for(var service in _status) {
+        ret[service] = _status[service];
+        if(ret[service] == null) {
+            ret.status = 'failed';
+            ret.message = service+" service not yet reported";
+        } else {
+            var age = Date.now() - ret[service].update_time;
+            ret[service].age = age;
+            switch(service) {
+            case "task":  
+                if(age > 1000*60*10) {
+                    ret.status = "warning";
+                    ret.message = "task servivce hasn't reported back for more than 10 minutes..";
+                }
+                if(ret[service].tasks == 0) {
+                    ret.status = "warning";
+                    ret.message = "no tasks has been processed .. strange";
+                }
+                if(ret[service].checks < 30) {
+                    ret.status = "failed";
+                    ret.message = "checks counts is low.. check the check-chain!";
+                }
+                break;
+            case "resource":
+                if(age > 1000*60*60) {
+                    ret.status = "warning";
+                    ret.message = "resource servivce hasn't reported back for more than an hour..";
+                } 
+                if(ret[service].resources == 0) {
+                    ret.status = "warning";
+                    ret.message = "no resource registered?";
+                }
+                /*
+                if(ret[service].oks == 0) {
+                    ret.status = "warning";
+                    ret.message = "no ok status?";
+                }
+                */
+                break;
+            }
+        }
+    }
+
+    db.Instance.findOne().exec(function(err, record) {
         if(err) {
             ret.status = 'failed';
             ret.message = err;
-            res.json(ret);
-        } else {
-            res.json(ret);
         }
+        if(!record) {
+            ret.status = 'failed';
+            ret.message = 'no instance from db';
+        }
+        res.json(ret);
     });
+});
+
+//used by task/resource to report cache status
+//it should contain hosts counts
+router.post('/health/:service', function(req, res) {
+    _status[req.params.service] = req.body;
+    _status[req.params.service].update_time = Date.now();
+    res.send('thanks');
 });
 
 router.use('/task',     require('./task'));

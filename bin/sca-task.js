@@ -21,6 +21,7 @@ const _resource_picker = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
+//missing catch() on Promise will be caught here
 process.on('unhandledRejection', (reason, promise) => {
     logger.error("sleeping for 10 seconds and killing");
     logger.error(reason);
@@ -63,7 +64,8 @@ function set_nextdate(task) {
 }
 
 function check() {
-    logger.debug("checking...");
+    //logger.debug("checking...");
+    _status.checks++; //for health reporting
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
         //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
@@ -79,6 +81,7 @@ function check() {
     .exec((err, tasks) => {
         if(err) throw err;
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
+        _status.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
             logger.info("handling task:"+task._id+" ("+task.name+")");
             set_nextdate(task);
@@ -110,8 +113,10 @@ function check() {
             });
         }, function(err) {
             if(err) logger.error(err);
+
             //wait a bit and recheck again
             setTimeout(check, 500);
+
         });
     });
 }
@@ -424,6 +429,7 @@ function handle_stop(task, next) {
 //check for task status of already running tasks
 function handle_running(task, next) {
     logger.info("check_running "+task._id);
+
 
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
@@ -1036,4 +1042,24 @@ function load_products(task, taskdir, resource, cb) {
         });
     });
 }
+
+var _status = {
+    checks: 0,
+    tasks: 0,
+}
+
+//report health status to sca-wf
+function report_health() {
+    _status.ssh = common.report_ssh();
+    logger.info("reporting health");
+    logger.info(_status);
+    var url = "http://"+(config.express.host||"localhost")+":"+config.express.port;
+    request.post({url: url+"/health/task", json: _status}, function(err, res, body) {
+        if(err) logger.error(err);
+        _status.checks = 0;
+        _status.tasks = 0;
+    }); 
+}
+setInterval(report_health, 1000*60*10);
+setTimeout(report_health, 1000*60); //report soon after start (so that sca-wf's health will look ok)
 

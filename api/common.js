@@ -8,7 +8,6 @@ var crypto = require('crypto');
 //contrib
 var winston = require('winston');
 var async = require('async');
-//var keygen = require('ssh-keygen');
 var Client = require('ssh2').Client;
 var request = require('request');
 
@@ -18,11 +17,8 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models/db');
 var hpss = require('hpss');
 
-//hpss.init({behind_firewall: true});
-
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
-    //if(detail === undefined) throw new Error("couldn't find resource_id:"+resource.resource_id);
     if(!detail.workdir) return null;
     var template = detail.workdir;
     var workdir = template.replace("__username__", resource.config.username);
@@ -38,7 +34,6 @@ exports.gettaskdir = function(workflow_id, task_id, resource) {
 exports.encrypt_resource = function(resource) { 
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
-            
             //encrypt using configured password and resource._id as IV
             if(!resource._id) throw new Error("can't encrypt without resource._id set");
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
@@ -162,36 +157,31 @@ exports.get_sftp_connection = function(resource, cb) {
     });
 }
 
-/*
-exports.ssh_keygen = function(opts, cb) {
-    logger.info("generating ssh key");
-    //this just calls ssh-keygen..
-    keygen(opts, function(err, out) {
-        if(err) cb(err);
-        cb(null, {
-            pubkey: out.pubKey.trim(),
-            key: out.key.trim(),
-        });
-    });
-}
-*/
+exports.report_ssh = function() {
+    var ssh_cons = Object.keys(ssh_conns).length;
+    var sftp_cons = Object.keys(sftp_conns).length;
 
-function report_ssh() {
+    //report detail to stdout..
     logger.info("ssh/sftp status-----------------------------------------------");
-    logger.info("ssh connections : ", Object.keys(ssh_conns).length);
+    logger.info("ssh connections : ", ssh_cons);
     for(var rid in ssh_conns) {
         var c = ssh_conns[rid];
         logger.info(rid);
         logger.info("\tready time:",c.ready_time);
         logger.info("\tlast used:",c.last_used);
     }
-    logger.info("sftp connections : ", Object.keys(sftp_conns).length);
+    logger.info("sftp connections : ", sftp_cons);
     for(var rid in sftp_conns) {
         var c = sftp_conns[rid];
         logger.info(rid);
     }
+
+    return {
+        ssh_cons: ssh_cons,
+        sftp_cons: sftp_cons,
+    }
 }
-setInterval(report_ssh, 1000*60*10); //report every 10 minutes
+//setInterval(report_ssh, 1000*60*10); //report every 10 minutes
 
 exports.progress = function(key, p, cb) {
     request({

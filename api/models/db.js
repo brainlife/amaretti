@@ -196,30 +196,13 @@ var taskSchema = mongoose.Schema({
     update_date: {type: Date},
 });
 
-/*
-//mongoose's pre/post middleware are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
-//see https://github.com/Automattic/mongoose/issues/964
-
-//I prefer doing this manually anyway, because it will be more visible 
-taskSchema.pre('update', function(next) {
-    this.update_date = new Date();
-    next();
-});
-*/
-
-//TODO - not sure "init" does what I think it does.. 
-//from doc "called internally after a document is returned from mongodb"
-//taskSchema.post('init',events.create); 
-
-//'update' hook doesn't pass the object updated.. so it's useless
-//taskSchema.post('update', events.task); 
-
 taskSchema.post('save', events.task);
 taskSchema.post('findOneAndUpdate', events.task);
 taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 
 taskSchema.index({name: 'text', desc: 'text'});
+taskSchema.index({status: 1, next_date: 1}); //index for sca-wf-task
 
 exports.Task = mongoose.model('Task', taskSchema);
 
@@ -241,39 +224,4 @@ var commentSchema = mongoose.Schema({
 });
 exports.Comment = mongoose.model('Comment', commentSchema);
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-//registered services
-var serviceSchema = mongoose.Schema({
-
-    //user who registered this service to SCA
-    user_id: String, 
-
-    //giturl: String, //url used to register this service
-    
-    //unique service name used by SCA (normally a copy of git.full_name when registered -- "soichih/sca-service-life")
-    name: {type: String, index: {unique: true}}, 
-
-    //cache of https://api.github.com/repos/soichih/sca-service-life
-    git: mongoose.Schema.Types.Mixed, 
-
-    //cache of package.json (https://raw.githubusercontent.com/soichih/sca-service-freesurfer/master/package.json)
-    pkg: mongoose.Schema.Types.Mixed, 
-
-    //information about the last test
-    status: String,
-    status_msg: String,
-    status_update: Date,
-
-    //owner / admin can deactivate
-    active: {type: Boolean, default: true},
-
-    register_date: {type: Date, default: Date.now },
-
-    //date when the pkg info is last cached
-    cache_date: {type: Date, default: Date.now },
-});
-exports.Service = mongoose.model('Service', serviceSchema);
-*/
 
