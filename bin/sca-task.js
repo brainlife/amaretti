@@ -127,7 +127,7 @@ function handle_housekeeping(task, cb) {
         
         //check to see if taskdir still exists
         function(next) {
-            var good_resource_ids = [];
+            var missing_resource_ids = [];
             async.forEach(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
@@ -150,8 +150,10 @@ function handle_housekeeping(task, cb) {
                         conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
-                                if(code == 0) good_resource_ids.push(resource_id);
-                                else logger.debug("taskdir:"+taskdir+" disappeared");
+                                if(code == 2) {
+                                    logger.debug("taskdir:"+taskdir+" is missing");
+                                    missing_resource_ids.push(resource_id);
+                                }
                                 next_resource();
                             })
                             .on('data', function(data) {
@@ -171,8 +173,18 @@ function handle_housekeeping(task, cb) {
                     //is defined as "resouce id used" (not where it's at currently)
                     //task.resource_id = undefined; 
 
-                    task.resource_ids = good_resource_ids;
-                    if(good_resource_ids.length == 0) task.status = "removed"; //most likely removed by cluster
+                    //remove missing_resource_ids from resource_ids 
+                    var resource_ids = [];
+                    task.resource_ids.forEach(function(id) {
+                        if(!~good_resource_ids.indexOf(id)) resource_ids.push(id);
+                    });
+                    task.resource_ids = resource_ids;
+
+                    //now.. if we *know* that there are no resource that has this task, consider it removed
+                    if(good_resource_ids.length == 0) {
+                        task.status = "removed"; //most likely removed by cluster
+                        task.status_msg = "All output from this task has been removed by resource administrator";
+                    }
                     task.save(next);
                 }
             });
