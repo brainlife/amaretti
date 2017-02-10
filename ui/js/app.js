@@ -267,7 +267,7 @@ function(appconf, $http, serverconf, toaster, jwtHelper) {
                 resources.forEach(function(resource) {
                     //console.dir(resource);
                     resource.detail = serverconf.resources[resource.resource_id];
-                    if(jwt) resource._canedit = (resource.user_id == jwt.sub);
+                    //if(jwt) resource._canedit = (resource.user_id == jwt.sub);
                 });
                 return resources;
             }, function(res) {

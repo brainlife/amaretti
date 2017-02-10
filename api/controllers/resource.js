@@ -33,6 +33,13 @@ function mask_enc(resource) {
     return resource;
 }
 
+function canedit(user, resource) {
+    if(!user) return false;
+    if(resource.user_id == user.sub) return true;
+    if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true;
+    return false;
+}
+
 /**
  * @apiGroup Resource
  * @api {get} /resource/types   Get all resource types
@@ -80,8 +87,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //admin can set it to null and remove user_id / gids filtering
         delete find.user_id;
     }
-    //console.log(JSON.stringify(req.user, null, 4));
-    //console.log(JSON.stringify(find, null, 4));
 
     db.Resource.find(find)
     .select(req.query.select)
@@ -98,7 +103,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
             resource._detail = config.resources[resource.resource_id];
             resource.salts = undefined;
-            //resource.canedit = (resource.user_id == req.user.sub);
+            resource._canedit = canedit(req.user, resource)
         });
         db.Resource.count(find).exec(function(err, count) {
             if(err) return next(err);
@@ -313,8 +318,10 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
         res.json({
             score: score,
             resource: mask_enc(resource),
-            detail: resource_detail,
+            detail: resource_detail, //TODO deprecate this
+            _detail: resource_detail,
             workdir: common.getworkdir(null, resource),
+            _canedit: canedit(req.user, resource),
         });
     });
 });
@@ -597,7 +604,8 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        if(resource.user_id != req.user.sub) return res.status(401).end();
+        //if(resource.user_id != req.user.sub) return res.status(401).end();
+        if(!canedit(req.user, resource)) return res.status(401).end();
 
         //only admin can update gids
         if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
@@ -679,6 +687,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     common.encrypt_resource(resource);
     resource.save(function(err, _resource) {
         if(err) return next(err);
+        var _resource = JSON.parse(JSON.stringify(_resource));
+        _resource._canedit = canedit(req.user, resource);
         res.json(mask_enc(_resource));
     });
 });
@@ -700,7 +710,8 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end("couldn't find such resource");
-        if(resource.user_id != req.user.sub) return res.status(401).end("you don't own this resource");
+        //if(resource.user_id != req.user.sub) return res.status(401).end("you don't own this resource");
+        if(!canedit(req.user, resource)) return res.status(401).end("you don't have access to this resource");
         resource.remove(function(err) {
             if(err) return next(err);
             console.log("done removing");
