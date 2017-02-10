@@ -138,7 +138,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
             });
         }
 
-        inst.config.services.forEach(function(service) {
+        if(inst.config && inst.config.services) inst.config.services.forEach(function(service) {
             delete service.isTag;
         });
     }
