@@ -1124,7 +1124,7 @@ define({ "api": [
             "type": "String",
             "optional": true,
             "field": "remove_date",
-            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
+            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL). (Please note that.. housekeeping will run at next_date.)</p>"
           },
           {
             "group": "Parameter",
@@ -1188,7 +1188,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully registered\",\n    \"task\": {},\n}",
+          "content": "HTTP/1.1 200 OK\n{\n    \"message\": \"Task successfully registered\",\n    \"task\": {...},\n}",
           "type": "json"
         }
       ]

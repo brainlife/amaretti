@@ -69,7 +69,10 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *                              Branch to use for the service (master by default)
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
- * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
+ * @apiParam {String} [remove_date] 
+ *                              Date (in ISO format) when you want the task dir to be removed 
+ *                              (won't override resource' max TTL).
+ *                              (Please note that.. housekeeping will run at next_date.)
  * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
@@ -87,7 +90,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *     HTTP/1.1 200 OK
  *     {
  *         "message": "Task successfully registered",
- *         "task": {},
+ *         "task": {...},
  *     }
  *                              
  */

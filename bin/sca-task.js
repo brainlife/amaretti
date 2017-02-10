@@ -237,10 +237,11 @@ function handle_housekeeping(task, cb) {
                     //all good.. now try to remove taskdir for real
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
+                        var workdir = common.getworkdir(task.instance_id, resource);
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        logger.info("rm -rf "+taskdir);
-                        conn.exec("rm -rf "+taskdir, function(err, stream) {
+                        logger.info("removing "+taskdir+" and workdir if empty");
+                        conn.exec("rm -rf "+taskdir+" && rmdir --ignore-fail-on-non-empty "+workdir, function(err, stream) {
                             if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
                                 if(code) return next_resource("Failed to remove taskdir "+taskdir);

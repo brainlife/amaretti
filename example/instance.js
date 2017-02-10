@@ -10,9 +10,12 @@ request.post({
     json: true,
     headers: { 'Authorization': 'Bearer '+jwt },
     body: {
-        workflow_id: 'ahoi',
-        name: 'ahoiahahaha',
-        desc: 'anything you want',
+        //workflow_id: 'ahoi',
+        name: 'here is my test instance',
+        desc: 'mytest',
+        config: {
+            type: "test",
+        }
     }, 
 }, function(err, res, body) {
     if(err) throw err;

@@ -46,19 +46,6 @@ function check_resources(cb) {
             resource_lib.check(resource, function(err) {
                 //I don't care if someone's resource status is failing or not
                 //if(err) logger.info(err); 
-                /*
-                if(err) next_resource();
-                else {
-                    var detail = config.resources[resource.resource_id];
-                    if(detail && detail.type == "ssh" && resource.status == "ok") {
-                        //console.dir(detail);
-                        clean_oldworkdir(resource, function(err) {
-                            if(err) logger.error(err); //continue
-                            next_resource();
-                        });
-                    } else return next_resource();
-                }
-                */
                 next_resource();
             });
         }, function(err) {
@@ -82,30 +69,4 @@ function check_resources(cb) {
     });
 }
 
-/* TODO ... 2 issues with this.
- * 1. I shouldn't be using common.get_ssh_connection - which persists. I will end up having connection
- * with every single resource registeres
- * 2. I should probably trust the SCA instance / tasks registration. Find instance with all tasks removed
- * and last one removed to be 5 days old
-
-//find empty & old(5 days) instance directory and remove it
-function clean_oldworkdir(resource, cb) {
-    common.get_ssh_connection(resource, function(err, conn) {
-        if(err) return cb(err);
-        var workdir = common.getworkdir("", resource);
-        logger.debug("cleaning workdir:"+workdir+" for resource_id:"+resource._id);
-        conn.exec("if [ -d \""+workdir+"\" ]; then find "+workdir+" -mtime +5 -type d -empty -maxdepth 1 -exec rmdir {} \\; fi", function(err, stream) {
-            if(err) return cb(err);        
-            stream.on('close', function(code, signal) {
-                cb();
-            })
-            .on('data', function(data) {
-                logger.debug(data.toString());
-            }).stderr.on('data', function(data) {
-                logger.debug(data.toString());
-            });
-        });
-    }); 
-}
-*/
 
