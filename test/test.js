@@ -35,4 +35,3 @@ describe('GET /health', function() {
     });
 });
 
-
