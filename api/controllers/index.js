@@ -86,7 +86,7 @@ router.get('/health', function(req, res) {
             ret.message = 'no instance from db';
         }
         
-        if(ret.status != "ok") console.debug(ret);
+        if(ret.status != "ok") logger.debug(ret);
 
         res.json(ret);
     });

@@ -176,12 +176,12 @@ function handle_housekeeping(task, cb) {
                     //remove missing_resource_ids from resource_ids 
                     var resource_ids = [];
                     task.resource_ids.forEach(function(id) {
-                        if(!~good_resource_ids.indexOf(id)) resource_ids.push(id);
+                        if(!~missing_resource_ids.indexOf(id)) resource_ids.push(id);
                     });
                     task.resource_ids = resource_ids;
 
                     //now.. if we *know* that there are no resource that has this task, consider it removed
-                    if(good_resource_ids.length == 0) {
+                    if(resource_ids.length == 0) {
                         task.status = "removed"; //most likely removed by cluster
                         task.status_msg = "All output from this task has been removed by resource administrator";
                     }
