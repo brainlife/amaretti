@@ -70,6 +70,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
+ * @apiSuccess {Object}         Instance created
+ *
  */
 router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;

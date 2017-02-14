@@ -57,9 +57,9 @@ router.get('/health', function(req, res) {
                 }
                 break;
             case "resource":
-                if(age > 1000*60*60) {
+                if(age > 1000*60*60*2) {
                     ret.status = "warning";
-                    ret.message = "resource servivce hasn't reported back for more than an hour..";
+                    ret.message = "resource servivce hasn't reported back for more than 2 hours..";
                 } 
                 if(ret[service].resources == 0) {
                     ret.status = "warning";
