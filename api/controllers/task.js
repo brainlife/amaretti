@@ -20,7 +20,7 @@ const common = require('../common');
  *
  * @apiParam {Object} [find]    Optional Mongo query to perform (you need to JSON.stringify)
  * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
- * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
+ * @apiParam {String} [select]  Fields to load - multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
  * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
@@ -78,7 +78,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
  * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
- * @apiParam {String[]} [deps]  task IDs that this serivce depends on. This task will be executed as soon as
+ * @apiParam {String[]} [deps]  task IDs that this service depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
  * @apiParam {Object} [envs]    Dictionary of ENV parameter to set.
  * @apiParam {String[]} [resource_deps]

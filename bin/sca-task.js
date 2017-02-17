@@ -599,9 +599,9 @@ function start_task(task, resource, cb) {
                 //TASK_ID: task._id.toString(),
                 //TASK_DIR: taskdir,
                 //SERVICE: service,
-                SERVICE_DIR: servicedir,
+                SERVICE_DIR: servicedir, //where the application is installed
+                //WORK_DIR: workdir,
                 //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
-
             };
 
             //optional envs

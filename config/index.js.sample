@@ -33,7 +33,7 @@ exports.events = {
     */
 }
 
-//api endpoints
+//api endpoints for various services
 exports.api = {
     auth: "https://soichi7.ppa.iu.edu/api/auth",
 }

@@ -1,29 +1,30 @@
 'use strict';
 
 //node
-var fs = require('fs');
-var path = require('path');
-var crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 //contrib
-var winston = require('winston');
-var async = require('async');
-var Client = require('ssh2').Client;
-var request = require('request');
+const winston = require('winston');
+const async = require('async');
+const Client = require('ssh2').Client;
+const request = require('request');
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('./models/db');
-var hpss = require('hpss');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('./models/db');
+const hpss = require('hpss');
 
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
-    if(!detail.workdir) return null;
-    var template = detail.workdir;
-    var workdir = template.replace("__username__", resource.config.username);
-    if(workflow_id) workdir+='/'+workflow_id;
-    return workdir; 
+    var workdir = resource.config.workdir || detail.workdir;
+    if(!workdir) return null;
+    var template = workdir;
+    var fullpath = template.replace("__username__", resource.config.username);
+    if(workflow_id) fullpath+='/'+workflow_id;
+    return fullpath; 
 }
 exports.gettaskdir = function(workflow_id, task_id, resource) {
     var workdir = exports.getworkdir(workflow_id, resource);
@@ -102,16 +103,13 @@ exports.get_ssh_connection = function(resource, cb) {
         }
         delete ssh_conns[resource._id];
     });
-    //var _resource = _.clone(resource);
+
     exports.decrypt_resource(resource);
     conn.connect({
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 60*1000,
-        //keepalive is used to detect dead connection.. default 3 is good enough
-        //https://github.com/mscdex/ssh2/issues/367#issuecomment-244975552
-        //keepaliveCountMax: 3, 
     });
 }
 
@@ -181,24 +179,17 @@ exports.report_ssh = function() {
         sftp_cons: sftp_cons,
     }
 }
-//setInterval(report_ssh, 1000*60*10); //report every 10 minutes
 
 exports.progress = function(key, p, cb) {
     request({
         method: 'POST',
         url: config.progress.api+'/status/'+key, 
-        /*
-        headers: {
-            'Authorization': 'Bearer '+config.progress.jwt,
-        }, 
-        */
         rejectUnauthorized: false, //this maybe needed if the https server doesn't contain intermediate cert ..
         json: p, 
     }, function(err, res, body){
         if(err) {
             logger.debug(err);
         } else {
-            //logger.debug("successfully posted progress update:"+key);
             logger.debug([key, p]);
         }
         if(cb) cb(err, body);

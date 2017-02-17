@@ -159,12 +159,16 @@
             <input type="text" class="form-control" ng-model="inst.name" required placeholder="Choose a resource name like"></input>
         </div>
         <div class="form-group">
-            <label>Hostname</label>
+            <label>Hostname (override)</label>
             <input type="text" class="form-control" ng-model="inst.config.hostname" placeholder="{{resource.hostname}}"></textarea>
         </div>
         <div class="form-group">
             <label>Username *</label>
             <input type="text" class="form-control" ng-model="inst.config.username" name="username" placeholder="username to ssh to this resource as" required></input>
+        </div>
+        <div class="form-group">
+            <label>Workdir (override)</label>
+            <input type="text" class="form-control" ng-model="inst.config.workdir" placeholder="{{resource.workdir}}"></textarea>
         </div>
         <div class="form-group">
             <label>SSH Public Key</label>
