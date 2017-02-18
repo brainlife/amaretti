@@ -102,6 +102,7 @@ exports.get_ssh_connection = function(resource, cb) {
             logger.error(err);
         }
         delete ssh_conns[resource._id];
+        cb(err);
     });
 
     exports.decrypt_resource(resource);
@@ -151,6 +152,7 @@ exports.get_sftp_connection = function(resource, cb) {
                 logger.error(err);
             }
             delete sftp_conns[resource._id];
+            cb(err);
         });
     });
 }

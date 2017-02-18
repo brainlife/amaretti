@@ -26,12 +26,6 @@ if(config.events) {
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             instance_ex = ex;
         });
-        /*
-        conn.exchange(config.events.exchange+".resource", 
-            {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
-            resource_ex = ex;
-        });
-        */
     });
     conn.on('error', function(err) {
         logger.error("amqp connection error");
@@ -62,14 +56,4 @@ exports.instance = function(instance) {
     publish_or_log(instance_ex, key, instance);
 }
 
-/*
-exports.create = function(doc) {
-    var key = "task.create."+task.instance_id+"."+task._id;
-    publish(key, task);
-}
 
-exports.remove = function(doc) {
-    var key = "task.remove."+task.instance_id+"."+task._id;
-    publish(key, task);
-}
-*/
