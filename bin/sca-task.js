@@ -64,7 +64,6 @@ function set_nextdate(task) {
 }
 
 function check() {
-    //logger.debug("checking...");
     _status.checks++; //for health reporting
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
@@ -83,7 +82,7 @@ function check() {
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         _status.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
-            logger.info("handling task:"+task._id+" ("+task.name+")");
+            logger.info("handling task:"+task._id+" ("+task.name+")"+" "+task.status);
             set_nextdate(task);
             task.save(function() {
                 switch(task.status) {
@@ -143,17 +142,26 @@ function handle_housekeeping(task, cb) {
                     }
                     
                     //all good.. now check taskdir
+                    logger.debug("getting ssh connection to check taskdir");
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                        logger.debug("running ls",taskdir);
                         conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);
+                            //timeout in 5 seconds
+                            var to = setTimeout(()=>{
+                                logger.error("ls timed-out");
+                                stream.close();
+                                next_resource();
+                            }, 5000);
                             stream.on('close', function(code, signal) {
                                 if(code == 2) {
                                     logger.debug("taskdir:"+taskdir+" is missing");
                                     missing_resource_ids.push(resource_id);
                                 }
+                                clearTimeout(to);
                                 next_resource();
                             })
                             .on('data', function(data) {

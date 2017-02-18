@@ -195,8 +195,6 @@ function check_ssh(resource, cb) {
                 logger.debug('whoami error: ');
             });
         })
-        //conn.end();
-        //cb(null, "unnknown", "??");
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended");
@@ -240,7 +238,14 @@ function check_sftp(resource, conn, cb) {
         }, 5000);
         */
         //sftp.readdir(workdir, function(err, list) {
+        logger.debug("reading dir "+workdir);
+        var to = setTimeout(()=>{
+            logger.error("readdir timeout"); 
+            cb(null, "failed", "readdir timeout - filesytem is offline?");
+        }, 5000);
         sftp.readdir(workdir, function(err, list) {
+            clearTimeout(to);
+            logger.debug("got dir", list);
             //if(t == null) return; //timeout already called
             if(err) {
                 //console.log("failed to readdir:"+workdir);

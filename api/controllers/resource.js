@@ -459,7 +459,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
 /**
  * @api {get} /resource/download         Download file from resource. If directory path is specified, it will stream tar -gz content
  * @apiParam {String} r         Resource ID
- * @apiParam {String} p         File/directory path to download (relative to resource work directory - parent of all instance dir)
+ * @apiParam {String} p         File/directory path to download (relative to resource work directory - parent of all instance dir - so you need instance_id as root) Use encodeURIComponent() so escape non URL characters
  * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
  *
  * @apiDescription              Allows user to download any files from user's resource
