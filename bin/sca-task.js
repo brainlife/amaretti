@@ -154,7 +154,7 @@ function handle_housekeeping(task, cb) {
                             var to = setTimeout(()=>{
                                 logger.error("ls timed-out");
                                 stream.close();
-                                next_resource();
+                                //next_resource();
                             }, 5000);
                             stream.on('close', function(code, signal) {
                                 if(code == 2) {

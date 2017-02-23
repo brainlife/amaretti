@@ -511,6 +511,7 @@ router.get('/download', jwt({
                 if(err) return next(err);
                 //logger.debug(stat);
                 if(stat.isDirectory()) {   
+                    logger.debug("sending directory(.tar.gz)", fullpath);
                     //it's directory .. stream using tar | gzip
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next(err);
@@ -525,6 +526,7 @@ router.get('/download', jwt({
                         });
                     });
                 } else {
+                    logger.debug("sending file", fullpath);
                     //file .. just stream using sftp stream
                     //npm-mime uses filename to guess mime type, so I can use this locally
                     var mimetype = mime.lookup(fullpath);
