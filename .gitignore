@@ -12,3 +12,4 @@ config/resources.js
 config/*.jwt
 config/wf.pub
 config/wf.key
+docker/config

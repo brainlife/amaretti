@@ -311,7 +311,10 @@ exports.ls_hpss = function(resource, _path, cb) {
         username: resource.config.username,
         keytab: keytab,
     });    
-    context.ls(_path, cb);
+    context.ls(_path, function(err, files) {
+        context.clean();
+        cb(err, files); 
+    });
 }
 
 exports.request_task_removal = function(task, cb) {
