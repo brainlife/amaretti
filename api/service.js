@@ -28,6 +28,7 @@ exports.loaddetail = function(service_name, cb) {
 
         //then load package.json
         //TODO - should I always use master - or let user decide?
+        logger.debug('https://raw.githubusercontent.com/'+service_name+'/master/package.json');
         request('https://raw.githubusercontent.com/'+service_name+'/master/package.json', {
             json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
         }, function(err, _res, pkg) {

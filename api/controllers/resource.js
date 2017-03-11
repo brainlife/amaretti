@@ -330,6 +330,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
 function mkdirp(conn, dir, cb) {
     //var dir = path.dirname(_path);
     logger.debug("mkdir -p "+dir);
+    //TODO addsladhes?
     conn.exec("mkdir -p "+dir, {}, function(err, stream) {
     //conn.exec("whoami", {}, function(err, stream) {
         if(err) return cb(err);
@@ -519,10 +520,18 @@ router.get('/download', jwt({
                         var name = _path.replace(/\//g, '.')+'.tar.gz';
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
-                        var workdir = common.getworkdir("", resource);
-                        conn.exec("cd \""+workdir+"\" && tar cz \""+_path.addSlashes()+"\" | gzip -f", function(err, stream) {
+                        //var workdir = common.getworkdir("", resource);
+                        var workdir = common.getworkdir(_path, resource);
+                        //var basename = path.basename(workdir);
+                        //var dirname = path.dirname(workdir);
+                        //conn.exec("cd \""+workdir+"\" && tar cz \""+_path.addSlashes()+"\" | gzip -f", function(err, stream) {
+                        //conn.exec("cd \""+dirname.addSlashes()+"\" && tar cz \""+basename.addSlashes()+"\"", function(err, stream) {
+                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz \".\"", function(err, stream) {
                             if(err) return next(err);
-                            stream.pipe(res);
+                            stream.pipe(res)/*.on('close', function() {
+                                console.log("tar stream closed");
+                                res.end();
+                            });*/
                         });
                     });
                 } else {

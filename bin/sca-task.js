@@ -580,6 +580,7 @@ function start_task(task, resource, cb) {
         _service.loaddetail(service, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
+            //logger.debug(service_detail);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
 
             logger.debug("service_detail.pkg");
