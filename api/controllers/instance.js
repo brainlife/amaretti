@@ -14,14 +14,14 @@ const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('../models/db');
 const common = require('../common');
- 
+
 /**
  * @apiGroup                    Instance
  * @api {get} /instance         Query Instance
  * @apiDescription              Query instances that belongs to a user with given query (for admin returns all)
  *
  * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
- *                              To pass regex, you need to use {$regex: "...."} format instead of js: /.../ 
+ *                              To pass regex, you need to use {$regex: "...."} format instead of js: /.../
  * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
  * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
@@ -75,18 +75,14 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  */
 router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;
-    var name = req.body.name;
-    var desc = req.body.desc;
-    var config = req.body.config;
-    db.Instance.update({_id: id, user_id: req.user.sub}, {$set: {
-        name: name,
-        desc: desc,
-        config: config, 
-        update_date: new Date(),
-    }}, function(err, instance) {
+    delete req.body.user_id; //can't change this
+    delete req.body.create_date; //can't change this
+    req.body.update_date = new Date();
+    db.Instance.update({_id: id, user_id: req.user.sub}, {$set: req.body},
+    function(err, instance) {
         if(err) return next(err);
         res.json(instance);
-        
+
         //also update name on instance progress
         var progress_key = common.create_progress_key(id);
         common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
@@ -125,24 +121,24 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 });
 
 /**
- * @api {delete} /instance/:instid 
+ * @api {delete} /instance/:instid
  *                              Remove the instance
  * @apiGroup                    Instance
  * @apiDescription              Sets the remove_date to now, so that when the house keeping occurs in the next cycle,
- *                              the task_dir will be removed and status will be set to "removed". If the task is 
- *                              running, it will also set the status to "stop_requested" so that it will be 
+ *                              the task_dir will be removed and status will be set to "removed". If the task is
+ *                              running, it will also set the status to "stop_requested" so that it will be
  *                              stopped, then removed.
  *                              Then, it will set config.removing on the instance
   *
- * @apiHeader {String} authorization 
+ * @apiHeader {String} authorization
  *                              A valid JWT token "Bearer: xxxxx"
- * 
+ *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
  *         "message": "Instance successfully scheduled for removed",
  *     }
- *                              
+ *
  */
 router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instid = req.params.instid;
@@ -153,7 +149,9 @@ router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, r
             common.request_task_removal(task, next_task);
         }, function(err) {
             if(err) return next(err);
-            db.Instance.update({_id: instid, user_id: req.user.sub}, {$set: {'config.removing': true}}, function(err, instance) {
+            db.Instance.update({_id: instid, user_id: req.user.sub}, {$set: {
+                'config.removing': true,
+            }}, function(err, instance) {
                 if(err) return next(err);
                 res.json({message: "Instance successfully scheduled for removed"});
             });

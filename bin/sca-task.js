@@ -34,7 +34,8 @@ db.init(function(err) {
     if(err) throw err;
     logger.debug("db-initialized");
     //start check loop
-    check(); 
+    check();
+    //check_instances();
 });
 
 //set next_date incrementally longer between each checks (you need to save it persist it)
@@ -46,7 +47,7 @@ function set_nextdate(task) {
         max = 24*3600*1000; //24 hours
         break;
     default:
-        max = 30*60*1000; 
+        max = 30*60*1000;
     }
     task.next_date = new Date();
     if(task.start_date) {
@@ -54,13 +55,112 @@ function set_nextdate(task) {
         var delta = elapsed/30;
         var delta = Math.min(delta, max); //limit to max
         var delta = Math.max(delta, 10*1000); //min to 10 seconds
-        var next = task.next_date.getTime() + delta; 
+        var next = task.next_date.getTime() + delta;
         task.next_date.setTime(next);
     } else {
         //not yet started. check again in 10 minutes (maybe resource issue?)
         //maybe I should increase the delay to something like an hour?
         task.next_date.setMinutes(task.next_date.getMinutes() + 10);
     }
+}
+
+//deprecated
+function check_instances() {
+    //get lastweeks' date
+    let lastweek = new Date();
+    lastweek.setDate(lastweek.getDate() - 7);
+
+    db.Instance.find({
+        //create_date: {$lt: recent} //don't include instance that just got created (task may not exist yet)
+        update_date: {$gt: lastweek} //pick instance that got updated within the last 7 days
+        /*
+        status: {$ne: "finished"}, //ignore removed tasks
+        $or: [
+            {next_date: {$exists: false}},
+            {next_date: {$lt: new Date()}}
+        ]
+        */
+    })
+    .exec((err, instances) => {
+        if(err) throw err; //throw and let pm2 restart
+        if(instances.length) logger.debug("checking instances:"+instances.length);
+        _status.instances+=instances.length; //for health reporting
+        async.eachSeries(instances, (instance, next) => {
+            if(err) logger.error(err);
+            //logger.debug("todo process",instance._id);
+            //logger.debug("querying for instance", instance._id);
+            db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
+                //increment status counts
+                let counts = {};
+                tasks.forEach(function(task) {
+                    if(counts[task.status] === undefined) counts[task.status] = 0;
+                    counts[task.status]++;
+                });
+
+                //decide instance status
+                let newstatus = "unknown";
+                if(tasks.length == 0) newstatus = "empty";
+                else if(counts.removed > 0) newstatus = "removed";
+                else if(counts.failed > 0) newstatus = "failed";
+                else if(counts.running > 0) newstatus = "running";
+                else if(counts.requested > 0) newstatus = "requested";
+                else if(counts.finished > 0) newstatus = "finished";
+
+                //did status changed?
+                if(instance.status != newstatus) {
+                    logger.debug("instance status changed",instance._id,newstatus);
+                    if(newstatus == "unknown") logger.debug(counts);
+                    instance.status = newstatus;
+                    instance.update_date = new Date();
+                    instance.save(next);
+                } else {
+                    //no change
+                    next();
+                }
+            });
+        }, function(err) {
+            if(err) logger.error(err);
+            setTimeout(check_instances, 1000*600); //wait for a while
+        });
+    });
+}
+
+//call this whenever you change task status
+function update_instance_status(instance_id, cb) {
+    db.Instance.findById(instance_id, function(err, instance) {
+        if(err) return cb(err);
+        if(!instance) return cb("couldn't find instance by id:"+instance_id);
+
+        //find all tasks under this instance
+        db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
+            if(err) return cb(err);
+
+            //count status
+            let counts = {};
+            tasks.forEach(function(task) {
+                if(counts[task.status] === undefined) counts[task.status] = 0;
+                counts[task.status]++;
+            });
+
+            //decide instance status
+            let newstatus = "unknown";
+            if(tasks.length == 0) newstatus = "empty";
+            else if(counts.removed > 0) newstatus = "removed";
+            else if(counts.failed > 0) newstatus = "failed";
+            else if(counts.running > 0) newstatus = "running";
+            else if(counts.requested > 0) newstatus = "requested";
+            else if(counts.finished > 0) newstatus = "finished";
+
+            //did status changed?
+            if(instance.status != newstatus) {
+                logger.debug("instance status changed",instance._id,newstatus);
+                if(newstatus == "unknown") logger.debug(counts);
+                instance.status = newstatus;
+                instance.update_date = new Date();
+                instance.save(cb);
+            } else cb(); //no change..
+        });
+    });
 }
 
 function check() {
@@ -71,14 +171,14 @@ function check() {
         $or: [
             {next_date: {$exists: false}},
             {next_date: {$lt: new Date()}}
-        ] 
+        ]
     })
-    
+
     //maybe I should do these later (only needed by requested task)
     .populate('deps', 'status resource_id')
-    .populate('resource_deps') 
+    .populate('resource_deps')
     .exec((err, tasks) => {
-        if(err) throw err;
+        if(err) throw err; //throw and let pm2 restart
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         _status.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
@@ -87,13 +187,13 @@ function check() {
             task.save(function() {
                 switch(task.status) {
                 case "requested":
-                    handle_requested(task, next); 
+                    handle_requested(task, next);
                     break;
                 case "stop_requested":
-                    handle_stop(task, next); 
+                    handle_stop(task, next);
                     break;
                 case "running":
-                    handle_running(task, next); 
+                    handle_running(task, next);
                     break;
                 /*
                 case "failed":
@@ -121,9 +221,7 @@ function check() {
 }
 
 function handle_housekeeping(task, cb) {
-
     async.series([
-        
         //check to see if taskdir still exists
         function(next) {
             var missing_resource_ids = [];
@@ -140,7 +238,7 @@ function handle_housekeeping(task, cb) {
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
-                    
+
                     //all good.. now check taskdir
                     logger.debug("getting ssh connection to check taskdir");
                     common.get_ssh_connection(resource, function(err, conn) {
@@ -174,14 +272,14 @@ function handle_housekeeping(task, cb) {
                 });
             }, function(err) {
                 if(err) {
-                    logger.info(err); //continue 
+                    logger.info(err); //continue
                     next();
                 } else {
-                    //why I don't clear this? because current task.resource_id 
+                    //why I don't clear this? because current task.resource_id
                     //is defined as "resouce id used" (not where it's at currently)
-                    //task.resource_id = undefined; 
+                    //task.resource_id = undefined;
 
-                    //remove missing_resource_ids from resource_ids 
+                    //remove missing_resource_ids from resource_ids
                     var resource_ids = [];
                     task.resource_ids.forEach(function(id) {
                         if(!~missing_resource_ids.indexOf(id)) resource_ids.push(id);
@@ -193,22 +291,25 @@ function handle_housekeeping(task, cb) {
                         task.status = "removed"; //most likely removed by cluster
                         task.status_msg = "All output from this task has been removed by resource administrator";
                     }
-                    task.save(next);
+                    task.save(function(err) {
+                        if(err) return next(err);
+                        update_instance_status(task.instance_id, next);
+                    });
                 }
             });
         },
- 
+
         //remove task dir?
         function(next) {
             var need_remove = false;
-            
+
             //check for early remove specified by user
             var now = new Date();
             if(task.remove_date && task.remove_date < now) {
                 logger.info("remove_date is set and task is passed the date");
                 need_remove = true;
             }
-            
+
             //check for max life time
             var maxage = new Date();
             maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
@@ -216,27 +317,9 @@ function handle_housekeeping(task, cb) {
                 logger.info("this task was requested more than 25 days ago..");
                 need_remove = true;
             }
-        
+
             //no need to remove, then no need to go further
             if(!need_remove) return next();
-
-            /////////////////////////////////////////////////////////////////////////
-            //
-            // housekeeping won't be done on running task now
-            //
-            /*
-            //if job is still running/running_sync, then I need to first stop it
-            if(task.status == "running") {
-                task.status = "stop_requested";
-                task.status_msg = "";
-                task.save(next);
-                return;
-            }
-            if(task.status == "running_sync") {
-                logger.debug("TODO - can't remove task that's still running_sync - maybe stuck?");
-                return next();
-            }
-            */
 
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
             var removed_count = 0;
@@ -280,7 +363,7 @@ function handle_housekeeping(task, cb) {
                 });
             }, function(err) {
                 if(err) {
-                    logger.info(err); //continue 
+                    logger.info(err); //continue
                     next();
                 } else {
                     //done with removeal
@@ -288,16 +371,19 @@ function handle_housekeeping(task, cb) {
                     task.status_msg = "taskdir removed from "+removed_count+" out of "+task.resource_ids.length+" resources";
 
                     //reset resource ids
-                    task.resource_ids = []; 
+                    task.resource_ids = [];
 
-                    task.save(next);
+                    task.save(function(err) {
+                        if(err) return next(err);
+                        update_instance_status(task.instance_id, next);
+                    });
 
                     //also post to progress.. (TODO - should I set the status?)
                     common.progress(task.progress_key, {msg: 'Task directory Removed'});
                 }
             });
         },
-        
+
         //removal of empty instance directory is done by sca-wf-resource service
 
         //TODO - stop tasks that got stuck in running / running_sync
@@ -313,17 +399,20 @@ function handle_requested(task, next) {
     var deps_all_done = true;
     var failed_deps = [];
     task.deps.forEach(function(dep) {
-        if(dep.status != "finished") deps_all_done = false; 
+        if(dep.status != "finished") deps_all_done = false;
         if(dep.status == "failed") failed_deps.push(dep);
     });
-    
-    //fail the task if any dependency fails 
+
+    //fail the task if any dependency fails
     //TODO - maybe make this optional based on task option?
     if(failed_deps.length > 0) {
         logger.debug("dependency failed.. failing this task");
         task.status_msg = "Dependency failed.";
         task.status = "failed";
-        task.save(next);
+        task.save(function(err) {
+            if(err) return next(err);
+            update_instance_status(task.instance_id, next);
+        });
         return;
     }
 
@@ -335,7 +424,7 @@ function handle_requested(task, next) {
     }
 
     logger.debug(JSON.stringify(task, null, 4));
-    
+
     //need to lookup user's gids to find all resources that user has access to
     request.get({
         url: config.api.auth+"/user/groups/"+task.user_id,
@@ -345,10 +434,10 @@ function handle_requested(task, next) {
         if(err) {
             if(res.statusCode == 404) {
                 //often user_id is set to non existing user_id on auth service (like "sca")
-                gids = [];  
+                gids = [];
             } else return next(err);
         }
-      
+
         //then pick best resource
         _resource_picker({
             sub: task.user_id,
@@ -364,9 +453,9 @@ function handle_requested(task, next) {
                 return;
             }
             task.resource_id = resource._id;
-            
+
             //shouldn't be neede in the future.. since this should be initialized when task is requested
-            if(!task.resource_ids) task.resource_ids = []; 
+            if(!task.resource_ids) task.resource_ids = [];
             //register this resource as task_dir
             if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
 
@@ -375,16 +464,22 @@ function handle_requested(task, next) {
                 if(err) {
                     //failed to start (or running_sync failed).. mark the task as failed
                     common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                    logger.error(err); 
+                    logger.error(err);
                     task.status = "failed";
                     task.status_msg = err;
-                    task.save();
+                    task.save(function(err) {
+                        if(err) logger.error(err);
+                        update_instance_status(task.instance_id, err=>{
+                            if(err) logger.error(err);
+                            //no cb
+                        });
+                    });
                 }
                 //start_task is no longer waited by anything.. all task gets processed asyncrhnously
             });
 
             //don't wait for start_task to end.. start next task concurrently
-            next(); 
+            next();
         });
     });
 }
@@ -400,7 +495,10 @@ function handle_stop(task, next) {
             logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
-            task.save(next);
+            task.save(function(err) {
+                if(err) return next(err);
+                update_instance_status(task.instance_id, next);
+            });
             return;
         }
 
@@ -414,7 +512,10 @@ function handle_stop(task, next) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
                 task.status = "stopped";
                 task.status_msg = "Stopped by user";
-                task.save(next);
+                task.save(function(err) {
+                    if(err) return next(err);
+                    update_instance_status(task.instance_id, next);
+                });
                 return;
             }
 
@@ -428,11 +529,17 @@ function handle_stop(task, next) {
                         switch(code) {
                         case 0: //cleanly stopped
                             task.status_msg = "Cleanly stopped by user";
-                            task.save(next);
+                            task.save(function(err) {
+                                if(err) return next(err);
+                                update_instance_status(task.instance_id, next);
+                            });
                             break;
                         default:
                             task.status_msg = "Failed to stop the task cleanly -- code:"+code;
-                            task.save(next);
+                            task.save(function(err) {
+                                if(err) return next(err);
+                                update_instance_status(task.instance_id, next);
+                            });
                         }
                     })
                     .on('data', function(data) {
@@ -451,20 +558,22 @@ function handle_stop(task, next) {
 function handle_running(task, next) {
     logger.info("check_running "+task._id);
 
-
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
         next();
         return;
     }
-    
+
     //TODO - request stop job that are stuck running for long time (look start_date)
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) {
             task.status = "failed";
             task.status_msg = "Lost resource "+task.resource_id;
-            task.save(next);
+            task.save(function(err) {
+                if(err) return next(err);
+                update_instance_status(task.instance_id, next);
+            });
             return;
         }
         if(resource.status != "ok") {
@@ -486,7 +595,7 @@ function handle_running(task, next) {
                 if(err) return next(err);
                 var out = "";
                 stream.on('close', function(code, signal) {
-                    
+
                     //remove everything before sca token (to ignore output from .bashrc)
                     var pos = out.indexOf(scatoken);
                     out = out.substring(pos+scatoken.length);
@@ -504,7 +613,10 @@ function handle_running(task, next) {
                                 common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                 task.status = "failed";
                                 task.status_msg = err;
-                                task.save(next);
+                                task.save(function(err) {
+                                    if(err) return next(err);
+                                    update_instance_status(task.instance_id, next);
+                                });
                                 return;
                             }
                             logger.info("loaded products");
@@ -513,28 +625,38 @@ function handle_running(task, next) {
                             task.status_msg = "Service completed successfully";
                             task.finish_date = new Date();
                             task.save(function(err) {
+                                if(err) return next(err);
                                 db.Task.update({deps: task._id}, {
                                     //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
                                     $unset: {next_date: 1},
 
                                     //also.. if deps tasks has failed, set to *requested* again so that it will be re-tried
                                     //this allows task retried to resume the workflow where it fails.
-                                    $set: {status: "requested", run: 0}, 
-                                }, {multi: true}, next);
+                                    $set: {status: "requested", run: 0},
+                                }, {multi: true}, function(err) {
+                                    if(err) return next(err);
+                                    update_instance_status(task.instance_id, next);
+                                });
                             });
                         });
                         break;
                     case 2: //job failed
                         if(task.retry >= task.run) {
                             common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
-                            task.status = "requested"; 
+                            task.status = "requested";
                             task.status_msg = out;
-                            task.save(next);
+                            task.save(function(err) {
+                                if(err) return next(err);
+                                update_instance_status(task.instance_id, next);
+                            });
                         } else {
                             common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
-                            task.status = "failed"; 
+                            task.status = "failed";
                             task.status_msg = out;
-                            task.save(next);
+                            task.save(function(err) {
+                                if(err) return next(err);
+                                update_instance_status(task.instance_id, next);
+                            });
 
                             //TODO I'd like to notify admin, or service author that the service has failed
                             //for that, I need to lookup the instance detail (for like .. workflow name)
@@ -546,7 +668,7 @@ function handle_running(task, next) {
                             //or..another way to deal with this is to create another service that generates a report.
                         }
 
-                        break; 
+                        break;
                     case 3: //status temporarly unknown
                         logger.error("couldn't determine the job state. could be an issue with status script");
                         next();
@@ -592,7 +714,7 @@ function start_task(task, resource, cb) {
             //service dir includes branch name (optiona)
             var servicedir = "$HOME/.sca/services/"+service;
             if(task.service_branch) servicedir += ":"+task.service_branch;
-            
+
             var envs = {
                 //deprecated
                 SCA_WORKFLOW_ID: task.instance_id.toString(),
@@ -616,14 +738,14 @@ function start_task(task, resource, cb) {
             //optional envs
             if(service.service_branch) {
                 //deprecated
-                envs.SCA_SERVICE_BRANCH = service.service_branch; 
+                envs.SCA_SERVICE_BRANCH = service.service_branch;
 
                 envs.SERVICE_BRANCH = service.service_branch;
             }
 
             task._envs = envs;
-            
-            //insert any task envs 
+
+            //insert any task envs
             if(task.envs) for(var key in task.envs) {
                 envs[key] = task.envs[key];
             }
@@ -713,7 +835,7 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
-                
+
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                     logger.debug("making sure taskdir("+taskdir+") exists");
@@ -732,7 +854,7 @@ function start_task(task, resource, cb) {
                 },
 
                 //install resource keys
-                function(next) { 
+                function(next) {
                     if(!task.resource_deps) return next();
                     async.forEach(task.resource_deps, function(resource, next_dep) {
                         logger.info("storing resource key for "+resource._id+" as requested");
@@ -740,7 +862,7 @@ function start_task(task, resource, cb) {
 
                         //now handle things according to the resource type
                         switch(resource.type) {
-                        case "hpss": 
+                        case "hpss":
                             //now install the hpss key
                             var key_filename = ".sca/keys/"+resource._id+".keytab";
                             conn.exec("cat > "+key_filename+" && chmod 600 "+key_filename, function(err, stream) {
@@ -760,13 +882,13 @@ function start_task(task, resource, cb) {
                                 stream.end();
                             });
                             break;
-                        default: 
+                        default:
                             next_dep("don't know how to handle resource_deps with type:"+resource.type);
                         }
                     }, next);
                 },
 
-                //make sure dep task dirs are synced 
+                //make sure dep task dirs are synced
                 function(next) {
                     if(!task.deps) return next(); //skip
                     async.forEach(task.deps, function(dep, next_dep) {
@@ -778,7 +900,7 @@ function start_task(task, resource, cb) {
                             var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
-                            
+
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
@@ -798,10 +920,10 @@ function start_task(task, resource, cb) {
                         });
                     }, next);
                 },
-                
+
                 //install config.json in the taskdir
-                function(next) { 
-                    if(!task.config) {      
+                function(next) {
+                    if(!task.config) {
                         logger.info("no config object stored in task.. skipping writing config.json");
                         return next();
                     }
@@ -822,11 +944,11 @@ function start_task(task, resource, cb) {
                         stream.end();
                     });
                 },
-               
+
                 //write _status.sh
-                function(next) { 
+                function(next) {
                     //not all service has status
-                    if(!service_detail.pkg.scripts.status) return next(); 
+                    if(!service_detail.pkg.scripts.status) return next();
 
                     logger.debug("installing _status.sh");
                     conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
@@ -856,11 +978,11 @@ function start_task(task, resource, cb) {
                         stream.end();
                     });
                 },
-                
+
                 //write _stop.sh
-                function(next) { 
+                function(next) {
                     //not all service has stop
-                    if(!service_detail.pkg.scripts.stop) return next(); 
+                    if(!service_detail.pkg.scripts.stop) return next();
 
                     logger.debug("installing _stop.sh");
                     conn.exec("cd "+taskdir+" && cat > _stop.sh && chmod +x _stop.sh", function(err, stream) {
@@ -885,14 +1007,14 @@ function start_task(task, resource, cb) {
                         stream.end();
                     });
                 },
-     
+
                 //write _boot.sh
-                function(next) { 
+                function(next) {
                     if(!service_detail.pkg.scripts.run && !service_detail.pkg.scripts.start) {
                         //console.dir(service_detail.pkg.scripts);
-                        return next("pkg.scripts.run nor pkg.scripts.start defined in package.json"); 
+                        return next("pkg.scripts.run nor pkg.scripts.start defined in package.json");
                     }
-                    
+
                     logger.debug("installing _boot.sh");
                     conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
                         if(err) return next(err);
@@ -928,7 +1050,7 @@ function start_task(task, resource, cb) {
                 function(next) {
                     common.progress(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'}, next);
                 },
-                
+
                 //finally, start the service
                 function(next) {
                     if(!service_detail.pkg.scripts.start) return next(); //not all service uses start
@@ -942,38 +1064,43 @@ function start_task(task, resource, cb) {
                     task.start_date = new Date();
 
                     //temporarily set next_date to some impossible date so that we won't run status.sh prematuely
-                    task.next_date = new Date(); 
+                    task.next_date = new Date();
                     task.next_date.setDate(task.next_date.getDate() + 30);
-                    task.save(function() {
-                        conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
-                            /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
-                        }, function(err, stream) {
+                    task.save(function(err) {
+                        if(err) return next(err);
+                        update_instance_status(task.instance_id, function(err) {
                             if(err) return next(err);
-                            stream.on('close', function(code, signal) {
-                                if(code) {
-                                    //I should undo the impossible next_date set earlier..
-                                    task.next_date = new Date(); 
-                                    //TODO - I should pull more useful information (from start.log?)
-                                    return next("failed to start (code:"+code+")");
-                                } else {
-                                    //good.. now set the next_date to now so that we will check for its status
-                                    task.status_msg = "Service started";
-                                    task.next_date = new Date(); 
-                                    task.save(next);
-                                }
-                            });
+                            conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
+                                /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
+                            }, function(err, stream) {
+                                if(err) return next(err);
+                                stream.on('close', function(code, signal) {
+                                    if(code) {
+                                        //I should undo the impossible next_date set earlier..
+                                        task.next_date = new Date();
+                                        //TODO - I should pull more useful information (from start.log?)
+                                        return next("failed to start (code:"+code+")");
+                                    } else {
+                                        //good.. now set the next_date to now so that we will check for its status
+                                        task.status_msg = "Service started";
+                                        task.next_date = new Date();
+                                        task.save(next);
+                                    }
+                                });
 
-                            //NOTE - no stdout / err should be received since it's redirected to boot.log
-                            stream.on('data', function(data) {
-                                logger.info(data.toString());
-                            });
-                            stream.stderr.on('data', function(data) {
-                                logger.error(data.toString());
+                                //NOTE - no stdout / err should be received since it's redirected to boot.log
+                                stream.on('data', function(data) {
+                                    logger.info(data.toString());
+                                });
+                                stream.stderr.on('data', function(data) {
+                                    logger.error(data.toString());
+                                });
                             });
                         });
+
                     });
-                },            
-                
+                },
+
                 //TODO - DEPRECATE THIS
                 //short sync job can be accomplished by using start.sh to run the (short) process and
                 //status.sh checking for its output (or just assume that it worked)
@@ -987,44 +1114,49 @@ function start_task(task, resource, cb) {
                     task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                     task.status_msg = "Running service";
                     task.start_date = new Date();
-                    task.save(function() {
-                        //conn.exec("cd "+taskdir+" && set -o pipefail && ./_boot.sh 2>&1 | tee run.log", {
-                        conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
-                            /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SOMETHING: 'whatever', }*/
-                        }, function(err, stream) {
+                    task.save(function(err) {
+                        if(err) return next(err);
+                        update_instance_status(task.instance_id, function(err) {
                             if(err) return next(err);
-                            //var stdout = "";
-                            //var stderr = "";
-                            stream.on('close', function(code, signal) {
-                                if(code) {
-                                    return next("failed to run (code:"+code+")");
-                                } else {
-                                    load_products(task, taskdir, resource, function(err) {
-                                        if(err) return next(err);
-                                        common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
-                                        task.status = "finished"; 
-                                        task.status_msg = "Service ran successfully";
-                                        task.finish_date = new Date();
-                                        task.save(function(err) {
-                                            //clear next_date on dependending tasks so that it will be checked immediately
-                                            db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, next);
+                            conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
+                                /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't use env: { SOMETHING: 'whatever', }*/
+                            }, function(err, stream) {
+                                if(err) return next(err);
+                                stream.on('close', function(code, signal) {
+                                    if(code) {
+                                        return next("failed to run (code:"+code+")");
+                                    } else {
+                                        load_products(task, taskdir, resource, function(err) {
+                                            if(err) return next(err);
+                                            common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
+                                            task.status = "finished";
+                                            task.status_msg = "Service ran successfully";
+                                            task.finish_date = new Date();
+                                            task.save(function(err) {
+                                                if(err) return next(err);
+                                                //clear next_date on dependending tasks so that it will be checked immediately
+                                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, function(err) {
+                                                    if(err) return next(err);
+                                                    update_instance_status(task.instance_id, next);
+                                                });
+                                            });
                                         });
-                                    });
-                                }
-                            })
-                            
-                            //NOTE - no stdout / err should be received since it's redirected to boot.log
-                            .on('data', function(data) {
-                                logger.info(data.toString());
-                            }).stderr.on('data', function(data) {
-                                logger.error(data.toString());
+                                    }
+                                })
+
+                                //NOTE - no stdout / err should be received since it's redirected to boot.log
+                                .on('data', function(data) {
+                                    logger.info(data.toString());
+                                }).stderr.on('data', function(data) {
+                                    logger.error(data.toString());
+                                });
                             });
                         });
                     });
                 },
             ], function(err) {
-                cb(err); 
-            }); 
+                cb(err);
+            });
         });
     });
 }
@@ -1039,7 +1171,7 @@ function load_products(task, taskdir, resource, cb) {
         var error_msg = "";
         stream.on('error', function(err) {
             error_msg += err;
-        }); 
+        });
         stream.on('data', function(data) {
             products_json += data;
         })
@@ -1068,6 +1200,7 @@ function load_products(task, taskdir, resource, cb) {
 var _status = {
     checks: 0,
     tasks: 0,
+    //instances: 0,
 }
 
 //report health status to sca-wf
@@ -1080,7 +1213,8 @@ function report_health() {
         if(err) logger.error(err);
         _status.checks = 0;
         _status.tasks = 0;
-    }); 
+        //_status.instances = 0;
+    });
 }
 setInterval(report_health, 1000*60*10);
 setTimeout(report_health, 1000*60); //report soon after start (so that sca-wf's health will look ok)

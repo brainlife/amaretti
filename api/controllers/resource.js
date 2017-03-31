@@ -44,7 +44,7 @@ function canedit(user, resource) {
  * @apiGroup Resource
  * @api {get} /resource/types   Get all resource types
  * @apiDescription              Returns all resource types configured on the server
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccess {Object}         List of resources types (in key/value where key is resource type ID, and value is resource detail)
@@ -64,7 +64,7 @@ router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
  * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccess {Object}         List of resources (maybe limited / skipped) and total number of resources
@@ -97,7 +97,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     .exec(function(err, resources) {
         if(err) return next(err);
         resources.forEach(mask_enc);
-            
+
         //add / remove a few more things
         resources.forEach(function(resource) {
             resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
@@ -125,7 +125,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *
  * @apiSuccessExample {json} Success-Response:
  *  {"files":[
- *      {   
+ *      {
  *          "filename":"config.json",
  *          "directory":false,
  *          "attrs": {
@@ -152,7 +152,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
         var detail = config.resources[resource.resource_id];
@@ -168,9 +168,9 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                         filename: file.filename,
                         directory: file.attrs.mode_string[0]=='d',
                         attrs: {
-                            mode: file.attrs.mode,     
+                            mode: file.attrs.mode,
                             mode_string: file.attrs.mode_string,
-                            //permissions: file.mode,     
+                            //permissions: file.mode,
                             uid: file.attrs.uid,
                             gid: file.attrs.gid,
                             size: file.attrs.size,
@@ -199,7 +199,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                         attrs: {
                             mode: null, //TODO (convert -rw-rw-r-- to 33261, etc..)
                             mode_string: file.mode,
-                            
+
                             //permissions: null, //TODO (convert -rw-rw-r-- to 33261, etc..)
                             uid: parseInt(file.acct),
                             gid: null, //hsi doesn't return gid (only group name)
@@ -220,7 +220,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
                             cos: file.cos,
                         }
                     });
-                });  
+                });
                 res.json({files: ret});
             });
             break;
@@ -233,7 +233,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
 function ls_resource(resource, _path, cb) {
     //append workdir if relateive
     if(_path[0] != "/") _path = common.getworkdir(_path, resource);
-    
+
     //for ssh resource, simply readdir via sftp
     logger.debug("getting ssh connection");
     common.get_sftp_connection(resource, function(err, sftp) {
@@ -244,7 +244,7 @@ function ls_resource(resource, _path, cb) {
             t = null;
         }, 5000);
         sftp.readdir(_path, function(err, files) {
-            if(t) clearTimeout(t); 
+            if(t) clearTimeout(t);
             else return; //timeout called already
             cb(err, files);
         });
@@ -252,11 +252,11 @@ function ls_resource(resource, _path, cb) {
 }
 
 //http://stackoverflow.com/questions/770523/escaping-strings-in-javascript
-String.prototype.addSlashes = function() 
-{ 
+String.prototype.addSlashes = function()
+{
    //no need to do (str+'') anymore because 'this' can only be a string
    return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
-} 
+}
 
 /*
 * I am not sure who uses this, but this looks dangerous..
@@ -267,7 +267,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
         //append workdir if relateive (should use path instead?)
@@ -285,7 +285,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
                 //stream.resume(); //needed now for ssh2>0.5 .. *IF* I don't use on('data')
                 stream.on('data', function(data) {
                     logger.error(data.toString());
-                });  
+                });
             });
         });
     });
@@ -294,11 +294,11 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 /**
  * @apiGroup Resource
  * @api {get} /resource/best    Find best resource to run a task
- * @apiDescription              Return a best resource to run specified service using algorithm used by sca-wf-task 
+ * @apiDescription              Return a best resource to run specified service using algorithm used by sca-wf-task
  *                              when it determines which resource to use for a task request
  *
  * @apiParam {String} [service] Name of service to run (like "soichih/sca-service-life")
- * @apiHeader {String} authorization 
+ * @apiHeader {String} authorization
  *                              A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccessExample {json} Success-Response:
@@ -352,7 +352,7 @@ function mkdirp(conn, dir, cb) {
     });
 }
 
-//TODO - deprecate this and use the streaming version below.. 
+//TODO - deprecate this and use the streaming version below..
 //ng-upload uses multipart so it won't work, but I can use XMLHttpRequest (see sca-wf-onere)
 //handle file upload request via multipart form
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
@@ -379,7 +379,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
             if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
-            if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+            if(!common.check_access(req.user, resource)) return res.status(401).end();
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
@@ -413,7 +413,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     form.parse(req);
 });
 
-//simpler streaming 
+//simpler streaming
 router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.resourceid;
     var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
@@ -422,7 +422,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
@@ -466,15 +466,15 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
  * @apiDescription              Allows user to download any files from user's resource
  *
  * @apiGroup Resource
- * 
+ *
  * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
  */
 router.get('/download', jwt({
     secret: config.sca.auth_pubkey,
-    getToken: function(req) { 
+    getToken: function(req) {
         //load token from req.headers as well as query.at
-        if(req.query.at) return req.query.at; 
+        if(req.query.at) return req.query.at;
         if(req.headers.authorization) {
             var auth_head = req.headers.authorization;
             if(auth_head.indexOf("Bearer") === 0) return auth_head.substr(7);
@@ -490,7 +490,7 @@ router.get('/download', jwt({
 
     if(!_path) return next("Please specify path(p)");
     if(!resource_id) return next("Please specify resource id(r)");
-    
+
     //make sure user is loading things under the sca workdir and nothing else
     //TODO this is nowhere near good enough..
     if(_path[0] == "/") return next("only download relateive to workdir");
@@ -499,19 +499,20 @@ router.get('/download', jwt({
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
-        
+
         //append workdir if relateive (TODO - or should I limit under workdir?)
         //if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
+            logger.debug(fullpath);
             sftp.stat(fullpath, function(err, stat) {
                 if(err) return next(err);
                 //logger.debug(stat);
-                if(stat.isDirectory()) {   
+                if(stat.isDirectory()) {
                     logger.debug("sending directory(.tar.gz)", fullpath);
                     //it's directory .. stream using tar | gzip
                     common.get_ssh_connection(resource, function(err, conn) {
@@ -546,7 +547,7 @@ router.get('/download', jwt({
                     res.setHeader('Content-Length', stat.size);
                     res.setHeader('Content-Type', mimetype);
                     var stream = sftp.createReadStream(fullpath);
-                    stream.pipe(res);               
+                    stream.pipe(res);
                 }
             });
         });
@@ -554,12 +555,12 @@ router.get('/download', jwt({
 });
 
 /**
- * @api {put} /resource/test/:resource_id Test resource 
+ * @api {put} /resource/test/:resource_id Test resource
  * @apiName TestResource
  * @apiGroup Resource
  *
  * @apiDescription Test resource connectivity and availability. Store status on status/status_msg fields of the resource entry
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
@@ -580,7 +581,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         logger.info("testing resource:"+id);
         resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
@@ -605,7 +606,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  * @apiParam {Boolean} [active]   Set true to enable resource
  *
  * @apiDescription Update the resource instance (only the resource that user owns)
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccess {Object} Resource Object
  *
@@ -625,7 +626,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
 
         //need to decrypt first so that I can preserve previous values
         common.decrypt_resource(resource);
-        
+
         //keep old value if enc_ fields are set to true
         for(var k in req.body.config) {
             if(k.indexOf("enc_") === 0) {
@@ -647,7 +648,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
 });
 
 //it's dangerous to allow anyone to share resources with any groups.
-//task could get submitted there without other user's being aware.. 
+//task could get submitted there without other user's being aware..
 //for now, only administrators can update gids
 
 /**
@@ -666,7 +667,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiParam {Boolean} [active] Set true to enable resource
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
@@ -676,7 +677,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  *      type: 'ssh',
  *      resource_id: 'karst',
  *      name: 'use foo\'s karst account',
- *      config: 
+ *      config:
  *       { ssh_public: 'my public key',
  *         enc_ssh_private: true,
  *         username: 'hayashis' },
@@ -688,7 +689,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource = new db.Resource(req.body);
-    
+
     //only admin can update gids
     if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
         delete resource.gids;
@@ -711,7 +712,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  *
  * @apiParam {String} id Resource ID
  * @apiDescription Remove resource instance
- * 
+ *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccess {String} ok
  *
@@ -736,12 +737,12 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
  * @apiName GENSSHKEYResource
  * @apiGroup Resource
  *
- * @apiDescription 
+ * @apiDescription
  *      Used by resource editor to setup new resource
  *      jwt is optional.. since it doesn't really store this anywhere (should I?)
  *      kdinstaller uses this to generate key (and scott's snapshot tool)
  *      In the future, this might be moved to a dedicated SCA util API service (or deprecated)
- * 
+ *
  * //@apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccessExample {json} Success-Response:
@@ -799,7 +800,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         if(err) return next(err);
         //console.dir(resource);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end(); 
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.type != "hpss") return res.status(404).json({message: "not a hpss resource"});
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
@@ -817,7 +818,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         }, function(err, stdout, stderr) {
             if(err) return next(err); //exit 1 will be handled here
             resource.config.enc_keytab = stdout.trim();
-            
+
             //decrypt again and save
             common.encrypt_resource(resource);
             resource.save(function(err) {

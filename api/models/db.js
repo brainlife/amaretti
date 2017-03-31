@@ -51,6 +51,7 @@ var instanceSchema = mongoose.Schema({
     //    }
     //}
     */
+    status: String, //instance status (computed from tasks inside it)
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },

@@ -43,6 +43,7 @@ function publish_or_log(ex, key, msg) {
         logger.info(msg);
     } else {
         ex.publish(key, msg, {});
+        //logger.debug("posting event", ex, key, msg);
     }
 }
 
@@ -52,8 +53,9 @@ exports.task = function(task) {
 }
 
 exports.instance = function(instance) {
-    var key = instance.user_id+"."+instance.instance_id;
+    var key = instance.user_id+"."+instance._id;
     publish_or_log(instance_ex, key, instance);
+    //logger.debug("posting instance event", key, instance);
 }
 
 
