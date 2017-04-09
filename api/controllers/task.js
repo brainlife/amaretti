@@ -73,6 +73,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *                              Date (in ISO format) when you want the task dir to be removed 
  *                              (won't override resource' max TTL).
  *                              (Please note that.. housekeeping will run at next_date.)
+ * @apiParam {String} [max_runtime] Maximum runtime of job (in msec)
  * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
@@ -114,11 +115,12 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.instance_id = req.body.instance_id;
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
+        task.max_runtime = req.body.max_runtime;
         task.envs = req.body.envs;
         task.retry = req.body.retry;
 
         //checked later
-        task.deps = req.body.deps;
+        if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null
         task.preferred_resource_id = req.body.preferred_resource_id;
         task.resource_deps = req.body.resource_deps;
 
@@ -329,6 +331,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  * @apiParam {String} [name]    Name for this task
  * @apiParam {String} [desc]    Description for this task
  * @apiParam {String} [remove_date] Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)
+ * @apiParam {String} [max_runtime] Maximum runtime of job (in msec)
  * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 

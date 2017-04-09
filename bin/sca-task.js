@@ -175,7 +175,8 @@ function check() {
     })
 
     //maybe I should do these later (only needed by requested task)
-    .populate('deps', 'status resource_id')
+    //.populate('deps', 'status resource_id')
+    .populate('deps')
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
@@ -215,7 +216,6 @@ function check() {
 
             //wait a bit and recheck again
             setTimeout(check, 500);
-
         });
     });
 }
@@ -564,7 +564,19 @@ function handle_running(task, next) {
         return;
     }
 
-    //TODO - request stop job that are stuck running for long time (look start_date)
+    //calculate runtime
+    var now = new Date();
+    var runtime = now - task.start_date;
+    if(task.max_runtime && task.max_runtime < runtime) {
+        task.status = "stop_requested";
+        task.status_msg = "Runtime exceeded stop date. Stopping";
+        task.save(function(err) {
+            if(err) return next(err);
+            update_instance_status(task.instance_id, next);
+        });
+        return;
+    }
+
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) {
@@ -726,7 +738,7 @@ function start_task(task, resource, cb) {
                 SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
 
                 //WORKFLOW_ID: task.instance_id.toString(),
-                //WORKFLOW_DIR: workdir,
+                INST_DIR: workdir,
                 //TASK_ID: task._id.toString(),
                 //TASK_DIR: taskdir,
                 //SERVICE: service,
@@ -897,8 +909,10 @@ function start_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
-                            var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
+                            //var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
+                            //var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
+                            var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
+                            var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
 
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?

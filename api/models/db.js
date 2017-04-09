@@ -152,12 +152,11 @@ var taskSchema = mongoose.Schema({
     //resource dependencies..  (for hpss, it will copy the heytab)
     resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
-    //date when the task dir will be removed
-    //(TODO .. if not set,  task will be archived based on resource configuration - like in 30 days)
+    //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
     remove_date: Date,
 
-    //array of notification objects to handle (see apidoc for tasks)
-    //notifications: [ mongoose.Schema.Types.Mixed ] ,
+    //mili-seconds after start_date to stop running job (default to 20 days)
+    max_runtime: { type: Number, default: 1000*3600*24*20},
 
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run
     retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
@@ -169,10 +168,10 @@ var taskSchema = mongoose.Schema({
     status_msg: String,
     status_update: Date, //TODO - is this still used?
 
-    //resource where the task is running (or was)
+    //resource where the task is currently running (or was)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
 
-    //resources where task dir exits
+    //resources where task dir exits (where it ran, or synced)
     resource_ids: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
     
     //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
