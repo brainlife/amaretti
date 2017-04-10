@@ -221,6 +221,19 @@ define({ "api": [
         ]
       }
     },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "Instance",
+            "description": "<p>created</p>"
+          }
+        ]
+      }
+    },
     "version": "0.0.0",
     "filename": "api/controllers/instance.js",
     "groupTitle": "Instance",
@@ -396,7 +409,7 @@ define({ "api": [
             "type": "String",
             "optional": false,
             "field": "p",
-            "description": "<p>File/directory path to download (relative to resource work directory - parent of all instance dir)</p>"
+            "description": "<p>File/directory path to download (relative to resource work directory - parent of all instance dir - so you need instance_id as root) Use encodeURIComponent() so escape non URL characters</p>"
           },
           {
             "group": "Parameter",
@@ -464,7 +477,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "{\"files\":[\n    {   \n        \"filename\":\"config.json\",\n        \"directory\":false,\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
+          "content": "{\"files\":[\n    {\n        \"filename\":\"config.json\",\n        \"directory\":false,\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
           "type": "json"
         }
       ]
@@ -604,7 +617,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{ __v: 0,\n user_id: '9',\n gids: [1,2,3],\n type: 'ssh',\n resource_id: 'karst',\n name: 'use foo\\'s karst account',\n config: \n  { ssh_public: 'my public key',\n    enc_ssh_private: true,\n    username: 'hayashis' },\n _id: '5758759710168abc3562bf01',\n update_date: '2016-06-08T19:44:23.205Z',\n create_date: '2016-06-08T19:44:23.204Z',\n active: true }",
+          "content": "HTTP/1.1 200 OK\n{ __v: 0,\n user_id: '9',\n gids: [1,2,3],\n type: 'ssh',\n resource_id: 'karst',\n name: 'use foo\\'s karst account',\n config:\n  { ssh_public: 'my public key',\n    enc_ssh_private: true,\n    username: 'hayashis' },\n _id: '5758759710168abc3562bf01',\n update_date: '2016-06-08T19:44:23.205Z',\n create_date: '2016-06-08T19:44:23.204Z',\n active: true }",
           "type": "json"
         }
       ]
@@ -1018,7 +1031,7 @@ define({ "api": [
             "type": "String",
             "optional": true,
             "field": "select",
-            "description": "<p>Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter</p>"
+            "description": "<p>Fields to load - multiple fields can be entered with %20 as delimiter</p>"
           },
           {
             "group": "Parameter",
@@ -1128,6 +1141,13 @@ define({ "api": [
           },
           {
             "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "max_runtime",
+            "description": "<p>Maximum runtime of job (in msec)</p>"
+          },
+          {
+            "group": "Parameter",
             "type": "Number",
             "optional": true,
             "field": "retry",
@@ -1152,7 +1172,7 @@ define({ "api": [
             "type": "String[]",
             "optional": true,
             "field": "deps",
-            "description": "<p>task IDs that this serivce depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
+            "description": "<p>task IDs that this service depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
           },
           {
             "group": "Parameter",
@@ -1320,6 +1340,13 @@ define({ "api": [
             "optional": true,
             "field": "remove_date",
             "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "max_runtime",
+            "description": "<p>Maximum runtime of job (in msec)</p>"
           },
           {
             "group": "Parameter",
