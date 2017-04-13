@@ -331,8 +331,7 @@ function mkdirp(conn, dir, cb) {
     //var dir = path.dirname(_path);
     logger.debug("mkdir -p "+dir);
     //TODO addsladhes?
-    conn.exec("mkdir -p "+dir, {}, function(err, stream) {
-    //conn.exec("whoami", {}, function(err, stream) {
+    conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
         if(err) return cb(err);
         /*
         stream.on('close', function(code, signal) {
@@ -448,12 +447,31 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                     pipe.on('close', function() {
                         logger.debug("streaming closed");
 
-                        //get info
-                        sftp.stat(fullpath, function(err, stat) {
+                        //this is an undocumented feature to exlode uploade tar.gz
+                        if(req.query.untar) {
                             sftp.end();
-                            if(err) return next(err);
-                            res.json({filename: path.basename(fullpath), attrs: stat});
-                        });
+                            
+                            logger.debug("tar xzf-ing");
+                            conn.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
+                                "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
+                                "rm \""+path.basename(fullpath).addSlashes()+"\"", 
+                            function(err, stream) {
+                                if(err) return next(err);
+                                stream.on('end', function() {
+                                    res.json({msg: "uploaded and untared"});
+                                });
+                                stream.on('data', function(data) {
+                                    logger.error(data.toString());
+                                });
+                            });
+                        } else {
+                            //get file info (to be sure that the file is uploaded?)
+                            sftp.stat(fullpath, function(err, stat) {
+                                sftp.end();
+                                if(err) return next(err);
+                                res.json({filename: path.basename(fullpath), attrs: stat});
+                            });
+                        }
                     });
                     req.on('error', function(err) {
                         logger.error(err);
