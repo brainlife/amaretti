@@ -24,11 +24,15 @@ exports.getworkdir = function(workflow_id, resource) {
     var template = workdir;
     var fullpath = template.replace("__username__", resource.config.username);
     if(workflow_id) fullpath+='/'+workflow_id;
-    return fullpath; 
+    
+    //lastly, path.resolve() to get rid of ".." and such
+    return path.resolve(fullpath);
 }
 exports.gettaskdir = function(workflow_id, task_id, resource) {
     var workdir = exports.getworkdir(workflow_id, resource);
-    return workdir+"/"+task_id;
+    
+    //lastly, path.resolve() to get rid of ".." and such
+    return path.resolve(workdir+"/"+task_id);
 }
 
 //encrypt all config parameter that starts with enc_

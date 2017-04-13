@@ -413,35 +413,49 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     form.parse(req);
 });
 
-//simpler streaming
+/**
+ * @apiGroup Resource
+ * @api {get} /resource/upload/:resourceid/:base64path 
+ *                              Upload file
+ * @apiDescription              Upload a file to specified resource on specified path (needs to be inside a workdir)
+ *
+ * @apiHeader {String} authorization
+ *                              A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *                              {file stats uploaded}
+ */
 router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.resourceid;
     var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
-    logger.debug("path: "+_path);
+    logger.debug("request path: "+_path);
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        //if(resource.user_id != req.user.sub) return res.status(401).end();
         if(!common.check_access(req.user, resource)) return res.status(401).end();
         common.get_ssh_connection(resource, function(err, conn) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
-            //logger.debug("mkdirp "+path.dirname(fullpath));
+            var safepath = common.getworkdir("", resource);
+            if(fullpath.indexOf(safepath) !== 0) return next("you can't upload to outside of workdir");
+            
             mkdirp(conn, path.dirname(fullpath), function(err) {
                 if(err) return next(err);
                 conn.sftp(function(err, sftp) {
                     if(err) return next(err);
-                    logger.debug("streaming file to "+fullpath);
-                    req.pipe(sftp.createWriteStream(fullpath))
-                    .on('close', function() {
+                    logger.debug("fullpath",fullpath);
+                    var pipe = req.pipe(sftp.createWriteStream(fullpath));
+                    pipe.on('close', function() {
                         logger.debug("streaming closed");
+
+                        //get info
                         sftp.stat(fullpath, function(err, stat) {
                             sftp.end();
                             if(err) return next(err);
                             res.json({filename: path.basename(fullpath), attrs: stat});
                         });
-                    })
-                    .on('error', function(err) {
+                    });
+                    req.on('error', function(err) {
                         logger.error(err);
                         next("Failed to upload file to "+_path);
                     });
@@ -493,8 +507,8 @@ router.get('/download', jwt({
 
     //make sure user is loading things under the sca workdir and nothing else
     //TODO this is nowhere near good enough..
-    if(_path[0] == "/") return next("only download relateive to workdir");
-    if(~_path.indexOf("..")) return next("only download relateive to workdir");
+    //if(_path[0] == "/") return next("only download relateive to workdir");
+    //if(~_path.indexOf("..")) return next("only download relateive to workdir");
 
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
@@ -508,7 +522,9 @@ router.get('/download', jwt({
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
-            logger.debug(fullpath);
+            var safepath = common.getworkdir("", resource);
+            if(fullpath.indexOf(safepath) !== 0) return next("you can't download from outside workdir");
+
             sftp.stat(fullpath, function(err, stat) {
                 if(err) return next(err);
                 //logger.debug(stat);
@@ -521,18 +537,10 @@ router.get('/download', jwt({
                         var name = _path.replace(/\//g, '.')+'.tar.gz';
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
-                        //var workdir = common.getworkdir("", resource);
                         var workdir = common.getworkdir(_path, resource);
-                        //var basename = path.basename(workdir);
-                        //var dirname = path.dirname(workdir);
-                        //conn.exec("cd \""+workdir+"\" && tar cz \""+_path.addSlashes()+"\" | gzip -f", function(err, stream) {
-                        //conn.exec("cd \""+dirname.addSlashes()+"\" && tar cz \""+basename.addSlashes()+"\"", function(err, stream) {
                         conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz \".\"", function(err, stream) {
                             if(err) return next(err);
-                            stream.pipe(res)/*.on('close', function() {
-                                console.log("tar stream closed");
-                                res.end();
-                            });*/
+                            stream.pipe(res)
                         });
                     });
                 } else {
