@@ -246,14 +246,15 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         logger.debug("running ls",taskdir);
+                        //TODO is it better to use sftp?
                         conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);
-                            //timeout in 5 seconds
+                            //timeout in 10 seconds
                             var to = setTimeout(()=>{
                                 logger.error("ls timed-out");
                                 stream.close();
                                 //next_resource();
-                            }, 5000);
+                            }, 10*1000);
                             stream.on('close', function(code, signal) {
                                 if(code == 2) {
                                     logger.debug("taskdir:"+taskdir+" is missing");
