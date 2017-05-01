@@ -309,8 +309,6 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
 
     var query = {};
     if(req.query.service) query.service = req.query.service;
-    //if(req.query.resource_type) query.resource_type = req.query.resource_type;
-
     resource_lib.select(req.user, query, function(err, resource, score) {
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true});

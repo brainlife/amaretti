@@ -78,23 +78,13 @@ var resourceSchema = mongoose.Schema({
     ////////////////////////////////////////////////
     //key
     user_id: {type: String, index: true}, 
-
     active: {type: Boolean, default: true},
-
     name: String, 
     
     //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
     type: String, 
 
     resource_id: String, //like sda, bigred2 (resource base id..)
-
-    /* stored in config
-    hostname: String, //hostname to override from base hostname
-    services: [ new mongoose.Schema({
-        name: String, //soichih/sca-service-noop,
-        score: Number,
-    }) ],  //services to allow running (additional to base services)
-    */
 
     config: mongoose.Schema.Types.Mixed,
     envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
@@ -183,11 +173,14 @@ var taskSchema = mongoose.Schema({
     //next time sca-task should check this task again (unset to check immediately)
     next_date: {type: Date},
     
-    //time when this task started running
+    //time when this task was last started
     start_date: {type: Date},
     
-    //time when this task was finished
+    //time when this task was last finished
     finish_date: {type: Date},
+    
+    //time when this task was last failed
+    fail_date: {type: Date},
 
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },
