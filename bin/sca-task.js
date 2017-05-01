@@ -409,6 +409,7 @@ function handle_requested(task, next) {
         logger.debug("dependency failed.. failing this task");
         task.status_msg = "Dependency failed.";
         task.status = "failed";
+	task.fail_date = new Date();
         task.save(function(err) {
             if(err) return next(err);
             update_instance_status(task.instance_id, next);
@@ -467,6 +468,7 @@ function handle_requested(task, next) {
                     logger.error(err);
                     task.status = "failed";
                     task.status_msg = err;
+		    task.fail_date = new Date();
                     task.save(function(err) {
                         if(err) logger.error(err);
                         update_instance_status(task.instance_id, err=>{
@@ -582,6 +584,7 @@ function handle_running(task, next) {
         if(!resource) {
             task.status = "failed";
             task.status_msg = "Lost resource "+task.resource_id;
+	    task.fail_date = new Date();
             task.save(function(err) {
                 if(err) return next(err);
                 update_instance_status(task.instance_id, next);
@@ -625,6 +628,7 @@ function handle_running(task, next) {
                                 common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                 task.status = "failed";
                                 task.status_msg = err;
+				task.fail_date = new Date();
                                 task.save(function(err) {
                                     if(err) return next(err);
                                     update_instance_status(task.instance_id, next);
@@ -665,6 +669,7 @@ function handle_running(task, next) {
                             common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                             task.status = "failed";
                             task.status_msg = out;
+			    task.fail_date = new Date();
                             task.save(function(err) {
                                 if(err) return next(err);
                                 update_instance_status(task.instance_id, next);
