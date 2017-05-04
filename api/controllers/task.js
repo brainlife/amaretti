@@ -177,7 +177,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
             //all good - now register!
             task.save(function(err, _task) {
                 if(err) return next(err);
-                //TODO - should I update to just return _task..?
+                //TODO - I should just return _task - to be consistent with other API
                 res.json({message: "Task successfully registered", task: _task});
             });
            
