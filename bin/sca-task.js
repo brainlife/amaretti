@@ -730,11 +730,12 @@ function start_task(task, resource, cb) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
             //service dir includes branch name (optiona)
-            var servicedir = "$HOME/.sca/services/"+service;
+            var servicerootdir = "$HOME/.sca/services"; //TODO - make this configurable?
+            var servicedir = servicerootdir+"/"+service;
             if(task.service_branch) servicedir += ":"+task.service_branch;
 
             var envs = {
-                //deprecated
+                //DEPRECATED - use versions below
                 SCA_WORKFLOW_ID: task.instance_id.toString(),
                 SCA_WORKFLOW_DIR: workdir,
                 SCA_TASK_ID: task._id.toString(),
@@ -755,9 +756,7 @@ function start_task(task, resource, cb) {
 
             //optional envs
             if(service.service_branch) {
-                //deprecated
-                envs.SCA_SERVICE_BRANCH = service.service_branch;
-
+                envs.SCA_SERVICE_BRANCH = service.service_branch; //DEPRECATED
                 envs.SERVICE_BRANCH = service.service_branch;
             }
 
@@ -813,11 +812,10 @@ function start_task(task, resource, cb) {
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
-                    //var cmd = "ls .sca/services/"+service+ " >/dev/null 2>&1 || "; //check to make sure if it's already installed
                     var cmd = "ls "+servicedir+ " >/dev/null 2>&1 || "; //check to make sure if it's already installed
                     cmd += "(";
-                    cmd += "mkdir -p .sca/services/"+repo_owner+" && LD_LIBRARY_PATH=\"\" ";
-                    cmd += "git clone ";
+                    cmd += "mkdir -p "+servicerootdir+"/"+repo_owner+" && LD_LIBRARY_PATH=\"\" ";
+                    cmd += "flock "+servicerootdir+"/flock.clone git clone ";
                     if(task.service_branch) cmd += "-b "+task.service_branch+" ";
                     cmd += service_detail.git.clone_url+" "+servicedir;
                     cmd += ")";
@@ -840,7 +838,7 @@ function start_task(task, resource, cb) {
                     logger.debug("making sure requested service is up-to-date");
                     //-q to prevent git to send log to stderr
                     //conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git reset --hard && git pull -q", function(err, stream) {
-                    conn.exec("cd "+servicedir+" && git reset --hard && git pull -q", function(err, stream) {
+                    conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git reset --hard && git pull -q'", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in "+servicedir);

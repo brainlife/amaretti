@@ -66,8 +66,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
                 //-v writes output to stderr.. even though it's not error..
                 //--progress goes to stderr (I think..) so removing it for now.
-                logger.debug("rsync -a --safe-links -e \""+sshopts+"\" "+source+" "+dest_path);
-                conn.exec("rsync -a --safe-links -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                //--safe-links is desirable, but it will not transfer inter task/instance symlinks
+                logger.debug("rsync -a -e \""+sshopts+"\" "+source+" "+dest_path);
+                conn.exec("rsync -a -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) logger.error("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space - continuing in case we have *enough* data to run the task");//continue

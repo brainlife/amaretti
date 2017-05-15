@@ -336,7 +336,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
- * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
+ * @apiParam {Object} [config]  Configuration for task
  * @apiParam {String[]} [deps]  task IDs that this serivce depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
  * @apiParam {String[]} [resource_deps]
