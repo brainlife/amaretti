@@ -309,7 +309,6 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
-        //if running, request for stop
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
             res.json({message: "Task successfully scheduled for removed"});
