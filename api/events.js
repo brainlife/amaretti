@@ -6,6 +6,7 @@ const winston = require('winston');
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
+const db = require('./models/db');
 
 var connected = false;
 var task_ex = null;
@@ -49,13 +50,22 @@ function publish_or_log(ex, key, msg) {
 
 exports.task = function(task) {
     var key = task.user_id+"."+task.instance_id+"."+task._id;
-    publish_or_log(task_ex, key, task);
+    
+    //some fields are populated (foreign keys are de-referenced)
+    //to normalize the field type, let's load the record from database
+    db.Task.findById(task._id, (err, _task)=>{
+        publish_or_log(task_ex, key, _task);
+    });
 }
 
 exports.instance = function(instance) {
     var key = instance.user_id+"."+instance._id;
-    publish_or_log(instance_ex, key, instance);
-    //logger.debug("posting instance event", key, instance);
+    
+    //some fields maybe populated (foreign keys are de-referenced)
+    //to normalize the field type, let's load the record from database
+    db.Instance.findById(instance._id, (err, _instance)=>{
+        publish_or_log(instance_ex, key, _instance);
+    });
 }
 
 
