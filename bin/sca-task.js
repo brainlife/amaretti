@@ -606,15 +606,15 @@ function handle_running(task, next) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
             //TODO - not all service provides bin.status.. how will this handle that?
             logger.debug("cd "+taskdir+" && ./_status.sh");
-            var scatoken = "======SCA======"; //delimite output from .bashrc to _status.sh
-            conn.exec("cd "+taskdir+" && echo '"+scatoken+"' && ./_status.sh", {}, function(err, stream) {
+            var delimtoken = "=====WORKFLOW====="; //delimite output from .bashrc to _status.sh
+            conn.exec("cd "+taskdir+" && echo '"+delimtoken+"' && ./_status.sh", {}, function(err, stream) {
                 if(err) return next(err);
                 var out = "";
                 stream.on('close', function(code, signal) {
 
                     //remove everything before sca token (to ignore output from .bashrc)
-                    var pos = out.indexOf(scatoken);
-                    out = out.substring(pos+scatoken.length);
+                    var pos = out.indexOf(delimtoken);
+                    out = out.substring(pos+delimtoken.length);
                     logger.info(out);
 
                     switch(code) {

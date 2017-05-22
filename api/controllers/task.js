@@ -132,7 +132,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     
         task.status = "requested";
         task.request_date = new Date();
-        task.status_msg = "Waiting to be processed by SCA task handler";
+        task.status_msg = "Waiting to be processed by task handler";
 
         task.resource_ids = [];
         

@@ -765,7 +765,7 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
  *      Used by resource editor to setup new resource
  *      jwt is optional.. since it doesn't really store this anywhere (should I?)
  *      kdinstaller uses this to generate key (and scott's snapshot tool)
- *      In the future, this might be moved to a dedicated SCA util API service (or deprecated)
+ *      In the future, this might be moved to a dedicated service (or deprecated)
  *
  * //@apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
