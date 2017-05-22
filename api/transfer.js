@@ -62,13 +62,13 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 var source_resource_detail = config.resources[source_resource.resource_id];
                 var hostname = source_resource_detail.hostname;
                 //TODO need to investigate why I need these -o options on q6>karst transfer
-                var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i .sca/keys/"+source_resource._id+".sshkey";
+                var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey -i .sca/keys/"+source_resource._id+".sshkey";
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
                 //-v writes output to stderr.. even though it's not error..
                 //--progress goes to stderr (I think..) so removing it for now.
-                //--safe-links is desirable, but it will not transfer inter task/instance symlinks
-                logger.debug("rsync -a -e \""+sshopts+"\" "+source+" "+dest_path);
-                conn.exec("rsync -a -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
+                logger.debug("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
+                conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
                         if(code) logger.error("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space - continuing in case we have *enough* data to run the task");//continue
