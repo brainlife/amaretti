@@ -836,9 +836,10 @@ function start_task(task, resource, cb) {
 
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
+                    var branch = service.service_branch || "master";
+                    //https://stackoverflow.com/questions/1125968/how-do-i-force-git-pull-to-overwrite-local-files
                     //-q to prevent git to send log to stderr
-                    //conn.exec("cd "+servicedir+" && LD_LIBRARY_PATH=\"\" git reset --hard && git pull -q", function(err, stream) {
-                    conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git reset --hard && git pull -q'", function(err, stream) {
+                    conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git fetch && git reset -q --hard origin/"+branch+"'", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in "+servicedir);
