@@ -53,6 +53,12 @@ module.exports = {
 
             "soichih/sca-service-connectome-data-comparison": {score: 10},
 
+            "brain-life/app-datanormalize": {score: 10},
+            "brain-life/app-splitshells": {score: 10},
+
+            //lindsey might be able to use app-tracking
+            "brain-life/app-ensembletracking": {score: 10},
+
             //"soichih/sca-product-nifti": {score: 10},
             //"soichih/sca-product-life": {score: 10},
             //"soichih/sca-product-neuro-b": {score: 10},

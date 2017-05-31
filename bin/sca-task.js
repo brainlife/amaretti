@@ -35,7 +35,6 @@ db.init(function(err) {
     logger.debug("db-initialized");
     //start check loop
     check();
-    //check_instances();
 });
 
 //set next_date incrementally longer between each checks (you need to save it persist it)
@@ -64,67 +63,6 @@ function set_nextdate(task) {
     }
 }
 
-//deprecated
-function check_instances() {
-    //get lastweeks' date
-    let lastweek = new Date();
-    lastweek.setDate(lastweek.getDate() - 7);
-
-    db.Instance.find({
-        //create_date: {$lt: recent} //don't include instance that just got created (task may not exist yet)
-        update_date: {$gt: lastweek} //pick instance that got updated within the last 7 days
-        /*
-        status: {$ne: "finished"}, //ignore removed tasks
-        $or: [
-            {next_date: {$exists: false}},
-            {next_date: {$lt: new Date()}}
-        ]
-        */
-    })
-    .exec((err, instances) => {
-        if(err) throw err; //throw and let pm2 restart
-        if(instances.length) logger.debug("checking instances:"+instances.length);
-        _status.instances+=instances.length; //for health reporting
-        async.eachSeries(instances, (instance, next) => {
-            if(err) logger.error(err);
-            //logger.debug("todo process",instance._id);
-            //logger.debug("querying for instance", instance._id);
-            db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
-                //increment status counts
-                let counts = {};
-                tasks.forEach(function(task) {
-                    if(counts[task.status] === undefined) counts[task.status] = 0;
-                    counts[task.status]++;
-                });
-
-                //decide instance status
-                let newstatus = "unknown";
-                if(tasks.length == 0) newstatus = "empty";
-                else if(counts.removed > 0) newstatus = "removed";
-                else if(counts.failed > 0) newstatus = "failed";
-                else if(counts.running > 0) newstatus = "running";
-                else if(counts.requested > 0) newstatus = "requested";
-                else if(counts.finished > 0) newstatus = "finished";
-
-                //did status changed?
-                if(instance.status != newstatus) {
-                    logger.debug("instance status changed",instance._id,newstatus);
-                    if(newstatus == "unknown") logger.debug(counts);
-                    instance.status = newstatus;
-                    instance.update_date = new Date();
-                    instance.save(next);
-                } else {
-                    //no change
-                    next();
-                }
-            });
-        }, function(err) {
-            if(err) logger.error(err);
-            setTimeout(check_instances, 1000*600); //wait for a while
-        });
-    });
-}
-
 //call this whenever you change task status
 function update_instance_status(instance_id, cb) {
     db.Instance.findById(instance_id, function(err, instance) {
@@ -143,13 +81,14 @@ function update_instance_status(instance_id, cb) {
             });
 
             //decide instance status
+            //TODO - I really don't like this.. 
             let newstatus = "unknown";
             if(tasks.length == 0) newstatus = "empty";
-            else if(counts.removed > 0) newstatus = "removed";
             else if(counts.failed > 0) newstatus = "failed";
             else if(counts.running > 0) newstatus = "running";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.finished > 0) newstatus = "finished";
+            else if(counts.removed > 0) newstatus = "removed";
 
             //did status changed?
             if(instance.status != newstatus) {
