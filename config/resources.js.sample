@@ -8,6 +8,11 @@ module.exports = {
         hostname: "bigred2.uits.iu.edu",
         desc: "IU's high performance computing cluster",
         workdir: "/N/dc2/scratch/__username__/sca/workflows",
+        
+        //extra envs to set (resource specific env may override)
+        envs: {
+            ENV: "IUHPC",
+        },
 
         //services supported by this resource and score
         services: {
@@ -18,8 +23,11 @@ module.exports = {
             "brain-life/app-freesurfer": {score: 10},
             "brain-life/app-networkneuro": {score: 10}, 
 
+            "soichih/sca-service-noop": {score: 10},
+
             "_upload": {score: 8},
-        }
+        },
+
     },
 
     karst: {
@@ -29,6 +37,11 @@ module.exports = {
         hostname: "karst.uits.iu.edu",
         workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
         
+        //extra envs to set (resource specific env may override)
+        envs: {
+            ENV: "IUHPC",
+        },
+            
         //services supported by this resource
         services: {
             "_upload": {score: 10},
@@ -107,7 +120,12 @@ module.exports = {
         desc: "Such as Jetstream Instance",
         //hostname: "q6.sca.iu.edu",
         workdir: "/home/__username__/workflows", //could run out of disk easily
-      
+        
+        //extra envs to set (resource specific env may override)
+        envs: {
+            ENV: "VM",
+        },
+       
         //services supported by this resource
         services: {
             "soichih/sca-service-noop": {score: 10},

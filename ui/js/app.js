@@ -262,12 +262,10 @@ function(appconf, $http, serverconf, toaster, jwtHelper) {
         return serverconf.then(function(serverconf) {
             return $http.get(appconf.api+'/resource')
             .then(function(res) {
-                //console.log("got serverconf and resources");
                 resources = res.data.resources;
                 resources.forEach(function(resource) {
-                    //console.dir(resource);
+                    if(resource.config.services === undefined) resource.config.services = [];
                     resource.detail = serverconf.resources[resource.resource_id];
-                    //if(jwt) resource._canedit = (resource.user_id == jwt.sub);
                 });
                 return resources;
             }, function(res) {

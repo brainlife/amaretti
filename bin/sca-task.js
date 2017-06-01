@@ -701,19 +701,30 @@ function start_task(task, resource, cb) {
 
             task._envs = envs;
 
-            //insert any task envs
-            if(task.envs) for(var key in task.envs) {
-                envs[key] = task.envs[key];
-            }
-            //insert any resource envs
-            if(resource.envs) for(var key in resource.envs) {
-                envs[key] = resource.envs[key];
-            }
+            //TODO - I am not sure if this is the right precendence ordering..
+            //start with any envs from dependent resources
             if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
+                let resource_detail = config.resources[resource_dep.resource_id];
+                if(resource_detail.envs) for(var key in resource_detail.envs) {
+                    envs[key] = resource_detail.envs[key];
+                }
                 if(resource_dep.envs) for(var key in resource_dep.envs) {
                     envs[key] = resource_dep.envs[key];
                 }
             });
+            //override with resource base envs
+            let resource_detail = config.resources[resource.resource_id];
+            if(resource_detail.envs) for(var key in resource_detail.envs) {
+                envs[key] = resource_detail.envs[key];
+            }
+            //override with any resource instance envs
+            if(resource.envs) for(var key in resource.envs) {
+                envs[key] = resource.envs[key];
+            }
+            //override with any task envs specified by submitter
+            if(task.envs) for(var key in task.envs) {
+                envs[key] = task.envs[key];
+            }
 
             async.series([
                 function(next) {

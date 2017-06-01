@@ -53,24 +53,12 @@ exports.select = function(user, query, cb) {
             if(!best || score > best_score) {
                 best_score = score;
                 best = resource;
-            } /*else if(score == best_score) {
-                //if score ties..
-                if(query.preferred_resource_id && query.preferred_resource_id == resource._id.toString()) {
-                    //give user preference into consideration
-                    logger.debug("using this because user prefers this");
-                    best = resource; 
-                } else if(resource.user_id == user.sub) {
-                    //also pick user owned resource over shared one
-                    logger.debug("using this since it's owned by the user");
-                    best = resource; 
-                }
-            }*/
+            } 
         });
 
         //for debugging
         if(best) {
             logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
-            //logger.debug(config.resources[best.resource_id]);
         } else {
             logger.debug("no resource matched query");
             logger.debug(query);
@@ -80,17 +68,6 @@ exports.select = function(user, query, cb) {
 }
 
 function score_resource(user, resource, query) {
-
-    /*
-    //apply resource_type filter..........
-    if(query.resource_type && resource.resource_id != query.resource_type) {
-        //if user specify resource_type, and it doesn't match resource.resource_id (should be renamed to resource_type)
-        //reject it
-        logger.debug("resource_type:"+resource.resource_id+" mismatch with query: "+query.resource_type);
-        return 0;
-    }
-    */
-
     //see if this resource supports requested service
     var resource_detail = config.resources[resource.resource_id];
     //TODO other things we could do..
