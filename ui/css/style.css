@@ -8,10 +8,13 @@
 }
 .clickable:hover {
   cursor: pointer;
-  background-color: #666;
+  background-color: #eee;
 }
 .resource-instance.shared-instance {
   background-color: #ccc;
+}
+.resource-instance:hover {
+  cursor: pointer;
 }
 .fixed-top {
   position: fixed;

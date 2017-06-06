@@ -80,13 +80,12 @@ function update_instance_status(instance_id, cb) {
                 counts[task.status]++;
             });
 
-            //decide instance status
-            //TODO - I really don't like this.. 
+            //decide instance status (TODO - I still need to adjust this, I feel)
             let newstatus = "unknown";
             if(tasks.length == 0) newstatus = "empty";
-            else if(counts.failed > 0) newstatus = "failed";
             else if(counts.running > 0) newstatus = "running";
             else if(counts.requested > 0) newstatus = "requested";
+            else if(counts.failed > 0) newstatus = "failed";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
 

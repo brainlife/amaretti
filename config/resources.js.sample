@@ -17,9 +17,6 @@ module.exports = {
         //services supported by this resource and score
         services: {
             "soichih/sca-service-hpss": {score: 10},
-            //"soichih/sca-product-nifti": {score: 10},
-            //"soichih/sca-service-bash": {score: 10}, 
-
             "brain-life/app-freesurfer": {score: 10},
             "brain-life/app-networkneuro": {score: 10}, 
 
@@ -47,8 +44,6 @@ module.exports = {
             "_upload": {score: 10},
 
             "soichih/sca-service-hpss": {score: 10},
-            //"soichih/sca-service-download": {score: 10},
-            //"soichih/sca-product-odi": {score: 10},
             "soichih/sca-product-raw": {score: 10},
             "soichih/sca-service-noop": {score: 10},
 
@@ -71,13 +66,6 @@ module.exports = {
 
             //lindsey might be able to use app-tracking
             "brain-life/app-ensembletracking": {score: 10},
-
-            //"soichih/sca-product-nifti": {score: 10},
-            //"soichih/sca-product-life": {score: 10},
-            //"soichih/sca-product-neuro-b": {score: 10},
-
-            //"soichih/sca-service-onere": {score: 10}, //uses python/request - which only works on karst right now
-            //"soichih/sca-service-bash": {score: 10}, 
         }    
     },
 
@@ -88,7 +76,6 @@ module.exports = {
         hostname: "xd-login.opensciencegrid.org",
         workdir: "/local-scratch/__username__/sca/workflows",
        
-        //services supported by this resource
         services: {
             "soichih/sca-service-hpss": {score: 5},
         }
@@ -101,9 +88,9 @@ module.exports = {
         hostname: "login.osgconnect.net",
         workdir: "/local-scratch/__username__/sca/workflows",
         
-        //services supported by this resource
         services: {
             "soichih/sca-service-osgblast": {score: 10},
+            "soichih/app-fsurf": {score: 10},
         }
     },
 
