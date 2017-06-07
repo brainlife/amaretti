@@ -10,17 +10,15 @@ exports.sca = {
     resource_enc_password: 'f^g#fdkjg2.afgfBkaCS-0ddj',
     resource_cipher_algo: 'aes-256-cbc',
 
-    //jwt token used to access other services (like auth service)
-    //jwt: fs.readFileSync(__dirname+'/sca.jwt'),
+    //jwt token used to access other services (like pulling users gids from auth service)
+    jwt: fs.readFileSync(__dirname+'/sca.jwt'),
 }
 
-/*
 //used to use github api (like service.js)
 exports.github = {
     client_id: "6a581b698021c7f38c52",
     client_secret: fs.readFileSync(__dirname+"/github.client.secret"),
 }
-*/
 
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)

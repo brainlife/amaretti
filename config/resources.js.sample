@@ -22,7 +22,7 @@ module.exports = {
 
             "soichih/sca-service-noop": {score: 10},
 
-            "_upload": {score: 8},
+            "_upload": {score: 7},
         },
 
     },
@@ -41,7 +41,7 @@ module.exports = {
             
         //services supported by this resource
         services: {
-            "_upload": {score: 10},
+            "_upload": {score: 8},
 
             "soichih/sca-service-hpss": {score: 10},
             "soichih/sca-product-raw": {score: 10},
@@ -55,9 +55,10 @@ module.exports = {
             "brain-life/app-tracking": {score: 10},
             "brain-life/app-life": {score: 10},
 
-            "soichih/sca-service-conneval-validate": {score: 10},
-            "soichih/validator-neuro-dwi": {score: 10},
-            "soichih/validator-neuro-t1": {score: 10}, //todo
+            //moved to soichi7
+            //"soichih/sca-service-conneval-validate": {score: 10},
+            //"soichih/validator-neuro-dwi": {score: 10},
+            //"soichih/validator-neuro-t1": {score: 10}, //todo
 
             "soichih/sca-service-connectome-data-comparison": {score: 10},
 
@@ -67,18 +68,6 @@ module.exports = {
             //lindsey might be able to use app-tracking
             "brain-life/app-ensembletracking": {score: 10},
         }    
-    },
-
-    osgxd: {
-        type: "ssh", 
-        name: "Open Science Grid (xd-login)", 
-        desc: "National distributed high throughput computing cluster",
-        hostname: "xd-login.opensciencegrid.org",
-        workdir: "/local-scratch/__username__/sca/workflows",
-       
-        services: {
-            "soichih/sca-service-hpss": {score: 5},
-        }
     },
 
     osgxd: {
@@ -119,7 +108,6 @@ module.exports = {
 
             //for staging data directly for novnc
             "soichih/sca-product-raw": {score: 8},
-            //"_upload": {score: 5},
         }
     },
 }

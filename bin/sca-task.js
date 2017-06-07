@@ -363,9 +363,10 @@ function handle_requested(task, next) {
         return;
     }
 
-    logger.debug(JSON.stringify(task, null, 4));
+    //logger.debug(JSON.stringify(task, null, 4));
 
     //need to lookup user's gids to find all resources that user has access to
+    logger.debug("looking up user/s gids from auth api");
     request.get({
         url: config.api.auth+"/user/groups/"+task.user_id,
         json: true,
@@ -373,9 +374,25 @@ function handle_requested(task, next) {
     }, function(err, res, gids) {
         if(err) {
             if(res.statusCode == 404) {
-                //often user_id is set to non existing user_id on auth service (like "sca")
                 gids = [];
             } else return next(err);
+        }
+        switch(res.statusCode) {
+        case 404:
+            //often user_id is set to non existing user_id on auth service (like "sca")
+            gids = []; 
+            break;
+        case 401:
+            //token is misconfigured?
+            logger.error("authentication error while obtaining user's group ids");
+            logger.error("jwt:"+config.sca.jwt);
+            return next(err);
+        case 200:
+            //success! 
+            break;
+        default:
+            logger.error("invalid status code:"+res.statusCode+" while obtaining user's group ids");
+            return next(err);
         }
 
         //then pick best resource
