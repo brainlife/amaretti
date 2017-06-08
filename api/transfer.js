@@ -60,7 +60,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             function(next) {
                 //run rsync 
                 var source_resource_detail = config.resources[source_resource.resource_id];
-                var hostname = source_resource_detail.hostname;
+                var hostname = source_resource.config.hostname || source_resource_detail.hostname;
                 //TODO need to investigate why I need these -o options on q6>karst transfer
                 var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey -i .sca/keys/"+source_resource._id+".sshkey";
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
