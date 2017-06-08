@@ -194,7 +194,7 @@ function handle_housekeeping(task, cb) {
                                 //next_resource();
                             }, 10*1000);
                             stream.on('close', function(code, signal) {
-                                if(code == 2) {
+                                if(code == 2) { //ls couldn't find the directory
                                     logger.debug("taskdir:"+taskdir+" is missing");
                                     missing_resource_ids.push(resource_id);
                                 }
@@ -228,7 +228,7 @@ function handle_housekeeping(task, cb) {
                     //now.. if we *know* that there are no resource that has this task, consider it removed
                     if(resource_ids.length == 0) {
                         task.status = "removed"; //most likely removed by cluster
-                        task.status_msg = "All output from this task has been removed by resource administrator";
+                        task.status_msg = "Output from this task has been removed";
                     }
                     task.save(function(err) {
                         if(err) return next(err);

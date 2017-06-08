@@ -143,6 +143,8 @@ function check_ssh(resource, cb) {
     var nexted = false;
     conn.on('ready', function() {
         ready = true;
+
+        //make sure correct user id is returned from whoami
         conn.exec('whoami', function(err, stream) {
             if (err) {
                 conn.end();
@@ -151,11 +153,10 @@ function check_ssh(resource, cb) {
             }
             var ret_username = "";
             stream.on('close', function(code, signal) {
-                //conn.end();
                 nexted = true;
                 if(ret_username.trim() == resource.config.username) {
+
                     check_sftp(resource, conn, function(err, status, msg) {
-                        //console.log("check_sftp cb -------------------------- "+resource._id);
                         conn.end();
                         if(err) return cb(err);
                         cb(null, status, msg);
@@ -207,14 +208,6 @@ function check_sftp(resource, conn, cb) {
     var workdir = common.getworkdir(null, resource);
     conn.sftp(function(err, sftp) {
         if(err) return cb(err);
-        //logger.debug("reading directory:"+workdir);
-        /*
-        var t = setTimeout(function() {
-            t = null;
-            cb(null, "failed", "workdir is inaccessible (timeout)");
-        }, 5000);
-        */
-        //sftp.readdir(workdir, function(err, list) {
         logger.debug("reading dir "+workdir);
         var to = setTimeout(()=>{
             logger.error("readdir timeout"); 
@@ -222,18 +215,19 @@ function check_sftp(resource, conn, cb) {
         }, 5000);
         sftp.readdir(workdir, function(err, list) {
             clearTimeout(to);
-            logger.debug("got dir", list);
             //if(t == null) return; //timeout already called
             if(err) {
-                //console.log("failed to readdir:"+workdir);
+                logger.debug("failed to readdir:"+workdir, err);
                 //maybe it doesn't exist yet.. try to create it
                 sftp.opendir(workdir, function(err) {
-                    if(err) return cb(err); //truely bad..
+                    if(err) return cb(null, "failed", "can't access workdir"); //ok, it looks like no good
                     cb(null, "ok", "ssh connection is good and workdir is accessible (created)");
                 });
+            } else {
+                logger.debug("got dir", list);
+                //clearTimeout(t);
+                cb(null, "ok", "ssh connection is good and workdir is accessible");
             }
-            //clearTimeout(t);
-            cb(null, "ok", "ssh connection is good and workdir is accessible");
         });
     });
 }
