@@ -15,7 +15,7 @@ const Client = require('ssh2').Client;
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('../api/models/db');
+const db = require('../api/models');
 const common = require('../api/common');
 const _resource_picker = require('../api/resource').select;
 const _transfer = require('../api/transfer');
@@ -394,6 +394,8 @@ function handle_requested(task, next) {
             logger.error("invalid status code:"+res.statusCode+" while obtaining user's group ids");
             return next(err);
         }
+
+        //find resource id of first dep task
 
         //then pick best resource
         _resource_picker({

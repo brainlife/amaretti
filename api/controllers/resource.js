@@ -18,7 +18,7 @@ var request = require('request');
 //mine
 var config = require('../../config');
 var logger = new winston.Logger(config.logger.winston);
-var db = require('../models/db');
+var db = require('../models');
 var common = require('../common');
 var resource_lib = require('../resource');
 var transfer = require('../transfer');

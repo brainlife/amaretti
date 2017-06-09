@@ -13,7 +13,7 @@ const cors = require('cors');
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('./models/db');
+const db = require('./models');
 
 //init express
 const app = express();

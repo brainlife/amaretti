@@ -8,7 +8,7 @@ var request = require('request');
 //mine
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
-var db = require('./models/db');
+var db = require('./models');
 var common = require('./common');
 
 exports.loaddetail = function(service_name, cb) {

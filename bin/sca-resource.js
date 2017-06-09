@@ -11,7 +11,7 @@ const request = require('request');
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('../api/models/db');
+const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
 

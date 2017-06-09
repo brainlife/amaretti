@@ -14,7 +14,7 @@ const request = require('request');
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('./models/db');
+const db = require('./models');
 const hpss = require('hpss');
 
 exports.getworkdir = function(workflow_id, resource) {

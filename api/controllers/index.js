@@ -9,7 +9,7 @@ const winston = require('winston');
 //mine
 const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('../models/db');
+const db = require('../models');
 const common = require('../common');
 
 //remote service status (used by /health to analyze)

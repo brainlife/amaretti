@@ -7,7 +7,7 @@ var async = require('async');
 //mine
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
-var db = require('./models/db');
+var db = require('./models');
 var common = require('../api/common');
 
 //TODO I still haven't decided if I should make this a task that dynamically inserted between 2 dependent tasks at runtime.

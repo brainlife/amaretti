@@ -5,13 +5,10 @@ const express = require('express');
 const router = express.Router();
 const winston = require('winston');
 const jwt = require('express-jwt');
-//const async = require('async');
-//const fs = require('fs');
 
 //mine
 const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
-//const db = require('../models/db');
 
 //DEPRECATED
 //called by sca-event service to check to see if user should have access to this exchange / key

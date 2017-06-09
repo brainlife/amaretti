@@ -6,12 +6,11 @@ const winston = require('winston');
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('./models/db');
+const db = require('./models');
 
 var connected = false;
 var task_ex = null;
 var instance_ex = null;
-//var resource_ex = null;
 if(config.events) {
     logger.info("attempting to connect to amqp..");
     var conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
@@ -50,6 +49,21 @@ function publish_or_log(ex, key, msg) {
 
 exports.task = function(task) {
     var key = task.user_id+"."+task.instance_id+"."+task._id;
+
+    //store event updates if status changes
+    db.Taskevent.findOne({task_id: task._id}, 'status', {sort: '_id'}, (err, lastevent)=>{
+        if(!lastevent || lastevent.status != task.status) {
+            //status changed! store event
+            var taskevent = new db.Taskevent({
+                task_id: task._id, 
+                status: task.status, 
+                status_msg: task.status_msg, 
+                service: task.service, 
+                service_branch: task.service_branch, 
+            });
+            taskevent.save();
+        }
+    });
     
     //some fields are populated (foreign keys are de-referenced)
     //to normalize the field type, let's load the record from database

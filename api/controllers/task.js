@@ -10,7 +10,7 @@ const async = require('async');
 //mine
 const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
-const db = require('../models/db');
+const db = require('../models');
 const common = require('../common');
 
 /**
@@ -54,6 +54,17 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
             res.json({tasks: tasks, count: count});
         });
         //res.json(tasks);
+    });
+});
+
+//returns various event / stats for given service
+//TODO...
+router.get('/service/events', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var service = req.query.service;
+    var service_branch = req.query.branch;
+    db.Taskevent.find({service: service, service_branch: service_branch}, (err, events)=>{
+        if(err) return next(err);
+        res.json(events);
     });
 });
 

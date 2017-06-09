@@ -8,7 +8,7 @@ var Client = require('ssh2').Client;
 //mine
 var config = require('../config');
 var logger = new winston.Logger(config.logger.winston);
-var db = require('./models/db');
+var db = require('./models');
 var common = require('./common');
 
 exports.select = function(user, query, cb) {
