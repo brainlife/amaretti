@@ -51,7 +51,7 @@ exports.task = function(task) {
     var key = task.user_id+"."+task.instance_id+"."+task._id;
 
     //store event updates if status changes
-    db.Taskevent.findOne({task_id: task._id}, 'status', {sort: '_id'}, (err, lastevent)=>{
+    db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}, (err, lastevent)=>{
         if(!lastevent || lastevent.status != task.status) {
             //status changed! store event
             var taskevent = new db.Taskevent({

@@ -58,13 +58,41 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 //returns various event / stats for given service
-//TODO...
-router.get('/service/events', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var service = req.query.service;
-    var service_branch = req.query.branch;
-    db.Taskevent.find({service: service, service_branch: service_branch}, (err, events)=>{
+/*
+{
+    status: - [
+    - {
+    _id: "finished",
+    count: 4
+    },
+    - {
+    _id: "running_sync",
+    count: 4
+    },
+    - {
+    _id: "requested",
+    count: 4
+    }
+    ],
+    tasks: 1
+}
+*/
+router.get('/events', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
+    //db.Taskevent.find({service: service, service_branch: service_branch}).distinct('status').count().exec(function(err, counts) {
+    var find = {};
+    if(req.query.service) find.service = req.query.service;
+    if(req.query.service_branch) find.service_branch = req.query.service_branch;
+    db.Taskevent.aggregate([
+        {$match: find},
+        {$group: {_id: '$status', count: {$sum: 1}}},
+    ]).exec(function(err, counts) {
         if(err) return next(err);
-        res.json(events);
+
+        //TODO is there a better way to count distinct task_ids?
+        db.Taskevent.find(find).distinct('task_id').exec(function(err, tasks) {
+            if(err) return next(err);
+            res.json({status: counts, tasks: tasks.length});
+        });
     });
 });
 
