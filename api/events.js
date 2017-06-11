@@ -56,6 +56,7 @@ exports.task = function(task) {
             //status changed! store event
             var taskevent = new db.Taskevent({
                 task_id: task._id, 
+                user_id: task.user_id, 
                 status: task.status, 
                 status_msg: task.status_msg, 
                 service: task.service, 

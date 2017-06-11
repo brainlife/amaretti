@@ -71,8 +71,9 @@ router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
-    if(req.query.where) find = JSON.parse(req.query.where); //deprecated
-    if(req.query.find) find = JSON.parse(req.query.find);
+    if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    if(req.query.limit) req.query.limit = parseInt(req.query.limit);
+    if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
     //shouldn't be needed, but in case auth service doesn't set it (or admin issued jwt)
     if(!req.user.gids) req.user.gids = [];

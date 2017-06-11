@@ -7,7 +7,7 @@ var fs = require('fs');
 
 //mine
 var config = require('../config');
-var db = require('../api/models/db');
+var db = require('../api/models');
 var app = require('../api/server').app;
 
 //console.log(JSON.stringify(config, null, 4));

@@ -32,6 +32,8 @@ const common = require('../common');
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    if(req.query.limit) req.query.limit = parseInt(req.query.limit);
+    if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
     //handling user_id.
     if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
@@ -58,40 +60,39 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 //returns various event / stats for given service
-/*
-{
-    status: - [
-    - {
-    _id: "finished",
-    count: 4
-    },
-    - {
-    _id: "running_sync",
-    count: 4
-    },
-    - {
-    _id: "requested",
-    count: 4
-    }
-    ],
-    tasks: 1
-}
-*/
-router.get('/events', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
-    //db.Taskevent.find({service: service, service_branch: service_branch}).distinct('status').count().exec(function(err, counts) {
+router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     var find = {};
     if(req.query.service) find.service = req.query.service;
     if(req.query.service_branch) find.service_branch = req.query.service_branch;
+
+    //group by status and count
     db.Taskevent.aggregate([
         {$match: find},
         {$group: {_id: '$status', count: {$sum: 1}}},
-    ]).exec(function(err, counts) {
+    ]).exec(function(err, statuses) {
         if(err) return next(err);
+    
+        var counts = {};
+        statuses.forEach(status=>{
+            counts[status._id] = status.count;
+        });
 
-        //TODO is there a better way to count distinct task_ids?
+        //count distinct tasks requested
+        //TODO is there a better way?
         db.Taskevent.find(find).distinct('task_id').exec(function(err, tasks) {
             if(err) return next(err);
-            res.json({status: counts, tasks: tasks.length});
+
+            //count distinct users requested 
+            //TODO is there a better way?
+            db.Taskevent.find(find).distinct('user_id').exec(function(err, users) {
+                if(err) return next(err);
+                res.json({
+                    counts: counts, 
+                    tasks: tasks.length, 
+                    users: users.length,
+                    //_statuses: statuses,
+                });
+            });
         });
     });
 });

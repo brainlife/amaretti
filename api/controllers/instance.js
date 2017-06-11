@@ -35,6 +35,8 @@ const common = require('../common');
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    if(req.query.limit) req.query.limit = parseInt(req.query.limit);
+    if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
     //handling user_id.
     if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
@@ -44,6 +46,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //admin can set it to null and remove user_id filtering all together
         delete find.user_id;
     }
+
 
     db.Instance.find(find)
     .select(req.query.select)

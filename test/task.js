@@ -7,7 +7,7 @@ var fs = require('fs');
 
 //mine
 var config = require('../config');
-var db = require('../api/models/db');
+var db = require('../api/models');
 var app = require('../api/server').app;
 
 //config.sca.jwt is admin token.. if I want to test as normal user, I need to use userjwt
