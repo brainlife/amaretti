@@ -395,16 +395,17 @@ function handle_requested(task, next) {
             return next(err);
         }
 
-        //find resource id of first dep task
-
-        //then pick best resource
-        _resource_picker({
+        //find resource id of first dep task - then pick best resource
+        _resource_picker(
+        { //fake user object
             sub: task.user_id,
             gids: gids,
-        }, {
+        }, task
+        /*{ //selection query
             service: task.service,
             preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-        }, function(err, resource) {
+            deps: task.deps,
+        }*/, function(err, resource) {
             if(err) return next(err);
             if(!resource) {
                 task.status_msg = "No resource available to run this task.. postponing.";
@@ -673,11 +674,9 @@ function start_task(task, resource, cb) {
         var service = task.service;
         if(service == null) return cb(new Error("service not set.."));
 
-        //get_service(service, function(err, service_detail) {
         _service.loaddetail(service, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
-            //logger.debug(service_detail);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
 
             logger.debug("service_detail.pkg");
@@ -882,8 +881,6 @@ function start_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            //var source_path = common.gettaskdir(task.instance_id, dep._id, source_resource);
-                            //var dest_path = common.gettaskdir(task.instance_id, dep._id, resource);
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);

@@ -80,6 +80,9 @@ module.exports = {
         services: {
             "soichih/sca-service-osgblast": {score: 10},
             "soichih/app-fsurf": {score: 10},
+        },
+        envs: {
+            ENV: "OSG",
         }
     },
 

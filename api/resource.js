@@ -11,12 +11,24 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models');
 var common = require('./common');
 
-exports.select = function(user, query, cb) {
+//task needs to have populated deps
+exports.select = function(user, task, cb) {
     //select all resource available for the user and active
-    logger.debug("resource.select with query");
-    logger.debug(query);
-    logger.debug("user id / groups");
-    logger.debug(user);
+    logger.debug("finding resource to run .select task_id:",task._id,"service:",task.service,"branch:",task.service_branch,"user:",user,"deps:");
+
+    //pull resource_ids of deps
+    var dep_resource_ids = [];
+    if(task.deps) {
+        //logger.debug(JSON.stringify(task.deps, null, 4));
+        task.deps.forEach(dep=>{
+            dep.resource_ids.forEach(id=>{
+                id = id.toString();
+                if(!~dep_resource_ids.indexOf(id)) dep_resource_ids.push(id);
+            });
+        });
+        logger.debug("dep_resource_ids:", dep_resource_ids);
+    }
+
     db.Resource.find({
         "$or": [
             {user_id: user.sub},
@@ -28,26 +40,33 @@ exports.select = function(user, query, cb) {
     .exec(function(err, resources) {
         if(err) return cb(err);
         if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
-        if(query.preferred_resource_id) logger.info("user preferred_resource_id:"+query.preferred_resource_id);
+        if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
-        //select the best resource based on the query
+        //select the best resource based on the task
         var best = null;
         var best_score = null;
         resources.forEach(function(resource) {
-            var score = score_resource(user, resource, query);
-            logger.debug("scored "+resource._id+" name:"+resource.name+" score="+score);
+            logger.debug("resource:",resource.name, resource._id.toString())
+            var score = score_resource(user, resource, task);
             if(score == 0) return;
+
+            //+5 if resource is listed in dep
+            if(~dep_resource_ids.indexOf(resource._id.toString())) {
+                logger.debug("  resource listed in deps/resource_ids.. +5");
+                score = score+5;
+            }
 
             //+10 score if it's owned by user
             if(resource.user_id == user.sub) {
-                logger.debug("user owns this.. doubling score");
+                logger.debug("  user owns this.. +10");
                 score = score+10;
             }
-            //+15 score if it's preferred by user
-            if(query.preferred_resource_id && query.preferred_resource_id == resource._id.toString()) {
-                logger.debug("user prefers this.. tripling score");
+            //+15 score if it's preferred by user (TODO need to make sure this still works)
+            if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
+                logger.debug("  user prefers this.. +15");
                 score = score+15;
             }
+            logger.debug("  score:",score);
 
             //pick the best score...
             if(!best || score > best_score) {
@@ -60,22 +79,21 @@ exports.select = function(user, query, cb) {
         if(best) {
             logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
         } else {
-            logger.debug("no resource matched query");
-            logger.debug(query);
+            logger.debug("no resource matched to run this task :)");
         } 
         cb(null, best, best_score);
     });
 }
 
-function score_resource(user, resource, query) {
+function score_resource(user, resource, task) {
     //see if this resource supports requested service
     var resource_detail = config.resources[resource.resource_id];
     //TODO other things we could do..
-    //1... handle query.other_service_ids and give higher score to resource that provides more of those services
+    //1... handle task.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
     //3... take resource utilization into account (pick least used docker host, for example)
     if(!resource_detail) {
-        logger.error("can't find resource detail for resource_id:"+resource.resource_id);
+        logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
         return 0;
     }
 
@@ -84,7 +102,7 @@ function score_resource(user, resource, query) {
         resource.config.services) {
         var score = null;
         resource.config.services.forEach(function(service) {
-            if(service.name == query.service) score = service.score;
+            if(service.name == task.service) score = service.score;
         });
         if(score) return score;
     }
@@ -92,10 +110,10 @@ function score_resource(user, resource, query) {
     //pull resource_detail info
     if( resource_detail && 
         resource_detail.services &&
-        resource_detail.services[query.service]) {
-        return resource_detail.services[query.service].score;
+        resource_detail.services[task.service]) {
+        return resource_detail.services[task.service].score;
     }
-    logger.debug("this resource doesn't support "+query.service);
+    logger.debug("  this resource doesn't support "+task.service);
     return 0;
 }
 
