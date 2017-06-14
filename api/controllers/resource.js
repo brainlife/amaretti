@@ -262,6 +262,7 @@ String.prototype.addSlashes = function()
 /*
 * I am not sure who uses this, but this looks dangerous..
 */
+/*
 router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource_id = req.query.resource_id;
     var _path = req.query.path; //TODO.. validate?
@@ -291,6 +292,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
         });
     });
 });
+*/
 
 /**
  * @apiGroup Resource
