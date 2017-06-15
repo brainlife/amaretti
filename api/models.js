@@ -157,7 +157,6 @@ var taskSchema = mongoose.Schema({
 
     status: String,  //requested, running, failed, stop_requested, stopped, (running_sync), removed, 
     status_msg: String,
-    status_update: Date, //TODO - is this still used?
 
     //resource where the task is currently running (or was)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
@@ -174,18 +173,19 @@ var taskSchema = mongoose.Schema({
     //next time sca-task should check this task again (unset to check immediately)
     next_date: {type: Date},
     
-    //time when this task was last started
-    start_date: {type: Date},
-    
-    //time when this task was last finished
-    finish_date: {type: Date},
-    
-    //time when this task was last failed
-    fail_date: {type: Date},
-
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },
-
+    
+    /////////////////////////////////////////////////////////////////////////
+    //
+    // I wonder if we should deprecate these dates in favor of task events..
+    //
+    //time when this task was last started (doesn't mean the actually start time of pbs jobs)
+    start_date: {type: Date},
+    //time when this task was last finished
+    finish_date: {type: Date},
+    //time when this task was last failed
+    fail_date: {type: Date},
     //time when this task was last updated (only used by put api?)
     update_date: {type: Date},
 });

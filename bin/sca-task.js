@@ -160,8 +160,24 @@ function check() {
 
 function handle_housekeeping(task, cb) {
     async.series([
+            
         //check to see if taskdir still exists
+        //TODO...
+        //taskdir could *appear* to be gone if admin temporarily unmount the file system, or metadata server is slow, etc, etc..
+        //I need to be really be sure that the directory is indeed removed before concluding that it is.
+        //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
+        //I also don't see much value in detecting if the directory is removed or not.. 
         function(next) {
+
+            //for now, let's only do this check if finish_date or fail_date is sufficiently old
+            var minage = new Date();
+            minage.setDate(minage.getDate() - 10); 
+            var check_date = task.finish_date || task.fail_date;
+            if(!check_date || check_date > minage) {
+                logger.info("skipping missing task dir check - as this task is too fresh");
+                return next();
+            }
+
             var missing_resource_ids = [];
             async.forEach(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
@@ -194,6 +210,7 @@ function handle_housekeeping(task, cb) {
                                 //next_resource();
                             }, 10*1000);
                             stream.on('close', function(code, signal) {
+                                //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
                                 if(code == 2) { //ls couldn't find the directory
                                     logger.debug("taskdir:"+taskdir+" is missing");
                                     missing_resource_ids.push(resource_id);
@@ -228,7 +245,7 @@ function handle_housekeeping(task, cb) {
                     //now.. if we *know* that there are no resource that has this task, consider it removed
                     if(resource_ids.length == 0) {
                         task.status = "removed"; //most likely removed by cluster
-                        task.status_msg = "Output from this task has been removed";
+                        task.status_msg = "Output from this task seems to have been removed";
                     }
                     task.save(function(err) {
                         if(err) return next(err);
@@ -323,9 +340,16 @@ function handle_housekeeping(task, cb) {
             });
         },
 
-        //removal of empty instance directory is done by sca-wf-resource service
+        function(next) {
+            //TODO - removal of empty instance directory is done by sca-wf-resource service (not true?)
+            next();
+        },
 
-        //TODO - stop tasks that got stuck in running / running_sync
+        function(next) {
+            //TODO - stop tasks that got stuck in running / running_sync
+            next();
+        },
+
     ], function(err) {
         //done with all house keeping..
         if(err) logger.error(err); //skip this task
@@ -601,9 +625,12 @@ function handle_running(task, next) {
                             task.finish_date = new Date();
                             task.save(function(err) {
                                 if(err) return next(err);
+                                rerun_child(task, next);
+                                /*
                                 db.Task.update({deps: task._id}, {
                                     //clear next_date on dependending tasks (not this task!) so that it will be handled immediately
-                                    $unset: {next_date: 1},
+                                    //also clear remove_date - I should 
+                                    $unset: {next_date: 1, remove_date: 1},
 
                                     //also.. if deps tasks has failed, set to *requested* again so that it will be re-tried
                                     //this allows task retried to resume the workflow where it fails.
@@ -612,6 +639,7 @@ function handle_running(task, next) {
                                     if(err) return next(err);
                                     update_instance_status(task.instance_id, next);
                                 });
+                                */
                             });
                         });
                         break;
@@ -663,6 +691,20 @@ function handle_running(task, next) {
                     out += data.toString();
                 });
             });
+        });
+    });
+}
+
+function rerun_child(task, cb) {
+    //find all child tasks
+    db.Task.find({deps: task._id}, function(err, tasks) {
+        if(tasks.length) logger.debug("rerunning child tasks", tasks.length);
+        //for each child, rerun
+        async.forEach(tasks, (_task, next_task)=>{
+            common.rerun_task(_task, null, next_task);
+        }, err=>{
+            if(err) return cb(err); 
+            update_instance_status(task.instance_id, cb);
         });
     });
 }
@@ -1116,13 +1158,17 @@ function start_task(task, resource, cb) {
                                             task.status = "finished";
                                             task.status_msg = "Service ran successfully";
                                             task.finish_date = new Date();
+
                                             task.save(function(err) {
                                                 if(err) return next(err);
+                                                rerun_child(task, next);
+                                                /*
                                                 //clear next_date on dependending tasks so that it will be checked immediately
                                                 db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, function(err) {
                                                     if(err) return next(err);
                                                     update_instance_status(task.instance_id, next);
                                                 });
+                                                */
                                             });
                                         });
                                     }
