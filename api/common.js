@@ -204,14 +204,14 @@ exports.progress = function(key, p, cb) {
 
 //ssh to host using username/password
 //currently only used by sshkey installer
-exports.ssh_command = function(username, password, host, command, cb) {
+exports.ssh_command = function(username, password, host, command, opts, cb) {
     var conn = new Client({/*readyTimeout:1000*60*/});
     var out = "";
     var ready = false;
     var nexted = false;
     conn.on('ready', function() {
         ready = true;
-        conn.exec(command, function(err, stream) {
+        conn.exec(command, opts, function(err, stream) {
             if (err) {
                 conn.end();
                 nexted = true;
