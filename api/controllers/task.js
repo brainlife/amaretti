@@ -90,7 +90,6 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
                     counts: counts, 
                     tasks: tasks.length, 
                     users: users.length,
-                    //_statuses: statuses,
                 });
             });
         });
@@ -252,31 +251,6 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
         
-        /*
-        //let user reset remove_date, or set it based on last relationship between request_date and remove_date
-        if(req.body.remove_date) task.remove_date = req.body.remove_date;
-        else if(task.remove_date) {
-            var diff = task.remove_date - task.request_date;
-            task.remove_date = new Date();
-            task.remove_date.setTime(task.remove_date.getTime() + diff); 
-        }
-
-        task.status = "requested";
-        task.status_msg = "";
-        task.request_date = new Date();
-        task.start_date = undefined;
-        task.finish_date = undefined;
-        task.next_date = undefined; //reprocess asap
-        task.products = undefined;
-        task.run = 0;
-
-        task.save(function(err) {
-            if(err) return next(err);
-            common.progress(task.progress_key, {status: 'waiting', msg: 'Task Re-requested'}, function() {
-                res.json({message: "Task successfully re-requested", task: task});
-            });
-        });
-        */
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
             res.json({message: "Task successfully re-requested", task: task});

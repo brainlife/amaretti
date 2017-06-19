@@ -805,7 +805,7 @@ router.post('/installsshkey', function(req, res, next) {
     if(pubkey === undefined) return next("missing pubkey");
     if(comment === undefined) return next("missing comment");
 
-    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey+'\" COMMENT=\"'+comment+'\" bash';
+    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey.addSlashes()+'\" COMMENT=\"'+comment.addSlashes()+'\" bash';
     common.ssh_command(username, password, host, command, function(err) {
         if(err) return next(err);
         res.json({message: 'ok'});

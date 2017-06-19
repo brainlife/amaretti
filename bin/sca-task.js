@@ -868,7 +868,7 @@ function start_task(task, resource, cb) {
                     conn.exec("mkdir -p "+taskdir, function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed create taskdir:"+taskdir);
+                            if(code) return next("Failed to create taskdir:"+taskdir+" code:"+code);
                             else next();
                         })
                         .on('data', function(data) {

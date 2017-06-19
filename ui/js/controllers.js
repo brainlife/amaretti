@@ -309,6 +309,8 @@ app.component('accessGroups', {
     },
 });
 
+/* this uses installssh api that I'd like to deprecate*/
+/*
 app.controller('AutoconfController', function($scope, menu, serverconf, scaMessage, toaster, $location, services, resources, appconf, $http) {
     scaMessage.show(toaster);
 
@@ -390,7 +392,7 @@ app.controller('AutoconfController', function($scope, menu, serverconf, scaMessa
 
     $scope.run = function() {
         $scope.page = 'run';
-        forge.pki.rsa.generateKeyPair({bits: 2048, workers: 2/*e: 0x10001*/}, function(err, keypair) {
+        forge.pki.rsa.generateKeyPair({bits: 2048, workers: 2}, function(err, keypair) {
             if(err) {
                 toaster.error(err);
                 return;
@@ -412,4 +414,7 @@ app.controller('AutoconfController', function($scope, menu, serverconf, scaMessa
         document.location = "#/resources/";
     }
 });
+*/
+
+
 
