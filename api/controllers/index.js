@@ -11,6 +11,7 @@ const config = require('../../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
+const transfer = require('../transfer'); //for health
 
 //remote service status (used by /health to analyze)
 var _status = {
@@ -76,19 +77,25 @@ router.get('/health', function(req, res) {
         }
     }
 
-    db.Instance.findOne().exec(function(err, record) {
+    transfer.sshagent_list_keys((err, keys)=>{
         if(err) {
             ret.status = 'failed';
             ret.message = err;
         }
-        if(!record) {
-            ret.status = 'failed';
-            ret.message = 'no instance from db';
-        }
-        
-        if(ret.status != "ok") logger.debug(ret);
+        ret.agent_keys = keys.length;
 
-        res.json(ret);
+        db.Instance.findOne().exec(function(err, record) {
+            if(err) {
+                ret.status = 'failed';
+                ret.message = err;
+            }
+            if(!record) {
+                ret.status = 'failed';
+                ret.message = 'no instance from db';
+            }
+            if(ret.status != "ok") logger.debug(ret);
+            res.json(ret);
+        });
     });
 });
 

@@ -22,6 +22,7 @@
     "multiparty": "^4.1.3",
     "request": "^2.81.0",
     "ssh2": "^0.5.5",
+    "sshpk-agent": "^1.6.0",
     "supertest": "^2.0.1",
     "winston": "^2.3.1"
   },

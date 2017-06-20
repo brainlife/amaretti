@@ -1,5 +1,8 @@
 #DEBUG=sca:* env=dev PORT=12403 nodemon -i node_modules ./index.js
 
+rm ssh-agent.sock
+ssh-agent -a ssh-agent.sock
+
 pm2 delete workflow
 pm2 start api/wf.js --name workflow --watch --ignore-watch="*.log test *.sh ui bin example"
 

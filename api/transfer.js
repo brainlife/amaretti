@@ -1,14 +1,22 @@
 'use strict';
 
 //contrib
-var winston = require('winston');
-var async = require('async');
+const winston = require('winston');
+const async = require('async');
+const sshagent = require('sshpk-agent');
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('./models');
-var common = require('../api/common');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('./models');
+const common = require('../api/common');
+
+console.log("using ssh_agent", process.env.SSH_AUTH_SOCK);
+var sshagent_client = new sshagent.Client();
+
+exports.sshagent_list_keys = function(cb) {
+    sshagent_client.listKeys(cb);
+}
 
 //TODO I still haven't decided if I should make this a task that dynamically inserted between 2 dependent tasks at runtime.
 //(or will that leads to possible infinite loop?)

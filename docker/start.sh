@@ -16,6 +16,8 @@
 #    )
 #fi
 
+ssh-agent -a ssh-agent.sock
+
 pm2 start /app/api/wf.js
 pm2 start /app/bin/sca-task.js
 pm2 start /app/bin/sca-resource.js
