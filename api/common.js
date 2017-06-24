@@ -106,7 +106,10 @@ exports.get_ssh_connection = function(resource, cb) {
             logger.error(err);
         }
         delete ssh_conns[resource._id];
-        cb(err);
+
+        //error could fire after ready event is received, so I should check to see if I've already
+        //called cb()
+        if(!conn.ready_time) cb(err);
     });
 
     exports.decrypt_resource(resource);
@@ -114,7 +117,8 @@ exports.get_ssh_connection = function(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 60*1000,
+        keepaliveInterval: 60*1000, //defualt 0
+        keepaliveCountMax: 10, //default 3
     });
 }
 

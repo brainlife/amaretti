@@ -86,6 +86,22 @@ module.exports = {
         }
     },
 
+    iuhpc: {
+        type: "ssh",
+        name: "IU HPC Systems",
+        desc: "IU's HPC Systems",
+        workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
+
+        envs: {
+           ENV: "IUHPC",
+        },
+
+        //services supported by this resource and score
+        services: {
+            //"brain-life/app-freesurfer": {score: 11},
+        }
+    },
+
     sda: {
         type: "hpss", 
         name: "IU / Scholary Data Archive", 

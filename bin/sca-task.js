@@ -743,13 +743,13 @@ function start_task(task, resource, cb) {
                 SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
 
                 //WORKFLOW_ID: task.instance_id.toString(),
-                INST_DIR: workdir,
                 //TASK_ID: task._id.toString(),
                 //TASK_DIR: taskdir,
                 //SERVICE: service,
-                SERVICE_DIR: servicedir, //where the application is installed
                 //WORK_DIR: workdir,
-                //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
+                SERVICE_DIR: servicedir, //where the application is installed
+                INST_DIR: workdir,
+                PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
             };
 
             //optional envs

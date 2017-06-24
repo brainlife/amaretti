@@ -252,11 +252,29 @@ function ls_resource(resource, _path, cb) {
     });
 }
 
-//http://stackoverflow.com/questions/770523/escaping-strings-in-javascript
+//https://stackoverflow.com/questions/770523/escaping-strings-in-javascript
+/*
 String.prototype.addSlashes = function()
 {
    //no need to do (str+'') anymore because 'this' can only be a string
    return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
+}
+*/
+
+//http://locutus.io/php/strings/addslashes/
+String.prototype.addSlashes = function() {
+  //  discuss at: http://locutus.io/php/addslashes/
+  // original by: Kevin van Zonneveld (http://kvz.io)
+  // improved by: Ates Goral (http://magnetiq.com)
+  // improved by: marrtins
+  // improved by: Nate
+  // improved by: Onno Marsman (https://twitter.com/onnomarsman)
+  // improved by: Brett Zamir (http://brett-zamir.me)
+  // improved by: Oskar Larsson Högfeldt (http://oskar-lh.name/)
+  //    input by: Denny Wardhana
+  //   example 1: addslashes("kevin's birthday")
+  //   returns 1: "kevin\\'s birthday"
+  return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
 
 /*
@@ -806,12 +824,15 @@ router.post('/installsshkey', function(req, res, next) {
     if(pubkey === undefined) return next("missing pubkey");
     if(comment === undefined) return next("missing comment");
 
-    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | bash';
+    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey.addSlashes()+'\" COMMENT=\"'+comment.addSlashes()+'\" bash';
+    //var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | bash';
     common.ssh_command(username, password, host, command, {
+        /* karst sshd doesn't allow ssh client env
         env: {
             PUBKEY: pubkey,
             comment: comment,
         }
+        */
     }, function(err) {
         if(err) return next(err);
         res.json({message: 'ok'});

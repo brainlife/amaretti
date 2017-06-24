@@ -373,7 +373,9 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     var id = req.params.taskid;
 
     //this is admin only api (for now..)
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
+    //if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
+    //warehouse service currently relies on config to store archival information
+    //I need to store it somewhere else - since I shouldn't be letting user modify this
 
     db.Task.findById(id, function(err, task) {
         if(!task) return next("no such task:"+id);

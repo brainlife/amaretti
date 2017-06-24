@@ -242,7 +242,7 @@ function check_sftp(resource, conn, cb) {
                     cb(null, "ok", "ssh connection is good and workdir is accessible (created)");
                 });
             } else {
-                logger.debug("got dir", list);
+                //logger.debug("got dir", list);
                 //clearTimeout(t);
                 cb(null, "ok", "ssh connection is good and workdir is accessible");
             }
