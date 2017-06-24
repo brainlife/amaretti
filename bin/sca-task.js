@@ -936,9 +936,9 @@ function start_task(task, resource, cb) {
                                 } else {
                                     common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
 
-                                    //register new resource_id where the task_dir is synced to
-                                    if(!~task.resource_ids.indexOf(resource._id)) task.resource_ids.push(resource._id);
-                                    task.save(next_dep);
+                                    //need to add dest resource to source dep
+                                    if(!~dep.resource_ids.indexOf(resource._id)) dep.resource_ids.push(resource._id.toString());
+                                    dep.save(next_dep);
                                 }
                             }, function(progress) {
                                 common.progress(task.progress_key+".sync", progress);

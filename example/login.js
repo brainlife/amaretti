@@ -7,7 +7,7 @@ var jwt = require('jsonwebtoken');
 var sca = "https://soichi7.ppa.iu.edu/api";
 
 request.post({
-    url: sca+"/auth/ldap/auth", 
+    url: sca+"/auth/local/auth", 
     json: true,
     body: {username: "hayashis", password: process.env.PASSWORD}
 }, function(err, res, body) {
