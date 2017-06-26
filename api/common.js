@@ -1,17 +1,11 @@
-'use strict';
-
-//node
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-
-//contrib
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
 const request = require('request');
 
-//mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('./models');

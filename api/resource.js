@@ -16,7 +16,7 @@ exports.select = function(user, task, cb) {
     //select all resource available for the user and active
     logger.debug("finding resource to run .select task_id:",task._id,"service:",task.service,"branch:",task.service_branch,"user:",user,"deps:");
 
-    //pull resource_ids of deps
+    //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
     if(task.deps) {
         //logger.debug(JSON.stringify(task.deps, null, 4));
@@ -29,6 +29,7 @@ exports.select = function(user, task, cb) {
         logger.debug("dep_resource_ids:", dep_resource_ids);
     }
 
+    //load resource that user has access
     db.Resource.find({
         "$or": [
             {user_id: user.sub},
@@ -45,76 +46,98 @@ exports.select = function(user, task, cb) {
         //select the best resource based on the task
         var best = null;
         var best_score = null;
-        resources.forEach(function(resource) {
-            logger.debug("resource:",resource.name, resource._id.toString())
-            var score = score_resource(user, resource, task);
-            if(score == 0) return;
+        async.eachSeries(resources, (resource, next_resource)=>{
+            logger.debug("scoring resource:",resource.name, resource._id.toString())
+            score_resource(user, resource, task, (err, score)=>{
+                if(score == 0) {
+                    logger.debug("  resource doesn't support this task (or busy)");
+                    return next_resource();
+                }
+                
+                //+5 if resource is listed in dep
+                if(~dep_resource_ids.indexOf(resource._id.toString())) {
+                    logger.debug("  resource listed in deps/resource_ids.. +5");
+                    score = score+5;
+                }
 
-            //+5 if resource is listed in dep
-            if(~dep_resource_ids.indexOf(resource._id.toString())) {
-                logger.debug("  resource listed in deps/resource_ids.. +5");
-                score = score+5;
-            }
+                //+10 score if it's owned by user
+                if(resource.user_id == user.sub) {
+                    logger.debug("  user owns this.. +10");
+                    score = score+10;
+                }
+                //+15 score if it's preferred by user (TODO need to make sure this still works)
+                if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
+                    logger.debug("  user prefers this.. +15");
+                    score = score+15;
+                }
 
-            //+10 score if it's owned by user
-            if(resource.user_id == user.sub) {
-                logger.debug("  user owns this.. +10");
-                score = score+10;
-            }
-            //+15 score if it's preferred by user (TODO need to make sure this still works)
-            if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
-                logger.debug("  user prefers this.. +15");
-                score = score+15;
-            }
-            logger.debug("  score:",score);
+                logger.debug("  final score:",score);
 
-            //pick the best score...
-            if(!best || score > best_score) {
-                best_score = score;
-                best = resource;
+                //pick the best score...
+                if(!best || score > best_score) {
+                    best_score = score;
+                    best = resource;
+                } 
+
+                next_resource(null);
+            });
+        }, err=>{
+            //for debugging
+            if(best) {
+                logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
+            } else {
+                logger.debug("no resource matched to run this task :)");
             } 
+            cb(err, best, best_score);
         });
-
-        //for debugging
-        if(best) {
-            logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
-        } else {
-            logger.debug("no resource matched to run this task :)");
-        } 
-        cb(null, best, best_score);
     });
 }
 
-function score_resource(user, resource, task) {
+function score_resource(user, resource, task, cb) {
     //see if this resource supports requested service
     var resource_detail = config.resources[resource.resource_id];
     //TODO other things we could do..
     //1... handle task.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
-    //3... take resource utilization into account (pick least used docker host, for example)
     if(!resource_detail) {
         logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
-        return 0;
-    }
+        return cb(null, 0);
+    } else {
+        var score = 0;
 
-    //see if the resource.config has score
-    if( resource.config && 
-        resource.config.services) {
-        var score = null;
-        resource.config.services.forEach(function(service) {
-            if(service.name == task.service) score = service.score;
-        });
-        if(score) return score;
+        function get_score() {
+            //first, pull score from resource_detail
+            if( resource_detail.services &&
+                resource_detail.services[task.service]) {
+                score = resource_detail.services[task.service].score;
+            }
+            
+            //override it with instance specific score
+            if( resource.config && 
+                resource.config.services) {
+                resource.config.services.forEach(function(service) {
+                    if(service.name == task.service) score = service.score;
+                });
+            }
+            cb(null, score);
+        }
+
+
+        //check number of tasks currently running on this resource and compare it with maxtask if set
+        var maxtask = resource_detail.maxtask;
+        if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
+        if(maxtask) {
+            db.Task.find({resource_id: resource._id, task: "running"}, (err, tasks)=>{
+                if(err) logger.error(err);
+                logger.debug("  tasks running ", tasks.length);
+                if(maxtask >= task.length) {
+                    logger.debug("  resource busy");
+                    cb(null, 0);
+                } else get_score();
+            });
+        } else get_score();
     }
     
-    //pull resource_detail info
-    if( resource_detail && 
-        resource_detail.services &&
-        resource_detail.services[task.service]) {
-        return resource_detail.services[task.service].score;
-    }
-    logger.debug("  this resource doesn't support "+task.service);
-    return 0;
 }
 
 //run appropriate tests based on resource type

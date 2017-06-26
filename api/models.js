@@ -118,7 +118,7 @@ var taskSchema = mongoose.Schema({
     // fields that user can set during request
 
     //workflow instance id
-    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance'},
+    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
 
     //github repo
     service: String, // "soichih/sca-service-life"
@@ -155,11 +155,11 @@ var taskSchema = mongoose.Schema({
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
 
-    status: String,  //requested, running, failed, stop_requested, stopped, (running_sync), removed, 
+    status: {type: String, index: true}, //requested, running, failed, stop_requested, stopped, (running_sync), removed, 
     status_msg: String,
 
     //resource where the task is currently running (or was)
-    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
+    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true},
 
     //resources where task dir exits (where it ran, or synced)
     resource_ids: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
@@ -171,7 +171,7 @@ var taskSchema = mongoose.Schema({
     products: mongoose.Schema.Types.Mixed,
  
     //next time sca-task should check this task again (unset to check immediately)
-    next_date: {type: Date},
+    next_date: {type: Date, index: true},
     
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },

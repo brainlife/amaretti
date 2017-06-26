@@ -115,6 +115,9 @@ module.exports = {
         desc: "Such as Jetstream Instance",
         //hostname: "q6.sca.iu.edu",
         workdir: "/home/__username__/workflows", //could run out of disk easily
+
+        //maximum number of tasks that this resource can run at a given moment (prototype)
+        maxtask: 1,
         
         //extra envs to set (resource specific env may override)
         envs: {
