@@ -16,9 +16,11 @@ module.exports = {
 
         //services supported by this resource and score
         services: {
+            "soichih/sca-product-raw": {score: 8},
             "soichih/sca-service-hpss": {score: 10},
-            "brain-life/app-freesurfer": {score: 10},
-            "brain-life/app-networkneuro": {score: 10}, 
+
+            "brain-life/app-freesurfer": {score: 4},
+            "brain-life/app-networkneuro": {score: 4}, 
 
             "soichih/sca-service-noop": {score: 10},
 
@@ -47,13 +49,13 @@ module.exports = {
             "soichih/sca-product-raw": {score: 9},
             "soichih/sca-service-noop": {score: 10},
 
-            "brain-life/app-freesurfer": {score: 8},
+            "brain-life/app-freesurfer": {score: 5},
 
-            "brain-life/app-dtiinit": {score: 10},
-            "brain-life/app-autoalignacpc": {score: 10},
-            "brain-life/app-tractclassification": {score: 10},
-            "brain-life/app-tracking": {score: 10},
-            "brain-life/app-life": {score: 10},
+            "brain-life/app-dtiinit": {score: 4},
+            "brain-life/app-autoalignacpc": {score: 4},
+            "brain-life/app-tractclassification": {score: 4},
+            "brain-life/app-tracking": {score: 4},
+            "brain-life/app-life": {score: 4},
 
             //moved to soichi7
             //"soichih/sca-service-conneval-validate": {score: 10},
@@ -117,7 +119,7 @@ module.exports = {
         workdir: "/home/__username__/workflows", //could run out of disk easily
 
         //maximum number of tasks that this resource can run at a given moment (prototype)
-        maxtask: 1,
+        maxtask: 4,
         
         //extra envs to set (resource specific env may override)
         envs: {

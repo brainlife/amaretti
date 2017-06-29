@@ -1,15 +1,15 @@
 'use strict';
 
 //contrib
-var winston = require('winston');
-var async = require('async');
-var Client = require('ssh2').Client;
+const winston = require('winston');
+const async = require('async');
+const Client = require('ssh2').Client;
 
 //mine
-var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('./models');
-var common = require('./common');
+const config = require('../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('./models');
+const common = require('./common');
 
 //task needs to have populated deps
 exports.select = function(user, task, cb) {
@@ -127,12 +127,11 @@ function score_resource(user, resource, task, cb) {
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
         if(maxtask) {
-            db.Task.find({resource_id: resource._id, task: "running"}, (err, tasks)=>{
+            db.Task.find({resource_id: resource._id, status: "running"}, (err, tasks)=>{
                 if(err) logger.error(err);
-                logger.debug("  tasks running ", tasks.length);
-                if(maxtask >= task.length) {
-                    logger.debug("  resource busy");
-                    cb(null, 0);
+                logger.debug("  tasks running ", tasks.length, "maxtask:", maxtask);
+                if(maxtask <= tasks.length) {
+                    cb(null, 0); //busy..
                 } else get_score();
             });
         } else get_score();
@@ -196,7 +195,6 @@ function check_ssh(resource, cb) {
             stream.on('close', function(code, signal) {
                 nexted = true;
                 if(ret_username.trim() == resource.config.username) {
-
                     check_sftp(resource, conn, function(err, status, msg) {
                         conn.end();
                         if(err) return cb(err);
