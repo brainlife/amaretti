@@ -245,7 +245,7 @@
     "title": "Generate ssh key pair",
     "name": "GENSSHKEYResource",
     "group": "Resource",
-    "description": "<p>Used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool) In the future, this might be moved to a dedicated SCA util API service (or deprecated)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
+    "description": "<p>Used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool) In the future, this might be moved to a dedicated service (or deprecated)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
     "success": {
       "examples": [
         {
@@ -523,6 +523,39 @@
     "filename": "api/controllers/resource.js",
     "groupTitle": "Resource",
     "name": "GetResourceTypes"
+  },
+  {
+    "group": "Resource",
+    "type": "get",
+    "url": "/resource/upload/:resourceid/:base64path",
+    "title": "Upload file",
+    "description": "<p>Upload a file to specified resource on specified path (needs to be inside a workdir)</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "{file stats uploaded}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource",
+    "name": "GetResourceUploadResourceidBase64path"
   },
   {
     "type": "post",
@@ -1367,7 +1400,7 @@
             "type": "Object",
             "optional": true,
             "field": "config",
-            "description": "<p>Configuration to pass to the service (will be stored as config.json in task dir)</p>"
+            "description": "<p>Configuration for task</p>"
           },
           {
             "group": "Parameter",

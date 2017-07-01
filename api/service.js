@@ -16,7 +16,7 @@ exports.loaddetail = function(service_name, cb) {
     var repourl = 'https://api.github.com/repos/'+service_name;
     if(config.github) {
         repourl += "?client_id="+config.github.client_id;
-        repourl += "?client_secret="+config.github.client_secret;
+        repourl += "&client_secret="+config.github.client_secret;
     }
     request(repourl, { json: true, headers: {'User-Agent': 'IU/SciApt/SCA'} }, function(err, _res, git) {
         if(err) return cb(err);
