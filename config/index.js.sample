@@ -5,7 +5,7 @@ const winston = require('winston');
 
 process.env.SSH_AUTH_SOCK = __dirname+"/../ssh-agent.sock";
 
-exports.sca = {
+var wf = {
     auth_pubkey: fs.readFileSync('/home/hayashis/git/auth/api/config/auth.pub'),
 
     //password to encrypt/decrypt confidential resource information
@@ -13,8 +13,10 @@ exports.sca = {
     resource_cipher_algo: 'aes-256-cbc',
 
     //jwt token used to access other services (like pulling users gids from auth service)
-    jwt: fs.readFileSync(__dirname+'/sca.jwt'),
+    jwt: fs.readFileSync(__dirname+'/wf.jwt'),
 }
+exports.wf = wf;
+exports.sca = wf; //deprecated
 
 //used to use github api (like service.js)
 exports.github = {
@@ -24,13 +26,13 @@ exports.github = {
 
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
-    amqp: {url: "amqp://wf:test@soichi7.sca:5672/sca"},
+    amqp: {url: "amqp://wf:test@localhost:5672/brainlife"},
     exchange: "wf", //used as prefix for full exchange name
 }
 
 //api endpoints for various services
 exports.api = {
-    auth: "https://soichi7.ppa.iu.edu/api/auth",
+    auth: "https://dev1.soichi.us/api/auth",
 }
 
 exports.test = {
@@ -46,14 +48,14 @@ exports.task_handler = {
     concurrency: 4,
 }
 
-exports.mongodb = "mongodb://localhost/sca";
+exports.mongodb = "mongodb://localhost/workflow";
 
 exports.express = {
     port: 12403,
 }
 
 exports.progress = {
-    api: 'https://soichi7.ppa.iu.edu/api/progress',
+    api: 'https://dev1.soichi.us/api/progress',
 }
 
 exports.resources = require('./resources');

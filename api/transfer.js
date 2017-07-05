@@ -6,6 +6,7 @@ const async = require('async');
 const Client = require('ssh2').Client;
 const sshagent = require('sshpk-agent');
 const sshpk = require('sshpk');
+//const timeout = require('callback-timeout');
 
 //mine
 const config = require('../config');
@@ -17,7 +18,10 @@ logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
 var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
 
 exports.sshagent_list_keys = function(cb) {
+    logger.debug("listing keys from sshagent");
+    //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
     sshagent_client.listKeys(cb);
+    //sshagent_client.listKeys(timeout(cb, 3000));
 }
 
 //TODO I still haven't decided if I should make this a task that dynamically inserted between 2 dependent tasks at runtime.
@@ -95,17 +99,11 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 logger.debug("transfer: decrypting source");
                 common.decrypt_resource(source_resource);
                 var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
+
+                //this throws if ssh agent isn't running, but try/catch won't catch.. 
+                //https://github.com/joyent/node-sshpk-agent/issues/11
                 sshagent_client.addKey(privkey, {expires: 10}, next);
             },
-            /* debug..
-            function(next) {
-                //dump keys 
-                sshagent_client.listKeys((err, keys)=>{
-                    logger.debug(keys);
-                    next();
-                });
-            },
-            */
 
             function(next) {
                 //make sure dest dir exists

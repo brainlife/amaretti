@@ -209,7 +209,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
     function create_dialog(resource, inst) {
         var template = null;
 
-        //TODO default username to SCA username?
+        //TODO default username to username?
         var def = {
             active: true, 
             config: {
@@ -268,6 +268,15 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
                 }
 
                 $scope.resource = resource;
+
+                $scope.addservice = function() {
+                    $scope.inst.config.services.push({name: "", score: 0});
+                }
+                $scope.removeservice = function(service) {
+                    var idx = $scope.inst.config.services.indexOf(service);
+                    $scope.inst.config.services.splice(idx, 1);
+                }
+
                 $scope.cancel = function() {
                     $modalInstance.dismiss('cancel');
                 }
@@ -355,7 +364,7 @@ app.controller('AutoconfController', function($scope, menu, serverconf, scaMessa
             pubkey: keys.pubkey,
         })
         .then(function(res) {
-            resource._status = "Registering resource with SCA";
+            resource._status = "Registering resource";
             //console.dir(resource);
             $http.post(appconf.api+'/resource', {
                 type: resource.type,

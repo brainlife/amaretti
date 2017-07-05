@@ -145,7 +145,6 @@ exports.check = function(resource, cb) {
     if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
     if(detail.type === undefined) return cb(resource.resource_id+" doesn't have type defined.. don't know how to check");
 
-    //logger.debug(detail);
     switch(detail.type) {
     case "ssh":
         check_ssh(resource, update_status);
@@ -243,6 +242,7 @@ function check_ssh(resource, cb) {
 }
 
 //make sure I can open sftp connection and access workdir
+//TODO - I should also check to make sure that I can write to workdir
 function check_sftp(resource, conn, cb) {
     var workdir = common.getworkdir(null, resource);
     conn.sftp(function(err, sftp) {

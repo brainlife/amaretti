@@ -7,7 +7,7 @@ module.exports = {
         name: "IU / BigRed2", 
         hostname: "bigred2.uits.iu.edu",
         desc: "IU's high performance computing cluster",
-        workdir: "/N/dc2/scratch/__username__/sca/workflows",
+        workdir: "/N/dc2/scratch/__username__/dev1-workflows",
         
         //extra envs to set (resource specific env may override)
         envs: {
@@ -34,7 +34,7 @@ module.exports = {
         name: "IU / Karst", 
         desc: "IU's high throughput computing cluster",
         hostname: "karst.uits.iu.edu",
-        workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
+        workdir: "/N/dc2/scratch/__username__/dev1-workflows",
         
         //extra envs to set (resource specific env may override)
         envs: {
@@ -57,11 +57,6 @@ module.exports = {
             "brain-life/app-tracking": {score: 4},
             "brain-life/app-life": {score: 4},
 
-            //moved to soichi7
-            //"soichih/sca-service-conneval-validate": {score: 10},
-            //"soichih/validator-neuro-dwi": {score: 10},
-            //"soichih/validator-neuro-t1": {score: 10}, //todo
-
             "soichih/sca-service-connectome-data-comparison": {score: 10},
 
             "brain-life/app-datanormalize": {score: 10},
@@ -77,7 +72,7 @@ module.exports = {
         name: "OSG Connect (osgconnect.net)", 
         desc: "National distributed high throughput computing submit node",
         hostname: "login.osgconnect.net",
-        workdir: "/local-scratch/__username__/sca/workflows",
+        workdir: "/local-scratch/__username__/dev1-workflows",
         
         services: {
             "soichih/sca-service-osgblast": {score: 10},
@@ -92,7 +87,7 @@ module.exports = {
         type: "ssh",
         name: "IU HPC Systems",
         desc: "IU's HPC Systems",
-        workdir: "/N/dc2/scratch/__username__/sca/s7-workflows",
+        workdir: "/N/dc2/scratch/__username__/dev1-workflows",
 
         envs: {
            ENV: "IUHPC",
@@ -115,11 +110,10 @@ module.exports = {
         type: "ssh", 
         name: "Generic VM Instance", 
         desc: "Such as Jetstream Instance",
-        //hostname: "q6.sca.iu.edu",
-        workdir: "/home/__username__/workflows", //could run out of disk easily
+        workdir: "/home/__username__/dev1-workflows", //could run out of disk easily
 
         //maximum number of tasks that this resource can run at a given moment (prototype)
-        maxtask: 4,
+        maxtask: 1,
         
         //extra envs to set (resource specific env may override)
         envs: {
@@ -129,9 +123,6 @@ module.exports = {
         //services supported by this resource
         services: {
             "soichih/sca-service-noop": {score: 10},
-
-            //for staging data directly for novnc
-            //"soichih/sca-product-raw": {score: 8},
         }
     },
 }

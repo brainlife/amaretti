@@ -3,9 +3,7 @@
 angular.module('app.config', [])
 .constant('appconf', {
 
-    //brand: {label : 'soichi7'},
-
-    title: 'SCA Portal',
+    title: 'Workflow Service',
     api: '../api/wf',
 
     //shared servive api and ui urls (for menus and stuff)
@@ -36,17 +34,6 @@ angular.module('app.config', [])
                 return false;
             }
         },
-        /*
-        {
-            id: "services",
-            label: "Services",
-            url: "#/services",
-            show: function(scope) {
-                if(~scope.sca.indexOf('user')) return true;
-                return false;
-            }
-        },
-        */
         {
             id: "about",
             label: "About",

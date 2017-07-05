@@ -34,7 +34,7 @@
                     <p class="help-block">{{resource.desc}}</p>
                     <!-- <p class="help-block">{{resource.hostname}}</p>-->
                     <span ng-repeat="(sid, detail) in resource.services">
-                        <span class="label label-default">{{sid}}</span>&nbsp;
+                        <span class="label label-default">{{sid}} ({{detail.score}})</span>&nbsp;
                     </span>
                 </div>
                 <div class="col-md-8">
@@ -123,7 +123,7 @@
         </div>
         <div class="form-group">
             <label>Sharing</label>
-            <p class="help-block">* Only SCA administrator can share resources</p>
+            <p class="help-block">* Only administrator can share resources</p>
             <access-groups gids="inst.gids" readonly="!isadmin"></access-groups>
         </div>
         <div class="form-group">
@@ -168,7 +168,7 @@
             <label>SSH Public Key</label>
             <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{resource.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
             <button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>
-            <p class="well well-sm" style="font-family: Courier; font-size: 75%; word-wrap: break-word;">#Public key to allow access to this resource through SCA ({{inst.name}})<br>
+            <p class="well well-sm" style="font-family: Courier; font-size: 75%; word-wrap: break-word;">#Public key to allow access to this resource through ({{inst.name}})<br>
 {{inst.config.ssh_public}} {{inst.config.username}}@sca</p>
             <!--
             <label>SSH Private Key</label>
@@ -178,7 +178,7 @@
         </div>
         <div class="form-group">
             <label>Sharing</label>
-            <p class="help-block">Only SCA administrator can share resources</p>
+            <p class="help-block">Only administrator can share resources</p>
             <access-groups gids="inst.gids" readonly="!isadmin"></access-groups>
         </div>
         <div class="form-group">
@@ -187,10 +187,25 @@
         </div>
         <div class="form-group">
             <label>Services</label>
+            <!--
             <ui-select multiple tagging="service_transform" ng-model="inst.config.services" title="Enter services to run">
                 <ui-select-match placeholder="Specify Services..">{{$item.name}} {{$item.score}}</ui-select-match>
                 <ui-select-choices repeat="service in []">{{service.name}} (score:{{service.score}})</ul-select-choices> 
             </ui-select>
+            -->
+
+            <div class="input-group" ng-repeat="service in inst.config.services" style="margin-bottom: 2px;">
+                <span class="input-group-addon">Service</span>
+                <input type="text" class="form-control" id="basic-url" ng-model="service.name" style="width: 320px">
+                <span class="input-group-addon">Score</span>
+                <input type="text" class="form-control" id="basic-url" ng-model="service.score">
+                <span class="input-group-addon" ng-click="removeservice(service)"><i class="fa fa-trash" aria-hidden="true"></i></span>
+            </div>
+            <ul class="list-group">
+                <li class="list-group-item clickable" ng-click="addservice()">
+                    <span class="text-muted"><i class="fa fa-plus" aria-hidden="true"></i> Add New Service</span>
+                </li>
+            </ul>
         </div>
     </div>
     <div class="modal-footer">
