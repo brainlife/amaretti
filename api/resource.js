@@ -122,7 +122,6 @@ function score_resource(user, resource, task, cb) {
             cb(null, score);
         }
 
-
         //check number of tasks currently running on this resource and compare it with maxtask if set
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
@@ -136,7 +135,6 @@ function score_resource(user, resource, task, cb) {
             });
         } else get_score();
     }
-    
 }
 
 //run appropriate tests based on resource type
