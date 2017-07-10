@@ -119,7 +119,7 @@ function score_resource(user, resource, task, cb) {
                     if(service.name == task.service) score = service.score;
                 });
             }
-            cb(null, score);
+            cb(null, parseInt(score)); //in-case score is set to string.. 
         }
 
         //check number of tasks currently running on this resource and compare it with maxtask if set

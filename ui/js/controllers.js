@@ -270,7 +270,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
                 $scope.resource = resource;
 
                 $scope.addservice = function() {
-                    $scope.inst.config.services.push({name: "", score: 0});
+                    $scope.inst.config.services.push({name: "", score: 10});
                 }
                 $scope.removeservice = function(service) {
                     var idx = $scope.inst.config.services.indexOf(service);
