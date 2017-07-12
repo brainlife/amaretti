@@ -419,7 +419,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
                             logger.debug("streaming closed");
                             sftp.stat(_path, function(err, stat) {
                                 sftp.end();
-                                if(err) return next(err);
+                                if(err) return next(err.toString());
                                 res.json({file: {filename: part.filename, attrs: stat}});
                             });
                         });
@@ -487,7 +487,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                             //get file info (to be sure that the file is uploaded?)
                             sftp.stat(fullpath, function(err, stat) {
                                 sftp.end();
-                                if(err) return next(err);
+                                if(err) return next(err.toString());
                                 res.json({filename: path.basename(fullpath), attrs: stat});
                             });
                         }
@@ -563,7 +563,7 @@ router.get('/download', jwt({
             if(fullpath.indexOf(safepath) !== 0) return next("you can't download from outside workdir");
 
             sftp.stat(fullpath, function(err, stat) {
-                if(err) return next(err);
+                if(err) return next(err.toString() + " -- "+fullpath);
                 //logger.debug(stat);
                 if(stat.isDirectory()) {
                     logger.debug("sending directory(.tar.gz)", fullpath);

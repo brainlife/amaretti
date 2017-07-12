@@ -18,7 +18,7 @@ logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
 var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
 
 exports.sshagent_list_keys = function(cb) {
-    logger.debug("listing keys from sshagent");
+    //logger.debug("listing keys from sshagent");
     //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
     sshagent_client.listKeys(cb);
     //sshagent_client.listKeys(timeout(cb, 3000));
