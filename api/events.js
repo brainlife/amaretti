@@ -69,6 +69,7 @@ exports.task = function(task) {
     //some fields are populated (foreign keys are de-referenced)
     //to normalize the field type, let's load the record from database
     db.Task.findById(task._id, (err, _task)=>{
+        //logger.debug("event", task._id.toString());
         publish_or_log(task_ex, key, _task);
     });
 }

@@ -46,7 +46,7 @@ function set_nextdate(task) {
         max = 24*3600*1000; //24 hours
         break;
     default:
-        max = 30*60*1000;
+        max = 30*60*1000; //30 minutes
     }
     task.next_date = new Date();
     if(task.start_date) {
@@ -300,10 +300,10 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         logger.info("removing "+taskdir+" and workdir if empty");
-                        conn.exec("rm -rf "+taskdir+" && rmdir --ignore-fail-on-non-empty "+workdir, function(err, stream) {
+                        conn.exec("rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")", function(err, stream) {
                             if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
-                                if(code) return next_resource("Failed to remove taskdir "+taskdir);
+                                if(code) return next_resource("Failed to remove taskdir "+taskdir+" code:"+code);
                                 else {
                                     removed_count++;
                                     next_resource();
@@ -432,7 +432,7 @@ function handle_requested(task, next) {
         }*/, function(err, resource) {
             if(err) return next(err);
             if(!resource) {
-                task.status_msg = "No resource available to run this task.. postponing.";
+                task.status_msg = "No resource available to run this task.. waiting.. ";
                 task.save(next);
                 return;
             }
@@ -919,6 +919,8 @@ function start_task(task, resource, cb) {
                     if(!task.deps) return next(); //skip
                     async.forEach(task.deps, function(dep, next_dep) {
                         //if resource is the same, don't need to sync
+                        //logger.debug("task/resource_id", resource._id.toString());
+                        //logger.debug("dep(source)/resource_id", dep.resource_id.toString());
                         if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
@@ -1162,13 +1164,6 @@ function start_task(task, resource, cb) {
                                             task.save(function(err) {
                                                 if(err) return next(err);
                                                 rerun_child(task, next);
-                                                /*
-                                                //clear next_date on dependending tasks so that it will be checked immediately
-                                                db.Task.update({deps: task._id}, {$unset: {next_date: 1}}, {multi: true}, function(err) {
-                                                    if(err) return next(err);
-                                                    update_instance_status(task.instance_id, next);
-                                                });
-                                                */
                                             });
                                         });
                                     }

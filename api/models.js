@@ -15,6 +15,7 @@ mongoose.Promise = global.Promise;
 
 exports.init = function(cb) {
     mongoose.connect(config.mongodb, {
+        //TODO - isn't auto_reconnect set by default?
         server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
     }, function(err) {
         if(err) return cb(err);

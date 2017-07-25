@@ -73,9 +73,19 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        logger.debug("reusing previously established ssh connection. # of connections:"+Object.keys(ssh_conns).length);
+        //logger.debug("reusing ssh connection. # of connections:"+Object.keys(ssh_conns).length);
+        logger.debug("reusing ssh connection. sessions:", old.sessions);
         old.last_used = new Date();
-        return cb(null, old);
+        
+        //limit to 5 channels
+        if(Object.keys(old._channels).length < 8) {  //max is 10 on karst
+            return cb(null, old);
+        } else {
+            logger.debug("channel busy .. waiting");
+            setTimeout(()=>{
+                exports.get_ssh_connection(resource, cb);
+            }, 1000);
+        }
     }
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
@@ -84,6 +94,7 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.debug("ssh connection ready");
         conn.ready_time = new Date();
         conn.last_used = new Date();
+        conn.sessions = 1;
         cb(null, conn);
     });
     conn.on('end', function() {
