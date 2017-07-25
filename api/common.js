@@ -74,11 +74,12 @@ exports.get_ssh_connection = function(resource, cb) {
     var old = ssh_conns[resource._id];
     if(old) {
         //logger.debug("reusing ssh connection. # of connections:"+Object.keys(ssh_conns).length);
-        logger.debug("reusing ssh connection. sessions:", old.sessions);
+        var chans = Object.keys(old._channels).length;
+        logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
         old.last_used = new Date();
         
         //limit to 5 channels
-        if(Object.keys(old._channels).length < 8) {  //max is 10 on karst
+        if(chans < 8) {  //max is 10 on karst
             return cb(null, old);
         } else {
             logger.debug("channel busy .. waiting");
@@ -94,7 +95,6 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.debug("ssh connection ready");
         conn.ready_time = new Date();
         conn.last_used = new Date();
-        conn.sessions = 1;
         cb(null, conn);
     });
     conn.on('end', function() {

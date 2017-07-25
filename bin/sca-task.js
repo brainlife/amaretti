@@ -1066,6 +1066,14 @@ function start_task(task, resource, cb) {
                             }
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
+
+                        //report some debugging content
+                        stream.write("env\n");
+                        stream.write("uname -a\n"); //has hostname
+                        stream.write("cat /etc/issue\n"); //has hostname
+                        stream.write("vmstat -w\n");
+                        stream.write("df -h\n");
+                        
                         //if(service_detail.pkg.scripts.run) stream.write(servicedir+"/"+service_detail.pkg.scripts.run+"\n");
                         if(service_detail.pkg.scripts.run) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.run+"\n");
                         //if(service_detail.pkg.scripts.start) stream.write(servicedir+"/"+service_detail.pkg.scripts.start+"\n");
