@@ -430,7 +430,7 @@ function handle_requested(task, next) {
         }*/, function(err, resource) {
             if(err) return next(err);
             if(!resource) {
-                task.status_msg = "No resource available to run this task.. waiting.. ";
+                task.status_msg = "No resource currently available to run this task.. waiting.. ";
                 task.save(next);
                 return;
             }
@@ -738,16 +738,15 @@ function start_task(task, resource, cb) {
 
             var envs = {
                 //DEPRECATED - use versions below
-                SCA_WORKFLOW_ID: task.instance_id.toString(),
-                SCA_WORKFLOW_DIR: workdir,
-                SCA_TASK_ID: task._id.toString(),
-                SCA_TASK_DIR: taskdir,
-                SCA_SERVICE: service,
-                SCA_SERVICE_DIR: servicedir,
-                SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
+                //SCA_WORKFLOW_ID: task.instance_id.toString(),
+                //SCA_WORKFLOW_DIR: workdir,
+                //SCA_TASK_ID: task._id.toString(),
+                //SCA_TASK_DIR: taskdir,
+                //SCA_SERVICE: service,
+                //SCA_SERVICE_DIR: servicedir,
+                //SCA_PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
 
                 //WORKFLOW_ID: task.instance_id.toString(),
-                //TASK_ID: task._id.toString(),
                 //TASK_DIR: taskdir,
                 //SERVICE: service,
                 //WORK_DIR: workdir,
@@ -758,7 +757,7 @@ function start_task(task, resource, cb) {
 
             //optional envs
             if(service.service_branch) {
-                envs.SCA_SERVICE_BRANCH = service.service_branch; //DEPRECATED
+                //envs.SCA_SERVICE_BRANCH = service.service_branch; //DEPRECATED
                 envs.SERVICE_BRANCH = service.service_branch;
             }
 
@@ -790,6 +789,7 @@ function start_task(task, resource, cb) {
             }
 
             async.series([
+                /*
                 function(next) {
                     common.progress(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0.05, msg: 'Installing sca install script', weight: 0});
                     conn.exec("mkdir -p ~/.sca && cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
@@ -811,7 +811,24 @@ function start_task(task, resource, cb) {
                     conn.exec("cd ~/.sca && ./install.sh", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to run ~/.sca/install.sh");
+                            if(code) return next("Failed to run ~/.sca/install.sh. code:"+code);
+                            else next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                    });
+                },
+                */
+
+                //make sure some directory exists
+                next=>{
+                    conn.exec("mkdir -p ~/.sca/keys && chmod 700 ~/.sca/keys && mkdir -p ~/.sca/services", function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code) return next("Failed to prep ~/.sca");
                             else next();
                         })
                         .on('data', function(data) {
@@ -959,8 +976,8 @@ function start_task(task, resource, cb) {
                         logger.info("no config object stored in task.. skipping writing config.json");
                         return next();
                     }
-                    logger.debug("installing config.json");
-                    logger.debug(task.config);
+                    //logger.debug("installing config.json");
+                    //logger.debug(task.config);
                     conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -977,12 +994,51 @@ function start_task(task, resource, cb) {
                     });
                 },
 
+                //write _.env.sh (not yet used)
+                next=>{
+                    conn.exec("cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh", function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code) return next("Failed to write _env.sh -- code:"+code);
+                            next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                        stream.write("#!/bin/bash\n");
+
+                        //write some debugging info
+                        //logger.debug(JSON.stringify(resource_detail, null, 4));
+                        stream.write("# resource id    : "+resource._id+"\n");
+                        stream.write("# resource name  : "+resource.name+" ("+resource_detail.name+")\n");
+                        stream.write("# resource user  : "+(resource.config.username||resource_detail.username)+"\n");
+                        stream.write("# resource host  : "+(resource.config.hostname||resource_detail.hostname)+"\n");
+                        stream.write("# task id        : "+task._id.toString()+"\n");
+                        stream.write("# task dir       : "+taskdir+"\n");
+                        //stream.write("# task deps      : "+task.deps+"\n"); //need to unpopulate
+                        stream.write("# run(retry max) : "+task.run+"("+task.retry+")\n");
+                        stream.write("# remove_date    : "+task.remove_date+"\n");
+
+                        //write ENVs
+                        for(var k in envs) {
+                            var v = envs[k];
+                            if(typeof v !== 'string') {
+                                logger.warn("skipping non string value:"+v+" for key:"+k);
+                                continue;
+                            }
+                            var vs = v.replace(/\"/g,'\\"')
+                            stream.write("export "+k+"=\""+vs+"\"\n");
+                        }
+                        stream.end();
+                    });
+                },
+
                 //write _status.sh
                 function(next) {
                     //not all service has status
                     if(!service_detail.pkg.scripts.status) return next();
-
-                    logger.debug("installing _status.sh");
                     conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -995,6 +1051,7 @@ function start_task(task, resource, cb) {
                             logger.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
+                        /*
                         //console.dir(envs);
                         for(var k in envs) {
                             var v = envs[k];
@@ -1005,7 +1062,8 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        //stream.write(servicedir+"/"+service_detail.pkg.scripts.status);
+                        */
+                        stream.write("source _env.sh\n");
                         stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.status);
                         stream.end();
                     });
@@ -1029,12 +1087,14 @@ function start_task(task, resource, cb) {
                             logger.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
+                        /*
                         for(var k in envs) {
                             var v = envs[k];
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
-                        //stream.write(servicedir+"/"+service_detail.pkg.scripts.stop);
+                        */
+                        stream.write("source _env.sh\n");
                         stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.stop);
                         stream.end();
                     });
@@ -1060,6 +1120,7 @@ function start_task(task, resource, cb) {
                             logger.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
+                        /*
                         for(var k in envs) {
                             var v = envs[k];
                             if(v.replace) {
@@ -1070,17 +1131,18 @@ function start_task(task, resource, cb) {
                             }
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
+                        */
+                        stream.write("source _env.sh\n");
 
                         //report some debugging content
-                        stream.write("env\n");
+                        stream.write("hostname -a\n"); //has hostname
                         stream.write("uname -a\n"); //has hostname
                         stream.write("cat /etc/issue\n"); //has hostname
                         stream.write("vmstat -w\n");
                         stream.write("df -h\n");
+                        stream.write("env\n");
                         
-                        //if(service_detail.pkg.scripts.run) stream.write(servicedir+"/"+service_detail.pkg.scripts.run+"\n");
                         if(service_detail.pkg.scripts.run) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.run+"\n");
-                        //if(service_detail.pkg.scripts.start) stream.write(servicedir+"/"+service_detail.pkg.scripts.start+"\n");
                         if(service_detail.pkg.scripts.start) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.start+"\n");
                         stream.end();
                     });
