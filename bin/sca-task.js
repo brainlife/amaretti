@@ -174,7 +174,7 @@ function handle_housekeeping(task, cb) {
             minage.setDate(minage.getDate() - 10); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
-                logger.info("skipping missing task dir check - as this task is too fresh");
+                //logger.info("skipping missing task dir check - as this task is too fresh");
                 return next();
             }
 
@@ -387,8 +387,6 @@ function handle_requested(task, next) {
         return;
     }
 
-    //logger.debug(JSON.stringify(task, null, 4));
-
     //need to lookup user's gids to find all resources that user has access to
     logger.debug("looking up user/s gids from auth api");
     request.get({
@@ -530,7 +528,7 @@ function handle_stop(task, next) {
                     .on('data', function(data) {
                         logger.info(data.toString());
                     }).stderr.on('data', function(data) {
-                        logger.debug("receiveed stderr");
+                        logger.debug("received stderr");
                         logger.error(data.toString());
                     });
                 });
@@ -591,8 +589,14 @@ function handle_running(task, next) {
             var delimtoken = "=====WORKFLOW====="; //delimite output from .bashrc to _status.sh
             conn.exec("cd "+taskdir+" && echo '"+delimtoken+"' && ./_status.sh", {}, function(err, stream) {
                 if(err) return next(err);
+                //timeout in 15 seconds
+                var to = setTimeout(()=>{
+                    logger.error("status.sh timed-out");
+                    stream.close();
+                }, 15*1000);
                 var out = "";
                 stream.on('close', function(code, signal) {
+                    clearTimeout(to);
 
                     //remove everything before sca token (to ignore output from .bashrc)
                     var pos = out.indexOf(delimtoken);
@@ -1106,11 +1110,19 @@ function start_task(task, resource, cb) {
                         if(err) return next(err);
                         update_instance_status(task.instance_id, function(err) {
                             if(err) return next(err);
+
                             conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                                 /* BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via ssh2*/
                             }, function(err, stream) {
                                 if(err) return next(err);
+
+                                var boot_timeout = setTimeout(()=>{
+                                    logger.info("_boot.sh didn't complete in 30 seconds .. terminating");
+                                    stream.close();
+                                }, 1000*30); //30 seconds should be enough to start
+
                                 stream.on('close', function(code, signal) {
+                                    clearTimeout(boot_timeout);
                                     if(code) {
                                         //I should undo the impossible next_date set earlier..
                                         task.next_date = new Date();
@@ -1143,7 +1155,7 @@ function start_task(task, resource, cb) {
                 function(next) {
                     if(!service_detail.pkg.scripts.run) return next(); //not all service uses run (they may use start/status)
 
-                    logger.debug("running_sync service: "+servicedir+"/"+service_detail.pkg.scripts.run);
+                    logger.error("running_sync service (depracate!): "+servicedir+"/"+service_detail.pkg.scripts.run);
                     common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                     task.run++;
@@ -1249,6 +1261,6 @@ function report_health() {
         //_status.instances = 0;
     });
 }
-setInterval(report_health, 1000*60*10);
-setTimeout(report_health, 1000*60); //report soon after start (so that sca-wf's health will look ok)
+setInterval(report_health, 1000*60); //report ssh connection stats every once a while
+setTimeout(report_health, 1000*10); //report soon after start (so that sca-wf's health will look ok)
 

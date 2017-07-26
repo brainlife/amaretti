@@ -16,7 +16,7 @@ module.exports = {
 
         //services supported by this resource and score
         services: {
-            "soichih/sca-product-raw": {score: 8},
+            //"soichih/sca-product-raw": {score: 8},
             "soichih/sca-service-hpss": {score: 10},
 
             "brain-life/app-freesurfer": {score: 4},
@@ -24,7 +24,7 @@ module.exports = {
 
             "soichih/sca-service-noop": {score: 10},
 
-            "_upload": {score: 7},
+            //"_upload": {score: 7},
         },
 
     },
@@ -43,10 +43,10 @@ module.exports = {
             
         //services supported by this resource
         services: {
-            "_upload": {score: 8},
+            //"_upload": {score: 8},
 
             "soichih/sca-service-hpss": {score: 10},
-            "soichih/sca-product-raw": {score: 9},
+            //"soichih/sca-product-raw": {score: 9},
             "soichih/sca-service-noop": {score: 10},
 
             "brain-life/app-freesurfer": {score: 5},

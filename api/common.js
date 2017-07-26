@@ -76,10 +76,12 @@ exports.get_ssh_connection = function(resource, cb) {
         //logger.debug("reusing ssh connection. # of connections:"+Object.keys(ssh_conns).length);
         var chans = Object.keys(old._channels).length;
         logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
-        old.last_used = new Date();
         
         //limit to 5 channels
-        if(chans < 8) {  //max is 10 on karst
+        //max seems to be 10 on karst, but user of ssh_connection can run as many sessions as they want..
+        //so let's be conservative
+        if(chans < 5) {  
+            old.last_used = new Date();
             return cb(null, old);
         } else {
             logger.debug("channel busy .. waiting");
@@ -88,6 +90,8 @@ exports.get_ssh_connection = function(resource, cb) {
             }, 1000);
         }
     }
+
+    //open new connection
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
@@ -187,6 +191,8 @@ exports.report_ssh = function() {
         logger.info(rid);
         logger.info("\tready time:",c.ready_time);
         logger.info("\tlast used:",c.last_used);
+        var chans = Object.keys(c._channels).length;
+        logger.info("\tchannels:",chans);
     }
     logger.info("sftp connections : ", sftp_cons);
     for(var rid in sftp_conns) {
