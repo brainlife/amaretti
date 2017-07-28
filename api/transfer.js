@@ -93,7 +93,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 });
             },
             */
-            function(next) {
+            next=>{
                 //forward source's ssh key to dest
                 //var privkey = sshpk.parsePrivateKey(fs.readFileSync("/home/hayashis/.ssh/id_rsa"), 'pem');
                 logger.debug("transfer: decrypting source");
@@ -102,10 +102,15 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
                 //this throws if ssh agent isn't running, but try/catch won't catch.. 
                 //https://github.com/joyent/node-sshpk-agent/issues/11
-                sshagent_client.addKey(privkey, {expires: 10}, next);
+                //"expires" in seconds (10 seconds seems to be too short..)
+                //TODO - I am not sure if 60 seconds is enough, or that extending it would fix the problem.
+                //    [rsync]
+                //    Permission denied (publickey).
+                //    sync: connection unexpectedly closed (0 bytes received so far) [receiver]
+                sshagent_client.addKey(privkey, {expires: 60}, next); 
             },
 
-            function(next) {
+            next=>{
                 //make sure dest dir exists
                 conn.exec("mkdir -p "+dest_path, function(err, stream) {
                     if(err) next(err);
@@ -120,7 +125,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     });
                 });
             },  
-            function(next) {
+
+            next=>{
                 //run rsync  (pull from source)
                 var source_resource_detail = config.resources[source_resource.resource_id];
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
@@ -142,8 +148,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) logger.error("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space - continuing in case we have *enough* data to run the task");//continue
-                        next();
+                        if(code) next("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space");
+                        else next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
                         /*
@@ -155,9 +161,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
                     });
-                    //var sshkey = new Buffer(source_resource.config.enc_ssh_private, 'utf8');
-                    //stream.write(sshkey);
-                    //stream.end();
                 });
             },
         ], err=>{

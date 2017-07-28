@@ -359,7 +359,7 @@ exports.rerun_task = function(task, remove_date, cb) {
     }
 
     task.status = "requested";
-    task.status_msg = "";
+    task.status_msg = "Re-requested";
     task.request_date = new Date();
     task.start_date = undefined;
     task.finish_date = undefined;
@@ -373,4 +373,13 @@ exports.rerun_task = function(task, remove_date, cb) {
             cb(err);
         });
     });
+}
+
+//search inside a list of mongoose ObjectID return position
+exports.indexOfObjectId = function(ids, search_id, cb) {
+    var pos = -1;
+    ids.forEach((id,idx)=>{
+        if(id.toString() == search_id.toString()) pos = idx;
+    });
+    return pos;
 }

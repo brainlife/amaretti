@@ -22,7 +22,7 @@ module.exports = {
             "brain-life/app-freesurfer": {score: 4},
             "brain-life/app-networkneuro": {score: 4}, 
 
-            "soichih/sca-service-noop": {score: 10},
+            //"soichih/sca-service-noop": {score: 10},
 
             //"_upload": {score: 7},
         },
@@ -47,7 +47,7 @@ module.exports = {
 
             "soichih/sca-service-hpss": {score: 10},
             //"soichih/sca-product-raw": {score: 9},
-            "soichih/sca-service-noop": {score: 10},
+            //"soichih/sca-service-noop": {score: 10},
 
             "brain-life/app-freesurfer": {score: 5},
 
@@ -122,7 +122,7 @@ module.exports = {
        
         //services supported by this resource
         services: {
-            "soichih/sca-service-noop": {score: 10},
+            //"soichih/sca-service-noop": {score: 10},
         }
     },
 }
