@@ -17,7 +17,7 @@ const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');
-const _resource_picker = require('../api/resource').select;
+const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
@@ -423,26 +423,20 @@ function handle_requested(task, next) {
                 return next(err);
             }
 
-            //find resource id of first dep task - then pick best resource
-            _resource_picker(
-            { //fake user object
+            var user = {
                 sub: task.user_id,
                 gids: gids,
-            }, task
-            /*{ //selection query
-                service: task.service,
-                preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
-                deps: task.deps,
-            }*/, function(err, resource, score, considered) {
+            }
+            _resource_select(user, task, function(err, resource, score, considered) {
                 if(err) return next(err);
                 if(!resource) {
                     task.status_msg = "No resource currently available to run this task.. waiting.. ";
                     task.save(next);
                     return;
                 }
-                logger.debug(JSON.stringify(considered, null, 4));
 
-                //set resource id
+                logger.debug(JSON.stringify(considered, null, 4));
+                task._considered = considered;
                 task.resource_id = resource._id;
                 task.status_msg = "Starting task";
                 if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {

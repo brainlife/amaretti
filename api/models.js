@@ -171,6 +171,9 @@ var taskSchema = mongoose.Schema({
     
     //environment parameters set in _boot.sh (nobody uses this.. just to make debugging easier)
     _envs: mongoose.Schema.Types.Mixed,
+
+    //list of resources considered while selecting the resource
+    _considered: mongoose.Schema.Types.Mixed,
     
     //content of products.json once generated
     products: mongoose.Schema.Types.Mixed,
