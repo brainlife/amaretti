@@ -827,44 +827,11 @@ function start_task(task, resource, cb) {
 
             logger.debug("starting task..");
             async.series([
-                /*
-                function(next) {
-                    common.progress(task.progress_key+".prep", {name: "Task Prep", status: 'running', progress: 0.05, msg: 'Installing sca install script', weight: 0});
-                    conn.exec("mkdir -p ~/.sca && cat > ~/.sca/install.sh && chmod +x ~/.sca/install.sh", function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write ~/.sca/install.sh");
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                        fs.createReadStream(__dirname+"/install.sh").pipe(stream);
-                    });
-                },
-                function(next) {
-                    common.progress(task.progress_key+".prep", {progress: 0.3, msg: 'Running sca install script (might take a while for the first time)'});
-                    conn.exec("cd ~/.sca && ./install.sh", function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to run ~/.sca/install.sh. code:"+code);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                    });
-                },
-                */
-
-                //make sure some directory exists
+                   
+                //make sure various directory exists
                 next=>{
                     logger.debug("making sure directories exists");
-                    conn.exec("mkdir -p ~/.sca/keys && chmod 700 ~/.sca/keys && mkdir -p ~/.sca/services", function(err, stream) {
+                    conn.exec("mkdir -p ~/.sca/keys && chmod 700 ~/.sca/keys && mkdir -p ~/.sca/services && mkdir -p "+taskdir, function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to prep ~/.sca");
@@ -878,6 +845,7 @@ function start_task(task, resource, cb) {
                     });
                 },
 
+                //install service
                 function(next) {
                     logger.debug("git cloning");
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
@@ -904,6 +872,7 @@ function start_task(task, resource, cb) {
                     });
                 },
 
+                //update service
                 function(next) {
                     logger.debug("making sure requested service is up-to-date");
                     var branch = service.service_branch || "master";
@@ -923,6 +892,9 @@ function start_task(task, resource, cb) {
                     });
                 },
 
+
+                /*
+                //prep taskdir
                 function(next) {
                     common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
                     logger.debug("making sure taskdir("+taskdir+") exists");
@@ -939,6 +911,7 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
+                */
 
                 //install resource keys
                 function(next) {
@@ -1080,6 +1053,17 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
+                        
+                        //report why the resource was picked
+                        stream.write("\n# why was this resource chosen?\n");
+                        task._considered.forEach(con=>{
+                            stream.write("# "+con.name+" ("+con.id+")\n");
+                            con.detail.split("\n").forEach(line=>{
+                                stream.write("#    "+line+"\n");
+                            });
+                        });
+                        stream.write("\n");
+
                         stream.end();
                     });
                 },
