@@ -11,7 +11,25 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models');
 var common = require('./common');
 
+//detail cache (date, and package.json) 
+var _details_cache = {};
+
 exports.loaddetail = function(service_name, cb) {
+    var cache = _details_cache[service_name];
+    var now = new Date();
+    if(cache) {
+        //check for date
+        var age = new Date() - cache.date;
+        if(age > 1000*60*5) {
+            //expired
+            delete _details_cache[service_name];
+        } else {
+            //cache is good!
+            logger.debug("using service cache", service_name);
+            return cb(null, cache.detail);
+        }
+    }
+    
     //first load git info
     var repourl = 'https://api.github.com/repos/'+service_name;
     if(config.github) {
@@ -28,18 +46,23 @@ exports.loaddetail = function(service_name, cb) {
 
         //then load package.json
         //TODO - should I always use master - or let user decide?
-        logger.debug('https://raw.githubusercontent.com/'+service_name+'/master/package.json');
+        logger.debug('loading https://raw.githubusercontent.com/'+service_name+'/master/package.json');
         request('https://raw.githubusercontent.com/'+service_name+'/master/package.json', {
             json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
         }, function(err, _res, pkg) {
             if(err) return cb(err);
-            cb(null, {
-                //user_id: req.user.sub,
-                //giturl: giturl,
+            var detail = {
                 name: service_name,
                 git: git,
                 pkg: pkg,
-            });
+            };
+            cb(null, detail);
+
+            //store on cache
+            _details_cache[service_name] = {
+                date: new Date(),
+                detail
+            };
         });
     });
 }

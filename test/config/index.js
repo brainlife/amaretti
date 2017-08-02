@@ -20,21 +20,6 @@ exports.api = {
     auth: "http://localhost/api/auth",
 }
 
-/*
-exports.test = {
-    //service test account/instance to use
-    service: {
-        user_id: "1", 
-        instance_id: "570d1ef166a1e2fc1ef5a847",
-    }
-}
-*/
-
-exports.task_handler = {
-    //max number of concurrent task execution
-    concurrency: 4,
-}
-
 exports.mongodb = "mongodb://localhost/sca";
 
 exports.express = {

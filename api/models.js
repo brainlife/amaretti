@@ -56,6 +56,10 @@ var instanceSchema = mongoose.Schema({
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
+
+    //instance is just a grouping of tasks, so let's not have its own flag that really means much
+    //but rather, compute it from all child tasks and set status to correct value
+    //removed: { type: Boolean, default: false} ,
 });
 /*
 //mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)

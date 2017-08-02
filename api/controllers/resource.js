@@ -101,7 +101,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 
         //add / remove a few more things
         resources.forEach(function(resource) {
-            resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
+            //resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
             resource._detail = config.resources[resource.resource_id];
             resource.salts = undefined;
             resource._canedit = canedit(req.user, resource)
@@ -323,20 +323,28 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  *                              A valid JWT token "Bearer: xxxxx"
  *
  * @apiSuccessExample {json} Success-Response:
- *                              {score: 10, resource: <resourceobj>, detail: <resourcedetail>, workdir: <workdir>}
+ *                              {
+ *                              score: 10, 
+ *                              resource: <resourceobj>, 
+ *                              considered: {...}, 
+ *                              _detail: <resourcedetail>, 
+ *                              workdir: <workdir>,
+ *                              _canedit: true,
+ *                              }
  */
 router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
 
     var query = {};
     if(req.query.service) query.service = req.query.service;
-    resource_lib.select(req.user, query, function(err, resource, score) {
+    resource_lib.select(req.user, query, function(err, resource, score, considered) {
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true});
         var resource_detail = config.resources[resource.resource_id];
         res.json({
-            score: score,
+            score,
             resource: mask_enc(resource),
+            considered,
             detail: resource_detail, //TODO deprecate this
             _detail: resource_detail,
             workdir: common.getworkdir(null, resource),

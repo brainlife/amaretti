@@ -104,6 +104,7 @@ function update_instance_status(instance_id, cb) {
 
 function check() {
     _status.checks++; //for health reporting
+    var limit = 200;
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
         //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
@@ -112,6 +113,8 @@ function check() {
             {next_date: {$lt: new Date()}}
         ]
     })
+    //limit so that we aren't overwhelmed..
+    .limit(limit)
 
     //maybe I should do these later (only needed by requested task)
     //.populate('deps', 'status resource_id')
@@ -120,6 +123,7 @@ function check() {
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
         if(tasks.length) logger.debug("checking tasks:"+tasks.length);
+        if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _status.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
             logger.debug("handling task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
@@ -429,13 +433,14 @@ function handle_requested(task, next) {
                 service: task.service,
                 preferred_resource_id: task.preferred_resource_id //user preference (most of the time not set)
                 deps: task.deps,
-            }*/, function(err, resource) {
+            }*/, function(err, resource, score, considered) {
                 if(err) return next(err);
                 if(!resource) {
                     task.status_msg = "No resource currently available to run this task.. waiting.. ";
                     task.save(next);
                     return;
                 }
+                logger.debug(JSON.stringify(considered, null, 4));
 
                 //set resource id
                 task.resource_id = resource._id;
@@ -481,6 +486,18 @@ function handle_requested(task, next) {
 
 function handle_stop(task, next) {
     logger.info("handling stop request:"+task._id);
+
+    //if not yet submitted to any resource, then it's easy
+    if(!task.resource_id) {
+        task.status = "removed";
+        task.status_msg = "Removed before ran on any resource";
+        task.save(function(err) {
+            if(err) return next(err);
+            update_instance_status(task.instance_id, next);
+        });
+        return;
+    }
+
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) {
             logger.error(err);
@@ -969,9 +986,6 @@ function start_task(task, resource, cb) {
                     if(!task.deps) return next(); //skip
                     async.forEach(task.deps, function(dep, next_dep) {
                         
-                        //logger.debug("task/resource_id", resource._id.toString());
-                        //logger.debug("dep(source)/resource_id", dep.resource_id.toString());
-                        
                         //if resource is the same, don't need to sync
                         if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
 
@@ -1052,7 +1066,7 @@ function start_task(task, resource, cb) {
 
                         //write some debugging info
                         //logger.debug(JSON.stringify(resource_detail, null, 4));
-                        stream.write("# task id        : "+task._id.toString()+" run:"+(task.run+1)+" of "+(task.retry+1)+"\n");
+                        stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+" of "+(task.retry+1)+")\n");
                         //stream.write("# resource id    : "+resource._id+"\n");
                         var username = (resource.config.username||resource_detail.username);
                         var hostname = (resource.config.hostname||resource_detail.hostname);
@@ -1076,101 +1090,6 @@ function start_task(task, resource, cb) {
                     });
                 },
 
-                /*
-                //write _status.sh
-                function(next) {
-                    //not all service has status
-                    if(!service_detail.pkg.scripts.status) return next();
-                    conn.exec("cd "+taskdir+" && cat > _status.sh && chmod +x _status.sh", function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write _status.sh -- code:"+code);
-                            next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                        stream.write("#!/bin/bash\n");
-                        stream.write("source _env.sh\n");
-                        stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.status);
-                        stream.end();
-                    });
-                },
-                */
-
-                /*
-                //write _stop.sh
-                function(next) {
-                    //not all service has stop
-                    if(!service_detail.pkg.scripts.stop) return next();
-
-                    logger.debug("installing _stop.sh");
-                    conn.exec("cd "+taskdir+" && cat > _stop.sh && chmod +x _stop.sh", function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write _stop.sh -- code:"+code);
-                            next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                        stream.write("#!/bin/bash\n");
-                        stream.write("source _env.sh\n");
-                        stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.stop);
-                        stream.end();
-                    });
-                },
-                */
-
-                /*
-                //write _boot.sh
-                function(next) {
-                    if(!service_detail.pkg.scripts.run && !service_detail.pkg.scripts.start) {
-                        //console.dir(service_detail.pkg.scripts);
-                        return next("pkg.scripts.run nor pkg.scripts.start defined in package.json");
-                    }
-
-                    logger.debug("installing _boot.sh");
-                    conn.exec("cd "+taskdir+" && cat > _boot.sh && chmod +x _boot.sh", function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write _boot.sh -- code:"+code);
-                            next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                        stream.write("#!/bin/bash\n");
-                        stream.write("source _env.sh\n");
-
-                        //report some debugging content
-                        stream.write("hostname -a\n"); //has hostname
-                        stream.write("uname -a\n"); //has hostname
-                        stream.write("cat /etc/issue\n"); //has hostname
-                        stream.write("vmstat -w\n");
-                        stream.write("df -h\n");
-                        stream.write("env\n");
-                        
-                        if(service_detail.pkg.scripts.run) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.run+"\n");
-                        if(service_detail.pkg.scripts.start) stream.write("$SERVICE_DIR/"+service_detail.pkg.scripts.start+"\n");
-                        stream.end();
-                    });
-                },
-                */
-
-                /*
-                //end of prep phase..
-                function(next) {
-                    common.progress(task.progress_key+".prep", {status: 'finished', progress: 1, msg: 'Finished preparing for task'}, next);
-                },
-                */
-
                 //finally, start the service
                 function(next) {
                     if(!service_detail.pkg.scripts.start) return next(); //not all service uses start
@@ -1193,7 +1112,7 @@ function start_task(task, resource, cb) {
 
                             //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start, (err, stream)=>{
+                            conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
                                 var boot_timeout = setTimeout(()=>{
@@ -1249,7 +1168,7 @@ function start_task(task, resource, cb) {
                         //    if(err) return next(err);
                         //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
-                        conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run, (err, stream)=>{
+                        conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', function(code, signal) {
                                 if(code) {

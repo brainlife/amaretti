@@ -35,43 +35,58 @@ exports.select = function(user, task, cb) {
             {user_id: user.sub},
             {gids: {"$in": user.gids||[] }},
         ],
-        status: 'ok', 
         active: true,
     })
+    .sort('create_date')
     .exec(function(err, resources) {
         if(err) return cb(err);
-        if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
+        //if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
         //select the best resource based on the task
         var best = null;
         var best_score = null;
+        var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
+            
+
             logger.debug("scoring resource:",resource.name, resource._id.toString())
-            score_resource(user, resource, task, (err, score)=>{
+            score_resource(user, resource, task, (err, score, detail)=>{
+                if(score === null) {
+                    //not configured to run on this resource.. ignore
+                    return next_resource();         
+                }
+
+                if(resource.status != 'ok') {
+                    //logger.debug("  resource status not ok");
+                    detail += "resource status no ok";
+                    considered.push({id: resource._id, name: resource.name, status: resource.status, score: 0, detail});
+                    return next_resource();
+                }
+
                 if(score == 0) {
-                    logger.debug("  resource doesn't support this task (or busy)");
+                    considered.push({id: resource._id, name: resource.name, status: resource.status, score, detail});
                     return next_resource();
                 }
                 
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {
-                    logger.debug("  resource listed in deps/resource_ids.. +5");
+                    detail+="resource listed in deps/resource_ids.. +5\n";
                     score = score+5;
                 }
 
                 //+10 score if it's owned by user
                 if(resource.user_id == user.sub) {
-                    logger.debug("  user owns this.. +10");
+                    detail+="user owns this.. +10\n";
                     score = score+10;
                 }
                 //+15 score if it's preferred by user (TODO need to make sure this still works)
                 if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
-                    logger.debug("  user prefers this.. +15");
+                    detail+="user prefers this.. +15\n";
                     score = score+15;
                 }
 
-                logger.debug("  final score:",score);
+                detail+="final score:"+score+"\n";
 
                 //pick the best score...
                 if(!best || score > best_score) {
@@ -79,7 +94,8 @@ exports.select = function(user, task, cb) {
                     best = resource;
                 } 
 
-                next_resource(null);
+                considered.push({id: resource._id, name: resource.name, status: resource.status, score, detail});
+                next_resource();
             });
         }, err=>{
             //for debugging
@@ -88,7 +104,7 @@ exports.select = function(user, task, cb) {
             } else {
                 logger.debug("no resource matched to run this task :)");
             } 
-            cb(err, best, best_score);
+            cb(err, best, best_score, considered);
         });
     });
 }
@@ -101,25 +117,32 @@ function score_resource(user, resource, task, cb) {
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
     if(!resource_detail) {
         logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
-        return cb(null, 0);
+        return cb(null, 0, "no resource_detail");
     } else {
-        var score = 0;
+        var detail = "";
 
         function get_score() {
+            var score = null;
+            
             //first, pull score from resource_detail
             if( resource_detail.services &&
                 resource_detail.services[task.service]) {
-                score = resource_detail.services[task.service].score;
+                score = parseInt(resource_detail.services[task.service].score);
+                detail += "resource_detail score:"+score+"\n";
             }
             
             //override it with instance specific score
             if( resource.config && 
                 resource.config.services) {
                 resource.config.services.forEach(function(service) {
-                    if(service.name == task.service) score = service.score;
+                    if(service.name == task.service) {
+                        score = parseInt(service.score);
+                        detail += "resource.config score:"+score+"\n";
+                    }
                 });
             }
-            cb(null, parseInt(score)); //in-case score is set to string.. 
+
+            cb(null, score,  detail); //in-case score is set to string.. 
         }
 
         //check number of tasks currently running on this resource and compare it with maxtask if set
@@ -128,9 +151,10 @@ function score_resource(user, resource, task, cb) {
         if(maxtask) {
             db.Task.find({resource_id: resource._id, status: "running"}, (err, tasks)=>{
                 if(err) logger.error(err);
-                logger.debug("  tasks running ", tasks.length, "maxtask:", maxtask);
+                detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
                 if(maxtask <= tasks.length) {
-                    cb(null, 0); //busy..
+                    detail+="resource is busy\n";
+                    cb(null, 0, detail); 
                 } else get_score();
             });
         } else get_score();

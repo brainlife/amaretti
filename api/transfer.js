@@ -148,7 +148,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) next(err);
                     stream.on('close', function(code, signal) {
-                        if(code) next("Failed to rsync content from remove source:"+source+" to local dest:"+dest_path+" Please check firewall / sshd configuration / disk space");
+                        if(code) next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" Please check firewall / sshd configuration / disk space / resource availability");
                         else next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service

@@ -43,11 +43,6 @@ exports.test = {
     }
 }
 
-exports.task_handler = {
-    //max number of concurrent task execution
-    concurrency: 4,
-}
-
 exports.mongodb = "mongodb://localhost/workflow";
 
 exports.express = {

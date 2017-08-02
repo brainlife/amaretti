@@ -16,6 +16,8 @@
 #    )
 #fi
 
+#dockerfile copies everything including the ssh-agent.sock file.. so I need to remove it before I start it
+rm /app/ssh-agent.sock
 ssh-agent -a /app/ssh-agent.sock
 
 pm2 start /app/api/wf.js

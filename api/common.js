@@ -73,9 +73,8 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        //logger.debug("reusing ssh connection. # of connections:"+Object.keys(ssh_conns).length);
         var chans = Object.keys(old._channels).length;
-        logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
+        //logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
         
         //limit to 5 channels
         //max seems to be 10 on karst, but user of ssh_connection can run as many sessions as they want..
