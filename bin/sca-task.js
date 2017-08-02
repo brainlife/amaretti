@@ -122,11 +122,11 @@ function check() {
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
-        if(tasks.length) logger.debug("checking tasks:"+tasks.length);
+        //if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _status.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
-            logger.debug("handling task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
+            logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
             set_nextdate(task);
             task.save(function() {
                 switch(task.status) {
@@ -509,7 +509,7 @@ function handle_stop(task, next) {
         }
 
         //get_service(task.service, function(err, service_detail) {
-        _service.loaddetail(task.service, function(err, service_detail) {
+        _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -563,7 +563,7 @@ function handle_stop(task, next) {
 
 //check for task status of already running tasks
 function handle_running(task, next) {
-    logger.info("check_running "+task._id);
+    //logger.info("check_running "+task._id);
 
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
@@ -602,7 +602,7 @@ function handle_running(task, next) {
             return;
         }
 
-        _service.loaddetail(task.service, function(err, service_detail) {
+        _service.loaddetail_cached(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -750,11 +750,11 @@ function rerun_child(task, cb) {
 function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) return cb(err);
-        var service = task.service;
+        var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
         if(service == null) return cb(new Error("service not set.."));
 
         logger.debug("loading service detail");
-        _service.loaddetail(service, function(err, service_detail) {
+        _service.loaddetail(service, task.service_branch, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
@@ -793,9 +793,8 @@ function start_task(task, resource, cb) {
             };
 
             //optional envs
-            if(service.service_branch) {
-                //envs.SCA_SERVICE_BRANCH = service.service_branch; //DEPRECATED
-                envs.SERVICE_BRANCH = service.service_branch;
+            if(task.service_branch) {
+                envs.SERVICE_BRANCH = task.service_branch;
             }
 
             task._envs = envs;
