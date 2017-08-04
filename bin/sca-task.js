@@ -6,8 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const request = require('request');
-
-//contrib
+const redis = require('redis');
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
@@ -103,7 +102,7 @@ function update_instance_status(instance_id, cb) {
 }
 
 function check() {
-    _status.checks++; //for health reporting
+    _counts.checks++; //for health reporting
     var limit = 200;
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
@@ -122,9 +121,8 @@ function check() {
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
-        //if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
-        _status.tasks+=tasks.length; //for health reporting
+        _counts.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
             logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
             set_nextdate(task);
@@ -1224,25 +1222,62 @@ function load_products(taskdir, resource, cb) {
     });
 }
 
-var _status = {
+//counter to keep up with how many checks are performed in the last few minutes
+var _counts = {
     checks: 0,
     tasks: 0,
-    //instances: 0,
 }
 
-//report health status to sca-wf
-function report_health() {
-    _status.ssh = common.report_ssh();
-    logger.info("reporting health");
-    logger.info(_status);
-    var url = "http://"+(config.express.host||"localhost")+":"+config.express.port;
-    request.post({url: url+"/health/task", json: _status}, function(err, res, body) {
-        if(err) logger.error(err);
-        _status.checks = 0;
-        _status.tasks = 0;
-        //_status.instances = 0;
+function health_check() {
+    var ssh = common.report_ssh();
+    var report = {
+        status: "ok",
+        ssh,
+        messages: [],
+        date: new Date(),
+        counts: _counts,
+    }
+
+    if(_counts.tasks == 0) {
+        report.status = "failed";
+        report.messages.push("low tasks count");
+    }
+    if(_counts.checks == 0) {
+        report.status = "failed";
+        report.messages.push("low check count");
+    }
+
+    //similar code exists in /api/health.js
+    if(ssh.max_channels > 5) {
+        report.status = "failed";
+        report.messages.push("high ssh channels "+ssh.max_channels);
+    }
+    if(ssh.ssh_cons > 10) {
+        report.status = "failed";
+        report.messages.push("high ssh connections "+ssh.ssh_cons);
+    }
+
+    //check sshagent
+    _transfer.sshagent_list_keys((err, keys)=>{
+        if(err) {
+            report.status = 'failed';
+            report.messages.push(err);
+        }
+        report.agent_keys = keys.length;
+        redis_client.set("health.workflow.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+
+        //reset counter
+        _counts.checks = 0;
+        _counts.tasks = 0;
     });
 }
-setInterval(report_health, 1000*60); //report ssh connection stats every once a while
-setTimeout(report_health, 1000*10); //report soon after start (so that sca-wf's health will look ok)
+
+var redis_client = redis.createClient(config.redis.port, config.redis.server);
+redis_client.on('error', err=>{throw err});
+redis_client.on('ready', ()=>{
+    logger.info("connected to redis");
+    health_check();
+    setInterval(health_check, 1000*60); //post health status every minutes
+});
+
 

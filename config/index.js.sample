@@ -5,6 +5,12 @@ const winston = require('winston');
 
 process.env.SSH_AUTH_SOCK = __dirname+"/../ssh-agent.sock";
 
+//used to post/poll health status from various services
+exports.redis = {
+    server: "localhost", 
+    port: 6379,
+}
+
 var wf = {
     auth_pubkey: fs.readFileSync('/home/hayashis/git/auth/api/config/auth.pub'),
 
