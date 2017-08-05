@@ -24,50 +24,54 @@ db.init(function(err) {
     redis_client.on('error', err=>{throw err});
     redis_client.on('ready', ()=>{
         logger.info("connected to redis");
-        start_check_resources();
-        /*
-        health_check();
-        setInterval(health_check, 1000*60); //post health status every minutes
-        */
+        check_resources();
     });
 });
 
-function start_check_resources() {
-    check_resources(function(err) {
-        if(err) logger.error(err); //continue
-        logger.debug("waiting before running another check_resource");
-        setTimeout(start_check_resources, 1000*60*30); //run every 30 minutes
-    });
-}
-
 //go through all registered resources and check for connectivity & smoke test
-function check_resources(cb) {
+function check_resources() {
     db.Resource.find({active: true}, function(err, resources) {
         var counts = {};
         async.eachSeries(resources, function(resource, next_resource) {
+            logger.debug("checking",resource._id, resource.name);
 
-            //deactivate resource if it's never been ok-ed for a weel
-            var weekold = new Date();
-            weekold.setDate(weekold.getDate() - 7);
-            if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
-                logger.info("deactivating resource "+resource._id+ " since it's never been active for long time");
-                resource.active = false;
-                resource.save(next_resource);
-                return;
-            }
-
-            if(!counts[resource.status]) counts[resource.status] = 0;
-            counts[resource.status]++;
-
+            //TODO - should I add timeout?
             resource_lib.check(resource, function(err) {
                 //I don't care if someone's resource status is failing or not
                 //if(err) logger.info(err); 
-                next_resource();
+                
+                //count status for health reporting.. (not sure what I will be using this for yet)
+                if(!counts[resource.status]) counts[resource.status] = 0;
+                counts[resource.status]++;
+                
+                //deactivate resource if it's never been ok-ed for a week
+                var weekold = new Date();
+                weekold.setDate(weekold.getDate() - 7);
+                if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
+                    logger.info("deactivating resource since it's never been active for long time");
+                    resource.active = false;
+                    //resource.status_msg = "never been active since registered";
+                    return resource.save(next_resource);
+                }
+                //deactivate resource that's been down for a month or has never been active
+                var monthold = new Date();
+                monthold.setDate(monthold.getDate() - 7);
+                if(resource.lastok_date && resource.lastok_date < monthold && resource.status != "ok") {
+                    logger.info("deactivating resource which has been non-ok for more than 30 days");
+                    resource.active = false;
+                    //resource.status_msg = "non-ok for more than 30 days";
+                    return resource.save(next_resource);
+                }
+
+                return next_resource();
             });
         }, function(err) {
             if(err) logger.error(err); //continue
             else logger.debug("checked "+resources.length+" resources");
             health_check(resources, counts);
+
+            logger.debug("waiting before running another check_resource");
+            setTimeout(check_resources, 1000*60*30); //wait 30 minutes each check
         });
     });
 }
