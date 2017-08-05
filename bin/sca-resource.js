@@ -16,13 +16,13 @@ const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
 
-var redis_client = null;
+var rcon = null;
 
 db.init(function(err) {
     if(err) throw err;
-    redis_client = redis.createClient(config.redis.port, config.redis.server);
-    redis_client.on('error', err=>{throw err});
-    redis_client.on('ready', ()=>{
+    rcon = redis.createClient(config.redis.port, config.redis.server);
+    rcon.on('error', err=>{throw err});
+    rcon.on('ready', ()=>{
         logger.info("connected to redis");
         check_resources();
     });
@@ -92,5 +92,5 @@ function health_check(resources, counts) {
         report.status = "failed";
         report.messages.push("no resource checked.. not registered?");
     }
-    redis_client.set("health.workflow.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+    rcon.set("health.workflow.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }

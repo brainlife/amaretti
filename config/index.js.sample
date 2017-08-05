@@ -70,7 +70,7 @@ exports.logger = {
             new winston.transports.Console({
                 timestamp: function() {
                     var d = new Date();
-                    return d.toString(); 
+                    return process.env.NODE_APP_INSTANCE + "> "+ d.toString();
                 },
                 level: 'debug',
                 colorize: true

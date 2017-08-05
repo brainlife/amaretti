@@ -1264,7 +1264,7 @@ function health_check() {
             report.messages.push(err);
         }
         report.agent_keys = keys.length;
-        redis_client.set("health.workflow.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+        rcon.set("health.workflow.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 
         //reset counter
         _counts.checks = 0;
@@ -1272,11 +1272,11 @@ function health_check() {
     });
 }
 
-var redis_client = redis.createClient(config.redis.port, config.redis.server);
-redis_client.on('error', err=>{throw err});
-redis_client.on('ready', ()=>{
+var rcon = redis.createClient(config.redis.port, config.redis.server);
+rcon.on('error', err=>{throw err});
+rcon.on('ready', ()=>{
     logger.info("connected to redis");
-    health_check();
+    //health_check();
     setInterval(health_check, 1000*60); //post health status every minutes
 });
 
