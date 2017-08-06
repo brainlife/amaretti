@@ -37,6 +37,7 @@ db.init(function(err) {
 });
 
 //set next_date incrementally longer between each checks (you need to save it persist it)
+/*
 function set_nextdate(task) {
     var max;
     switch(task.status) {
@@ -60,6 +61,35 @@ function set_nextdate(task) {
         //maybe I should increase the delay to something like an hour?
         //TODO - if rsyncing takes long time, we could risk re-handling already starting task! (let's hope we can get it done in 20 minutes)
         task.next_date.setMinutes(task.next_date.getMinutes() + 20);
+    }
+}
+*/
+
+//https://github.com/soichih/workflow/issues/15
+function set_nextdate(task) {
+    switch(task.status) {
+    case "failed":
+    case "finished":
+    case "stopped":
+        //to see if task_dir still exists
+        task.next_date = new Date(Date.now()+1000*3600*24); //tomorrow
+        if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+        break;
+    case "stop_requested":
+    case "requested":
+    case "running_sync":
+        //in case request handling failed
+        task.next_date = new Date(Date.now()+1000*3600); //retry in an hour
+        break;
+    case "running":
+        var elapsed = Date.now() - task.start_date.getTime(); 
+        var delta = elapsed/30; //back off at 1/30 rate
+        var delta = Math.min(delta, 1000*3600); //max 1 hour
+        var delta = Math.max(delta, 1000*5); //min 5 seconds
+        task.next_date = new Date(Date.now() + delta);
+        break;
+    default:
+        logger.error("don't know how to calculate next_date for status", task.status);
     }
 }
 
@@ -429,6 +459,7 @@ function handle_requested(task, next) {
                 if(err) return next(err);
                 if(!resource) {
                     task.status_msg = "No resource currently available to run this task.. waiting.. ";
+                    task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
                     task.save(next);
                     return;
                 }
@@ -629,13 +660,13 @@ function handle_running(task, next) {
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && $SERVICE_DIR/"+service_detail.pkg.scripts.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
-                    var to = setTimeout(()=>{
+                    var timeout = setTimeout(()=>{
                         logger.error("status.sh timed-out");
                         stream.close();
                     }, 15*1000);
                     var out = "";
                     stream.on('close', function(code, signal) {
-                        clearTimeout(to);
+                        clearTimeout(timeout);
 
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
@@ -889,27 +920,6 @@ function start_task(task, resource, cb) {
                     });
                 },
 
-
-                /*
-                //prep taskdir
-                function(next) {
-                    common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
-                    logger.debug("making sure taskdir("+taskdir+") exists");
-                    conn.exec("mkdir -p "+taskdir, function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to create taskdir:"+taskdir+" code:"+code);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                    });
-                },
-                */
-
                 //install resource keys
                 function(next) {
                     if(!task.resource_deps) return next();
@@ -1090,13 +1100,13 @@ function start_task(task, resource, cb) {
                             conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
-                                var boot_timeout = setTimeout(()=>{
-                                    logger.info("_boot.sh didn't complete in 30 seconds .. terminating");
+                                var timeout = setTimeout(()=>{
+                                    logger.info("start script didn't complete in 30 seconds .. terminating");
                                     stream.close();
                                 }, 1000*30); //30 seconds should be enough to start
 
                                 stream.on('close', function(code, signal) {
-                                    clearTimeout(boot_timeout);
+                                    clearTimeout(timeout);
                                     if(code) {
                                         //I should undo the impossible next_date set earlier..
                                         task.next_date = new Date();
@@ -1145,7 +1155,13 @@ function start_task(task, resource, cb) {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
                         conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
+
+                            var timeout = setTimeout(()=>{
+                                logger.info("run didn't complete in 60 seconds .. terminating");
+                                stream.close();
+                            }, 1000*60); //60 seconds max for running_sync
                             stream.on('close', function(code, signal) {
+                                clearTimeout(timeout);
                                 if(code) {
                                     return next("failed to run (code:"+code+")");
                                 } else {
