@@ -24,7 +24,7 @@ const health = require('../health');
  * @apiSuccess {String} status 'ok' or 'failed'
  */
 router.get('/health', function(req, res, next) {
-    logger.debug("healgh api");    
+    //logger.debug("healgh api");    
     health.get_reports((err, reports)=>{
         if(err) return next(err);
         var status = "ok";
@@ -45,6 +45,7 @@ router.get('/health', function(req, res, next) {
                 messages.push(service+" is stale max:"+report.maxage);
             }
         }  
+        if(status != "ok") logger.error(JSON.stringify({messages, reports}, null, 4));
         res.json({status, messages, reports});
     });
 });

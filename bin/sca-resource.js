@@ -92,5 +92,15 @@ function health_check(resources, counts) {
         report.status = "failed";
         report.messages.push("no resource checked.. not registered?");
     }
+    
+    if(ssh.max_channels > 5) {
+        report.status = "failed";
+        report.messages.push("high ssh channels "+ssh.max_channels);
+    }
+    if(ssh.ssh_cons > 20) {
+        report.status = "failed";
+        report.messages.push("high ssh connections "+ssh.ssh_cons);
+    }
+
     rcon.set("health.workflow.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }

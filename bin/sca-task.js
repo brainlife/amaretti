@@ -83,13 +83,13 @@ function set_nextdate(task) {
         break;
     case "running":
         var elapsed = Date.now() - task.start_date.getTime(); 
-        var delta = elapsed/30; //back off at 1/30 rate
+        var delta = elapsed/20; //back off at 1/20 rate
         var delta = Math.min(delta, 1000*3600); //max 1 hour
-        var delta = Math.max(delta, 1000*5); //min 5 seconds
+        var delta = Math.max(delta, 1000*10); //min 10 seconds
         task.next_date = new Date(Date.now() + delta);
         break;
     default:
-        logger.error("don't know how to calculate next_date for status", task.status);
+        logger.error("don't know how to calculate next_date for status"+task.status);
     }
 }
 
@@ -1252,6 +1252,7 @@ function health_check() {
         messages: [],
         date: new Date(),
         counts: _counts,
+        maxage: 1000*60*5,
     }
 
     if(_counts.tasks == 0) {
@@ -1268,7 +1269,7 @@ function health_check() {
         report.status = "failed";
         report.messages.push("high ssh channels "+ssh.max_channels);
     }
-    if(ssh.ssh_cons > 10) {
+    if(ssh.ssh_cons > 20) {
         report.status = "failed";
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
@@ -1293,7 +1294,7 @@ rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     logger.info("connected to redis");
     //health_check();
-    setInterval(health_check, 1000*60); //post health status every minutes
+    setInterval(health_check, 1000*60*5); //post health status every minutes
 });
 
 
