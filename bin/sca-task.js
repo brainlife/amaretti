@@ -401,7 +401,7 @@ function handle_requested(task, next) {
             headers: { 'Authorization': 'Bearer '+config.sca.jwt }
         }, function(err, res, gids) {
             if(err) {
-                if(res.statusCode == 404) {
+                if(res && res.statusCode == 404) {
                     gids = [];
                 } else return next(err);
             }
