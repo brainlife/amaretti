@@ -11,10 +11,8 @@ var logger = new winston.Logger(config.logger.winston);
 var db = require('./models');
 var common = require('./common');
 
-//detail cache (date, and package.json) 
 var _details_cache = {};
-
-exports.loaddetail = function(service_name, cb) {
+exports.loaddetail_cached = function(service_name, branch, cb) {
     var cache = _details_cache[service_name];
     var now = new Date();
     if(cache) {
@@ -29,6 +27,11 @@ exports.loaddetail = function(service_name, cb) {
             return cb(null, cache.detail);
         }
     }
+    exports.loaddetail(service_name, branch, cb);
+}
+
+exports.loaddetail = function(service_name, branch, cb) {
+    if(!branch) branch = "master";
     
     //first load git info
     var repourl = 'https://api.github.com/repos/'+service_name;
@@ -45,9 +48,8 @@ exports.loaddetail = function(service_name, cb) {
         }
 
         //then load package.json
-        //TODO - should I always use master - or let user decide?
-        logger.debug('loading https://raw.githubusercontent.com/'+service_name+'/master/package.json');
-        request('https://raw.githubusercontent.com/'+service_name+'/master/package.json', {
+        logger.debug('loading https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json');
+        request('https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json', {
             json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
         }, function(err, _res, pkg) {
             if(err) return cb(err);

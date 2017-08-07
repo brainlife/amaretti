@@ -6,8 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const request = require('request');
-
-//contrib
+const redis = require('redis');
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
@@ -38,6 +37,7 @@ db.init(function(err) {
 });
 
 //set next_date incrementally longer between each checks (you need to save it persist it)
+/*
 function set_nextdate(task) {
     var max;
     switch(task.status) {
@@ -61,6 +61,35 @@ function set_nextdate(task) {
         //maybe I should increase the delay to something like an hour?
         //TODO - if rsyncing takes long time, we could risk re-handling already starting task! (let's hope we can get it done in 20 minutes)
         task.next_date.setMinutes(task.next_date.getMinutes() + 20);
+    }
+}
+*/
+
+//https://github.com/soichih/workflow/issues/15
+function set_nextdate(task) {
+    switch(task.status) {
+    case "failed":
+    case "finished":
+    case "stopped":
+        //to see if task_dir still exists
+        task.next_date = new Date(Date.now()+1000*3600*24); //tomorrow
+        if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+        break;
+    case "stop_requested":
+    case "requested":
+    case "running_sync":
+        //in case request handling failed
+        task.next_date = new Date(Date.now()+1000*3600); //retry in an hour
+        break;
+    case "running":
+        var elapsed = Date.now() - task.start_date.getTime(); 
+        var delta = elapsed/20; //back off at 1/20 rate
+        var delta = Math.min(delta, 1000*3600); //max 1 hour
+        var delta = Math.max(delta, 1000*10); //min 10 seconds
+        task.next_date = new Date(Date.now() + delta);
+        break;
+    default:
+        logger.error("don't know how to calculate next_date for status"+task.status);
     }
 }
 
@@ -103,7 +132,7 @@ function update_instance_status(instance_id, cb) {
 }
 
 function check() {
-    _status.checks++; //for health reporting
+    _counts.checks++; //for health reporting
     var limit = 200;
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
@@ -122,11 +151,10 @@ function check() {
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
-        if(tasks.length) logger.debug("checking tasks:"+tasks.length);
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
-        _status.tasks+=tasks.length; //for health reporting
+        _counts.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
-            logger.debug("handling task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
+            logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
             set_nextdate(task);
             task.save(function() {
                 switch(task.status) {
@@ -431,6 +459,7 @@ function handle_requested(task, next) {
                 if(err) return next(err);
                 if(!resource) {
                     task.status_msg = "No resource currently available to run this task.. waiting.. ";
+                    task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
                     task.save(next);
                     return;
                 }
@@ -509,7 +538,7 @@ function handle_stop(task, next) {
         }
 
         //get_service(task.service, function(err, service_detail) {
-        _service.loaddetail(task.service, function(err, service_detail) {
+        _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -563,7 +592,7 @@ function handle_stop(task, next) {
 
 //check for task status of already running tasks
 function handle_running(task, next) {
-    logger.info("check_running "+task._id);
+    //logger.info("check_running "+task._id);
 
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
@@ -602,7 +631,7 @@ function handle_running(task, next) {
             return;
         }
 
-        _service.loaddetail(task.service, function(err, service_detail) {
+        _service.loaddetail_cached(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't find such service:"+task.service);
                 return next(); //skip this task
@@ -631,13 +660,13 @@ function handle_running(task, next) {
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && $SERVICE_DIR/"+service_detail.pkg.scripts.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
-                    var to = setTimeout(()=>{
+                    var timeout = setTimeout(()=>{
                         logger.error("status.sh timed-out");
                         stream.close();
                     }, 15*1000);
                     var out = "";
                     stream.on('close', function(code, signal) {
-                        clearTimeout(to);
+                        clearTimeout(timeout);
 
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
@@ -750,11 +779,11 @@ function rerun_child(task, cb) {
 function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) return cb(err);
-        var service = task.service;
+        var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
         if(service == null) return cb(new Error("service not set.."));
 
         logger.debug("loading service detail");
-        _service.loaddetail(service, function(err, service_detail) {
+        _service.loaddetail(service, task.service_branch, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
@@ -793,9 +822,8 @@ function start_task(task, resource, cb) {
             };
 
             //optional envs
-            if(service.service_branch) {
-                //envs.SCA_SERVICE_BRANCH = service.service_branch; //DEPRECATED
-                envs.SERVICE_BRANCH = service.service_branch;
+            if(task.service_branch) {
+                envs.SERVICE_BRANCH = task.service_branch;
             }
 
             task._envs = envs;
@@ -891,27 +919,6 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
-
-
-                /*
-                //prep taskdir
-                function(next) {
-                    common.progress(task.progress_key+".prep", {progress: 0.7, msg: 'Preparing taskdir'});
-                    logger.debug("making sure taskdir("+taskdir+") exists");
-                    conn.exec("mkdir -p "+taskdir, function(err, stream) {
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to create taskdir:"+taskdir+" code:"+code);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                    });
-                },
-                */
 
                 //install resource keys
                 function(next) {
@@ -1093,13 +1100,13 @@ function start_task(task, resource, cb) {
                             conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
-                                var boot_timeout = setTimeout(()=>{
-                                    logger.info("_boot.sh didn't complete in 30 seconds .. terminating");
+                                var timeout = setTimeout(()=>{
+                                    logger.info("start script didn't complete in 30 seconds .. terminating");
                                     stream.close();
                                 }, 1000*30); //30 seconds should be enough to start
 
                                 stream.on('close', function(code, signal) {
-                                    clearTimeout(boot_timeout);
+                                    clearTimeout(timeout);
                                     if(code) {
                                         //I should undo the impossible next_date set earlier..
                                         task.next_date = new Date();
@@ -1148,7 +1155,13 @@ function start_task(task, resource, cb) {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
                         conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
+
+                            var timeout = setTimeout(()=>{
+                                logger.info("run didn't complete in 60 seconds .. terminating");
+                                stream.close();
+                            }, 1000*60); //60 seconds max for running_sync
                             stream.on('close', function(code, signal) {
+                                clearTimeout(timeout);
                                 if(code) {
                                     return next("failed to run (code:"+code+")");
                                 } else {
@@ -1225,25 +1238,63 @@ function load_products(taskdir, resource, cb) {
     });
 }
 
-var _status = {
+//counter to keep up with how many checks are performed in the last few minutes
+var _counts = {
     checks: 0,
     tasks: 0,
-    //instances: 0,
 }
 
-//report health status to sca-wf
-function report_health() {
-    _status.ssh = common.report_ssh();
-    logger.info("reporting health");
-    logger.info(_status);
-    var url = "http://"+(config.express.host||"localhost")+":"+config.express.port;
-    request.post({url: url+"/health/task", json: _status}, function(err, res, body) {
-        if(err) logger.error(err);
-        _status.checks = 0;
-        _status.tasks = 0;
-        //_status.instances = 0;
+function health_check() {
+    var ssh = common.report_ssh();
+    var report = {
+        status: "ok",
+        ssh,
+        messages: [],
+        date: new Date(),
+        counts: _counts,
+        maxage: 1000*60*5,
+    }
+
+    if(_counts.tasks == 0) {
+        report.status = "failed";
+        report.messages.push("low tasks count");
+    }
+    if(_counts.checks == 0) {
+        report.status = "failed";
+        report.messages.push("low check count");
+    }
+
+    //similar code exists in /api/health.js
+    if(ssh.max_channels > 5) {
+        report.status = "failed";
+        report.messages.push("high ssh channels "+ssh.max_channels);
+    }
+    if(ssh.ssh_cons > 20) {
+        report.status = "failed";
+        report.messages.push("high ssh connections "+ssh.ssh_cons);
+    }
+
+    //check sshagent
+    _transfer.sshagent_list_keys((err, keys)=>{
+        if(err) {
+            report.status = 'failed';
+            report.messages.push(err);
+        }
+        report.agent_keys = keys.length;
+        rcon.set("health.workflow.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+
+        //reset counter
+        _counts.checks = 0;
+        _counts.tasks = 0;
     });
 }
-setInterval(report_health, 1000*60); //report ssh connection stats every once a while
-setTimeout(report_health, 1000*10); //report soon after start (so that sca-wf's health will look ok)
+
+var rcon = redis.createClient(config.redis.port, config.redis.server);
+rcon.on('error', err=>{throw err});
+rcon.on('ready', ()=>{
+    logger.info("connected to redis");
+    //health_check();
+    setInterval(health_check, 1000*60*5); //post health status every minutes
+});
+
 

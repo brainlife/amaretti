@@ -59,7 +59,7 @@ exports.start = function(cb) {
     db.init(function(err) {
         if(err) return cb(err);
         app.listen(port, host, function() {
-            logger.info("sca webui/api service running on %s:%d in %s mode", host, port, app.settings.env);
+            logger.info("workflow/api service:%s running on %s:%d in %s mode", process.env.NODE_APP_INSTANCE, host, port, app.settings.env);
         });
     });
 }
