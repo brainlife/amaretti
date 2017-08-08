@@ -72,7 +72,7 @@ function set_nextdate(task) {
     case "finished":
     case "stopped":
         //to see if task_dir still exists
-        task.next_date = new Date(Date.now()+1000*3600*24); //tomorrow
+        task.next_date = new Date(Date.now()+1000*3600*24);
         if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
         break;
     case "stop_requested":
@@ -159,13 +159,22 @@ function check() {
             task.save(function() {
                 switch(task.status) {
                 case "requested":
-                    handle_requested(task, next);
+                    handle_requested(task, err=>{
+                        logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 case "stop_requested":
-                    handle_stop(task, next);
+                    handle_stop(task, err=>{
+                        logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 case "running":
-                    handle_running(task, next);
+                    handle_running(task, err=>{
+                        logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 /*
                 case "failed":
@@ -179,12 +188,14 @@ function check() {
                 case "finished":
                 */
                 default:
-                    handle_housekeeping(task, next);
+                    handle_housekeeping(task, err=>{
+                        logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                 }
             });
         }, function(err) {
-            if(err) logger.error(err);
-
+            if(err) logger.error(err); //should never get called
             //wait a bit and recheck again
             setTimeout(check, 500);
         });
@@ -229,7 +240,10 @@ function handle_housekeeping(task, cb) {
                     //all good.. now check taskdir
                     logger.debug("getting ssh connection to check taskdir");
                     common.get_ssh_connection(resource, function(err, conn) {
-                        if(err) return next_resource(err);
+                        if(err) {
+                            logger.error(err);
+                            return next_resource(); //maybe a temp. resource error?
+                        }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         logger.debug("running ls",taskdir);
@@ -555,6 +569,10 @@ function handle_stop(task, next) {
             }
 
             common.get_ssh_connection(resource, function(err, conn) {
+                if(err) {
+                    logger.error(err);
+                    return next(); //handle this later 
+                }
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 //conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
                 conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
@@ -648,6 +666,7 @@ function handle_running(task, next) {
             }
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
+                    //retry laster..
                     task.status_msg = err.toString();
                     task.save(next);
                     return next();
@@ -778,7 +797,10 @@ function rerun_child(task, cb) {
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
-        if(err) return cb(err);
+        if(err) {
+            logger.error(err);
+            return cb(); //retry later..
+        }
         var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
         if(service == null) return cb(new Error("service not set.."));
 
@@ -1252,7 +1274,7 @@ function health_check() {
         messages: [],
         date: new Date(),
         counts: _counts,
-        maxage: 1000*60*5,
+        maxage: 1000*60*10,
     }
 
     if(_counts.tasks == 0) {
@@ -1294,7 +1316,7 @@ rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     logger.info("connected to redis");
     //health_check();
-    setInterval(health_check, 1000*60*5); //post health status every minutes
+    setInterval(health_check, 1000*60*5);
 });
 
 

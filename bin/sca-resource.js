@@ -85,7 +85,7 @@ function health_check(resources, counts) {
         messages: [],
         counts,
         date: new Date(),
-        maxage: 1000*60*30, //runs every 30 minutes
+        maxage: 1000*60*60,
     }
 
     if(resources.length == 0) {

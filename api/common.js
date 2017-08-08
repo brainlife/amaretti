@@ -83,7 +83,7 @@ exports.get_ssh_connection = function(resource, cb) {
             old.last_used = new Date();
             return cb(null, old);
         } else {
-            logger.debug("channel busy .. waiting");
+            logger.debug("channel busy .. postponing..");
             setTimeout(()=>{
                 exports.get_ssh_connection(resource, cb);
             }, 1000);
@@ -126,12 +126,14 @@ exports.get_ssh_connection = function(resource, cb) {
     });
 
     exports.decrypt_resource(resource);
+    //https://github.com/mscdex/ssh2#client-methods
     conn.connect({
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 60*1000, //defualt 0
-        keepaliveCountMax: 10, //default 3
+        keepaliveInterval: 30*1000, //default 0
+        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
     });
 }
 
@@ -183,6 +185,7 @@ exports.report_ssh = function() {
     var sftp_cons = Object.keys(sftp_conns).length;
     var max_channels = 0;
 
+    /*
     //report detail to stdout..
     logger.info("ssh/sftp status-----------------------------------------------");
     logger.info("ssh connections : ", ssh_cons);
@@ -200,6 +203,7 @@ exports.report_ssh = function() {
         var c = sftp_conns[rid];
         logger.info(rid);
     }
+    */
 
     return {
         ssh_cons,
