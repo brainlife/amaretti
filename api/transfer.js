@@ -57,8 +57,11 @@ function ssh_with_agent(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 60*1000, //defualt 0
-        keepaliveCountMax: 10, //default 3
+        
+        //I shouldn't need keepalive for rsync
+        //keepaliveInterval: 60*1000, //defualt 0
+        //keepaliveCountMax: 10, //default 3
+
         agent: process.env.SSH_AUTH_SOCK,
         agentForward: true,
     });
