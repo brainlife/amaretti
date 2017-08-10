@@ -61,5 +61,3 @@ exports.logger = {
         ]
     },
 }
-
-console.debug("TEST: This is being called");
