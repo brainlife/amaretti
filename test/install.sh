@@ -1,6 +1,8 @@
 #script used by travis to setup testing environment
 #invoked via .travis.yml
 
+ssh-agent -a ssh-agent.sock
+
 if [ -f config/index.js ]; then
     echo "config/index.js already exists.. skipping config installation"
     exit
