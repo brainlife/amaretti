@@ -32,8 +32,8 @@ process.on('unhandledRejection', (reason, promise) => {
 db.init(function(err) {
     if(err) throw err;
     logger.debug("db-initialized");
-    //start check loop
-    check();
+    check(); //start check loop
+    setInterval(run_noop, 1000*30);
 });
 
 //set next_date incrementally longer between each checks (you need to save it persist it)
@@ -72,7 +72,7 @@ function set_nextdate(task) {
     case "finished":
     case "stopped":
         //to see if task_dir still exists
-        task.next_date = new Date(Date.now()+1000*3600*24); //tomorrow
+        task.next_date = new Date(Date.now()+1000*3600*24);
         if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
         break;
     case "stop_requested":
@@ -151,6 +151,7 @@ function check() {
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
+        //logger.debug("processing", tasks.length, "tasks");
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _counts.tasks+=tasks.length; //for health reporting
         async.eachSeries(tasks, (task, next) => {
@@ -159,13 +160,22 @@ function check() {
             task.save(function() {
                 switch(task.status) {
                 case "requested":
-                    handle_requested(task, next);
+                    handle_requested(task, err=>{
+                        if(err) logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 case "stop_requested":
-                    handle_stop(task, next);
+                    handle_stop(task, err=>{
+                        if(err) logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 case "running":
-                    handle_running(task, next);
+                    handle_running(task, err=>{
+                        if(err) logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                     break;
                 /*
                 case "failed":
@@ -179,12 +189,14 @@ function check() {
                 case "finished":
                 */
                 default:
-                    handle_housekeeping(task, next);
+                    handle_housekeeping(task, err=>{
+                        if(err) logger.error(err);
+                        next(); //continue processing other tasks
+                    });
                 }
             });
         }, function(err) {
-            if(err) logger.error(err);
-
+            if(err) logger.error(err); //should never get called
             //wait a bit and recheck again
             setTimeout(check, 500);
         });
@@ -201,7 +213,6 @@ function handle_housekeeping(task, cb) {
         //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
         //I also don't see much value in detecting if the directory is removed or not.. 
         function(next) {
-
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
             minage.setDate(minage.getDate() - 10); 
@@ -229,7 +240,10 @@ function handle_housekeeping(task, cb) {
                     //all good.. now check taskdir
                     logger.debug("getting ssh connection to check taskdir");
                     common.get_ssh_connection(resource, function(err, conn) {
-                        if(err) return next_resource(err);
+                        if(err) {
+                            logger.error(err);
+                            return next_resource(); //maybe a temp. resource error?
+                        }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         logger.debug("running ls",taskdir);
@@ -555,6 +569,10 @@ function handle_stop(task, next) {
             }
 
             common.get_ssh_connection(resource, function(err, conn) {
+                if(err) {
+                    logger.error(err);
+                    return next(); //handle this later 
+                }
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 //conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
                 conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
@@ -648,6 +666,7 @@ function handle_running(task, next) {
             }
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
+                    //retry laster..
                     task.status_msg = err.toString();
                     task.save(next);
                     return next();
@@ -670,7 +689,7 @@ function handle_running(task, next) {
 
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
-                        out = out.substring(pos+delimtoken.length);
+                        out = out.substring(pos+delimtoken.length).trim();
                         logger.info(out);
 
                         switch(code) {
@@ -778,7 +797,10 @@ function rerun_child(task, cb) {
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
     common.get_ssh_connection(resource, function(err, conn) {
-        if(err) return cb(err);
+        if(err) {
+            logger.error(err);
+            return cb(); //retry later..
+        }
         var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
         if(service == null) return cb(new Error("service not set.."));
 
@@ -975,13 +997,14 @@ function start_task(task, resource, cb) {
                             //logger.debug("rsyncing.........", task._id);
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
+                                logger.debug("running rsync_resource.............", dep._id.toString());
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
                                     if(err) {
-                                        logger.error("failed rsyncing.........", task._id.toString());
+                                        logger.error("failed rsyncing.........", dep._id.toString());
                                         common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
                                         next_dep(err);
                                     } else {
-                                        logger.debug("succeeded rsyncing.........", task._id.toString());
+                                        logger.debug("succeeded rsyncing.........", dep._id.toString());
                                         common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
                                         //need to add dest resource to source dep
                                         if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
@@ -1133,7 +1156,10 @@ function start_task(task, resource, cb) {
                     });
                 },
 
-                //TODO - DEPRECATE THIS
+                //TODO - DEPRECATE THIS 
+                //     who uses it?
+                //          * soichih/sca-service-noop
+                //          * brain-life/validator-neuro-track
                 //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
                 //status.sh checking for its output (or just assume that it worked)
                 function(next) {
@@ -1252,14 +1278,14 @@ function health_check() {
         messages: [],
         date: new Date(),
         counts: _counts,
-        maxage: 1000*60*5,
+        maxage: 1000*60*3,
     }
 
-    if(_counts.tasks == 0) {
+    if(_counts.tasks == 0) { //should have at least 1 from noop check
         report.status = "failed";
         report.messages.push("low tasks count");
     }
-    if(_counts.checks == 0) {
+    if(_counts.checks < 50) { //TODO good number?
         report.status = "failed";
         report.messages.push("low check count");
     }
@@ -1293,8 +1319,62 @@ var rcon = redis.createClient(config.redis.port, config.redis.server);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     logger.info("connected to redis");
-    //health_check();
-    setInterval(health_check, 1000*60*5); //post health status every minutes
+    setInterval(health_check, 1000*60);
 });
+
+//run noop periodically to keep task loop occupied
+function run_noop() {
+    if(_counts.tasks != 0) return; //only run if task loop is bored
+
+    //find instance to run
+    db.Instance.findOne({name: "_health"}, (err, instance)=>{
+        if(err) return logger.error(err);
+        if(!instance) {
+            logger.info("need to submit _health instance");
+            instance = new db.Instance({
+                name: "_health",
+            });
+            instance.save();
+        }
+        //console.dir(instance._id.toString());
+
+        //find noop task
+        db.Task.findOne({name: "noop", instance_id: instance._id}, (err, task)=>{
+            if(err) return logger.error(err);
+            if(!task) {
+                logger.info("need to submit noop task");
+                task = new db.Task({
+                    name: "noop",
+                    user_id: "1", //picking random user here..
+                    instance_id: instance._id,
+                    status: "requested",
+                    config: { "test": 123 },
+                    service: "soichih/sca-service-noop",  
+                });
+                task.save();
+                return;
+            }
+            //console.dir(JSON.stringify(task, null, 4));
+
+            logger.debug("health: noop status:", task.status, task._id.toString(), task.next_date);
+            if(task.status == "failed") {
+                logger.error("noop failed");
+                logger.error(console.dir(JSON.stringify(task, null, 4)));
+                //continue
+            }
+            if(task.status == "requested") {
+                return;
+            }
+            if(task.status != "running") {
+                //if not running, run it again 
+                //logger.debug("health/rerunning noop");
+                task.status = "requested";
+                task.next_date = undefined;
+                task.save();
+            }
+        });
+    });
+}
+
 
 

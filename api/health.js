@@ -17,7 +17,7 @@ redis_client.on('ready', ()=>{
 });
 
 exports.health_check = function() {
-    logger.debug("running api health check");
+    //logger.debug("running api health check");
     var ssh = common.report_ssh();
     var report = {
         status: "ok",
@@ -36,34 +36,39 @@ exports.health_check = function() {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
     
-    //check sshagent
-    transfer.sshagent_list_keys((err, keys)=>{
-        if(err) {
-            report.status = 'failed';
-            report.messages.push(err);
-        }
-        report.agent_keys = keys.length;
-
-        //check db connectivity
-        db.Instance.findOne().exec(function(err, record) {
+    try {
+        //check sshagent
+        transfer.sshagent_list_keys((err, keys)=>{
             if(err) {
                 report.status = 'failed';
                 report.messages.push(err);
             }
-            if(record) {
-                report.db_connection = "ok";
-            } else {
-                report.status = 'failed';
-                report.messages.push('no instance from db');
-            }
+            report.agent_keys = keys.length;
 
-            if(report.status != "ok") logger.error(report);
-            
-            //report to redis
-            logger.debug("reporting to redis");
-            redis_client.set("health.workflow.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+            //check db connectivity
+            db.Instance.findOne().exec(function(err, record) {
+                if(err) {
+                    report.status = 'failed';
+                    report.messages.push(err);
+                }
+                if(record) {
+                    report.db_connection = "ok";
+                } else {
+                    report.status = 'failed';
+                    report.messages.push('no instance from db');
+                }
+
+                if(report.status != "ok") logger.error(report);
+                
+                //report to redis
+                //logger.debug("reporting to redis");
+                redis_client.set("health.workflow.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+            });
         });
-    });
+    } catch(err) {
+        logger.error("caught exception - probably from ssh_agent issue");
+        logger.error(err);
+    }
 }
 
 //load all heath reports posted

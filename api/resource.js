@@ -26,7 +26,7 @@ exports.select = function(user, task, cb) {
                 if(!~dep_resource_ids.indexOf(id)) dep_resource_ids.push(id);
             });
         });
-        logger.debug("dep_resource_ids:", dep_resource_ids);
+        //logger.debug("dep_resource_ids:", dep_resource_ids);
     }
 
     //load resource that user has access
@@ -48,9 +48,7 @@ exports.select = function(user, task, cb) {
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
-            
-
-            logger.debug("scoring resource:",resource.name, resource._id.toString())
+            //logger.debug("scoring resource:",resource.name, resource._id.toString())
             score_resource(user, resource, task, (err, score, detail)=>{
                 if(score === null) {
                     //not configured to run on this resource.. ignore
