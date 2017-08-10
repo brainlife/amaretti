@@ -22,6 +22,11 @@ exports.api = {
     auth: "http://localhost/api/auth",
 }
 
+exports.redis = {
+    server: "localhost", 
+    //port: 6379,
+}
+
 exports.mongodb = "mongodb://localhost/sca";
 
 exports.express = {
