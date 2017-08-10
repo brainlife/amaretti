@@ -8,6 +8,7 @@ install:
 
 services: 
   - mongodb
+  - redis-server
 
 script:
   - ./test/install.sh && npm run cover
