@@ -3,6 +3,8 @@
 var fs = require('fs');
 var winston = require('winston');
 
+process.env.SSH_AUTH_SOCK = __dirname+"/../ssh-agent.sock";
+
 exports.sca = {
     auth_pubkey: fs.readFileSync(__dirname+'/auth.pub'),
 
@@ -18,6 +20,11 @@ exports.sca = {
 //api endpoints
 exports.api = {
     auth: "http://localhost/api/auth",
+}
+
+exports.redis = {
+    server: "localhost", 
+    //port: 6379,
 }
 
 exports.mongodb = "mongodb://localhost/sca";
@@ -61,4 +68,3 @@ exports.logger = {
         ]
     },
 }
-
