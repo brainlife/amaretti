@@ -380,7 +380,7 @@ define({ "api": [
       "examples": [
         {
           "title": "Success-Response:",
-          "content": "{score: 10, resource: <resourceobj>, detail: <resourcedetail>, workdir: <workdir>}",
+          "content": "{\nscore: 10, \nresource: <resourceobj>, \nconsidered: {...}, \n_detail: <resourcedetail>, \nworkdir: <workdir>,\n_canedit: true,\n}",
           "type": "json"
         }
       ]
@@ -849,135 +849,6 @@ define({ "api": [
     "version": "0.0.0",
     "filename": "api/controllers/resource.js",
     "groupTitle": "Resource"
-  },
-  {
-    "type": "get",
-    "url": "/service",
-    "title": "Query Services",
-    "group": "Service",
-    "description": "<p>Query for SCA services</p>",
-    "parameter": {
-      "fields": {
-        "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "Object",
-            "optional": true,
-            "field": "find",
-            "description": "<p>Mongo find query - defaults to {}</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Object",
-            "optional": true,
-            "field": "sort",
-            "description": "<p>Mongo sort object - defaults to {}</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "select",
-            "description": "<p>Fields to load - defaults to 'logical_id'</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Number",
-            "optional": true,
-            "field": "limit",
-            "description": "<p>Maximum number of records to return - defaults to 100</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Number",
-            "optional": true,
-            "field": "skip",
-            "description": "<p>Record offset for pagination</p>"
-          }
-        ]
-      }
-    },
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": false,
-            "field": "Authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "success": {
-      "examples": [
-        {
-          "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{ \n        \"services\": [..services..], \n        \"count\": 123\n}",
-          "type": "json"
-        }
-      ]
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/barn/service.js",
-    "groupTitle": "Service",
-    "name": "GetService"
-  },
-  {
-    "group": "Service",
-    "type": "post",
-    "url": "/service",
-    "title": "Register Service",
-    "parameter": {
-      "fields": {
-        "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "giturl",
-            "description": "<p>Github URL to register service (like https://github.com/soichih/sca-service-life)</p>"
-          }
-        ]
-      }
-    },
-    "description": "<p>From specified Github URL, this API will register new service using github repo info and package.json. You can not re-register already register service</p>",
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": false,
-            "field": "authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "success": {
-      "examples": [
-        {
-          "title": "Success-Response:",
-          "content": "HTTP/1.1 200 OK\n{\n    \"__v\": 0,\n    \"user_id\": \"1\",\n    \"name\": \"soichih/sca-service-life\",\n    \"git\": {...},\n    \"pkg\": {...},\n    \"register_date\": \"2016-05-26T14:14:51.526Z\"\n}",
-          "type": "json"
-        }
-      ]
-    },
-    "error": {
-      "examples": [
-        {
-          "title": "Error-Response:",
-          "content": "HTTP/1.1 500 OK\n{\n    \"code\": 11000,\n    \"index\": 0,\n    \"errmsg\": \"insertDocument :: caused by :: 11000 E11000 duplicate key error index: sca.services.$name_1  dup key: { : \\\"soichih/sca-service-life\\\" }\",\n    ...\n}",
-          "type": "json"
-        }
-      ]
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/barn/service.js",
-    "groupTitle": "Service",
-    "name": "PostService"
   },
   {
     "group": "System",

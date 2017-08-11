@@ -3,11 +3,12 @@ define({
   "version": "1.1.0",
   "description": "SCA Workflow Service",
   "sampleUrl": false,
-  "apidoc": "0.2.0",
+  "defaultVersion": "0.0.0",
+  "apidoc": "0.3.0",
   "generator": {
     "name": "apidoc",
-    "time": "2017-06-29T21:08:21.295Z",
+    "time": "2017-08-11T20:44:41.574Z",
     "url": "http://apidocjs.com",
-    "version": "0.16.1"
+    "version": "0.17.6"
   }
 });

@@ -109,6 +109,8 @@ exports.get_ssh_connection = function(resource, cb) {
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
+        logger.error(err);
+        /*
         if(err.level && err.level == "client-timeout") {
             logger.warn("ssh server is dead.. keepalive not returning.");
         } else {
@@ -116,13 +118,13 @@ exports.get_ssh_connection = function(resource, cb) {
             logger.error("was ready on:"+conn.ready_time);
             logger.error("was last used on:"+conn.last_used);
             logger.error("current time:"+new Date());
-            logger.error(err);
         }
-        delete ssh_conns[resource._id];
+        */
 
-        //error could fire after ready event is received, so I should check to see if I've already
-        //called cb()
-        if(!conn.ready_time) cb(err);
+        //error could fire after ready event is received only call cb if it hasn't been called
+        if(!conn.ready_time) {
+            cb(err);
+        }
     });
 
     exports.decrypt_resource(resource);
@@ -133,7 +135,10 @@ exports.get_ssh_connection = function(resource, cb) {
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 30*1000, //default 0
         keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
-        readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
+
+        //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
+        //I think I should re-try connecting instead?
+        //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
     });
 }
 

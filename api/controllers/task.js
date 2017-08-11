@@ -287,13 +287,14 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         case "running":
             task.status = "stop_requested";
             task.next_date = undefined; //handle immedidately(or not?)
-            task.status_msg = "";
+            task.status_msg = "Stop requested by the user";
             break;
         case "running_sync":
             //TODO - kill the process?
+            break;
         default:
             task.status = "stopped";
-            task.status_msg = "";
+            task.status_msg = "Stopped by user";
         }
         //task.products = [];
         task.save(function(err) {

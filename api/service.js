@@ -23,7 +23,7 @@ exports.loaddetail_cached = function(service_name, branch, cb) {
             delete _details_cache[service_name];
         } else {
             //cache is good!
-            logger.debug("using service cache", service_name);
+            //logger.debug("using service cache", service_name);
             return cb(null, cache.detail);
         }
     }
@@ -35,6 +35,7 @@ exports.loaddetail = function(service_name, branch, cb) {
     
     //first load git info
     var repourl = 'https://api.github.com/repos/'+service_name;
+    logger.debug("loading repo detail", repourl);
     if(config.github) {
         repourl += "?client_id="+config.github.client_id;
         repourl += "&client_secret="+config.github.client_secret;

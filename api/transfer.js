@@ -62,6 +62,10 @@ function ssh_with_agent(resource, cb) {
         //keepaliveInterval: 60*1000, //defualt 0
         //keepaliveCountMax: 10, //default 3
 
+        //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
+        //I think I should re-try connecting instead?
+        //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
+
         agent: process.env.SSH_AUTH_SOCK,
         agentForward: true,
     });

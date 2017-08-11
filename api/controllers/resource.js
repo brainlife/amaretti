@@ -591,7 +591,9 @@ router.get('/download', jwt({
                 } else {
                     logger.debug("sending file", fullpath);
                     //file .. just stream using sftp stream
+                    
                     //npm-mime uses filename to guess mime type, so I can use this locally
+                    //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
                     var mimetype = mime.lookup(fullpath);
                     logger.debug("mimetype:"+mimetype);
 

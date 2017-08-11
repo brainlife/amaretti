@@ -223,7 +223,7 @@ function handle_housekeeping(task, cb) {
             }
 
             var missing_resource_ids = [];
-            async.forEach(task.resource_ids, function(resource_id, next_resource) {
+            async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
                         logger.error("failed to find resource_id:"+resource_id+" for taskdir check will try later");
@@ -326,7 +326,7 @@ function handle_housekeeping(task, cb) {
 
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
             var removed_count = 0;
-            async.forEach(task.resource_ids, function(resource_id, next_resource) {
+            async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
                         logger.error("failed to find resource_id:"+resource_id+" for removal");
@@ -785,7 +785,7 @@ function rerun_child(task, cb) {
     db.Task.find({deps: task._id}, function(err, tasks) {
         if(tasks.length) logger.debug("rerunning child tasks", tasks.length);
         //for each child, rerun
-        async.forEach(tasks, (_task, next_task)=>{
+        async.eachSeries(tasks, (_task, next_task)=>{
             common.rerun_task(_task, null, next_task);
         }, err=>{
             if(err) return cb(err); 
@@ -875,7 +875,7 @@ function start_task(task, resource, cb) {
                 envs[key] = task.envs[key];
             }
 
-            logger.debug("starting task..");
+            logger.debug("starting task on "+resource.name);
             async.series([
                    
                 //make sure various directory exists
@@ -945,7 +945,7 @@ function start_task(task, resource, cb) {
                 //install resource keys
                 function(next) {
                     if(!task.resource_deps) return next();
-                    async.forEach(task.resource_deps, function(resource, next_dep) {
+                    async.eachSeries(task.resource_deps, function(resource, next_dep) {
                         logger.info("storing resource key for "+resource._id+" as requested");
                         common.decrypt_resource(resource);
 
@@ -980,7 +980,7 @@ function start_task(task, resource, cb) {
                 //make sure dep task dirs are synced
                 function(next) {
                     if(!task.deps) return next(); //skip
-                    async.forEach(task.deps, function(dep, next_dep) {
+                    async.eachSeries(task.deps, function(dep, next_dep) {
                         
                         //if resource is the same, don't need to sync
                         if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
@@ -1285,7 +1285,7 @@ function health_check() {
         report.status = "failed";
         report.messages.push("low tasks count");
     }
-    if(_counts.checks < 50) { //TODO good number?
+    if(_counts.checks < 5) {
         report.status = "failed";
         report.messages.push("low check count");
     }
