@@ -36,35 +36,6 @@ db.init(function(err) {
     setInterval(run_noop, 1000*30);
 });
 
-//set next_date incrementally longer between each checks (you need to save it persist it)
-/*
-function set_nextdate(task) {
-    var max;
-    switch(task.status) {
-    case "failed":
-    case "finished":
-        max = 24*3600*1000; //24 hours
-        break;
-    default:
-        max = 30*60*1000; //30 minutes
-    }
-    task.next_date = new Date();
-    if(task.start_date) {
-        var elapsed = new Date() - task.start_date.getTime();
-        var delta = elapsed/30;
-        var delta = Math.min(delta, max); //limit to max
-        var delta = Math.max(delta, 10*1000); //min to 10 seconds
-        var next = task.next_date.getTime() + delta;
-        task.next_date.setTime(next);
-    } else {
-        //not yet started. check again in 10 minutes (maybe resource issue?)
-        //maybe I should increase the delay to something like an hour?
-        //TODO - if rsyncing takes long time, we could risk re-handling already starting task! (let's hope we can get it done in 20 minutes)
-        task.next_date.setMinutes(task.next_date.getMinutes() + 20);
-    }
-}
-*/
-
 //https://github.com/soichih/workflow/issues/15
 function set_nextdate(task) {
     switch(task.status) {
@@ -154,7 +125,9 @@ function check() {
         //logger.debug("processing", tasks.length, "tasks");
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _counts.tasks+=tasks.length; //for health reporting
-        async.eachSeries(tasks, (task, next) => {
+
+        //run up to 3 tasks concurrently (TODO - should it be just 1? or can we do much higher?)
+        async.eachLimit(tasks, 3, (task, next) => {
             logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
             set_nextdate(task);
             task.save(function() {
@@ -205,7 +178,6 @@ function check() {
 
 function handle_housekeeping(task, cb) {
     async.series([
-            
         //check to see if taskdir still exists
         //TODO...
         //taskdir could *appear* to be gone if admin temporarily unmount the file system, or metadata server is slow, etc, etc..
@@ -501,20 +473,11 @@ function handle_requested(task, next) {
                                 if(err) logger.error(err);
                                 update_instance_status(task.instance_id, err=>{
                                     if(err) logger.error(err);
-                                    //no cb
+                                    next();
                                 });
                             });
-                        }
-                        next();
+                        } else next();
                     });
-
-                    //start_task is no longer waited by anything.. all task gets processed asyncrhnously
-                    //don't wait for start_task to end.. start next task concurrently
-                    //I also don't update the "requested" status.. once it's taken by tha handler.
-                    //this means that, if task start doesn't finish in time (based on next_date) the same task
-                    //could get handled twice..
-                    //but the flipside of this is that, if something goes wrong during the startup phase, it will 
-                    //be *retried*.. I think latter is more common and benefits outweights the risk..?
                 });
             });
         });
