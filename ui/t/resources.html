@@ -16,9 +16,9 @@
                     <ul class="list-group" style="margin-bottom: 0px;">
                         <li class="list-group-item disabled" style="border: none;">
                             <div class="row">
-                                <div class="col-md-6">Your Accounts</div>
+                                <div class="col-md-5">Your Accounts</div>
                                 <div class="col-md-2">Enabled</div>
-                                <div class="col-md-4">Status</div>
+                                <div class="col-md-5">Status</div>
                             </div>
                         </li>
                     </ul>
@@ -44,7 +44,7 @@
                             ng-click="edit(resource, inst)"
                             ng-class="{'shared-instance': !inst._canedit}">
                             <div class="row" style="">
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     {{inst.name}}<br>
                                     <span class="text-muted">{{inst.config.username}}</span>
                                     <p ng-if="inst.gids.length > 0">Shared Groups: {{inst.gids}}</p>
@@ -52,11 +52,15 @@
                                 <div class="col-md-2">
                                     <input type="checkbox" ng-model="inst.active" disabled></input>
                                 </div>
-                                <div class="col-md-4">
-                                    <span uib-tooltip="{{inst.status_update|date:'short'}} {{inst.status_msg||'no detail'}}">
-                                        <span class="label label-success" ng-if="inst.status == 'ok'"><i class="fa fa-check fa-fw" aria-hidden="true"></i></span>
-                                        <span class="label label-danger" ng-if="inst.status != 'ok'"><i class="fa fa-exclamation fa-fw" aria-hidden="true"></i></span>
+                                <div class="col-md-5">
+                                    <span class="label label-success" ng-if="inst.status == 'ok'">
+                                        <i class="fa fa-check fa-fw" aria-hidden="true"></i>
                                     </span>
+                                    <span class="label label-danger" ng-if="inst.status != 'ok'">
+                                        <i class="fa fa-exclamation fa-fw" aria-hidden="true"></i>
+                                        {{inst.status_msg||'no detail'}}
+                                    </span>
+                                    &nbsp;<time class="text-muted">{{inst.status_update|date:'shortTime'}}</time>
                                     <button class="btn btn-xs pull-right" ng-click="test(resource, inst, $event)">Test</button>
                                 </div>
                             </div><!--row-->

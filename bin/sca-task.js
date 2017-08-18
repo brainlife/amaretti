@@ -126,7 +126,7 @@ function check() {
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _counts.tasks+=tasks.length; //for health reporting
 
-        //run up to 3 tasks concurrently (TODO - should it be just 1? or can we do much higher?)
+        //run up to 3 tasks concurrently (TODO - should it be just 1? or can we do much higher?) can ssh handle concurrent request?
         async.eachLimit(tasks, 3, (task, next) => {
             logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
             set_nextdate(task);
@@ -506,6 +506,7 @@ function handle_stop(task, next) {
         if(!resource) {
             logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
+            if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             task.save(function(err) {
                 if(err) return next(err);
@@ -523,6 +524,7 @@ function handle_stop(task, next) {
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
                 task.status = "stopped";
+                if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
                 task.status_msg = "Stopped by user";
                 task.save(function(err) {
                     if(err) return next(err);
@@ -543,6 +545,7 @@ function handle_stop(task, next) {
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
                         task.status = "stopped";
+                        if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
                         switch(code) {
                         case 0: //cleanly stopped
                             task.status_msg = "Cleanly stopped by user";

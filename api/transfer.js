@@ -159,6 +159,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         else next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
+                        logger.debug(data.toString());
                         /*
                         logger.info(data.toString());
                         if(progress_cb) {
