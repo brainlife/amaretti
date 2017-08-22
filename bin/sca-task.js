@@ -44,7 +44,9 @@ function set_nextdate(task) {
     case "stopped":
         //to see if task_dir still exists
         task.next_date = new Date(Date.now()+1000*3600*24);
-        if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+        //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
+        //if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+        if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
     case "stop_requested":
     case "requested":
@@ -141,6 +143,10 @@ function check() {
                 case "stop_requested":
                     handle_stop(task, err=>{
                         if(err) logger.error(err);
+                        if(task.status == "stopped") {
+                            //if we were able to stop it, then rehandle the task immediately so that we can remove it if needed (delete api stops task before removing it)
+                            if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+                        }
                         next(); //continue processing other tasks
                     });
                     break;
@@ -506,7 +512,6 @@ function handle_stop(task, next) {
         if(!resource) {
             logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
-            if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             task.save(function(err) {
                 if(err) return next(err);
@@ -524,7 +529,6 @@ function handle_stop(task, next) {
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
                 task.status = "stopped";
-                if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
                 task.status_msg = "Stopped by user";
                 task.save(function(err) {
                     if(err) return next(err);
@@ -539,13 +543,11 @@ function handle_stop(task, next) {
                     return next(); //handle this later 
                 }
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                //conn.exec("cd "+taskdir+" && ./_stop.sh", {}, function(err, stream) {
                 conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
                         task.status = "stopped";
-                        if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
                         switch(code) {
                         case 0: //cleanly stopped
                             task.status_msg = "Cleanly stopped by user";
