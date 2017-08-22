@@ -145,7 +145,14 @@ function check() {
                         if(err) logger.error(err);
                         if(task.status == "stopped") {
                             //if we were able to stop it, then rehandle the task immediately so that we can remove it if needed (delete api stops task before removing it)
-                            if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
+                            if(task.remove_date && task.remove_date < task.next_date) {
+                                task.next_date = task.remove_date;
+                                task.save(function(err) {
+                                    if(err) logger.error(err); //continue..
+                                    next(err);
+                                });
+                                return;
+                            }
                         }
                         next(); //continue processing other tasks
                     });
