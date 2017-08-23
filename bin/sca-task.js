@@ -131,6 +131,11 @@ function check() {
         //run up to 3 tasks concurrently (TODO - should it be just 1? or can we do much higher?) can ssh handle concurrent request?
         async.eachLimit(tasks, 3, (task, next) => {
             logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
+
+            //TODO - I should refactor task.save() and update_instance_status() and do it in a single place (if status / status_msg changes)
+
+            //TODO - I should update next date on all selected tasks before start processing to avoid
+            //other instance of task handler will take it
             set_nextdate(task);
             task.save(function() {
                 switch(task.status) {
@@ -626,7 +631,8 @@ function handle_running(task, next) {
 
         _service.loaddetail_cached(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
-                logger.error("Couldn't find such service:"+task.service);
+                logger.error("Couldn't load package detail for service:"+task.service);
+                logger.error(err);
                 return next(); //skip this task
             }
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.status) {
@@ -1170,7 +1176,6 @@ function start_task(task, resource, cb) {
                                         if(err) return next(err);
                                         common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                         //logger.debug(JSON.stringify(task, null, 4));
-
                                         task.status = "finished";
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();

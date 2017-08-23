@@ -49,11 +49,19 @@ exports.loaddetail = function(service_name, branch, cb) {
         }
 
         //then load package.json
-        logger.debug('loading https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json');
-        request('https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json', {
+        var pac_url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';
+        logger.debug('loading '+pac_url);
+        request(pac_url, {
             json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
         }, function(err, _res, pkg) {
             if(err) return cb(err);
+            if(_res.statusCode != 200) {
+                logger.error("failed to load "+pac_url);
+                logger.error(_res.body);
+                return cb("failed to load package.json. code:"+_res.statusCode);
+            }
+
+            //got the detail!
             var detail = {
                 name: service_name,
                 git: git,
