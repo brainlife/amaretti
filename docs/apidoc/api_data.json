@@ -348,7 +348,7 @@
     "group": "Resource",
     "type": "get",
     "url": "/resource/best",
-    "title": "Find best resource to run a task",
+    "title": "Find best resource",
     "description": "<p>Return a best resource to run specified service using algorithm used by sca-wf-task when it determines which resource to use for a task request</p>",
     "parameter": {
       "fields": {
@@ -393,7 +393,7 @@
   {
     "type": "get",
     "url": "/resource/download",
-    "title": "Download file from resource. If directory path is specified, it will stream tar -gz content",
+    "title": "Download File from resource",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -421,7 +421,7 @@
         ]
       }
     },
-    "description": "<p>Allows user to download any files from user's resource</p>",
+    "description": "<p>Download file from resource. If directory path is specified, it will stream tar gz-ed content</p>",
     "group": "Resource",
     "header": {
       "fields": {
@@ -528,7 +528,7 @@
     "group": "Resource",
     "type": "get",
     "url": "/resource/upload/:resourceid/:base64path",
-    "title": "Upload file",
+    "title": "Upload File",
     "description": "<p>Upload a file to specified resource on specified path (needs to be inside a workdir)</p>",
     "header": {
       "fields": {
@@ -560,7 +560,7 @@
   {
     "type": "post",
     "url": "/resource",
-    "title": "Register new resource instance",
+    "title": "Register new resource configuration",
     "name": "NewResource",
     "group": "Resource",
     "parameter": {
@@ -662,7 +662,7 @@
   {
     "type": "delete",
     "url": "/resource/:id",
-    "title": "Remove resource",
+    "title": "Remove resource configuration",
     "name": "RemoveResource",
     "group": "Resource",
     "parameter": {
@@ -754,7 +754,7 @@
   {
     "type": "put",
     "url": "/resource/:id",
-    "title": "Update resource instance configuration",
+    "title": "Update resource configuration",
     "name": "UpdateResource",
     "group": "Resource",
     "parameter": {

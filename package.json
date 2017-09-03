@@ -1,7 +1,7 @@
 {
-  "name": "sca-wf",
+  "name": "workflow",
   "version": "1.1.0",
-  "description": "SCA Workflow Service",
+  "description": "Workflow Service",
   "main": "index.js",
   "dependencies": {
     "amqp": "^0.2.6",
@@ -43,8 +43,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/soichih/sca-wf.git"
+    "url": "git://github.com/soichih/workflow.git"
   },
-  "author": "Soichi Hayashi <hayashis@iued>",
+  "author": "Soichi Hayashi <hayashis@iu.edu>",
   "license": "MIT"
 }

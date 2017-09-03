@@ -314,7 +314,7 @@ router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 
 /**
  * @apiGroup Resource
- * @api {get} /resource/best    Find best resource to run a task
+ * @api {get} /resource/best    Find best resource
  * @apiDescription              Return a best resource to run specified service using algorithm used by sca-wf-task
  *                              when it determines which resource to use for a task request
  *
@@ -442,7 +442,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 /**
  * @apiGroup Resource
  * @api {get} /resource/upload/:resourceid/:base64path 
- *                              Upload file
+ *                              Upload File
  * @apiDescription              Upload a file to specified resource on specified path (needs to be inside a workdir)
  *
  * @apiHeader {String} authorization
@@ -517,12 +517,12 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
 //getToken() below allows me to check jwt token via "at" query.
 //Another way to mitigate this is to issue a temporary jwt token used to do file download (or permanent token that's tied to the URL?)
 /**
- * @api {get} /resource/download         Download file from resource. If directory path is specified, it will stream tar -gz content
+ * @api {get} /resource/download Download File from resource
  * @apiParam {String} r         Resource ID
  * @apiParam {String} p         File/directory path to download (relative to resource work directory - parent of all instance dir - so you need instance_id as root) Use encodeURIComponent() so escape non URL characters
  * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
  *
- * @apiDescription              Allows user to download any files from user's resource
+ * @apiDescription              Download file from resource. If directory path is specified, it will stream tar gz-ed content
  *
  * @apiGroup Resource
  *
@@ -646,7 +646,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
 });
 
 /**
- * @api {put} /resource/:id     Update resource instance configuration
+ * @api {put} /resource/:id     Update resource configuration
  * @apiName UpdateResource
  * @apiGroup Resource
  *
@@ -707,7 +707,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
 //for now, only administrators can update gids
 
 /**
- * @api {post} /resource        Register new resource instance
+ * @api {post} /resource        Register new resource configuration
  * @apiName NewResource
  * @apiGroup Resource
  *
@@ -761,7 +761,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 });
 
 /**
- * @api {delete} /resource/:id Remove resource
+ * @api {delete} /resource/:id Remove resource configuration
  * @apiName RemoveResource
  * @apiGroup Resource
  *
