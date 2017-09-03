@@ -128,61 +128,61 @@ function check() {
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacility, or adjust next_date logic?");
         _counts.tasks+=tasks.length; //for health reporting
 
+        //TODO - to allow multiple instances of task handler, I shoule either find way to only pull $mod: [inst_id, inst_num], (couldn't find a way to do this)
+        //or simply skip tasks with _id mod (inst_nun) != inst_id.
+        //https://github.com/soichih/workflow/issues/20
+
         //run up to 3 tasks concurrently (TODO - should it be just 1? or can we do much higher?) can ssh handle concurrent request?
         async.eachLimit(tasks, 3, (task, next) => {
             logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
 
-            //TODO - I should refactor task.save() and update_instance_status() and do it in a single place (if status / status_msg changes)
-
-            //TODO - I should update next date on all selected tasks before start processing to avoid
-            //other instance of task handler will take it
+            //save next date now to prevent reprocessing too soon
             set_nextdate(task);
             task.save(function() {
-                switch(task.status) {
-                case "requested":
-                    handle_requested(task, err=>{
-                        if(err) logger.error(err);
-                        next(); //continue processing other tasks
+
+                var previous_status = task.status;
+                function save() {
+                    task.save(function(err) {
+                        if(err) logger.error(err); //continue..
+                        if(task.status == previous_status) return next(); //no change
+                        update_instance_status(task.instance_id, err=>{
+                            if(err) logger.error(err);
+                            next();
+                        });
                     });
-                    break;
+                }
+
+                switch(task.status) {
                 case "stop_requested":
                     handle_stop(task, err=>{
                         if(err) logger.error(err);
-                        if(task.status == "stopped") {
-                            //if we were able to stop it, then rehandle the task immediately so that we can remove it if needed (delete api stops task before removing it)
-                            if(task.remove_date && task.remove_date < task.next_date) {
-                                task.next_date = task.remove_date;
-                                task.save(function(err) {
-                                    if(err) logger.error(err); //continue..
-                                    next(err);
-                                });
-                                return;
-                            }
+
+                        //if we were able to stop it, then rehandle the task immediately so that we can remove it if needed (delete api stops task before removing it)
+                        if(task.status == "stopped" && task.remove_date && task.remove_date < task.next_date) {
+                            task.next_date = task.remove_date;
                         }
-                        next(); //continue processing other tasks
+                        save();
                     });
                     break;
+
+                case "requested":
+                    handle_requested(task, err=>{
+                        if(err) logger.error(err); //continue processing other tasks
+                        save();
+                    });
+                    break;
+
                 case "running":
                     handle_running(task, err=>{
                         if(err) logger.error(err);
-                        next(); //continue processing other tasks
+                        save();
                     });
                     break;
-                /*
-                case "failed":
-                    //TODO - I don't know what to do for failed tasks yet, but I don't want
-                    //to run housekeeping because it sometimes think dependency failed tasks to be removed by cluster.
-                    //I want to leave it in failed status)
-                    //handle_failed(task, next);
-                    next();
-                    break;
-                case "remove_requested":
-                case "finished":
-                */
+
                 default:
                     handle_housekeeping(task, err=>{
                         if(err) logger.error(err);
-                        next(); //continue processing other tasks
+                        save();
                     });
                 }
             });
@@ -365,32 +365,20 @@ function handle_housekeeping(task, cb) {
 
                     //reset resource ids
                     task.resource_ids = [];
-                    task.save(function(err) {
-                        if(err) return next(err);
-                        update_instance_status(task.instance_id, next);
-                    });
 
                     //also post to progress.. (TODO - should I set the status?)
                     common.progress(task.progress_key, {msg: 'Task directory Removed'});
+
+                    next();
                 }
             });
-        },
-
-        function(next) {
-            //TODO - removal of empty instance directory is done by sca-wf-resource service (not true?)
-            next();
         },
 
         function(next) {
             //TODO - stop tasks that got stuck in running / running_sync
             next();
         },
-
-    ], function(err) {
-        //done with all house keeping..
-        if(err) logger.error(err); //skip this task
-        cb();
-    });
+    ], cb);
 }
 
 function handle_requested(task, next) {
@@ -409,24 +397,19 @@ function handle_requested(task, next) {
         task.status_msg = "Dependency failed.";
         task.status = "failed";
         task.fail_date = new Date();
-        task.save(function(err) {
-            if(err) return next(err);
-            update_instance_status(task.instance_id, next);
-        });
-        return;
+        return next();
     }
 
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependency";
-        task.save(next);
-        return;
+        return next();
     }
 
     task.status_msg = "Being processed by task handler..";
     task.save(err=>{
         //need to lookup user's gids to find all resources that user has access to
-        logger.debug("looking up user/s gids from auth api");
+        logger.debug("looking up user/s gids from auth api"); //TODO should I cache this?
         request.get({
             url: config.api.auth+"/user/groups/"+task.user_id,
             json: true,
@@ -435,7 +418,10 @@ function handle_requested(task, next) {
             if(err) {
                 if(res && res.statusCode == 404) {
                     gids = [];
-                } else return next(err);
+                } else {
+                    task.status_msg = "Failed to load group ids from auth service.. retry later";
+                    return next(err);
+                }
             }
             switch(res.statusCode) {
             case 404:
@@ -444,14 +430,14 @@ function handle_requested(task, next) {
                 break;
             case 401:
                 //token is misconfigured?
-                logger.error("authentication error while obtaining user's group ids");
+                task.status_msg = "authentication error while obtaining user's group ids.. retry later";
                 logger.error("jwt:"+config.sca.jwt);
                 return next(err);
             case 200:
                 //success! 
                 break;
             default:
-                logger.error("invalid status code:"+res.statusCode+" while obtaining user's group ids");
+                task.status_msg = "invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later";
                 return next(err);
             }
 
@@ -464,8 +450,7 @@ function handle_requested(task, next) {
                 if(!resource) {
                     task.status_msg = "No resource currently available to run this task.. waiting.. ";
                     task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
-                    task.save(next);
-                    return;
+                    return next();
                 }
 
                 logger.debug(JSON.stringify(considered, null, 4));
@@ -487,14 +472,8 @@ function handle_requested(task, next) {
                             task.status = "failed";
                             task.status_msg = err;
                             task.fail_date = new Date();
-                            task.save(function(err) {
-                                if(err) logger.error(err);
-                                update_instance_status(task.instance_id, err=>{
-                                    if(err) logger.error(err);
-                                    next();
-                                });
-                            });
-                        } else next();
+                        } 
+                        next();
                     });
                 });
             });
@@ -509,51 +488,30 @@ function handle_stop(task, next) {
     if(!task.resource_id) {
         task.status = "removed";
         task.status_msg = "Removed before ran on any resource";
-        task.save(function(err) {
-            if(err) return next(err);
-            update_instance_status(task.instance_id, next);
-        });
-        return;
+        return next();
     }
 
     db.Resource.findById(task.resource_id, function(err, resource) {
-        if(err) {
-            logger.error(err);
-            return next(); //skip this task
-        }
+        if(err) return next(err);
         if(!resource) {
             logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
-            task.save(function(err) {
-                if(err) return next(err);
-                update_instance_status(task.instance_id, next);
-            });
-            return;
+            return next();
         }
 
         //get_service(task.service, function(err, service_detail) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
-            if(err) {
-                logger.error("Couldn't find such service:"+task.service);
-                return next(); //skip this task
-            }
+            if(err) return next(err);
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
                 task.status = "stopped";
                 task.status_msg = "Stopped by user";
-                task.save(function(err) {
-                    if(err) return next(err);
-                    update_instance_status(task.instance_id, next);
-                });
-                return;
+                return next();
             }
 
             common.get_ssh_connection(resource, function(err, conn) {
-                if(err) {
-                    logger.error(err);
-                    return next(); //handle this later 
-                }
+                if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
                     if(err) return next(err);
@@ -561,20 +519,13 @@ function handle_stop(task, next) {
                         logger.debug("stream closed "+code);
                         task.status = "stopped";
                         switch(code) {
-                        case 0: //cleanly stopped
+                        case 0: 
                             task.status_msg = "Cleanly stopped by user";
-                            task.save(function(err) {
-                                if(err) return next(err);
-                                update_instance_status(task.instance_id, next);
-                            });
                             break;
                         default:
                             task.status_msg = "Failed to stop the task cleanly -- code:"+code;
-                            task.save(function(err) {
-                                if(err) return next(err);
-                                update_instance_status(task.instance_id, next);
-                            });
                         }
+                        next();
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
@@ -590,12 +541,10 @@ function handle_stop(task, next) {
 
 //check for task status of already running tasks
 function handle_running(task, next) {
-    //logger.info("check_running "+task._id);
 
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
-        next();
-        return;
+        return next();
     }
 
     //calculate runtime
@@ -604,11 +553,7 @@ function handle_running(task, next) {
     if(task.max_runtime && task.max_runtime < runtime) {
         task.status = "stop_requested";
         task.status_msg = "Runtime exceeded stop date. Stopping";
-        task.save(function(err) {
-            if(err) return next(err);
-            update_instance_status(task.instance_id, next);
-        });
-        return;
+        return next();
     }
 
     db.Resource.findById(task.resource_id, function(err, resource) {
@@ -617,39 +562,28 @@ function handle_running(task, next) {
             task.status = "failed";
             task.status_msg = "Lost resource "+task.resource_id;
             task.fail_date = new Date();
-            task.save(function(err) {
-                if(err) return next(err);
-                update_instance_status(task.instance_id, next);
-            });
-            return;
+            return next();
         }
         if(resource.status != "ok") {
             task.status_msg = "Resource status is not ok.";
-            task.save(next);
-            return;
+            return next();
         }
 
         _service.loaddetail_cached(task.service, task.service_branch, function(err, service_detail) {
             if(err) {
                 logger.error("Couldn't load package detail for service:"+task.service);
-                logger.error(err);
-                return next(); //skip this task
+                return next(err); 
             }
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.status) {
                 logger.error("service:"+task.service+" doesn't have scripts.status defined.. can't figure out status");
                 task.status = "failed";
                 task.status_msg = "status hook not defined in package.json";
-                task.save(function(err) {
-                    if(err) return next(err);
-                    update_instance_status(task.instance_id, next);
-                });
-                return;
+                return next();
             }
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..
                     task.status_msg = err.toString();
-                    task.save(next);
                     return next();
                 }
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -676,7 +610,7 @@ function handle_running(task, next) {
                         switch(code) {
                         case 0: //still running
                             task.status_msg = out; //should I?
-                            task.save(next);
+                            next();
                             break;
                         case 1: //finished
                             //I am not sure if I have enough usecases to warrent the automatical retrieval of products.json to task..
@@ -687,10 +621,7 @@ function handle_running(task, next) {
                                     task.status = "failed";
                                     task.status_msg = err;
                                     task.fail_date = new Date();
-                                    task.save(function(err) {
-                                        if(err) return next(err);
-                                        update_instance_status(task.instance_id, next);
-                                    });
+                                    next();
                                 } else {
                                     logger.info("loaded products");
                                     common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
@@ -698,13 +629,7 @@ function handle_running(task, next) {
                                     task.status_msg = "Service completed successfully";
                                     task.products = products;
                                     task.finish_date = new Date();
-                                    task.save(function(err) {
-                                        if(err) return next(err);
-                                        update_instance_status(task.instance_id, err=>{
-                                            if(err) return next(err);
-                                            rerun_child(task, next);
-                                        });
-                                    });
+                                    rerun_child(task, next);
                                 }
                             });
                             break;
@@ -713,30 +638,13 @@ function handle_running(task, next) {
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
                                 task.status = "requested";
                                 task.status_msg = out;
-                                task.save(function(err) {
-                                    if(err) return next(err);
-                                    update_instance_status(task.instance_id, next);
-                                });
                             } else {
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed";
                                 task.status_msg = out;
                                 task.fail_date = new Date();
-                                task.save(function(err) {
-                                    if(err) return next(err);
-                                    update_instance_status(task.instance_id, next);
-                                });
-
-                                //TODO I'd like to notify admin, or service author that the service has failed
-                                //for that, I need to lookup the instance detail (for like .. workflow name)
-                                //and probably the task owner info,
-                                //then, I can publish to a dedicated service.error type exchange with all the information
-                                //sca-event can be made to allow admin or certain users subscribe to that event and
-                                //send email..
-
-                                //or..another way to deal with this is to create another service that generates a report.
                             }
-
+                            next();
                             break;
                         case 3: //status temporarly unknown
                             logger.error("couldn't determine the job state. could be an issue with status script");
@@ -768,10 +676,7 @@ function rerun_child(task, cb) {
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{
             common.rerun_task(_task, null, next_task);
-        }, err=>{
-            if(err) return cb(err); 
-            update_instance_status(task.instance_id, cb);
-        });
+        }, cb);
     });
 }
 
@@ -1120,7 +1025,7 @@ function start_task(task, resource, cb) {
                                         //good.. now set the next_date to now so that we will check for its status
                                         task.status_msg = "Service started";
                                         task.next_date = new Date();
-                                        task.save(next);
+                                        next();
                                     }
                                 });
 
@@ -1137,8 +1042,7 @@ function start_task(task, resource, cb) {
                     });
                 },
 
-                //TODO - DEPRECATE THIS 
-                //     who uses it?
+                //TODO - I might want to deprecate this in the future, but it's still used by 
                 //          * soichih/sca-service-noop
                 //          * brain-life/validator-neuro-track
                 //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
@@ -1180,12 +1084,7 @@ function start_task(task, resource, cb) {
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();
                                         task.products = products;
-                                        task.save(function(err) {
-                                            if(err) return next(err);
-                                            update_instance_status(task.instance_id, function(err) {
-                                                rerun_child(task, next);
-                                            });
-                                        });
+                                        rerun_child(task, next);
                                     });
                                 }
                             })
@@ -1197,12 +1096,9 @@ function start_task(task, resource, cb) {
                                 logger.error(data.toString());
                             });
                         });
-                        //});
                     });
                 },
-            ], function(err) {
-                cb(err);
-            });
+            ], cb);
         });
     });
 }
@@ -1355,6 +1251,4 @@ function run_noop() {
         });
     });
 }
-
-
 

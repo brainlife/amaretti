@@ -5,6 +5,10 @@ const winston = require('winston');
 
 process.env.SSH_AUTH_SOCK = __dirname+"/../ssh-agent.sock";
 
+exports.instances = process.env.instances||1;
+exports.instance_id = process.env.NODE_APP_INSTANCE||0;
+//for(var k in process.env) console.log(k, process.env[k]);
+
 //used to post/poll health status from various services
 exports.redis = {
     server: "localhost", 
