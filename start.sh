@@ -1,6 +1,7 @@
 
-rm ssh-agent.sock
-ssh-agent -a ssh-agent.sock
+#using docker container now
+#rm ssh-agent.sock
+#ssh-agent -a ssh-agent.sock
 
 pm2 delete wf-api
 pm2 start api/wf.js -i 2 --name wf-api --watch --ignore-watch="*.log test *.sh ui bin example .git"

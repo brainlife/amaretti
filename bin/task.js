@@ -1161,7 +1161,7 @@ function health_check() {
         report.status = "failed";
         report.messages.push("low tasks count");
     }
-    if(_counts.checks < 5) {
+    if(_counts.checks == 0) {
         report.status = "failed";
         report.messages.push("low check count");
     }
