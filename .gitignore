@@ -16,3 +16,4 @@ config/wf.pub
 config/wf.key
 config/*.secret
 docker/config
+docs/_site
