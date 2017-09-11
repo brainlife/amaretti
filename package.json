@@ -3,6 +3,17 @@
   "version": "1.1.0",
   "description": "Workflow Service",
   "main": "index.js",
+  "scripts": {
+    "test": "mocha --reporter spec",
+    "start": "node api/wf.js",
+    "apidoc": "apidoc -i api/ -o docs/apidoc/",
+    "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/soichih/workflow.git"
+  },
+  "author": "Soichi Hayashi <hayashis@iu.edu>",
   "dependencies": {
     "amqp": "^0.2.6",
     "async": "^2.4.1",
@@ -35,17 +46,5 @@
     "mocha": "^3.0.2",
     "supertest": "^2.0.0"
   },
-  "scripts": {
-    "test": "mocha --reporter spec",
-    "start": "node api/wf.js",
-    "apidoc": "apidoc -i api/ -o docs/apidoc/",
-    "docs": "jekyll docs",
-    "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/soichih/workflow.git"
-  },
-  "author": "Soichi Hayashi <hayashis@iu.edu>",
   "license": "MIT"
 }
