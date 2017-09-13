@@ -1,1 +1,55 @@
-test
+---
+layout: single
+title: Introduction
+permalink: /
+sidebar:
+  nav: "docs"
+---
+
+## About
+
+This service provides following capabilities to client application via the REST API.
+
+- Handle authentication / authorization through JWT token.
+- Manage private and shared computing resources
+- Allow configuration of services to be executed on each resource.
+- Submit, monitor, and manage tasks and execute them on various remote computing resources.
+- Continously monitor resource status.
+- Decides which resource to submit requested tasks. 
+- Define task dependencies and transfer input data between resources (site-to-site).
+- Restart failed tasks if requested.
+- Uploading / downloading of files to/from remote resources.
+- Logically groups tasks into a workflow *instances*.
+
+Although this service can be installed and used independently, it is primarily developed for Brain-Life.org project to meets its unique goals. Also, this service itself probably does not provide all necessary features often required by a full science gateway applications. For example, Brain-Life portal uses this service and various other services such as Authentication service, Progress service, Warehouse and Event services to provide features required by the platform.  
+
+Compared to other more generic workflow services, or full scientific gateway backend service suites like Agave, this service is much more lightweight and designed to be used as a part of existing applications.  Alghouth limited in terms of its scope and functionalities, we are releasing this service as an independent open source project in a hope that other groups might find it useful. 
+
+## Library Stack
+
+This service is implemented with following set of libraries
+
+- Node.js / express for REST API
+- MongoDB (mongoose)
+- RabbitMQ (amqp) to publish workflow events
+- Redis for current status caching
+- Angular1 for resource configuration UI (optional)
+
+## Installation
+
+Create config directory containing all necessary configurations. (TODO document)
+
+### Run via Docker
+
+```bash
+docker run \
+    --name workflow \
+    -v `pwd`/config:/app/config \
+    -d soichih/workflow
+```
+
+## License
+
+MIT
+
+
