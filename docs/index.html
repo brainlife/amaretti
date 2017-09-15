@@ -6,28 +6,44 @@ sidebar:
   nav: "docs"
 ---
 
-## About
+Amaretti is a light-weight inter-resource task orchestration service. It allows user to request *applications* hosted in Github to be executed on configured resources that user owns (can be shared) and handles inter-resource data transfer in secure fasion. Amaretti does not replace local job schedulers which might be installed on remote computing resources. In a sense, Amaretti is a *meta* task orchestration service, because applications submitted by Amaretti on each computing resource will depened on those local job schedulers to actually execute the jobs in most appropriate manner. Amaretti simply takes care of starting / monitoring of those jobs submitted on varaiety of computing resources and provide common RESTful API where client application can submit task requests and receive events.
 
-This service provides following capabilities to client application via the REST API.
+Amaretti is primarily used by Brain-Life.org project and design to meet its unique goals, but it can be installed and used independently for other projects. Amaretti itself does not provide all necessary features often required by science gateway applications. For example, Brain-Life portal uses Amaretti with various other services such as Authentication, Progress, Warehouse and Event services to provide all features required by the platform.  
 
-- Handle authentication / authorization through JWT token.
-- Manage private and shared computing resources
-- Allow configuration of services to be executed on each resource.
-- Submit, monitor, and manage tasks and execute them on various remote computing resources.
-- Continously monitor resource status.
-- Decides which resource to submit requested tasks. 
-- Define task dependencies and transfer input data between resources (site-to-site).
-- Restart failed tasks if requested.
+We are releasing Amaretti as an independent open source project in a hope that other groups might find it useful. 
+
+Amaretti provides following capabilities.
+
+## Task Orchestration
+
+- Submits, monitors, and manages large number of tasks.
+- Error tolerant. It can handle varaiety of error conditions and resume operations when systems recovers.
+- Applications are hosted on github and maintained by individual developers.
+- Git branch can be specified by users to run particular *versions* of the application.
+- Handles task dependencies to form a workflow. Mulitple tasks can be logically grouped. 
+- Synchronizes input/output data if a task cross resource boundaries.
+- Restart(retry) failed tasks if requested.
+- Maximum runtime can be specified.
+- Output from task execution can be removed at specified date.
+
+## Resource Management
+
+- Allows resource owners to decide which [ABCD compliant](https://github.com/brain-life/abcd-spec) applications to run.
+- Resource can be shared by multiple users.
+- Any computing resource that allows ssh access can be used as remote resource (HPC systems, VMs, clusters, etc..)
+- Continously monitor resource status and prevents apps from being submitted if no resources are available.
+- Decides best resource to submit requested apps with preconfigured *scores* and user preference and current conditions.
+
+## API
+
+- RESTful APIs.
+- Auth-e/o through JWT token. 
+- Stateless (It can be installed across multiple nodes for scalability / high availability)
 - Uploading / downloading of files to/from remote resources.
-- Logically groups tasks into a workflow *instances*.
 
-Although this service can be installed and used independently, it is primarily developed for Brain-Life.org project to meets its unique goals. Also, this service itself probably does not provide all necessary features often required by a full science gateway applications. For example, Brain-Life portal uses this service and various other services such as Authentication service, Progress service, Warehouse and Event services to provide features required by the platform.  
+## Software Stack
 
-Compared to other more generic workflow services, or full scientific gateway backend service suites like Agave, this service is much more lightweight and designed to be used as a part of existing applications.  Alghouth limited in terms of its scope and functionalities, we are releasing this service as an independent open source project in a hope that other groups might find it useful. 
-
-## Library Stack
-
-This service is implemented with following set of libraries
+This service is implemented with following software.
 
 - Node.js / express for REST API
 - MongoDB (mongoose)
@@ -35,21 +51,6 @@ This service is implemented with following set of libraries
 - Redis for current status caching
 - Angular1 for resource configuration UI (optional)
 
-## Installation
-
-Create config directory containing all necessary configurations. (TODO document)
-
-### Run via Docker
-
-```bash
-docker run \
-    --name workflow \
-    -v `pwd`/config:/app/config \
-    -d soichih/workflow
-```
-
 ## License
 
-MIT
-
-
+MIT; A permissive free software license with very limited restriction on reuse and with an excellent license compatibility.

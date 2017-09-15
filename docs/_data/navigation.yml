@@ -3,6 +3,8 @@ main:
     url: /
   - title: "API Doc"
     url: /apidoc/
+  - title: "Github"
+    url: https://github.com/brain-life/amaretti
 
 docs:
   - title: Getting Started
@@ -10,39 +12,29 @@ docs:
       - title: "Introduction"
         url: /
       - title: "Installation"
-        url: /installation/
+        url: /installation
 
-  - title: Features
+  - title: Details
     children:
-      - title: "Configuration"
-        url: /docs/configuration/
-      - title: "Navigation"
-        url: /docs/navigation/
-      - title: "UI Text"
-        url: /docs/ui-text/
-      - title: "Authors"
-        url: /docs/authors/
-      - title: "Layouts"
-        url: /docs/layouts/
+      - title: "Technical Details"
+        url: /detail
 
-  - title: Content
+  - title: Tutorials
     children:
-      - title: "Working with Posts"
-        url: /docs/posts/
-      - title: "Working with Pages"
-        url: /docs/pages/
-      - title: "Working with Collections"
-        url: /docs/collections/
-      - title: "Helpers"
-        url: /docs/helpers/
-      - title: "Utility Classes"
-        url: /docs/utility-classes/
+      - title: "Authentication"
+        url: /tutorial/authentication
+      - title: "Resource Management"
+        url: /tutorial/resource
+      - title: "Task Submission"
+        url: /tutorial/task
+      - title: "Data Transfer"
+        url: /tutorial/transfer
 
-  - title: Extras
+  - title: Support
     children:
-      - title: "Stylesheets"
-        url: /docs/stylesheets/
-      - title: "JavaScript"
-        url: /docs/javascript/
+      - title: "Contact"
+        url: /contact
+      - title: "Funding"
+        url: /funding
 
 
