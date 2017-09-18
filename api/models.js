@@ -160,7 +160,7 @@ var taskSchema = mongoose.Schema({
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
 
-    status: {type: String, index: true}, //requested, running, failed, stop_requested, stopped, (running_sync), removed, 
+    status: {type: String, index: true}, //requested, running, failed, stop_requested, stopped, (running_sync), removed, finished
     status_msg: String,
 
     //resource where the task is currently running (or was)

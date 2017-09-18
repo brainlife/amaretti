@@ -186,12 +186,10 @@ exports.get_sftp_connection = function(resource, cb) {
 }
 
 exports.report_ssh = function() {
-    var ssh_cons = Object.keys(ssh_conns).length;
-    var sftp_cons = Object.keys(sftp_conns).length;
-    var max_channels = 0;
 
     /*
     //report detail to stdout..
+    var max_channels = 0;
     logger.info("ssh/sftp status-----------------------------------------------");
     logger.info("ssh connections : ", ssh_cons);
     for(var rid in ssh_conns) {
@@ -211,9 +209,8 @@ exports.report_ssh = function() {
     */
 
     return {
-        ssh_cons,
-        sftp_cons,
-        max_channels,
+        ssh_cons: Object.keys(ssh_conns).length,
+        sftp_cons: Object.keys(sftp_conns).length,
     }
 }
 

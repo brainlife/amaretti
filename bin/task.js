@@ -340,8 +340,10 @@ function handle_housekeeping(task, cb) {
                         conn.exec("rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")", function(err, stream) {
                             if(err) return next_resource(err);
                             stream.on('close', function(code, signal) {
-                                if(code) return next_resource("Failed to remove taskdir "+taskdir+" code:"+code);
-                                else {
+                                if(code) {
+                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
+                                    return next_resource();
+                                } else {
                                     removed_count++;
                                     next_resource();
                                 }
@@ -708,7 +710,7 @@ function start_task(task, resource, cb) {
             //service dir includes branch name (optiona)
             var servicerootdir = "$HOME/.sca/services"; //TODO - make this configurable?
             var servicedir = servicerootdir+"/"+service;
-            if(task.service_branch) servicedir += ":"+task.service_branch;
+            if(task.service_branch) servicedir += "_"+task.service_branch;
 
             var envs = {
                 //DEPRECATED - use versions below
