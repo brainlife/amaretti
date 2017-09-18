@@ -7,13 +7,13 @@
 
 # Site Settings
 locale                   : "en"
-title                    : "Workflow Service"
+title                    : "Amaretti"
 title_separator          : "-"
-name                     : "Workflow Service"
-description              : "used by Brain-Life.org for inter-resource task submission."
+name                     : "Amaretti"
+description              : "Inter-Resource task orchestration service used by Brain-Life.org for ABCD compliant applications"
 url                      : # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : # the subpath of your site, e.g. "/blog"
-repository               : # GitHub username/repo-name e.g. "mmistakes/minimal-mistakes"
+repository               : "brain-life/amaretti"
 teaser                   : # path of fallback teaser image, e.g. "/assets/images/500x300.png"
 # breadcrumbs            : false # true, false (default)
 words_per_minute         : 200
@@ -177,12 +177,13 @@ timezone: # http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 
 # Plugins
-gems:
+plugins:
   - jekyll-paginate
   - jekyll-sitemap
   - jekyll-gist
   - jekyll-feed
   - jemoji
+  - jekyll-scholar
 
 # mimic GitHub Pages with --safe
 whitelist:
