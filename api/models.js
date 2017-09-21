@@ -175,8 +175,9 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
-    //content of products.json once generated
-    products: mongoose.Schema.Types.Mixed,
+    //content of product.json if generated
+    //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
+    product: mongoose.Schema.Types.Mixed,
  
     //next time sca-task should check this task again (unset to check immediately)
     next_date: {type: Date, index: true},
