@@ -22,22 +22,6 @@ app.config(['$routeProvider', 'appconf', function($routeProvider, appconf) {
         controller: 'AboutController'
     })
 
-    /*
-    //list of all available workflows (that user can start)
-    .when('/workflows', {
-        templateUrl: 't/workflows.html',
-        controller: 'WorkflowsController',
-        requiresLogin: true
-    })
-
-    //detail for each workflow 
-    .when('/workflow/:id', {
-        templateUrl: 't/workflow.html',
-        controller: 'WorkflowController',
-        requiresLogin: true
-    })
-    */
-    
     //list of all currently running workflows
     .when('/insts', {
         templateUrl: 't/insts.html',
