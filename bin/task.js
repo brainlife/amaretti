@@ -515,7 +515,7 @@ function handle_stop(task, next) {
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.stop, (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
@@ -592,8 +592,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                //conn.exec("cd "+taskdir+" && echo '"+delimtoken+"' && ./_status.sh", {}, function(err, stream) {
-                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && $SERVICE_DIR/"+service_detail.pkg.scripts.status, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
                     var timeout = setTimeout(()=>{
@@ -1006,9 +1005,8 @@ function start_task(task, resource, cb) {
                         update_instance_status(task.instance_id, function(err) {
                             if(err) return next(err);
 
-                            //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
+                            conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
                                 var timeout = setTimeout(()=>{
@@ -1062,11 +1060,8 @@ function start_task(task, resource, cb) {
                     task.save(function(err) {
                         if(err) return next(err);
                         //not updating instance status - because run should only take very short time
-                        //update_instance_status(task.instance_id, function(err) {
-                        //    if(err) return next(err);
-                        //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
-                        conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
+                        conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
 
                             var timeout = setTimeout(()=>{
