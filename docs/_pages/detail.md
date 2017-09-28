@@ -18,7 +18,7 @@ A goal of Amaretti is to provide a layer on top of various computing resources, 
 
 ## About Amaretti Service
 
-Amaretti is a collection of microservices written in nodejs, and administrator can install it on docker. User interacts with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
+Amaretti is a collection of microservices written in nodejs, and administrator can install it via docker. A client application can interact with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
 
 Amaretti can run any service as long as it is published on public github repo, the serice is configured by the resoure administrator, and user has access to the resource that the service is enabled.
 
