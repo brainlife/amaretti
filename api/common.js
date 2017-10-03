@@ -320,6 +320,7 @@ function intersect_safe(a, b)
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {
+    if(!resource.active) return false;
     if(resource.user_id == user.sub) return true;
     if(resource.gids && user.gids) {
         var inter = intersect_safe(resource.gids, user.gids);
@@ -359,6 +360,17 @@ exports.request_task_removal = function(task, cb) {
 
 exports.rerun_task = function(task, remove_date, cb) {
     
+    switch(task.status) {
+    //don't need to rerun non-terminated task
+    case "running":
+    case "running_sync":
+        return cb();
+
+    //shouldn't rerun task that's stop_requested
+    case "stop_requested":
+        return cb();
+    }
+
     //let user reset remove_date, or set it based on last relationship between request_date and remove_date
     if(remove_date) task.remove_date = remove_date;
     else if(task.remove_date) {

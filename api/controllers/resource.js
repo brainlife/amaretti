@@ -53,6 +53,19 @@ router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
     res.json(config.resources);
 });
 
+router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    //check access
+    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end();
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
+        resource_lib.stat(resource, function(err, stats) {
+            if(err) return next(err);
+            res.json(stats);
+        });
+    });
+});
+
 /**
  * @apiGroup Resource
  * @api {get} /resource         Query resource registrations
@@ -635,8 +648,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).end();
+        if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
         logger.info("testing resource:"+id);
         resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
@@ -890,6 +902,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         })
     });
 });
+
 
 module.exports = router;
 

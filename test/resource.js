@@ -103,31 +103,6 @@ describe('/resource', function() {
         });
     });
 
-    xit('setkeytab', function(done) {
-        request(app)
-        .post('/resource/setkeytab/'+resource._id)
-        .set('Authorization', 'Bearer '+config.sca.jwt)
-        .set('Accept', 'application/json')
-        .send({
-            username: process.env.TEST_USERNAME,
-            password: process.env.TEST_PASSWORD,
-        })
-        //TODO - I should validate if end_keytab is set properly.. but how?
-        .expect(200, {message: 'ok'}, done);
-    });
-
-    xit('installsshkey', function(done) {
-        request(app)
-        .post('/resource/installsshkey')
-        .set('Accept', 'application/json')
-        .send({
-            hostname: "karst.uits.iu.edu",
-            username: process.env.TEST_USERNAME,
-            password: process.env.TEST_PASSWORD,
-        })
-        .expect(200, {message: 'ok'}, done);
-    });
-
     //need to set a real hpss key
     xit('ls_resource', function(done) {
         request(app)
@@ -137,7 +112,19 @@ describe('/resource', function() {
         .end(function(err, res) {
             if(err) return done(err);
             console.log("got ls listing ");
-            //console.dir(res.body);
+            done();            
+        });
+    });
+
+    it('get stat', done=>{
+        request(app)
+        .get('/resource/stats/593893d09e29ff6b38adff76')
+        .set('Authorization', 'Bearer '+config.sca.jwt)
+        .set('Accept', 'application/json')
+        .end(function(err, res) {
+            if(err) return done(err);
+            console.log("got stat");
+            console.dir(res.body);
             done();            
         });
     });

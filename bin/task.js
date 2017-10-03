@@ -505,17 +505,19 @@ function handle_stop(task, next) {
         //get_service(task.service, function(err, service_detail) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) return next(err);
+            /*
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.stop) {
                 logger.error("service:"+task.service+" doesn't have scripts.stop defined.. marking as finished");
                 task.status = "stopped";
                 task.status_msg = "Stopped by user";
                 return next();
             }
+            */
 
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.stop, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.stop, (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
@@ -576,12 +578,14 @@ function handle_running(task, next) {
                 logger.error("Couldn't load package detail for service:"+task.service);
                 return next(err); 
             }
+            /*
             if(!service_detail.pkg || !service_detail.pkg.scripts || !service_detail.pkg.scripts.status) {
                 logger.error("service:"+task.service+" doesn't have scripts.status defined.. can't figure out status");
                 task.status = "failed";
                 task.status_msg = "status hook not defined in package.json";
                 return next();
             }
+            */
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..
@@ -592,7 +596,8 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.status, (err, stream)=>{
+                logger.debug("running status.sh", task._id, taskdir, service_detail.status);
+                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
                     var timeout = setTimeout(()=>{
@@ -601,6 +606,7 @@ function handle_running(task, next) {
                     }, 15*1000);
                     var out = "";
                     stream.on('close', function(code, signal) {
+                        //logger.debug("code", code, "signa", signal);
                         clearTimeout(timeout);
 
                         //remove everything before sca token (to ignore output from .bashrc)
@@ -695,10 +701,13 @@ function start_task(task, resource, cb) {
         _service.loaddetail(service, task.service_branch, function(err, service_detail) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
+            //logger.debug(JSON.stringify(service_detail, null, 4));
+            /*
             if(!service_detail.pkg || !service_detail.pkg.scripts) return cb("package.scripts not defined");
             if(!service_detail.pkg.scripts.run && !service_detail.pkg.scripts.start) {
                 return cb("no pkg.scripts.run nor pkg.scripts.start defined in package.json");
             }
+            */
 
             //logger.debug("service_detail.pkg");
             //logger.debug(service_detail.pkg);
@@ -707,9 +716,9 @@ function start_task(task, resource, cb) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
             //service dir includes branch name (optiona)
-            var servicerootdir = "$HOME/.sca/services"; //TODO - make this configurable?
-            var servicedir = servicerootdir+"/"+service;
-            if(task.service_branch) servicedir += "_"+task.service_branch;
+            //var servicerootdir = "$HOME/.sca/services"; //TODO - make this configurable?
+            //var servicedir = servicerootdir+"/"+service;
+            //if(task.service_branch) servicedir += "_"+task.service_branch;
 
             var envs = {
                 //DEPRECATED - use versions below
@@ -725,8 +734,8 @@ function start_task(task, resource, cb) {
                 //TASK_DIR: taskdir,
                 //SERVICE: service,
                 //WORK_DIR: workdir,
-                SERVICE_DIR: servicedir, //where the application is installed (used often)
-                INST_DIR: workdir, //who uses this?
+                SERVICE_DIR: taskdir, //deprecated
+                INST_DIR: workdir, //deprecated
                 PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
             };
 
@@ -765,6 +774,7 @@ function start_task(task, resource, cb) {
             logger.debug("starting task on "+resource.name);
             async.series([
                    
+                /*
                 //make sure various directory exists
                 next=>{
                     logger.debug("making sure directories exists");
@@ -831,6 +841,7 @@ function start_task(task, resource, cb) {
                 },
 
                 //install resource keys
+                //TODO - I think I should deprecate this.
                 function(next) {
                     if(!task.resource_deps) return next();
                     async.eachSeries(task.resource_deps, function(resource, next_dep) {
@@ -864,52 +875,72 @@ function start_task(task, resource, cb) {
                         }
                     }, next);
                 },
+                */
 
-                //make sure dep task dirs are synced
-                function(next) {
-                    if(!task.deps) return next(); //skip
-                    async.eachSeries(task.deps, function(dep, next_dep) {
-                        
-                        //if resource is the same, don't need to sync
-                        if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
-
-                        db.Resource.findById(dep.resource_id, function(err, source_resource) {
-                            if(err) return next_dep(err);
-                            if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
-                            var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
-
-                            //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
-                            common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
-                            //logger.debug("rsyncing.........", task._id);
-                            task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
-                            task.save(err=>{
-                                logger.debug("running rsync_resource.............", dep._id.toString());
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
-                                    if(err) {
-                                        logger.error("failed rsyncing.........", dep._id.toString());
-                                        common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
-                                        next_dep(err);
-                                    } else {
-                                        logger.debug("succeeded rsyncing.........", dep._id.toString());
-                                        common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
-                                        //need to add dest resource to source dep
-                                        if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                            dep.resource_ids.push(resource._id.toString());
-                                            dep.save(next_dep);
-                                        } else next_dep();
-                                    }
-                                }, function(progress) {
-                                    common.progress(task.progress_key+".sync", progress);
-                                });
-                            });
+                //(for backward compatibility) remove old taskdir if it doesn't have .git
+                //TODO - get rid of this once we no longer have old tasks
+                next=>{
+                    conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir, function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code && code == 1) return next(); //taskdir not there
+                            if(code) return next("Failed to remove old taskdir:"+taskdir+" code:"+code);
+                            else next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
                         });
-                    }, next);
+                    });
                 },
-
+                
+                //create task dir by git shallow cloning the requested service
+                next=>{
+                    //logger.debug("git cloning");
+                    common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
+                    var repo_owner = service.split("/")[0];
+                    var cmd = "[ -d "+taskdir+" ] || "; //check to make sure if taskdir already exists
+                    cmd += "(";
+                    cmd += "mkdir -p "+taskdir+" && git clone --depth=1 ";
+                    if(task.service_branch) cmd += "-b "+task.service_branch+" ";
+                    cmd += service_detail.git.clone_url+" "+taskdir;
+                    //cmd += " && rm -rf "+taskdir+"/.git )"; //remove .git
+                    cmd += ")";
+                    //logger.debug(cmd);
+                    conn.exec(cmd, function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code) return next("Failed to git clone. code:"+code);
+                            else next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                    });
+                },
+                
+                //update service
+                next=>{
+                    logger.debug("making sure requested service is up-to-date");
+                    conn.exec("cd "+taskdir+" && git pull", function(err, stream) {
+                        if(err) return next(err);
+                        stream.on('close', function(code, signal) {
+                            if(code) return next("Failed to git pull in "+taskdir);
+                            else next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
+                        }).stderr.on('data', function(data) {
+                            logger.error(data.toString());
+                        });
+                    });
+                },                
+                
                 //install config.json in the taskdir
-                function(next) {
+                next=>{
                     if(!task.config) {
                         logger.info("no config object stored in task.. skipping writing config.json");
                         return next();
@@ -955,8 +986,9 @@ function start_task(task, resource, cb) {
                         //stream.write("# resource id    : "+resource._id+"\n");
                         var username = (resource.config.username||resource_detail.username);
                         var hostname = (resource.config.hostname||resource_detail.hostname);
-                        //stream.write("# resource       : "+resource.name+" ("+resource_detail.name+")\n");
-                        stream.write("# resource       : "+username+"@"+hostname+"\n");
+                        stream.write("# resource       : "+resource_detail.name+" / "+resource.name+"\n");
+                        stream.write("# resource       : "+resource.name+" ("+resource_detail.name+")\n");
+                        stream.write("#                : "+username+"@"+hostname+"\n");
                         stream.write("# task dir       : "+taskdir+"\n");
                         //stream.write("# task deps      : "+task.deps+"\n"); //need to unpopulate
                         if(task.remove_date) stream.write("# remove_date    : "+task.remove_date+"\n");
@@ -971,6 +1003,11 @@ function start_task(task, resource, cb) {
                             var vs = v.replace(/\"/g,'\\"')
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
+
+                        //add PWD to PATH (mainly for custom brainlife hooks provided by the app..)
+                        //it might be also handy to run app installed executable, but maybe it will do more harm than good?
+                        //if we get rid of this, I need to have all apps register hooks like "start": "./start.sh". instead of just "start.sh"
+                        stream.write("export PATH=$PATH:$PWD\n");
                         
                         //report why the resource was picked
                         stream.write("\n# why was this resource chosen?\n");
@@ -986,11 +1023,54 @@ function start_task(task, resource, cb) {
                     });
                 },
 
-                //finally, start the service
-                function(next) {
-                    if(!service_detail.pkg.scripts.start) return next(); //not all service uses start
+                //make sure dep task dirs are synced
+                next=>{
+                    if(!task.deps) return next(); //skip
+                    async.eachSeries(task.deps, function(dep, next_dep) {
+                        
+                        //if resource is the same, don't need to sync
+                        if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
 
-                    logger.debug("starting service: "+servicedir+"/"+service_detail.pkg.scripts.start);
+                        db.Resource.findById(dep.resource_id, function(err, source_resource) {
+                            if(err) return next_dep(err);
+                            if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
+                            var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
+                            var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
+                            logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
+
+                            //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
+                            common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
+                            //logger.debug("rsyncing.........", task._id);
+                            task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                            task.save(err=>{
+                                logger.debug("running rsync_resource.............", dep._id.toString());
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
+                                    if(err) {
+                                        logger.error("failed rsyncing.........", dep._id.toString());
+                                        common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
+                                        next_dep(err);
+                                    } else {
+                                        logger.debug("succeeded rsyncing.........", dep._id.toString());
+                                        common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
+                                        //need to add dest resource to source dep
+                                        if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                            dep.resource_ids.push(resource._id.toString());
+                                            dep.save(next_dep);
+                                        } else next_dep();
+                                    }
+                                }, function(progress) {
+                                    common.progress(task.progress_key+".sync", progress);
+                                });
+                            });
+                        });
+                    }, next);
+                },
+
+                //finally, start the service!
+                next=>{
+                    if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
+
+                    logger.debug("starting service: "+taskdir+"/"+service_detail.start);
                     common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
                     task.run++;
@@ -1007,7 +1087,7 @@ function start_task(task, resource, cb) {
                             if(err) return next(err);
 
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
+                            conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
                                 var timeout = setTimeout(()=>{
@@ -1039,7 +1119,6 @@ function start_task(task, resource, cb) {
                                 });
                             });
                         });
-
                     });
                 },
 
@@ -1048,10 +1127,10 @@ function start_task(task, resource, cb) {
                 //          * brain-life/validator-neuro-track
                 //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
                 //status.sh checking for its output (or just assume that it worked)
-                function(next) {
-                    if(!service_detail.pkg.scripts.run) return next(); //not all service uses run (they may use start/status)
+                next=>{
+                    if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
-                    logger.error("running_sync service (deprecate!): "+servicedir+"/"+service_detail.pkg.scripts.run);
+                    logger.error("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
                     common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                     task.run++;
@@ -1062,7 +1141,7 @@ function start_task(task, resource, cb) {
                         if(err) return next(err);
                         //not updating instance status - because run should only take very short time
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
-                        conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
+                        conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
 
                             var timeout = setTimeout(()=>{
@@ -1095,6 +1174,9 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
+
+                //end of all steps
+
             ], cb);
         });
     });

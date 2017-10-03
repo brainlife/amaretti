@@ -55,25 +55,33 @@ exports.loaddetail = function(service_name, branch, cb) {
             json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
         }, function(err, _res, pkg) {
             if(err) return cb(err);
-            if(_res.statusCode != 200) {
-                logger.error("failed to load "+pac_url);
-                logger.error(_res.body);
-                return cb("failed to load package.json. code:"+_res.statusCode);
+
+            //default detail
+            var detail = Object.assign({
+                name: service_name,
+                git,
+
+                //these script should be in the $PATH on the resource that the app is executed on
+                start: "start",
+                status: "status",
+                stop: "stop",
+
+            }, pkg.scripts, pkg.brainlife); //pkg.brainlife takes precedence
+
+            if(_res.statusCode == 200) {
+                Object.assign(detail, pkg.scripts, pkg.brainlife);
+                detail._pkg = pkg; //also store everything
+            } else {
+                logger.info("couldn't load package.json - using default");
             }
 
-            //got the detail!
-            var detail = {
-                name: service_name,
-                git: git,
-                pkg: pkg,
-            };
-            cb(null, detail);
-
-            //store on cache
+            //cache the detail
             _details_cache[service_name] = {
                 date: new Date(),
                 detail
             };
+
+            cb(null, detail);
         });
     });
 }

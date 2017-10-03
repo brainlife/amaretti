@@ -250,7 +250,6 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         if(err) return next(err);
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
-        
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
             res.json({message: "Task successfully re-requested", task: task});
