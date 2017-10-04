@@ -6,7 +6,9 @@ sidebar:
   nav: "docs"
 ---
 
-Amaretti is a light-weight inter-resource task orchestration service. It allows user to request *applications* hosted in Github to be executed on configured resources that user owns (can be shared) and handles inter-resource data transfer in secure fasion. Amaretti does not replace local job schedulers which might be installed on remote computing resources. In a sense, Amaretti is a *meta* task orchestration service, because applications submitted by Amaretti on each computing resource will depened on those local job schedulers to actually execute the jobs in most appropriate manner. Amaretti simply takes care of starting / monitoring of those jobs submitted on varaiety of computing resources and provide common RESTful API where client application can submit task requests and receive events.
+Amaretti is a light-weight inter-resource task orchestration service. 
+
+Amaretti allows user to request *applications* hosted in Github to be executed on configured resources that user owns or shared by other users and handles inter-resource data transfer in efficient and secure fasion. Amaretti normally relies on local job schedulers installed on remote computing resources to handle queing and physical submission of the application. In a sense, Amaretti is a *meta* task orchestration service, because Amaretti simply takes care of submitting / monitoring of those jobs submitted on varaiety of computing resources. All interaction to Amaretti is done through RESTful APIs.
 
 Amaretti is primarily used by Brain-Life.org project and design to meet its unique goals, but it can be installed and used independently for other projects. Amaretti itself does not provide all necessary features often required by science gateway applications. For example, Brain-Life portal uses Amaretti with various other services such as Authentication, Progress, Warehouse and Event services to provide all features required by the platform.  
 

@@ -40,7 +40,6 @@ exports.select = function(user, task, cb) {
     .sort('create_date')
     .exec(function(err, resources) {
         if(err) return cb(err);
-        //if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
         //select the best resource based on the task
@@ -48,7 +47,7 @@ exports.select = function(user, task, cb) {
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
-            //logger.debug("scoring resource:",resource.name, resource._id.toString())
+            //logger.debug(resource.name);
             score_resource(user, resource, task, (err, score, detail)=>{
                 if(score === null) {
                     //not configured to run on this resource.. ignore

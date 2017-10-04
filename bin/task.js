@@ -501,6 +501,10 @@ function handle_stop(task, next) {
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
         }
+        if(resource.status != "ok") {
+            task.status_msg = "Resource status is not ok .. postponinng stop";
+            return next();
+        }
 
         //get_service(task.service, function(err, service_detail) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {

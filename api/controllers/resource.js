@@ -352,7 +352,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
     if(req.query.service) query.service = req.query.service;
     resource_lib.select(req.user, query, function(err, resource, score, considered) {
         if(err) return next(err);
-        if(!resource) return res.json({nomatch: true});
+        if(!resource) return res.json({nomatch: true, considered});
         var resource_detail = config.resources[resource.resource_id];
         res.json({
             score,
@@ -596,7 +596,7 @@ router.get('/download', jwt({
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
                         var workdir = common.getworkdir(_path, resource);
-                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz \".\"", function(err, stream) {
+                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz *", function(err, stream) {
                             if(err) return next(err);
                             stream.pipe(res)
                         });
