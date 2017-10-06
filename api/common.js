@@ -379,12 +379,24 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.remove_date.setTime(task.remove_date.getTime() + diff); 
     }
 
-    task.status = "requested";
+    //if task status is not requested, then immediately request
+    //OR if status is requested and start date is not set, then immediately request (don't re-request if it's already started)
+    if(task.status != "requested" || !task.start_date) {
+        task.request_date = new Date();
+        task.status = "requested";
+    } else {
+        logger.debug("skipping request_date reset");
+    }
+
     task.status_msg = "Re-requested";
-    task.request_date = new Date();
     task.start_date = undefined;
     task.finish_date = undefined;
+
+    //TODO - we should not reset next_date if the task handler is already starting the task..
+    //otherwise I could end up *double* starting. I don't want to introduce new task status just for this..
+    //start_task somehow needs to flag it, or maybe I can somehow not set this..
     task.next_date = undefined; //reprocess asap
+
     task.products = undefined;
     task.run = 0;
 

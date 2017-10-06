@@ -189,7 +189,7 @@ var taskSchema = mongoose.Schema({
     //
     // I wonder if we should deprecate these dates in favor of task events..
     //
-    //time when this task was last started (doesn't mean the actually start time of pbs jobs)
+    //time when this task was last started - including being handled by start_task (doesn't mean the actually start time of pbs jobs)
     start_date: {type: Date},
     //time when this task was last finished
     finish_date: {type: Date},
