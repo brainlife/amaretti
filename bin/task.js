@@ -515,7 +515,7 @@ function handle_stop(task, next) {
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.stop, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.stop, (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
@@ -592,8 +592,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                //conn.exec("cd "+taskdir+" && echo '"+delimtoken+"' && ./_status.sh", {}, function(err, stream) {
-                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && $SERVICE_DIR/"+service_detail.pkg.scripts.status, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
                     var timeout = setTimeout(()=>{
@@ -615,21 +614,21 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 1: //finished
-                            //I am not sure if I have enough usecases to warrent the automatical retrieval of products.json to task..
-                            load_products(taskdir, resource, function(err, products) {
+                            //I am not sure if I have enough usecases to warrent the automatical retrieval of product.json to task..
+                            load_product(taskdir, resource, function(err, product) {
                                 if(err) {
-                                    logger.info("failed to load products");
+                                    logger.info("failed to load product");
                                     common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                     task.status = "failed";
                                     task.status_msg = err;
                                     task.fail_date = new Date();
                                     next();
                                 } else {
-                                    logger.info("loaded products");
+                                    logger.info("loaded product.json");
                                     common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                                     task.status = "finished";
                                     task.status_msg = "Service completed successfully";
-                                    task.products = products;
+                                    task.product = product;
                                     task.finish_date = new Date();
                                     rerun_child(task, next);
                                 }
@@ -816,7 +815,8 @@ function start_task(task, resource, cb) {
                     var branch = service.service_branch || "master";
                     //https://stackoverflow.com/questions/1125968/how-do-i-force-git-pull-to-overwrite-local-files
                     //-q to prevent git to send log to stderr
-                    conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git fetch && git reset -q --hard origin/"+branch+"'", function(err, stream) {
+                    //conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git fetch && git reset -q --hard origin/"+branch+"'", function(err, stream) {
+                    conn.exec("flock "+servicerootdir+"/flock.pull sh -c 'cd "+servicedir+" && git pull'", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull in "+servicedir);
@@ -1006,9 +1006,8 @@ function start_task(task, resource, cb) {
                         update_instance_status(task.instance_id, function(err) {
                             if(err) return next(err);
 
-                            //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1", {
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
+                            conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.start+" > start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
 
                                 var timeout = setTimeout(()=>{
@@ -1062,11 +1061,8 @@ function start_task(task, resource, cb) {
                     task.save(function(err) {
                         if(err) return next(err);
                         //not updating instance status - because run should only take very short time
-                        //update_instance_status(task.instance_id, function(err) {
-                        //    if(err) return next(err);
-                        //conn.exec("cd "+taskdir+" && ./_boot.sh > boot.log 2>&1 ", {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
-                        conn.exec("cd "+taskdir+" && source _env.sh && $SERVICE_DIR/"+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
+                        conn.exec("cd "+taskdir+" && source _env.sh && PATH=$PATH:$SERVICE_DIR "+service_detail.pkg.scripts.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
 
                             var timeout = setTimeout(()=>{
@@ -1078,14 +1074,13 @@ function start_task(task, resource, cb) {
                                 if(code) {
                                     return next("failed to run (code:"+code+")");
                                 } else {
-                                    load_products(taskdir, resource, function(err, products) {
+                                    load_product(taskdir, resource, function(err, product) {
                                         if(err) return next(err);
                                         common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
-                                        //logger.debug(JSON.stringify(task, null, 4));
                                         task.status = "finished";
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();
-                                        task.products = products;
+                                        task.product = product;
                                         rerun_child(task, next);
                                     });
                                 }
@@ -1105,37 +1100,32 @@ function start_task(task, resource, cb) {
     });
 }
 
-function load_products(taskdir, resource, cb) {
-    logger.debug("loading "+taskdir+"/products.json");
-    //common.progress(task.progress_key, {msg: "Downloading products.json"});
+function load_product(taskdir, resource, cb) {
+    logger.debug("loading "+taskdir+"/product.json");
     common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
-        var stream = sftp.createReadStream(taskdir+"/products.json");
-        var products_json = "";
+        var stream = sftp.createReadStream(taskdir+"/product.json");
+        var product_json = "";
         var error_msg = "";
         stream.on('error', function(err) {
             error_msg += err;
         });
         stream.on('data', function(data) {
-            products_json += data;
+            product_json += data;
         })
         stream.on('close', function(code, signal) {
-            if(code) return cb("Failed to retrieve products.json from the task directory - code:",code);
+            if(code) return cb("Failed to retrieve product.json from the task directory - code:",code);
             if(error_msg) {
-                logger.info("Failed to load products.json (continuing)");
+                logger.info("Failed to load product.json (continuing)");
                 logger.info(error_msg);
                 return cb();
             }
             try {
-                //logger.debug("parsing products");
-                //logger.debug(products_json);
-
-                var products = JSON.parse(products_json);
-                //task.products = products;
-                logger.info("successfully loaded products.json");
-                cb(null, products);
+                var product = JSON.parse(product_json);
+                logger.info("successfully loaded product.json");
+                cb(null, product);
             } catch(e) {
-                logger.error("Failed to parse products.json (continuing): "+e.toString());
+                logger.error("Failed to parse product.json (continuing): "+e.toString());
                 cb();
             }
         });

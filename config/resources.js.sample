@@ -54,8 +54,8 @@ module.exports = {
             //"brain-life/app-dtiinit": {score: 4},
             "brain-life/app-autoalignacpc": {score: 4},
             "brain-life/app-tractclassification": {score: 4},
-            "brain-life/app-tracking": {score: 4},
-            "brain-life/app-life": {score: 4},
+            //"brain-life/app-tracking": {score: 4},
+            //"brain-life/app-life": {score: 4},
 
             "soichih/sca-service-connectome-data-comparison": {score: 10},
 
