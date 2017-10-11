@@ -108,9 +108,7 @@ function check() {
     _counts.checks++; //for health reporting
     var limit = 200;
     
-    //TODO - to allow multiple instances of task handler, I shoule either find way to only pull $mod: [inst_id, inst_num], (couldn't find a way to do this)
-    //or simply skip tasks with _id mod (inst_nun) != inst_id.
-    //https://github.com/soichih/workflow/issues/20
+    //if I want to support multiple task handler, I think I can shard task record by user_id mod process count.
     db.Task.find({
         status: {$ne: "removed"}, //ignore removed tasks
         //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
@@ -140,7 +138,7 @@ function check() {
             //then start processing each tasks
             async.eachSeries(tasks, (task, next) => {
                 _counts.tasks++;
-                logger.debug("task:"+task._id+" "+task.service+"("+task.name+")"+" "+task.status);
+                logger.debug("task:"+task._id.toString()+" "+task.service+"("+task.name+")"+" "+task.status);
 
                 //pick which handler to use based on task status
                 let handler = null;
@@ -214,7 +212,7 @@ function handle_housekeeping(task, cb) {
                         return next_resource(err);
                     }
                     if(!resource) {
-                        logger.info("can't check taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" no longer exist");
+                        logger.info("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
                         return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
                     if(!resource.status || resource.status != "ok") {
@@ -317,7 +315,7 @@ function handle_housekeeping(task, cb) {
                         return next_resource(err);
                     }
                     if(!resource) {
-                        logger.info("can't clean taskdir for task_id:"+task._id+" because resource_id:"+resource_id+" no longer exist");
+                        logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
                         return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
                     if(!resource.status || resource.status != "ok") {
@@ -405,7 +403,8 @@ function handle_requested(task, next) {
     task.status_msg = "Being processed by task handler..";
     task.save(err=>{
         //need to lookup user's gids to find all resources that user has access to
-        logger.debug("looking up user/s gids from auth api"); //TODO should I cache this?
+        //TODO cache this for each user!
+        logger.debug("looking up user/s gids from auth api"); 
         request.get({
             url: config.api.auth+"/user/groups/"+task.user_id,
             json: true,
@@ -454,7 +453,7 @@ function handle_requested(task, next) {
                 task._considered = considered;
                 task.resource_id = resource._id;
                 if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-                    logger.debug("adding resource id", task.service, task._id, resource._id.toString());
+                    logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
                     task.resource_ids.push(resource._id);
                 }
                 task.save(err=>{
@@ -464,7 +463,7 @@ function handle_requested(task, next) {
                         if(err) {
                             //failed to start (or running_sync failed).. mark the task as failed
                             common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                            logger.error(err);
+                            logger.error(task._id.toString(), err);
                             task.status = "failed";
                             task.status_msg = err;
                             task.fail_date = new Date();
@@ -481,7 +480,7 @@ function handle_requested(task, next) {
 }
 
 function handle_stop(task, next) {
-    logger.info("handling stop request:"+task._id);
+    logger.info("handling stop request",task._id.toString());
 
     //if not yet submitted to any resource, then it's easy
     if(!task.resource_id) {
@@ -493,7 +492,7 @@ function handle_stop(task, next) {
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) {
-            logger.error("can't stop task_id:"+task._id+" because resource_id:"+task.resource_id+" no longer exists");
+            logger.error("can't stop task_id:"+task._id.toString()+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
@@ -585,7 +584,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                logger.debug("running status.sh", task._id, taskdir, service_detail.status);
+                logger.debug("running status.sh", task._id.toString(), taskdir, service_detail.status);
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds
@@ -694,13 +693,19 @@ function start_task(task, resource, cb) {
 
             var envs = {
                 SERVICE_DIR: taskdir, //deprecated
-                INST_DIR: workdir, //deprecated
+                //INST_DIR: workdir, //deprecated
+                
+                //useful to construct job name?
+                TASK_ID: task._id.toString(),
+                USER_ID: task.user_id,
+                SERVICE: task.service,
+
+                //not really used much (yet?)
                 PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
             };
+            task._envs = envs;
 
             if(task.service_branch) envs.SERVICE_BRANCH = task.service_branch;
-
-            task._envs = envs;
 
             //TODO - I am not sure if this is the right precendence ordering..
             //start with any envs from dependent resources
@@ -750,14 +755,13 @@ function start_task(task, resource, cb) {
                 
                 //create task dir by git shallow cloning the requested service
                 next=>{
+                    logger.debug("git cloning taskdir", task._id.toString());
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //check to make sure if taskdir already exists
-                    cmd += "(";
-                    cmd += "mkdir -p "+taskdir+" && git clone --depth=1 ";
+                    cmd += "git clone --depth=1 ";
                     if(task.service_branch) cmd += "-b "+task.service_branch+" ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
-                    cmd += ")";
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -774,11 +778,11 @@ function start_task(task, resource, cb) {
                 
                 //update service
                 next=>{
-                    logger.debug("making sure requested service is up-to-date");
-                    conn.exec("cd "+taskdir+" && git pull", function(err, stream) {
+                    logger.debug("making sure requested service is up-to-date", task._id.toString());
+                    conn.exec("cd "+taskdir+" && git pull -f", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to git pull in "+taskdir);
+                            if(code) return next("Failed to git pull "+task._id.toString());
                             else next();
                         })
                         .on('data', function(data) {
@@ -796,9 +800,7 @@ function start_task(task, resource, cb) {
                         return next();
                     }
 
-                    logger.debug("installing config.json");
-                    //logger.debug(task.config);
-
+                    logger.debug("installing config.json", task._id.toString());
                     conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -817,6 +819,7 @@ function start_task(task, resource, cb) {
 
                 //write _.env.sh
                 next=>{
+                    logger.debug("writing _env.sh", task._id.toString());
                     conn.exec("cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -890,7 +893,6 @@ function start_task(task, resource, cb) {
 
                             //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
-                            //logger.debug("rsyncing.........", task._id);
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
                                 logger.debug("running rsync_resource.............", dep._id.toString());
@@ -926,10 +928,6 @@ function start_task(task, resource, cb) {
                     task.run++;
                     task.status = "running";
                     task.status_msg = "Starting service";
-
-                    //temporarily set next_date to some impossible date so that we won't run status.sh prematuely
-                    task.next_date = new Date();
-                    task.next_date.setDate(task.next_date.getDate() + 30);
                     task.save(function(err) {
                         if(err) return next(err);
                         update_instance_status(task.instance_id, function(err) {
@@ -947,14 +945,10 @@ function start_task(task, resource, cb) {
                                 stream.on('close', function(code, signal) {
                                     clearTimeout(timeout);
                                     if(code) {
-                                        //I should undo the impossible next_date set earlier..
-                                        task.next_date = new Date();
-                                        //TODO - I should pull more useful information (from start.log?)
                                         return next("failed to start (code:"+code+")");
                                     } else {
-                                        //good.. now set the next_date to now so that we will check for its status
+                                        task.next_date = new Date(); //so that we check the status soon
                                         task.status_msg = "Service started";
-                                        task.next_date = new Date();
                                         next();
                                     }
                                 });

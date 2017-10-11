@@ -146,7 +146,13 @@ function score_resource(user, resource, task, cb) {
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
         if(maxtask) {
-            db.Task.find({resource_id: resource._id, status: "running"}, (err, tasks)=>{
+            db.Task.find({
+                resource_id: resource._id, 
+                $or: [
+                    {status: "running"},
+                    {status: "requested", start_date: {$exists: true}}, //startinng..
+                ]
+            }, (err, tasks)=>{
                 if(err) logger.error(err);
                 detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
                 if(maxtask <= tasks.length) {
