@@ -129,14 +129,14 @@ function check() {
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacity, or adjust next_date logic?");
 
         //save next dates to prevent reprocessing too soon
-        async.eachSeries(tasks, (task, next) => {
+        async.eachSeries(tasks, (task, next)=>{
             set_nextdate(task);
             task.save(next);
         }, err=>{
             if(err) logger.error("failed to update next_date", err); //continue
 
             //then start processing each tasks
-            async.eachSeries(tasks, (task, next) => {
+            async.eachSeries(tasks, (task, next_task)=>{
                 _counts.tasks++;
                 logger.debug("task:"+task._id.toString()+" "+task.service+"("+task.name+")"+" "+task.status);
 
@@ -160,7 +160,11 @@ function check() {
                     break;
                 }
 
-                if(!handler) return next();
+                if(!handler) {
+                    logger.debug("don't have anything particular to do with this task");
+                    return next_task(); 
+                }
+
                 let previous_status = task.status;
                 handler(task, err=>{
                     if(err) logger.error(err); //continue
@@ -170,15 +174,14 @@ function check() {
                         if(err) logger.error(err); //continue..
 
                         //if task status changed, update instance status also
-                        if(task.status == previous_status) return next(); //no change
+                        if(task.status == previous_status) return next_task(); //no change
                         update_instance_status(task.instance_id, err=>{
                             if(err) logger.error(err);
-                            next();
+                            next_task();
                         });
                     });
                 });
-            }, function(err) {
-                if(err) logger.error(err); //should never get called
+            }, ()=>{
                 //wait a bit and recheck again
                 setTimeout(check, 500);
             });
