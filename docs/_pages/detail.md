@@ -6,25 +6,27 @@ sidebar:
   nav: "docs"
 ---
 
+> DRAFT
+
 ## *Meta* Workflow Orchestration Service
 
-A complex scientific workflow often involves computations on multiple computing resourcess. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusteres, or even VMs. The choice of resource may also depends on availablity of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
+A complex scientific workflow often involves computations on multiple computing resources. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusters, or even VMs. The choice of resource may also depends on availability of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
 
-This is particularly true for workflow involving "Big Data"; where the size of the input data exceeds the capability of a computing resources, or the number of inputs (number of `subjects`) are simply too large to be practically handled by a single computing resource.
+This is particularly true for workflow involving "Big Data"; where the size of the input data exceeds the capability of a computing resources, or the number of inputs (or *subjects*) are simply too large to be practically handled by a single computing resource.
 
-Researchers then must learn how to use those diverse set of resources and orchestrate the entire workflow across institutional boundaries or across different computing paradigms such as HPC v.s. DHTC.  
+Researchers then must learn how to use those diverse set of resources and orchestrate the entire workflow across institutional boundaries or across different computing paradigms such as HPC v.s. DHTC.
 
-A goal of Amaretti is to provide a layer on top of various computing resources, and allow users to orchestrate their workflows by handling data transfer between resources, determine which resource to run requested services, and monitor task status. Amaretti relies on local batch systems, or workflow orchestration libraries to actually run programs on each computing resources. Therefore, Amaretti can be considered to be a `meta` workflow orchestration service.
+Also, as scientific workflow becomes more complex, different parts of the workflow maybe required to run on certain resources simply because they are developed by different developers with familarity to different types of resources, such is the case for Brain-Life where each app can be executed in resources that developers intended to run it on.
+
+A goal of Amaretti is to provide a layer on top of various computing resources, and allow client applications to orchestrate their workflows by handling data transfer between resources, determine which resource to run requested services, and monitor task status. Amaretti relies on local batch systems, or workflow orchestration libraries to actually run programs on each computing resources. Therefore, Amaretti can be considered to be a `meta` workflow orchestration service.
 
 ## About Amaretti Service
 
-Amaretti is a collection of microservices written in nodejs, and administrator can install it on docker. User interacts with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
-
-Amaretti can run any service as long as it is published on public github repo, the serice is configured by the resoure administrator, and user has access to the resource that the service is enabled.
+Amaretti is a collection of microservices written in nodejs, and administrator can install via on docker. Client applications interact with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
 
 ## ABCD-spec 
 
-Amaretti can run any service that confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec) This lightweight specification allows service developer to define `hooks` which will do following operations.
+Amaretti can run any service that are published on github.com as public repository and confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec) This lightweight specification allows service developer to define `hooks` which will do following operations.
 
 1. How to start the service on a resource.
 2. How to monitor the service once it's started.
@@ -34,7 +36,7 @@ These `hooks` can be defined by creating a file called `package.json` on the roo
 
 ```json
 {
-  "scripts": {
+  "abcd": {
     "start": "start.sh",
     "stop": "stop.sh",
     "status": "status.sh"
@@ -44,31 +46,43 @@ These `hooks` can be defined by creating a file called `package.json` on the roo
 
 When Amaretti wants to start this app, it first git clone the repository on a shared file system on a remote system, then looks up the `start` hook (in this case "start.sh") and execute that script to start the application. It is up to the application developer to decide how to start/stop/monitor the application based on types of resources the application is executed on. Normally, it is a simple bash script which executes `qsub` or `sbatch`, or run process directly on gthe login/submit host.
 
-When Amaretti starts a task, it creates an empty work directory on the remote resource and set the current working directory to be in this work directory. An  applications can receive input parameters from `config.json` created by Amaretti on the work directory, and output all output files to the same work directory. Application must not make any modification outside the work directory as they are considered immutable once each task completes and any changes will either corrupt the workflow or reverted by Amaretti during input staging step.
+When Amaretti starts a task, it creates a new directory containing a cloned git repository on the remote resource and set the current working directory to be in this directory. When a task is requested, user can specify configuration parameters and Amaretti passes this to the application by creating a file named `config.json` on the work directory where application can parse it prior to application execution.  
 
-## Termonologies
+All output files must be generated on the same work directory also. Application must not make any modification outside the work directory as they are considered immutable once each task completes and any changes will either corrupt the workflow or reverted by Amaretti during input staging step.
+
+## Amendment to ABCD-spec
+
+Each application can provide their own ABCD hook scripts, however, by default ABCD spec would now try to look for executable named `start`, `stop`, `status` on resource's default PATH. We are encouraging our developers to use these default scripts instead of providing app specific hook scripts themselves and asking resource provider to create these scripts to take most appropriate action on that resource. 
+
+One important convention for ABCD default hook is that, `start` hook will look for an executable named `main` under the root directory of each application. For PBS cluster, `star` would treat `main` as PBS submit script, for example. 
+
+With this amendment, most application simply needs to provide the `main` in order to be *ABCD spec* compliant. 
+
+## Terminologies
 
 ### Tasks
 
-Tasks are the atomic unit of work executed on various computing resources. It could contain a `job` on batch systems, or an entire `workflow` submitted on a single resource. On VM, a task could simply be a process running on each machine and kept track by its process ID.
+Tasks are the atomic unit of work executed on various computing resources. It could be a `job` for batch systems, or an entire `workflow` submitted on a single resource. On VM, a task could simply be a process running on each machine and kept track by its process ID.
 
 ### Service
 
-...
+Each ABCD compliant github repository represents `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create the workdir for that task under a chosen resource. 
 
-### Workflow Instance
+### (Workflow) Instance
 
-Amaretti provides workflow capability simply by specifying dependencies between tasks. Tasks that depends on parent tasks will simply wait for those parent tasks to complete. All Amaretti tasks must belong to a workflow instance which is simply a grouping of related tasks. User can use workflow instance (in Amaretti it is simply called an `instance`) to organize tasks, or use it as `meta`-workflow, or as a `process` as it is called by Brain-Life warehouse service.
+Amaretti provides workflow capability by creating dependencies between tasks. Tasks that depends on parent tasks will simply wait for those parent tasks to complete. All Amaretti tasks must belong to a workflow instance (or `instance` for short). `instance` organizes various tasks and not all tasks needs to be related to each other within a single `instance`. It is up to users to decide how best to organize their `tasks` within an `instance`.
 
-## JWT Token
+### Resource
 
-write me..
+`Resource` is a remote computing resource where Amaretti can ssh and create workdir / git clone specified service and launch ABCD hook scripts to `start`, `stop`, and `monitor`. It could be a single VM, a head node of a large HPC cluster, or submit node for distributed HTC clusters like Open Science Grid. 
+
+In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criterias (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
 
 ## Resource Selection
 
-A service startup hook can be written such that it can support multiple computing resources based on environment parameter set on each resource. If there are more than 1 resource that the service can run, Amaretti will decide which resource to run the service at runtime by computeing the *score* for each resource based on varaiety of criterias.
+When a user has access to multiple resources where a service can be executed, Amaretti must make decision as to which resource to use to submit the task.
 
-First, when a resource administrator enables a service, the administrator can pick a default score where higher score means it is more likely that the resource should be chosen. If the same service is configured on mutiple resources with different resource administrators, administrators should discuss and agree on appropriate scores for each resouce.
+First of all, when a resource owner enables a service on any resource, the owner can pick a default score for the service where higher score means it is more likely that the resource will be chosen.
 
 At runtime, Amaretti then computes the final resource score with following order.
 
@@ -78,7 +92,7 @@ At runtime, Amaretti then computes the final resource score with following order
 4. +10 to the score if user owns the resource, rather than shared. If user has their own resource account, we should use that it as it often has better queue priority, or accessibility to better hardware, etc..
 5. +15 to the score if the resource is specified in `preferred resource id` as specified by the submitter.
 
-The resource with the highest score will be chosen to execute the task and a report of why the given resource was chosen is added to `_env.sh` created inside task's working directory. Following is a sample of this content.
+The resource with the highest score will be chosen to execute the task and a report why the given resource was chosen is added to `_env.sh` created inside task's working directory. Following is a sample of this content.
 
 ```
 #!/bin/bash
@@ -119,11 +133,9 @@ export HPC="CARBONATE"
 
 ```
 
-Other criteria 
-
 ## Task Status
 
-Amaretti task can have following task statues.
+Amaretti `task` can have following task statues.
 
 `requested``con
 
