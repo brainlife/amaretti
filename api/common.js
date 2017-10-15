@@ -320,6 +320,7 @@ function intersect_safe(a, b)
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {
+    if(!resource.active) return false;
     if(resource.user_id == user.sub) return true;
     if(resource.gids && user.gids) {
         var inter = intersect_safe(resource.gids, user.gids);
@@ -359,6 +360,17 @@ exports.request_task_removal = function(task, cb) {
 
 exports.rerun_task = function(task, remove_date, cb) {
     
+    switch(task.status) {
+    //don't need to rerun non-terminated task
+    case "running":
+    case "running_sync":
+        return cb();
+
+    //shouldn't rerun task that's stop_requested
+    case "stop_requested":
+        return cb();
+    }
+
     //let user reset remove_date, or set it based on last relationship between request_date and remove_date
     if(remove_date) task.remove_date = remove_date;
     else if(task.remove_date) {
@@ -367,12 +379,24 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.remove_date.setTime(task.remove_date.getTime() + diff); 
     }
 
-    task.status = "requested";
+    //if task status is not requested, then immediately request
+    //OR if status is requested and start date is not set, then immediately request (don't re-request if it's already started)
+    if(task.status != "requested" || !task.start_date) {
+        task.request_date = new Date();
+        task.status = "requested";
+    } else {
+        logger.debug("skipping request_date reset");
+    }
+
     task.status_msg = "Re-requested";
-    task.request_date = new Date();
     task.start_date = undefined;
     task.finish_date = undefined;
+
+    //TODO - we should not reset next_date if the task handler is already starting the task..
+    //otherwise I could end up *double* starting. I don't want to introduce new task status just for this..
+    //start_task somehow needs to flag it, or maybe I can somehow not set this..
     task.next_date = undefined; //reprocess asap
+
     task.products = undefined;
     task.run = 0;
 

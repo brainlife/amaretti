@@ -55,7 +55,7 @@ router.use('/instance', require('./instance'));
 router.use('/resource', require('./resource'));
 router.use('/event', require('./event'));
 
-//TODO DEPRECATED - find out who uses this and get rid of it
+//TODO DEPRECATED (currently used by th /wf/#!/resources UI)
 //use (get) /resource/type instead
 router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res) {
     var conf = {

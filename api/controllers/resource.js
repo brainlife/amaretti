@@ -53,6 +53,19 @@ router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, n
     res.json(config.resources);
 });
 
+router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    //check access
+    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end();
+        if(!common.check_access(req.user, resource)) return res.status(401).end();
+        resource_lib.stat(resource, function(err, stats) {
+            if(err) return next(err);
+            res.json(stats);
+        });
+    });
+});
+
 /**
  * @apiGroup Resource
  * @api {get} /resource         Query resource registrations
@@ -339,7 +352,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
     if(req.query.service) query.service = req.query.service;
     resource_lib.select(req.user, query, function(err, resource, score, considered) {
         if(err) return next(err);
-        if(!resource) return res.json({nomatch: true});
+        if(!resource) return res.json({nomatch: true, considered});
         var resource_detail = config.resources[resource.resource_id];
         res.json({
             score,
@@ -583,7 +596,7 @@ router.get('/download', jwt({
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
                         var workdir = common.getworkdir(_path, resource);
-                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz \".\"", function(err, stream) {
+                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz *", function(err, stream) {
                             if(err) return next(err);
                             stream.pipe(res)
                         });
@@ -635,8 +648,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        //if(resource.user_id != req.user.sub) return res.status(401).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).end();
+        if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
         logger.info("testing resource:"+id);
         resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
@@ -890,6 +902,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         })
     });
 });
+
 
 module.exports = router;
 

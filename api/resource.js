@@ -40,7 +40,6 @@ exports.select = function(user, task, cb) {
     .sort('create_date')
     .exec(function(err, resources) {
         if(err) return cb(err);
-        //if(resources.length == 0) logger.warn("user:"+user.sub+" has no resource instance");
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
         //select the best resource based on the task
@@ -48,7 +47,7 @@ exports.select = function(user, task, cb) {
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
-            //logger.debug("scoring resource:",resource.name, resource._id.toString())
+            //logger.debug(resource.name);
             score_resource(user, resource, task, (err, score, detail)=>{
                 if(score === null) {
                     //not configured to run on this resource.. ignore
@@ -57,7 +56,7 @@ exports.select = function(user, task, cb) {
 
                 if(resource.status != 'ok') {
                     //logger.debug("  resource status not ok");
-                    detail += "resource status no ok";
+                    detail += "resource status not ok";
                     considered.push({id: resource._id, name: resource.name, status: resource.status, score: 0, detail});
                     return next_resource();
                 }
@@ -147,7 +146,13 @@ function score_resource(user, resource, task, cb) {
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
         if(maxtask) {
-            db.Task.find({resource_id: resource._id, status: "running"}, (err, tasks)=>{
+            db.Task.find({
+                resource_id: resource._id, 
+                $or: [
+                    {status: "running"},
+                    {status: "requested", start_date: {$exists: true}}, //startinng..
+                ]
+            }, (err, tasks)=>{
                 if(err) logger.error(err);
                 detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
                 if(maxtask <= tasks.length) {
@@ -200,6 +205,7 @@ function check_ssh(resource, cb) {
     var conn = new Client();
     var ready = false;
     var nexted = false;
+    //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.on('ready', function() {
         ready = true;
 
@@ -287,6 +293,51 @@ function check_sftp(resource, conn, cb) {
             });
             */
         });
+    });
+}
+
+//pull some statistics about this resource using taskevent table (should we create another table to store this?)
+exports.stat = function(resource, cb) {
+    var find = {resource_id: resource._id};
+
+    //group by status and count
+    db.Taskevent.aggregate([
+        {$match: find},
+        {$group: {_id: '$status', count: {$sum: 1}}},
+    ]).exec(function(err, statuses) {
+        if(err) return cb(err);
+
+        var task_status_counts = {};
+        statuses.forEach(status=>{
+            task_status_counts[status._id] = status.count;
+        });
+        
+        //group by service and count
+        db.Taskevent.aggregate([
+            {
+                $match: { 
+                    resource_id: resource._id,
+                    //status: "requested",
+                }
+            },
+            {$group: {_id: {
+                service: '$service',
+                status: '$status',
+                /*, service_branch: '$service_branch'*/
+            }, count: {$sum: 1}}},
+        ]).exec(function(err, services) {
+            if(err) return cb(err);
+            cb(null, { find, counts: task_status_counts, services });
+        });
+
+        /*
+        //count distinct service requested
+        //TODO is there a better way?
+        db.Taskevent.find(find).distinct('service').exec(function(err, services) {
+            if(err) return cb(err);
+            cb(null, { find, task_status_counts, services });
+        });
+        */
     });
 }
 
