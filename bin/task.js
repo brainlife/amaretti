@@ -166,8 +166,15 @@ function check() {
                 }
 
                 let previous_status = task.status;
+                
+                let handler_returned = false;
                 handler(task, err=>{
                     if(err) logger.error(err); //continue
+
+                    if(handler_returned) {
+                        logger.error("handler already returned", task._id.toString());
+                    }
+                    handler_returned = true;
 
                     //store task one last time
                     task.save(function(err) {
@@ -197,7 +204,7 @@ function handle_housekeeping(task, cb) {
         //I need to be really be sure that the directory is indeed removed before concluding that it is.
         //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
         //I also don't see much value in detecting if the directory is removed or not.. 
-        function(next) {
+        next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
             minage.setDate(minage.getDate() - 10); 
@@ -239,7 +246,6 @@ function handle_housekeeping(task, cb) {
                             var to = setTimeout(()=>{
                                 logger.error("ls timed-out");
                                 stream.close();
-                                //next_resource();
                             }, 10*1000);
                             stream.on('close', function(code, signal) {
                                 //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
@@ -288,7 +294,7 @@ function handle_housekeeping(task, cb) {
         },
 
         //remove task dir?
-        function(next) {
+        next=>{
             var need_remove = false;
 
             //check for early remove specified by user
@@ -371,10 +377,8 @@ function handle_housekeeping(task, cb) {
             });
         },
 
-        function(next) {
-            //TODO - stop tasks that got stuck in running / running_sync
-            next();
-        },
+        //TODO - stop tasks that got stuck in running / running_sync
+
     ], cb);
 }
 
@@ -403,81 +407,68 @@ function handle_requested(task, next) {
         return next();
     }
 
-    task.status_msg = "Being processed by task handler..";
-    task.save(err=>{
-        //need to lookup user's gids to find all resources that user has access to
-        //TODO cache this for each user!
-        logger.debug("looking up user/s gids from auth api"); 
-        request.get({
-            url: config.api.auth+"/user/groups/"+task.user_id,
-            json: true,
-            headers: { 'Authorization': 'Bearer '+config.sca.jwt }
-        }, function(err, res, gids) {
-            if(err) {
-                if(res && res.statusCode == 404) {
-                    gids = [];
-                } else {
-                    task.status_msg = "Failed to load group ids from auth service.. retry later";
-                    return next(err);
-                }
+    //need to lookup user's gids to find all resources that user has access to
+    //TODO cache this for each user!
+    logger.debug("looking up user/s gids from auth api"); 
+    request.get({
+        url: config.api.auth+"/user/groups/"+task.user_id,
+        json: true,
+        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+    }, function(err, res, gids) {
+        if(err) return next(err);
+        switch(res.statusCode) {
+        case 404:
+            //often user_id is set to non existing user_id on auth service (like "sca")
+            gids = []; 
+            break;
+        case 401:
+            //token is misconfigured?
+            task.status_msg = "authentication error while obtaining user's group ids.. retry later";
+            logger.error("jwt:"+config.sca.jwt);
+            return next(err);
+        case 200:
+            //success! 
+            break;
+        default:
+            task.status_msg = "invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later";
+            return next(err);
+        }
+
+        var user = {
+            sub: task.user_id,
+            gids: gids,
+        }
+        _resource_select(user, task, function(err, resource, score, considered) {
+            if(err) return next(err);
+            if(!resource) {
+                task.status_msg = "No resource currently available to run this task.. waiting.. ";
+                task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
+                return next();
             }
-            switch(res.statusCode) {
-            case 404:
-                //often user_id is set to non existing user_id on auth service (like "sca")
-                gids = []; 
-                break;
-            case 401:
-                //token is misconfigured?
-                task.status_msg = "authentication error while obtaining user's group ids.. retry later";
-                logger.error("jwt:"+config.sca.jwt);
-                return next(err);
-            case 200:
-                //success! 
-                break;
-            default:
-                task.status_msg = "invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later";
-                return next(err);
+            task.status_msg = "Starting task";
+            task.start_date = new Date();
+            task._considered = considered;
+            task.resource_id = resource._id;
+            if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
+                logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
+                task.resource_ids.push(resource._id);
             }
 
-            var user = {
-                sub: task.user_id,
-                gids: gids,
-            }
-            _resource_select(user, task, function(err, resource, score, considered) {
-                if(err) return next(err);
-                if(!resource) {
-                    task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                    task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
-                    return next();
-                }
-                //logger.debug(JSON.stringify(considered, null, 4));
-                task.status_msg = "Starting task";
-                task.start_date = new Date();
-                task._considered = considered;
-                task.resource_id = resource._id;
-                if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-                    logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
-                    task.resource_ids.push(resource._id);
-                }
-                task.save(err=>{
-                    if(err) return next(err);
-                    common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-                    start_task(task, resource, function(err) {
-                        if(err) {
-                            //failed to start (or running_sync failed).. mark the task as failed
-                            common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                            logger.error(task._id.toString(), err);
-                            task.status = "failed";
-                            task.status_msg = err;
-                            task.fail_date = new Date();
-                        } 
-                        task.save();
-                    });
-
-                    //don't wait for start_task to finish.. move on to the next task
-                    next();
-                });
+            common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+            start_task(task, resource, function(err) {
+                if(err) {
+                    //failed to start (or running_sync failed).. mark the task as failed
+                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                    logger.error(task._id.toString(), err);
+                    task.status = "failed";
+                    task.status_msg = err;
+                    task.fail_date = new Date();
+                } 
+                task.save();
             });
+
+            //don't wait for start_task to finish.. move on to the next task
+            next();
         });
     });
 }
@@ -757,6 +748,7 @@ function start_task(task, resource, cb) {
                 },
                 
                 //create task dir by git shallow cloning the requested service
+                //TODO - should I add timeout?
                 next=>{
                     logger.debug("git cloning taskdir", task._id.toString());
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
@@ -780,6 +772,7 @@ function start_task(task, resource, cb) {
                 },
                 
                 //update service
+                //TODO - should I add timeout?
                 next=>{
                     logger.debug("making sure requested service is up-to-date", task._id.toString());
                     conn.exec("cd "+taskdir+" && git pull -f", function(err, stream) {

@@ -57,7 +57,7 @@ exports.loaddetail = function(service_name, branch, cb) {
             if(err) return cb(err);
 
             //default detail
-            var detail = Object.assign({
+            var detail = {
                 name: service_name,
                 git,
 
@@ -65,12 +65,12 @@ exports.loaddetail = function(service_name, branch, cb) {
                 start: "start",
                 status: "status",
                 stop: "stop",
-
-            }, pkg.scripts, pkg.brainlife); //pkg.brainlife takes precedence
+            }
 
             if(_res.statusCode == 200) {
-                Object.assign(detail, pkg.scripts, pkg.brainlife);
-                detail._pkg = pkg; //also store everything
+                //override
+                Object.assign(detail, pkg.scripts, pkg.abcd); //pkg.scripts should be deprecated in favor of pkg.abcd
+                detail._pkg = pkg; //also store the entire package.json content under detail..
             } else {
                 logger.info("couldn't load package.json - using default");
             }

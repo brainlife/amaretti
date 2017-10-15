@@ -258,6 +258,28 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
 });
 
 /**
+ * @api {put} /task/poke/:taskid        Clear next_date 
+ * @apiGroup Task
+ * @apiDescription                      Clear next_date so that the task will be handled by task handler immediately
+ *
+ * @apiHeader {String} authorization    A valid JWT token "Bearer: xxxxx"
+ *                              
+ */
+router.put('/poke/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    var task_id = req.params.task_id;
+    db.Task.findById(task_id, function(err, task) {
+        if(err) return next(err);
+        if(!task) return res.status(404).end();
+        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        task.next_date = undefined;
+        task.save(err=>{
+            if(err) return next(err);
+            res.json({message: "Task poked", task: task});
+        }); 
+    });
+});
+
+/**
  * @api {put} /task/stop/:taskid  Request task to be stopped
  * @apiGroup Task
  * @apiDescription              Set the status to "stop_requested" if running.
