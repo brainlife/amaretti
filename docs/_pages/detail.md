@@ -8,7 +8,7 @@ sidebar:
 
 > DRAFT
 
-## *Meta* Workflow Orchestration Service
+## Background
 
 A complex scientific workflow often involves computations on multiple computing resources. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusters, or even VMs. The choice of resource may also depends on availability of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
 
@@ -18,19 +18,39 @@ Researchers then must learn how to use those diverse set of resources and orches
 
 Also, as scientific workflow becomes more complex, different parts of the workflow maybe required to run on certain resources simply because they are developed by different developers with familarity to different types of resources, such is the case for Brain-Life where each app can be executed in resources that developers intended to run it on.
 
-A goal of Amaretti is to provide a layer on top of various computing resources, and allow client applications to orchestrate their workflows by handling data transfer between resources, determine which resource to run requested services, and monitor task status. Amaretti relies on local batch systems, or workflow orchestration libraries to actually run programs on each computing resources. Therefore, Amaretti can be considered to be a `meta` workflow orchestration service.
+## About Amaretti
 
-## About Amaretti Service
+Amaretti is a light-weight inter-resource task orchestration service written in nodejs. Client applications interact with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
 
-Amaretti is a collection of microservices written in nodejs, and administrator can install via on docker. Client applications interact with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
+Amaretti relies on *hook* scripts provided by each application or resource itself to perform required actions on remote resources. To execute required application, most hook scripts submits to local batch systems like PBS, slurm, or other workflow orchestration libraries like hadoop. Amaretti can be considered as a `meta` workflow orchestration service, as it is a thin layer that presides resource specific workflows by determining which resource to run requested services, handling necessary data transfer between each resources, and executing hook scripts on those resources to start, stop and monitor task status while they are executed by using appropriate mechanism necessary for each resource.
 
-Amaretti relies on local batch systems, or intra-cluster workflow orchestration libraries to run applications on each computing resources. Amaretti, therefore, can be considered to be a `meta` workflow orchestration service.
+## Resource / Application trust model
 
-Amaretti can run any service that are published on github.com as public repository and confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec) This lightweight specification allows service developer to define `hooks` which will do following operations.
+One unique aspect of Amaretti is its ability to for any developer to develop and register their apps through Amaretti. Resource owner, however, gets to decide which apps are allowed to execute on their resources. It is desireable to give users access to shared resource where user can start executing apps without having to configure their own resource. Amaretti allows resources to be shared, but allowing anyone to share their resource without the explicit consent from the users (submitter) could create an issue where user's data is submitted to resource where they don't trust. Currently, Amaretti only allows service administrator to configure resource sharing. In the near future, we will implement a capability for users to *accept* shared resource offered by other users; most likely a member of their group.
+
+## Terminologies
+
+### Tasks
+
+Tasks are the atomic unit of work executed on various computing resources. It could be a `job` for batch systems, or a vanilla process running on a vanilla VM that are kept track by its process ID.
+
+### Service
+
+Each ABCD compliant github repository represents `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create a workdir for that task under a chosen resource. 
+
+### (Workflow) Instance
+
+Amaretti provides workflow capability by creating dependencies between tasks. Tasks that depends on parent tasks will simply wait for those parent tasks to complete. All Amaretti tasks must belong to a workflow instance (or `instance` for short). `instance` organizes various tasks and not all tasks needs to be related to each other within a single `instance`. It is up to users to decide how best to organize their `tasks` within an `instance`.
+
+### Resource
+
+`Resource` is a remote computing resource where Amaretti can ssh and create workdir / git clone specified service and launch ABCD hook scripts to `start`, `stop`, and `monitor`. It could be a single VM, a head node of a large HPC cluster, or submit node for distributed HTC clusters like Open Science Grid.
+
+In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criterias (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
 
 ## ABCD-spec 
 
-Amaretti can run any application that confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec). This lightweight specification allows service developer to define `hooks` to do following.
+Amaretti can run any service that are published on github.com as public repository and confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec) This lightweight specification allows service developer to define `hooks` in a file named `package.json`.
 
 ```json
 {
@@ -41,51 +61,69 @@ Amaretti can run any application that confirms to [ABCD Specification](https://g
   }
 }
 ```
-1. Start the service on a resource (qsub, sbatch, singularity exec, etc..)
-2. Monitor the service once it's started (query qstat, process ID, etc..)
-3. How to stop the service (qdel, scancel, kill, etc..)
 
-hooks are usually written with bash script, and it can handle multiple resources by checking ENV parameters and detect which resource it is running on. When Amaretti wants to start an app, it first git clones the application repository on a remote system, which becomes a "workdir" where all output files from the application is written to, then executes the start hook to start the application.
+Each hook does following.
 
-When Amaretti starts a task, it creates a new directory containing a cloned git repository on the remote resource and set the current working directory to be in this directory. When a task is requested, user can specify configuration parameters and Amaretti passes this to the application by creating a file named `config.json` on the work directory where application can parse it prior to application execution.  
+`start` starts the service on a resource (qsub, sbatch, singularity exec, etc..)
+`monitor` gets executed periodically to monitor the service once it's started (query qstat, process ID, etc..)
+`stop` How to stop the service (qdel, scancel, kill, etc..)
+
+> `Hooks` are usually written in bash script but it can be any executable written in any language. 
+
+When Amaretti starts a task, it creates a new directory containing a cloned git repository on the remote resource and set the current working directory to be in this directory. When a task is requested, user can specify configuration parameters and Amaretti passes this to the application by creating a file named `config.json` on the work directory where application can parse it when application is started.
 
 All output files must be generated on the same work directory also. Application must not make any modification outside the work directory as they are considered immutable once each task completes and any changes will either corrupt the workflow or reverted by Amaretti during input staging step.
 
 ## Amendment to ABCD-spec
 
-Applications receives all input parameters from `config.json` created by Amaretti inside the workdir. Application will use any json parser available for programming langauge that the application is written in. Application must not make any modification outside the work directory as they are considered immutable once each task completes. Any changes will either corrupt other workflow or overwritten by Amaretti.
-
 Each application can provide their own ABCD hook scripts, however, by default ABCD spec would now try to look for executable named `start`, `stop`, `status` on resource's default PATH. We are encouraging our developers to use these default scripts instead of providing app specific hook scripts themselves and asking resource provider to create these scripts to take most appropriate action on that resource. 
 
-One important convention for ABCD default hook is that, `start` hook will look for an executable named `main` under the root directory of each application. For PBS cluster, `star` would treat `main` as PBS submit script, for example. 
+One important convention for ABCD default hook is that, `start` hook will look for an executable named `main` under the root directory of each application. `main` simply needs to run the application itself just like you normally would as if the application is run locally on developer's laptop. To support multiple resources, `main` can look for certain command / files installed on each resource and load appropriate dependencies. Please see (brain-life/app-life)[https://github.com/brain-life/app-life/blob/master/main] as an example.
 
-With this amendment, most application simply needs to provide the `main` in order to be *ABCD spec* compliant. 
+With this amendment, most application simply needs to provide `main` in order to be *ABCD spec* compliant.
 
-## Terminologies
+## JWT Authentication
 
-### Tasks
+JSON Web Token (JWT) [RFC7519](https://tools.ietf.org/html/rfc7519) is a simple authentication token consisting of base64 encoded JSON object containing user ID, token expiration date, issuer, authorization scopes and various other information about the user. It also contains a digital signature to verify the authenticity of the token issued by an authentication service.
 
-Tasks are the atomic unit of work executed on various computing resources. It could be a `job` for batch systems, or an entire `workflow` submitted on a single resource. On VM, a task could simply be a process running on each machine and kept track by its process ID.
+For a web application, user typically interacts with JWT token in following order
 
-### Service
+1. User visits authentication service UI (login form) and enters login credentials (such as user/pass) and authentication service authenticates.
+2. If authentication is successful, service will generate the JWT token and user receives the token. Token is usually stored on user's browser through cookie or localStorage. 
+3. User then make request for application that truest the JWT issued by the authentication service. User usually sets `authentication: Bearer` header with their API request
+4. Application receives the API request and token from the user. Application verify the token by decrypting the token using authentication's public key (using JWT's client libraries). If the token is valid, it uses information stored on the token (user ID, authorization settings, etc) and proceed to fulfill the API request.
 
-Each ABCD compliant github repository represents `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create the workdir for that task under a chosen resource. 
+### Auth-E-ntication through JWT
 
-### (Workflow) Instance
+JWT token allows us to perform stateless authentication of user; eliminating a need to query authentication service to validate the token and/or query user authorization every time user makes a API call. This removes the authentication service as SPOF (single-point-of-failurer) and allows us to easily scale our API servers while reducing latency for each API calls. In fact, the only time authentication service is needed is when user tries to login to our system. Once logged in, users are immune to the outage caused by authentication service to certain extent. Similarity to oauth2 token, JWT tokens are meant to be refreshed periodically (once a hour) by contacting the authentication service with old token and receive a new token.
 
-Amaretti provides workflow capability by creating dependencies between tasks. Tasks that depends on parent tasks will simply wait for those parent tasks to complete. All Amaretti tasks must belong to a workflow instance (or `instance` for short). `instance` organizes various tasks and not all tasks needs to be related to each other within a single `instance`. It is up to users to decide how best to organize their `tasks` within an `instance`.
+> Setting the short expiration date for JWT token minimizes the risk of a token misused or authorization granted when it shouldn't.
 
-### Resource
+### Auth-O-rization through JWT
 
-`Resource` is a remote computing resource where Amaretti can ssh and create workdir / git clone specified service and launch ABCD hook scripts to `start`, `stop`, and `monitor`. It could be a single VM, a head node of a large HPC cluster, or submit node for distributed HTC clusters like Open Science Grid. 
+JWT token can contain any json object such as user's ID / profile / email, etc. Our authentication token stores authorization object as part of our token. For example..
 
-In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criterias (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
+```
+{
+  "warehouse": [
+    "admin",
+    "user"
+  ],
+  "profile": [
+    "user"
+  ]
+}
+```
 
-## JWT Auentication
+When our API receives this token, it can lookup what authorization is given to which service simply by looking at this object. 
 
-JSON Web Token (JWT) [RFC7519](https://tools.ietf.org/html/rfc7519) is a simple authentication token consisting of base64 encoded JSON object containing user ID, token expiration date, issuer, authorization scopes and various other information about the user. It also contains a digital signature to verify the authenticity of the token issued by an authentication service. 
+## RESTful API
 
-JWT token allows us to perform stateless authentication of user; eliminating Amaretti a need to query authentication service  to validate the token and/or query user authorization every time user makes a API call. This removes the authentication service as SPOF (single-point-of-failurer) and allows us to horizontally scale our API servers while reducing latency for each API calls. 
+Client applications can interface with Amaretti through its RESTful API. 
+
+> TODO..
+
+Please see [API Doc](/apidoc/) for more details.
 
 ## Resource Selection
 
@@ -146,15 +184,15 @@ export HPC="CARBONATE"
 
 Amaretti `task` can have following task statues.
 
-`requested``con
+`requested`
 
 When a task is first submitted, it is placed under `requested` status. Task handler will wait for all parent (dependending) tasks to finish, and synchronize outputs from any parent tasks computed on outside resources.
 
 `running`
 
-A task has been submitted to the local job scheduler such as PBC, Slurm, Kubernetes, etc.. and currently pending execution, or the job is actually being executed on the compute resources. Amaretti does not distinguish between those 2 states, but application can report the status detail as `status message` to the user. Amaretti will periodically monitor jobs status of all running tasks at certain invertal.
+A task has been submitted to the local job scheduler such as PBC, Slurm, Kubernetes, etc.. and currently pending execution, or the job is actually being executed on the compute resources. Amaretti does not distinguish between those 2 conditions. Amaretti will periodically monitor jobs status of all running tasks at an appropriate interval (once a few seconds to once an hour). Application can report the status detail as `status message` to the user by echoing any text to stdout via monitoring hook.
 
-`failed (terminal)`
+`failed` [terminal]
 
 A task has failed to start, or execution of the job has failed. The task will remain in this state until the task is re-requested, or removed.
 
@@ -162,7 +200,7 @@ A task has failed to start, or execution of the job has failed. The task will re
 
 If user request to stop a running task, it must first be placed under `stop_requested` state. Amaretti's task handler will then run the stop ABCD hook script and if successful, the task will be placed under `stopped` state.
 
-`stopped (terminal)`
+`stopped` [terminal]
 
 Once the task is stopped, it will remain in this state until the task is re-requested or removed.
 
@@ -170,35 +208,52 @@ Once the task is stopped, it will remain in this state until the task is re-requ
 
 Only used under special circumstances.
 
-`removed (terminal)`
+`removed` [terminal]
 
-All work directories will be removed eventually by Amaretti or the cluster administrator. 
+All work directories will be removed eventually by Amaretti or the cluster administrator. When all task directories that belongs to a task have been removed, Amaretti will reset the task state to `removed`.
 
-`finished (terminal)`
+`finished` [terminal]
+
+A task has completed successfully. Output from the task will eventually be removed by Amaretti (at the date set by remove_date) or by the resource itself (such as HPC's data purging policy)
+
+## "Kicking tasks down the road"
+
+Amaretti handles requested tasks simply by going through all currently active tasks stored in MongoDB. Each tasks has `next_date` which instructs Amaretti's task handler when it should *re-visit* the task and perform any actions necessary based on the task status. "Kicking cans down the road" is a crude but accurate depiction of this model. For example, when Amaretti *visits* a running task, it first sets `next_date` based on how long the task has been running to cause timing similar to exponential backoff. Amaretti won't recheck the task that has not met `next_date` criteria when searching for tasks to handle next. 
+
+For newly requested tasks, task handler first updates the `next_date` to 1 hour in the future by default, and  it then tries to initialize and start the task. If it fails to start the task for whatever the reason, the same task will automatically handled in 1 hour. If it succeeds to start the task, `next_date` will be set so that the status of the task will be immediately checked for the first time.
+
+Amaretti must deal with variety of remote resources with unforseen sets of possible error scenarios or with errors that we can not determine if it is temporal or permanent. We could implement a similar task handler using Message Queue or 3rd party scheduling libraries, however, our simple task handling approach has so far allowed us with enough error resilience / failover capabilities, and with adequate task handling throughput.
+
+## Task Versioning
+
+When a user submits a task request, user can specify the repository branch/tag name as well as the name of the service. When a service is executed, it simply git clones the specified branch rather than the master branch by default. This allows user to execute specific version of the app while allowing developers to continue developing / modifying the app without negatively impacting existing users of the app. It also provides provenance information necessary to recreate the output of the app using the same code as it was initially executed.
+
+However, developer could continue updating published branch, or update which commit the tag points to. They often do this to back-port some critical bugs fixes or branches are simply used as master branch of specific version of their software. It is up to each developer to understand the consequence of updating the branch/tag and communicate with the users about the modifications, although we recommend developers to not make any changes to branches other than applying critical bug fixes.
+
+## Task Dependencies
+
+
 
 ## TODO.. I will write following subjects 
 
-- Submits, monitors, and manages large number of tasks.
-- Error tolerant. It can handle varaiety of error conditions and resume operations when systems recovers.
-
-- Applications are hosted on github and maintained by individual developers.
-- Git branch can be specified by users to run particular versions of the application.
-- Handles task dependencies to form a workflow. Mulitple tasks can be logically grouped.
-- Synchronizes input/output data if a task cross resource boundaries.
-- Restart failed tasks if requested.
+- Handles task dependencies to form a workflow. Mulitple tasks can be logically grouped. (restart following tasks)
+- Synchronizes input/output data if a task cross resource boundaries,
 - Maximum runtime can be specified.
 - Output from task execution can be removed at specified date.
-
 
 - Allows resource owners to decide which ABCD compliant applications to run.
 - Resource can be shared by multiple users.
 - Any computing resource that allows ssh access can be used as remote resource (HPC systems, VMs, clusters, etc..)
 - Continously monitor resource status and prevents apps from being submitted if no resources are available.
-- Decides best resource to submit requested apps with preconfigured scores and user preference and current conditions.
+- Continously monitor workdir to make sure workdir still exists
 
+- remove_data
+- retry
 
-- RESTful APIs.
-- Auth-e/o through JWT token.
-- Stateless (It can be installed across multiple nodes for scalability / high availability)
 - Uploading / downloading of files to/from remote resources.
 - ssh-agent 
+- ssh connection cache
+
+## Future Features
+
+- Automatically copy workdir to default cache workdir (all workdir should have at least 2 copies?)
