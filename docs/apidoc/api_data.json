@@ -1124,6 +1124,30 @@
   },
   {
     "type": "put",
+    "url": "/task/poke/:taskid",
+    "title": "Clear next_date",
+    "group": "Task",
+    "description": "<p>Clear next_date so that the task will be handled by task handler immediately</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "PutTaskPokeTaskid"
+  },
+  {
+    "type": "put",
     "url": "/task/rerun/:taskid",
     "title": "Rerun finished / failed task",
     "group": "Task",
