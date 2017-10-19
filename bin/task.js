@@ -215,7 +215,8 @@ function handle_housekeeping(task, cb) {
             }
 
             var missing_resource_ids = [];
-            async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
+            //handling all resources in parallel - in a hope to speed things a bit.
+            async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
                         logger.error("failed to find resource_id:"+resource_id+" for taskdir check will try later");
@@ -230,7 +231,7 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check taskdir
-                    logger.debug("getting ssh connection to check taskdir");
+                    //logger.debug("getting ssh connection to check taskdir");
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) {
                             logger.error(err);
@@ -238,7 +239,7 @@ function handle_housekeeping(task, cb) {
                         }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        logger.debug("running ls",taskdir);
+                        //logger.debug("running ls",taskdir);
                         //TODO is it better to use sftp?
                         conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);

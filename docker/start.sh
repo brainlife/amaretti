@@ -20,7 +20,7 @@
 rm /app/ssh-agent.sock
 ssh-agent -a /app/ssh-agent.sock
 
-pm2 start /app/api/wf.js
+pm2 start -i 2 /app/api/wf.js
 pm2 start /app/bin/task.js
 pm2 start /app/bin/resource.js
 

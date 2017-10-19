@@ -152,8 +152,11 @@ var taskSchema = mongoose.Schema({
     remove_date: Date,
 
     //mili-seconds after start_date to stop running job (default to 20 days)
+    //TODO - I should deprecate this.. We shouldn't be implementing features that local batch scheduler can do
+    //for Vanilla VM, status script should be able to abort the process after certain amount of time.
     max_runtime: { type: Number, default: 1000*3600*24*20},
 
+    //TODO - I should probaly deprecate this. also.. app should handle its own retry if it's expecting things to fail
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run
     retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
   
