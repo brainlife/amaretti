@@ -147,7 +147,7 @@ router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, r
     var instid = req.params.instid;
 
     //request all child tasks to be removed
-    db.Task.find({instance_id: instid, user_id: req.user.sub}, function(err, tasks) {
+    db.Task.find({instance_id: instid, user_id: req.user.sub, status: {$ne: "removed"}}, function(err, tasks) {
         async.eachSeries(tasks, function(task, next_task) {
             common.request_task_removal(task, next_task);
         }, function(err) {
@@ -156,7 +156,7 @@ router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                 'config.removing': true,
             }}, function(err, instance) {
                 if(err) return next(err);
-                res.json({message: "Instance successfully scheduled for removed"});
+                res.json({message: "Instance successfully scheduled for removed "+tasks.length});
             });
         });
     });
