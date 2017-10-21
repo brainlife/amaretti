@@ -8,13 +8,13 @@ sidebar:
 
 ## About Amaretti
 
-Amaretti is a light-weight inter-resource task orchestration service. It allows user to request *applications* hosted in Github to be executed on configured resources that user owns (can be shared) and handles inter-resource data transfer in a secure fasion. Amaretti does not replace local job schedulers which might be installed on remote computing resources. In a sense, Amaretti is a *meta* task orchestration service. An applications submitted by Amaretti depeneds on local job schedulers to actually execute the jobs in most appropriate manner. Amaretti takes care of starting / monitoring of those jobs submitted on varaiety of computing resources and provide RESTful API where client application can submit task requests and receive events.
+Amaretti is a light-weight inter-resource task orchestration service. It allows user to request *applications* hosted in Github to be executed on user's resources and automate the staging of input and output data between resources in a secure fashion. Amaretti orchestrates workflow executed across multiple resources and use local job schedulers to execute jobs on computing resources. Amaretti exposes its functionalities through RESTful API.
 
-You can organize tasks into a workflow by specifying dependencies between each tasks, and Amaretti will handle concurrencies, retry (on different resource if necessary), data transfer and clean up of the task directories.
+You can organize tasks into a workflow by specifying dependencies between each tasks, and Amaretti will handle concurrency, retry (on different resource if necessary), data transfer, and clean up of the task directories.
 
-One unique aspect of Amaretti is its ability to execute apps developed by external developers. Any developer can develop and register apps to run via Amaretti, however, resource owner gets to decide which apps are allowed to execute on their resources. 
+Amaretti allows external developer to develop and register apps to run through Amaretti while resource owner gets to decide which apps are allowed to execute on their resources. Developers can create an app that runs on their familiar computing platform (HTC, HPC, MapReduce, etc..) and users can easily construct a meta-workflow across heterogeneous computing platforms.
 
-Amaretti is primarily used by Brain-Life.org project and design to meet its unique goals, but it can be installed and used independently for other projects. Amaretti itself does not provide all necessary features often required by science gateway applications. For example, Brain-Life portal uses Amaretti with various other services such as Authentication, Progress, Warehouse and Event services to provide all features required by the platform.  
+Amaretti is primarily used by Brain-Life.org project and design to meet its unique goals, but it can be installed and used independently for other projects. Amaretti itself does not provide all necessary features often required by science gateway applications. For example, Brain-Life portal uses Amaretti with various other services such as Authentication, Progress, Warehouse and Event services to provide all features required by the platform. 
 
 We are releasing Amaretti as an independent open source project in a hope that other groups might find it useful. 
 

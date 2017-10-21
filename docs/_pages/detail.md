@@ -6,43 +6,43 @@ sidebar:
   nav: "docs"
 ---
 
-> DRAFT
-
 ## Background
 
-A complex scientific workflow often involves computations on multiple computing resources. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusters, or even VMs. The choice of resource may also depends on availability of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
+A modern scientific workflow often involves computations on multiple computing architectures. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusters, or even some specialized VMs. The choice of resource may also depends on availability of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
 
-This is particularly true for workflow involving "Big Data"; where the size of the input data exceeds the capability of a computing resources, or the number of inputs (or *subjects*) are simply too large to be practically handled by a single computing resource.
+As scientific computing are also becoming more multi-disciplinary involving many different developers contributing to parts of the workflow with familarity to different types of computing systems. Also the size and scope of the computation necessary for their researches is increasing; the size of the input data often exceeds the capability of computing resource so that running the entire workflow on a single resource is not possible, or the number of inputs (or *subjects*) are simply too large to be practically handled by any single computing resource.
 
-Researchers then must learn how to use those diverse set of resources and orchestrate the entire workflow across institutional boundaries or across different computing paradigms such as HPC v.s. DHTC.
-
-Also, as scientific workflow becomes more complex, different parts of the workflow maybe required to run on certain resources simply because they are developed by different developers with familarity to different types of resources, such is the case for Brain-Life where each app can be executed in resources that developers intended to run it on.
+Researchers are often faced with learning how to use diverse set of computing architectures, programming languages and orchestrate the entire workflow across institutional boundaries or across different computing paradigms (HPC v.s HTC).
 
 ## About Amaretti
 
-Amaretti is a light-weight inter-resource task orchestration service written in nodejs. Client applications interact with Amaretti through REST API, and a single instance of Amaretti can support multiple users. A user allows Amaretti to access their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task.
+Amaretti is a light-weight cross-resource, multi-user task orchestration service written in nodejs. Client applications interact with Amaretti through REST API. A user gives Amaretti access to their computing resources by configuring public ssh key generated for each resource. A user can then send a request to run tasks, and Amaretti will take care of determining where to run those tasks, staging input data, start and monitor the task through ssh. Any computers that allows ssh access through ssh key can be used as a remote computing resource by Amaretti (HPC, clusters, Vanilla VMs, etc)
 
-Amaretti relies on *hook* scripts provided by each application or resource itself to perform required actions on remote resources. To execute required application, most hook scripts submits to local batch systems like PBS, slurm, or other workflow orchestration libraries like hadoop. Amaretti can be considered as a `meta` workflow orchestration service, as it is a thin layer that presides resource specific workflows by determining which resource to run requested services, handling necessary data transfer between each resources, and executing hook scripts on those resources to start, stop and monitor task status while they are executed by using appropriate mechanism necessary for each resource.
+Amaretti is not a batch job scheduler and it should not be used as a replacement for one. Amaretti does not provide resource management, scheduling, and other capabilities often provided by various batch processing system. Amaretti only provides capability necessary to orchestrate cross-resource workflows while taking advantage of existing functionalities provided by local batch scheduler. 
+
+Amaretti relies on *hook* scripts as described by [ABCD specification](https://github.com/brain-life/abcd-spec) provided by each application (or resource itself) to perform required actions on remote resources. To execute an application, most hook scripts submits to local batch systems like PBS, slurm, or other workflow orchestration libraries like hadoop. Amaretti can be considered as a *meta* workflow orchestration service, as it is a thin layer that presides resource specific workflows by determining which resource to run requested services, handling necessary data transfer between each resources, and executing hook scripts on those resources to start, stop and monitor task status while they are executed by using appropriate mechanism necessary for each resource.
+
+There are systems such as [GlideinWMS](http://glideinwms.fnal.gov/doc.prd/index.html) that allows local jobs to be submitted to number of other resources, but the goal for such systems usually focuses on extending the capability of an existing batch submission system and requires substantial amount of efforts by both submitter and resource owner to properly configure them.
 
 ## Resource / Application trust model
 
-One unique aspect of Amaretti is its ability to for any developer to develop and register their apps through Amaretti. Resource owner, however, gets to decide which apps are allowed to execute on their resources. It is desireable to give users access to shared resource where user can start executing apps without having to configure their own resource. Amaretti allows resources to be shared, but allowing anyone to share their resource without the explicit consent from the users (submitter) could create an issue where user's data is submitted to resource where they don't trust. Currently, Amaretti only allows service administrator to configure resource sharing. In the near future, we will implement a capability for users to *accept* shared resource offered by other users; most likely a member of their group.
+One unique aspect of Amaretti is its ability for any developer to develop and register their apps through Amaretti. Before the app can be submitted, however, resource owner must approve the app to be executed on the resources. Each developer or project member should register their own resource (an account on their HPC systems) to execute their apps so that they can approve their own applications and quickly running their apps. Amaretti, however, allows resources to be shared among other users. This capability is used by Brain-Life platform to allow all new users to immediately start submitting applications through the platform using Brain-Life's shared resource.
 
-## Terminologies
+We currently only allow administrator to share resources. By sharing resource with other users, an app may start running on resource that user may not want to run it on, as all input data must be staged to a remote resource prior to task execution and user might not want some sensitive data such as from their private projects to be sent to those resources. In the near future, we will implement a capability for users to *accept* shared resource offered by other users; most likely a member of their group. Then, we can start allowing non-administrator to share their resources with other users.
 
-### Tasks
+## Tasks
 
 Tasks are the atomic unit of work executed on various computing resources. It could be a `job` for batch systems, or a vanilla process running on a vanilla VM that are kept track by its process ID.
 
-### Service
+## Service
 
 Each ABCD compliant github repository represents `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create a workdir for that task under a chosen resource. 
 
-### (Workflow) Instance
+## (Workflow) Instance
 
 Amaretti provides workflow capability by creating dependencies between tasks. Tasks that depends on parent tasks will simply wait for those parent tasks to complete. All Amaretti tasks must belong to a workflow instance (or `instance` for short). `instance` organizes various tasks and not all tasks needs to be related to each other within a single `instance`. It is up to users to decide how best to organize their `tasks` within an `instance`.
 
-### Resource
+## Resource
 
 `Resource` is a remote computing resource where Amaretti can ssh and create workdir / git clone specified service and launch ABCD hook scripts to `start`, `stop`, and `monitor`. It could be a single VM, a head node of a large HPC cluster, or submit node for distributed HTC clusters like Open Science Grid.
 
@@ -186,11 +186,11 @@ Amaretti `task` can have following task statues.
 
 `requested`
 
-When a task is first submitted, it is placed under `requested` status. Task handler will wait for all parent (dependending) tasks to finish, and synchronize outputs from any parent tasks computed on outside resources.
+When a task is first submitted, it is placed under `requested` status. Task handler will wait for all parent tasks to finish, and synchronize outputs from any parent tasks computed on outside resources.
 
 `running`
 
-A task has been submitted to the local job scheduler such as PBC, Slurm, Kubernetes, etc.. and currently pending execution, or the job is actually being executed on the compute resources. Amaretti does not distinguish between those 2 conditions. Amaretti will periodically monitor jobs status of all running tasks at an appropriate interval (once a few seconds to once an hour). Application can report the status detail as `status message` to the user by echoing any text to stdout via monitoring hook.
+A task has been submitted to the local job scheduler such as PBC, slurm, Kubernetes, etc.. and currently pending execution, or the job is actually being executed on the compute resources. Amaretti does not distinguish between those 2 conditions. Amaretti will periodically monitor jobs status of all running tasks at an appropriate interval (once a few seconds to once an hour). Application can report the status detail as `status message` to the user by echoing any text to stdout via monitoring hook.
 
 `failed` [terminal]
 
@@ -214,7 +214,7 @@ All work directories will be removed eventually by Amaretti or the cluster admin
 
 `finished` [terminal]
 
-A task has completed successfully. Output from the task will eventually be removed by Amaretti (at the date set by remove_date) or by the resource itself (such as HPC's data purging policy)
+A task has completed successfully. Output from the task will eventually be removed by Amaretti (at the date set by remove_date) or by the resource itself (such as HPC data purging policy)
 
 ## "Kicking tasks down the road"
 
@@ -222,7 +222,7 @@ Amaretti handles requested tasks simply by going through all currently active ta
 
 For newly requested tasks, task handler first updates the `next_date` to 1 hour in the future by default, and  it then tries to initialize and start the task. If it fails to start the task for whatever the reason, the same task will automatically handled in 1 hour. If it succeeds to start the task, `next_date` will be set so that the status of the task will be immediately checked for the first time.
 
-Amaretti must deal with variety of remote resources with unforseen sets of possible error scenarios or with errors that we can not determine if it is temporal or permanent. We could implement a similar task handler using Message Queue or 3rd party scheduling libraries, however, our simple task handling approach has so far allowed us with enough error resilience / failover capabilities, and with adequate task handling throughput.
+Amaretti must deal with variety of remote resources with unforseen sets of possible error conditions that we can not determine if it is temporal or permanent. We could implement a similar system using Message Queue or 3rd party scheduling libraries, however, our simple task handling approach has so far allowed us with enough error resilience / failover capabilities, and with adequate task handling throughput. 
 
 ## Task Versioning
 
@@ -232,28 +232,42 @@ However, developer could continue updating published branch, or update which com
 
 ## Task Dependencies
 
+Tasks can chained together to form a directed acyclic graph through a use of task dependencies. When a task is submitted with dependencies, a requested task will only start running when all of the parent tasks complete successfully. Amaretti will run  tasks concurrently as long as all of its parent tasks has completed successfully and has resource to run those tasks.
 
+If any of the parent task fails, the child task will also be marked as failed and failure will then cascade to all of its children. When a user rerun a failed parent, and if the failed task completes successfully the second time, all child tasks will be also re-requested.
 
-## TODO.. I will write following subjects 
+Tasks connected through dependencies can be interpreted as a logical "workflow", but Amaretti itself does not provide the concept of "workflow" natively. To help organize related tasks, Amaretti provides "instance". "Instance" is simply a grouping of tasks and user is free to define what "instance" means; it could be tasks that process the same subject, or tasks that runs certain application on multiple subjects. Not all tasks within an instance need to be connected through dependencies. However, all task must belong to a specific instance. 
 
-- Handles task dependencies to form a workflow. Mulitple tasks can be logically grouped. (restart following tasks)
-- Synchronizes input/output data if a task cross resource boundaries,
-- Maximum runtime can be specified.
-- Output from task execution can be removed at specified date.
+> Amaretti creates parent directories for each instances on the remote resource where all work directories for each task will be placed under.
 
-- Allows resource owners to decide which ABCD compliant applications to run.
-- Resource can be shared by multiple users.
-- Any computing resource that allows ssh access can be used as remote resource (HPC systems, VMs, clusters, etc..)
-- Continously monitor resource status and prevents apps from being submitted if no resources are available.
-- Continously monitor workdir to make sure workdir still exists
+> (Inter-instance dependency) A task can have dependency with tasks from another instances.
 
-- remove_data
-- retry
+## Work directory synchronization
 
-- Uploading / downloading of files to/from remote resources.
-- ssh-agent 
-- ssh connection cache
+All ABCD compliant application should generate output files on the current working directory. Therefore, a work directory of a parent task can be used as input directory of child tasks. If both parent and child tasks are on the same resource, child task can simply read from the parent tasks through the local file path. If they are not on the same resource, however, Amaretti will transfer the working directory of the parent task to the resource that the child task will be executed on. Amaretti uses rsync through ssh to do the data transfer, and it does this whenever a child task is requested in case a parent task might have modified data since the last transfer due to parent task being rerun. 
 
-## Future Features
+Let's assume that parent task T1 is running on a resource R1 and a child task T2 is running on a resource R2. Before task T2 can run, work directory for task T1 must be synchronized from resource R1 to R2. As Amaretti can ssh to both R1 and R2, it could simply transfer data between 2 resources by using Amaretti as a ssh tunnel. However, it is very inefficient, and ideally we want to transfer data directly between R1 and R2. Amaretti accomplishes this by using ssh-agent with a temporary ssh key installed to access R1 and forward the agent to R2, then from R2 initiating rsync(pull) from R1 using the forwarded ssh key allowing R2 to access R1. The ssh key for R1 is immediately purged from the agent as soon as R2 connects to R1. 
 
-- Automatically copy workdir to default cache workdir (all workdir should have at least 2 copies?)
+(Figure?)
+
+Often, remote resource becomes unavailable due to scheduled maintenance, or unexpected outages, etc., which would prevent subsequent tasks from executing on different resources as Amaretti will not be able to synchronize the data on unavailable resource to another resource, even though another resources might be available. Or, user won't be able to download / view data stored on the resource if the resource is unavailable even though the task itself has finished successfully. In the future, we will allow Amaretti to synchronize its output to a *cache* resources when a task is finished (or even periodically during the task execution). Cache resource is a special remote resource used to store copy of the work directories. If the resource that holds the original output files are unavailable, Amaretti could fall back to the cache resource to allow subsequent tasks to rsync the input data from the cache resource for better availability. 
+
+## Work directory purging
+
+Some HPC systems relies on data purging policy to reduce scratch disk usage by removing any files that are not recently accessed. As Amaretti supports multiple work directories per task, it periodically goes through each remote to find which resource the task's work directory still exist (there could be synchronized to more than 1 resource) and when it realizes that there are no more resources, it will automatically mark the task status as `removed`.
+
+Amaretti itself also purges old work directories after 25 days of task completion by default. Submitter can set the removal date of the task if the output should be removed sooner. Any final output from workflow that should be persisted needs to be downloaded or copied to a permanent data archive once tasks are completed.
+
+## Resource Testing
+
+Amaretti periodically goes through all registered remote computing resources and checks for their statues. If the resource is inaccessible, or can not reach its work directory, Amaretti will temporarily flags the resource to be down so that resource selection algorithm can avoid using that resource to submit requested tasks. If there are no resource to submit a task, requested task will remain in that status until the resource becomes available again.
+
+## Downloading from work directory
+
+Amaretti provides API to list and download files and directories from remote resources associated with the task. Directories are converted to .tar on the fly. Unlike the resource-to-resource data transfer, the data must travel from remote resource through Amaretti's API server, on to the API client. The API provides user a quick and convenient way to export data out of the task. A platform like Brain-Life uses this API to implement on-browser file browser.
+
+> We are going to update this so that API can download data from task regardless of which resource the task currently has synchronized data
+
+## SSH Connection Cache
+
+Amaretti interfaces with remote resources primarily through ssh and sftp. To reduce the latency of opening new connections and to also reduce the number of total open ssh connections, Amaretti uses connection cache and make use of OpenSSH multi-channel capabilities with capability to defer request in case the channels are full.
