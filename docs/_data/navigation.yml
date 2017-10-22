@@ -9,7 +9,7 @@ main:
 docs:
   - title: Getting Started
     children:
-      - title: "Introduction"
+      - title: "About"
         url: /
       - title: "Installation"
         url: /installation
