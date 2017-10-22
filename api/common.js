@@ -110,17 +110,6 @@ exports.get_ssh_connection = function(resource, cb) {
     });
     conn.on('error', function(err) {
         logger.error(err);
-        /*
-        if(err.level && err.level == "client-timeout") {
-            logger.warn("ssh server is dead.. keepalive not returning.");
-        } else {
-            logger.error("ssh connection error. resource_id:"+resource._id);
-            logger.error("was ready on:"+conn.ready_time);
-            logger.error("was last used on:"+conn.last_used);
-            logger.error("current time:"+new Date());
-        }
-        */
-
         //error could fire after ready event is received only call cb if it hasn't been called
         if(!conn.ready_time) {
             cb(err);
@@ -172,6 +161,8 @@ exports.get_sftp_connection = function(resource, cb) {
             logger.debug("ssh connection closed - used by sftp");
             delete sftp_conns[resource._id];
         });
+
+        //could fire long after connection becomes ready
         conn.on('error', function(err) {
             if(err.level && err.level == "client-timeout") {
                 logger.warn("ssh server is dead (sftp).. keepalive not returning.");
@@ -180,7 +171,8 @@ exports.get_sftp_connection = function(resource, cb) {
                 logger.error(err);
             }
             delete sftp_conns[resource._id];
-            cb(err);
+            //most likely cb is already called through ssh_connection.on('error')
+            //cb(err);
         });
     });
 }

@@ -172,7 +172,7 @@ function check() {
                     if(err) logger.error(err); //continue
 
                     if(handler_returned) {
-                        logger.error("handler already returned", task._id.toString());
+                        logger.error("handler already returned", task._id.toString(), previous_status, task.status, handler);
                     }
                     handler_returned = true;
 

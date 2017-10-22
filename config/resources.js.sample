@@ -125,5 +125,14 @@ module.exports = {
             //"soichih/sca-service-noop": {score: 10},
         }
     },
+
+    cache: {
+        type: "ssh",
+        name: "workdir cache",
+        desc: "resources uses to simply store copy of workdir",
+        workdir: "/somewhere",
+        services: {
+        }
+    },
 }
 
