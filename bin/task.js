@@ -24,7 +24,7 @@ const _service = require('../api/service');
 process.on('unhandledRejection', (reason, promise) => {
     logger.error("sleeping for 10 seconds and killing");
     logger.error(reason);
-    setTimeout(function() {
+    return setTimeout(function() {
         process.exit(1);
     }, 1000*10);
 });
@@ -172,7 +172,9 @@ function check() {
                     if(err) logger.error(err); //continue
 
                     if(handler_returned) {
-                        logger.error("handler already returned", task._id.toString(), previous_status, task.status, handler);
+                        //TODO we need to figure why why this happens!
+                        logger.error("handler already returned", task._id.toString(), previous_status, task.status);
+                        return;
                     }
                     handler_returned = true;
 
@@ -190,7 +192,7 @@ function check() {
                 });
             }, ()=>{
                 //wait a bit and recheck again
-                setTimeout(check, 500);
+                return setTimeout(check, 500);
             });
         }); 
     });
@@ -579,7 +581,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                logger.debug("running status.sh", task._id.toString(), taskdir, service_detail.status);
+                logger.debug("running", service_detail.status, task._id.toString(), taskdir)
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
                     //timeout in 15 seconds

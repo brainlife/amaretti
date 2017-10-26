@@ -84,7 +84,7 @@ exports.get_ssh_connection = function(resource, cb) {
             return cb(null, old);
         } else {
             logger.debug("channel busy .. postponing..");
-            setTimeout(()=>{
+            return setTimeout(()=>{
                 exports.get_ssh_connection(resource, cb);
             }, 1000);
         }
