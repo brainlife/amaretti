@@ -76,10 +76,10 @@ exports.get_ssh_connection = function(resource, cb) {
         var chans = Object.keys(old._channels).length;
         //logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
         
-        //limit to 5 channels
+        //limit to 2 channels
         //max seems to be 10 on karst, but user of ssh_connection can run as many sessions as they want..
         //so let's be conservative
-        if(chans < 5) {  
+        if(chans < 3) {  
             old.last_used = new Date();
             return cb(null, old);
         } else {
