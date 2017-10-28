@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
+const ConnectionQueuer = require('ssh2-multiplexer');
+
 const request = require('request');
 
 const config = require('../config');
@@ -73,32 +75,20 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        var chans = Object.keys(old._channels).length;
-        //logger.debug("reusing ssh connection. resource", resource._id, "channels:", chans);
-        
-        //limit to 2 channels
-        //max seems to be 10 on karst, but user of ssh_connection can run as many sessions as they want..
-        //so let's be conservative
-        if(chans < 3) {  
-            old.last_used = new Date();
-            return cb(null, old);
-        } else {
-            logger.debug("channel busy .. postponing..");
-            return setTimeout(()=>{
-                exports.get_ssh_connection(resource, cb);
-            }, 1000);
-        }
+        old.last_used = new Date();
+        return cb(null, old);
     }
 
     //open new connection
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
-        ssh_conns[resource._id] = conn;
+        var connq = new ConnectionQueuer(conn);
+        ssh_conns[resource._id] = connq;
         logger.debug("ssh connection ready");
         conn.ready_time = new Date();
         conn.last_used = new Date();
-        cb(null, conn);
+        cb(null, connq);
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended");
@@ -142,8 +132,9 @@ exports.get_sftp_connection = function(resource, cb) {
         return cb(null, old);
     }
     //get new ssh connection
-    exports.get_ssh_connection(resource, function(err, conn) {
+    exports.get_ssh_connection(resource, function(err, conn_q) {
         if(err) return cb(err);
+        let conn = conn_q.connection;
         conn.sftp(function(err, sftp) {
             logger.debug("sftp cb");
             logger.debug(err);

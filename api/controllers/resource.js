@@ -607,7 +607,7 @@ router.get('/download', jwt({
                     
                     //npm-mime uses filename to guess mime type, so I can use this locally
                     //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
-                    var mimetype = mime.lookup(fullpath);
+                    var mimetype = mime.getType(fullpath);
                     logger.debug("mimetype:"+mimetype);
 
                     //without attachment, the file will replace the current page
