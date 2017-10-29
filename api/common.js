@@ -61,7 +61,6 @@ exports.decrypt_resource = function(resource) {
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
             var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
             var c = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, iv);
-            //var v = new Buffer(resource.config[k], 'base64').toString('binary');
             var e = c.update(resource.config[k], 'hex', 'utf8');
             e += c.final('utf8');
             resource.config[k] = e;
@@ -75,7 +74,7 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        old.last_used = new Date();
+        //old.last_used = new Date();
         return cb(null, old);
     }
 
@@ -83,11 +82,10 @@ exports.get_ssh_connection = function(resource, cb) {
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
+        logger.debug("ssh connection ready");
+        ready = true;
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        logger.debug("ssh connection ready");
-        conn.ready_time = new Date();
-        conn.last_used = new Date();
         cb(null, connq);
     });
     conn.on('end', function() {
@@ -101,9 +99,7 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('error', function(err) {
         logger.error(err);
         //error could fire after ready event is received only call cb if it hasn't been called
-        if(!conn.ready_time) {
-            cb(err);
-        }
+        if(!ready) cb(err);
     });
 
     exports.decrypt_resource(resource);
