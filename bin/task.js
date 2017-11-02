@@ -443,9 +443,13 @@ function handle_requested(task, next) {
         }
         _resource_select(user, task, function(err, resource, score, considered) {
             if(err) return next(err);
+            //logger.debug(considered);
             if(!resource) {
                 task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                task.next_date = new Date(Date.now()+1000*60*5); //check again in 5 minutes (too soon?)
+                
+                //check again in 5 minutes (too soon?)
+                //TODO - I should do exponential back off
+                task.next_date = new Date(Date.now()+1000*60*5); 
                 return next();
             }
             task.status_msg = "Starting task";

@@ -419,15 +419,16 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
             if(!common.check_access(req.user, resource)) return res.status(401).end();
-            common.get_ssh_connection(resource, function(err, conn) {
+            common.get_ssh_connection(resource, function(err, conn_q) {
                 if(err) return next(err);
                 //logger.debug("calling mkdirp");
                 //append workdir if relateive (TODO should use node path module?)
                 if(fields.path[0] != "/") fields.path = common.getworkdir(fields.path, resource);
                 //logger.debug("mkdirp: "+fields.path);
-                mkdirp(conn, fields.path, function(err) {
+                mkdirp(conn_q, fields.path, function(err) {
                     if(err) return next(err);
                     logger.debug("opening sftp connection");
+                    let conn = conn_q.connection;
                     conn.sftp(function(err, sftp) {
                         if(err) return next(err);
                         //var escaped_filename = part.filename.replace(/"/g, '\\"');
@@ -472,15 +473,15 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         if(!common.check_access(req.user, resource)) return res.status(401).end();
-        common.get_ssh_connection(resource, function(err, conn) {
+        common.get_ssh_connection(resource, function(err, conn_q) {
             if(err) return next(err);
             var fullpath = common.getworkdir(_path, resource);
             var safepath = common.getworkdir("", resource);
             if(fullpath.indexOf(safepath) !== 0) return next("you can't upload to outside of workdir");
             
-            mkdirp(conn, path.dirname(fullpath), function(err) {
+            mkdirp(conn_q, path.dirname(fullpath), function(err) {
                 if(err) return next(err);
-                conn.sftp(function(err, sftp) {
+                conn_q.connection.sftp(function(err, sftp) {
                     if(err) return next(err);
                     logger.debug("fullpath",fullpath);
                     var pipe = req.pipe(sftp.createWriteStream(fullpath));
@@ -492,7 +493,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                             sftp.end();
                             
                             logger.debug("tar xzf-ing");
-                            conn.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
+                            conn_q.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
                                 "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
                                 "rm \""+path.basename(fullpath).addSlashes()+"\"", 
                             function(err, stream) {
@@ -589,14 +590,14 @@ router.get('/download', jwt({
                 if(stat.isDirectory()) {
                     logger.debug("sending directory(.tar.gz)", fullpath);
                     //it's directory .. stream using tar | gzip
-                    common.get_ssh_connection(resource, function(err, conn) {
+                    common.get_ssh_connection(resource, function(err, conn_q) {
                         if(err) return next(err);
                         //create a nice tar.gz name
                         var name = _path.replace(/\//g, '.')+'.tar.gz';
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
                         var workdir = common.getworkdir(_path, resource);
-                        conn.exec("cd \""+workdir.addSlashes()+"\" && tar hcz *", function(err, stream) {
+                        conn_q.exec("cd \""+workdir.addSlashes()+"\" && tar hcz *", function(err, stream) {
                             if(err) return next(err);
                             stream.pipe(res)
                         });
@@ -607,7 +608,7 @@ router.get('/download', jwt({
                     
                     //npm-mime uses filename to guess mime type, so I can use this locally
                     //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
-                    var mimetype = mime.lookup(fullpath);
+                    var mimetype = mime.getType(fullpath);
                     logger.debug("mimetype:"+mimetype);
 
                     //without attachment, the file will replace the current page

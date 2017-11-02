@@ -100,6 +100,7 @@ exports.select = function(user, task, cb) {
                 logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
             } else {
                 logger.debug("no resource matched to run this task :)");
+                //console.dir(considered);
             } 
             cb(err, best, best_score, considered);
         });
@@ -150,12 +151,13 @@ function score_resource(user, resource, task, cb) {
                 resource_id: resource._id, 
                 $or: [
                     {status: "running"},
-                    {status: "requested", start_date: {$exists: true}}, //startinng..
-                ]
+                    {status: "requested", start_date: {$exists: true}}, //starting..
+                ],
+                _id: {$ne: task._id}, //don't count myself waiting
             }, (err, tasks)=>{
                 if(err) logger.error(err);
                 detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
-                if(maxtask <= tasks.length) {
+                if(maxtask < tasks.length) {
                     detail+="resource is busy\n";
                     cb(null, 0, detail); 
                 } else get_score();
