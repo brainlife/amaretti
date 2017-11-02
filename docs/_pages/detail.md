@@ -4,6 +4,7 @@ title: Technical Detail
 permalink: /detail
 sidebar:
   nav: "docs"
+comments: true
 ---
 
 ## Background

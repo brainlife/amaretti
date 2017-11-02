@@ -4,6 +4,7 @@ title: About
 permalink: /
 sidebar:
   nav: "docs"
+comments: true
 ---
 
 Amaretti is a light-weight, cross-resource, multi-user task orchestration service written in nodejs. 

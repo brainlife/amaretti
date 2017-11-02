@@ -4,6 +4,7 @@ title: Installation
 permalink: /installation
 sidebar:
   nav: "docs"
+comments: true
 ---
 
 ## Dependencies
