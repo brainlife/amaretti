@@ -100,7 +100,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             next=>{
                 //make sure dest dir exists
                 conn.exec("mkdir -p "+dest_path, function(err, stream) {
-                    if(err) next(err);
+                    if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to mkdir -p "+dest_path);
                         else next();
@@ -132,7 +132,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
-                    if(err) next(err);
+                    if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         if(code) next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" Please check firewall / sshd configuration / disk space / resource availability");
                         else next();

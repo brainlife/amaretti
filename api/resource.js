@@ -117,52 +117,48 @@ function score_resource(user, resource, task, cb) {
         logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
         return cb(null, 0, "no resource_detail");
     } else {
+        var score = null;
         var detail = "";
-
-        function get_score() {
-            var score = null;
-            
-            //first, pull score from resource_detail
-            if( resource_detail.services &&
-                resource_detail.services[task.service]) {
-                score = parseInt(resource_detail.services[task.service].score);
-                detail += "resource_detail score:"+score+"\n";
-            }
-            
-            //override it with instance specific score
-            if( resource.config && 
-                resource.config.services) {
-                resource.config.services.forEach(function(service) {
-                    if(service.name == task.service) {
-                        score = parseInt(service.score);
-                        detail += "resource.config score:"+score+"\n";
-                    }
-                });
-            }
-
-            cb(null, score,  detail); //in-case score is set to string.. 
+    
+        //first, pull score from resource_detail
+        if( resource_detail.services &&
+            resource_detail.services[task.service]) {
+            score = parseInt(resource_detail.services[task.service].score);
+            detail += "resource_detail score:"+score+"\n";
+        }
+        
+        //override it with instance specific score
+        if( resource.config && 
+            resource.config.services) {
+            resource.config.services.forEach(function(service) {
+                if(service.name == task.service) {
+                    score = parseInt(service.score);
+                    detail += "resource.config score:"+score+"\n";
+                }
+            });
         }
 
         //check number of tasks currently running on this resource and compare it with maxtask if set
         var maxtask = resource_detail.maxtask;
-        if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask;
-        if(maxtask) {
-            db.Task.find({
-                resource_id: resource._id, 
-                $or: [
-                    {status: "running"},
-                    {status: "requested", start_date: {$exists: true}}, //starting..
-                ],
-                _id: {$ne: task._id}, //don't count myself waiting
-            }, (err, tasks)=>{
-                if(err) logger.error(err);
-                detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
-                if(maxtask < tasks.length) {
-                    detail+="resource is busy\n";
-                    cb(null, 0, detail); 
-                } else get_score();
-            });
-        } else get_score();
+        if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask; //override with resource specific maxtask
+        if(!maxtask) return cb(null, score, detail); //no maxtask set.. don't need to check
+        db.Task.find({
+            resource_id: resource._id, 
+            $or: [
+                {status: "running"},
+                {status: "requested", start_date: {$exists: true}}, //starting..
+            ],
+            _id: {$ne: task._id}, //don't count myself waiting
+        }, (err, tasks)=>{
+            if(err) logger.error(err);
+            detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
+            if(maxtask < tasks.length) {
+                detail += "resource is busy\n";
+                cb(null, 0, detail); 
+            } else {
+                cb(null, score, detail);
+            }
+        });
     }
 }
 

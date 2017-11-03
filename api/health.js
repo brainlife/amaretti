@@ -33,7 +33,7 @@ exports.health_check = function() {
         report.messages.push("high ssh channels "+ssh.max_channels);
     }
     */
-    if(ssh.ssh_cons > 10) {
+    if(ssh.ssh_cons > 20) {
         report.status = "failed";
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
