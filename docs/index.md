@@ -25,7 +25,7 @@ We are releasing Amaretti as an independent open source project in a hope that o
 - Cross-platform. Synchronize tasks input and output data across resource boundaries.
 - Resilience. Handle multiple error conditions and automatically resume operations at system recovery.
 - Task dependencies. Handle multiple tasks and tasks dependencies across resources to form tasks meta-workflows.
-– Applications. Applications are hosted on github.com and maintained by *App* developers. Individual, git branches can be specified by developers and users to run particular *versions* of each *App*.
+- Applications. Applications are hosted on github.com and maintained by *App* developers. Individual, git branches can be specified by developers and users to run particular *versions* of each *App*.
 
 ### Resource Management
 
