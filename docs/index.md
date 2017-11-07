@@ -21,21 +21,17 @@ We are releasing Amaretti as an independent open source project in a hope that o
 
 ### Task Orchestration
 
-- Submits, monitors, and manages large number of tasks.
-- Error tolerant. It can handle variety of error conditions and resume operations when systems recovers.
-- Applications are hosted on github and maintained by individual developers.
-- Git branch can be specified by users to run particular *versions* of the application.
-- Handles task dependencies to form a workflow.
-- Synchronizes input/output data if a task cross resource boundaries.
-- Restart(retry) failed tasks if requested.
-- Maximum runtime (retries) can be specified.
-- Output from task execution can be removed at specified date.
+- Highthroughput. Submit, monitor and manage large number of computational tasks.
+- Cross-platform. Synchronize tasks input and output data across resource boundaries.
+- Resilience. Handle multiple error conditions and automatically resume operations at system recovery.
+- Task dependencies. Handle multiple tasks and tasks dependencies across resources to form tasks meta-workflows.
+– Applications. Applications are hosted on github.com and maintained by *App* developers. Individual, git branches can be specified by developers and users to run particular *versions* of each *App*.
 
 ### Resource Management
 
 - Allows resource owners to decide which [ABCD compliant](https://github.com/brain-life/abcd-spec) applications to run.
 - Resource can be shared by multiple users.
-- Any computing resource that allows ssh access can be used as remote resource (HPC systems, VMs, clusters, etc..)
+- Any computing resource that allows ssh access can be used as remote resource (HPC systems, VMs, clusters, etc.)
 - Continuously monitor resource status and prevents apps from being submitted if no resources are available.
 - Decides best resource to submit requested apps with preconfigured *scores* and user preference and current conditions.
 
