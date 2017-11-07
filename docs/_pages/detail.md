@@ -116,7 +116,7 @@ When our API receives this token, it can lookup what authorization is given to w
 
 Client applications can interface with Amaretti through its RESTful API. 
 
-> TODO..
+> TODO.. (add appropriate amount of summary needed to describe various RESTful APIs)
 
 Please see [API Doc](/apidoc/) for more details.
 
@@ -266,3 +266,7 @@ Amaretti provides API to list and download files and directories from remote res
 ## SSH Connection Cache
 
 Amaretti interfaces with remote resources primarily through ssh and sftp. To reduce the latency of opening new connections and to also reduce the number of total open ssh connections, Amaretti uses connection cache and make use of OpenSSH multi-channel capabilities with capability to defer request in case the channels are full.
+
+## Written in nodejs
+
+As with other services that we have developed, Amaretti is written in nodejs; a Javascript runtime that allows event-driven, non-blocking programming model that can easily be scaled across multiple cores or even across machines. As Amaretti must interface with wide variety of resources, it must deal with many asynchronous events and known and unknown error conditions. We believe that Nodejs is particularly well suited to handle such environment thanks to its robust event-loop and library owned type model which and can cope with dynamic and changing environment.
