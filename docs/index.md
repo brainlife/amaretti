@@ -7,7 +7,7 @@ sidebar:
 comments: true
 ---
 
-Amaretti is a light-weight, cross-resource, multi-user task orchestration service written in nodejs. Amaretti is a meta processing managment system, it provides cross-resource orchestration while relying on the existing functionality of each resource local batch scheduler. It communicates with multiple computing architectures (clouds and high-performance computing) and lauch computations across compute resources reducing users data management. 
+Amaretti is a light-weight, cross-resource, multi-user task orchestration service written in nodejs. Amaretti is a meta processing managment system, it provides cross-resource orchestration while relying on the existing functionality of each resource local batch scheduler. It executes computations across multiple architectures (clouds and high-performance computing) and handles all data management, so to reduce most of the user burden and accelerate large-scale data processing. 
 
 Amaretti provides RESTful API functionality to orchestrate the execution of tasks across compute resources. Amaretti (1) determines the best resource to use for computing a task, (2) stages the data, (3) start, (4) monitors and (5) provides data transfer mechanisms between tasks and users. Amaretti is not a batch job scheduler and it should not be used as a replacement for workflow service. Indeed, it relies on resources-specific batch processing systems (such as PBS/torque, HTCondor or Slurm) to schedule and manage processing.
 
