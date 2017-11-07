@@ -27,7 +27,7 @@ We are releasing Amaretti as an independent open source project in a hope that o
 - Task dependencies. Handle multiple tasks and tasks dependencies across resources to form tasks meta-workflows.
 - Applications. Applications are hosted on github.com and maintained by *App* developers. Individual, git branches can be specified by developers and users to run particular *versions* of each *App*.
 
-### Resource Management
+### Compute Resource Management
 
 - Allows resource owners to decide which [ABCD compliant](https://github.com/brain-life/abcd-spec) applications to run.
 - Resource can be shared by multiple users.
