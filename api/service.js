@@ -31,16 +31,15 @@ exports.loaddetail_cached = function(service_name, branch, cb) {
 }
 
 exports.loaddetail = function(service_name, branch, cb) {
+    if(!config.github) return cb("no github config");
     if(!branch) branch = "master";
     
     //first load git info
     var repourl = 'https://api.github.com/repos/'+service_name;
     logger.debug("loading repo detail", repourl);
-    if(config.github) {
-        repourl += "?client_id="+config.github.client_id;
-        repourl += "&client_secret="+config.github.client_secret;
-    }
-    request(repourl, { json: true, headers: {'User-Agent': 'IU/SciApt/SCA'} }, function(err, _res, git) {
+    repourl += "?client_id="+config.github.client_id;
+    repourl += "&client_secret="+config.github.client_secret;
+    request(repourl, { json: true, headers: {'User-Agent': 'brain-life/amaretti'} }, function(err, _res, git) {
         if(err) return cb(err);
         if(_res.statusCode != 200) {
             logger.error(repourl);//could contain github key... but

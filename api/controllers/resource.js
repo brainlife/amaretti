@@ -608,14 +608,15 @@ router.get('/download', jwt({
                     
                     //npm-mime uses filename to guess mime type, so I can use this locally
                     //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
-                    var mimetype = mime.getType(fullpath);
+                    let ext = path.extname(fullpath);
+                    let mimetype = mime.getType(ext);
                     logger.debug("mimetype:"+mimetype);
 
                     //without attachment, the file will replace the current page
                     res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
                     res.setHeader('Content-Length', stat.size);
-                    res.setHeader('Content-Type', mimetype);
-                    var stream = sftp.createReadStream(fullpath);
+                    if(mimetype) res.setHeader('Content-Type', mimetype);
+                    let stream = sftp.createReadStream(fullpath);
                     stream.pipe(res);
                 }
             });
