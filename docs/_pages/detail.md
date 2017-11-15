@@ -9,29 +9,25 @@ comments: true
 
 ## Background
 
-A modern scientific workflow often involves computations on multiple computing architectures. For example, some parts of the workflow maybe most suited to be executed on large high throughput computing cluster where other parts may be executed on GPU or high memory capable clusters, or even some specialized VMs. The choice of resource may also depends on availability of certain applications, licenses, or current resource conditions. It is very rare that entire workflow can be computed on a single computing resource from beginning to the end, and user must often deal with choosing appropriate resources, and manage data transfer between those resources.
-
-As scientific computing are also becoming more multi-disciplinary involving many different developers contributing to parts of the workflow with familarity to different types of computing systems. Also the size and scope of the computation necessary for their researches is increasing; the size of the input data often exceeds the capability of computing resource so that running the entire workflow on a single resource is not possible, or the number of inputs (or *subjects*) are simply too large to be practically handled by any single computing resource.
-
-Researchers are often faced with learning how to use diverse set of computing architectures, programming languages and orchestrate the entire workflow across institutional boundaries or across different computing paradigms (HPC v.s HTC).
+Modern science is complicated by the size of the data set, the complexity of the software stack necessary for full analyses and the transdisciplinary knowledge necessary to develop appropriate algorithms and analyses workflows. In fact, modern scientific computing often requires running multiple applications on computers with diverse architectures. For example, parts of the scientific data analysis workflow may be best if executed on large high throughput computing clusters, where other parts may be executed on GPU or high-memory clusters, or even on specialized VMs on Cloud systems. The choice of resource may also depends on the availability of certain resource or software licenses. At the same time, the size of the data is increasing to the point of often exceeding the capability of a single computing resource. Indeed, it is becoming extremely rare that the entire data analysis workflow can be executed on a single resource. Users must often times deal with choosing appropriate software, compute resources and perform all the data transfer across the resources. Furthermore, scientific computing is becoming more multi-disciplinary involving researchers and developers from different disciplines, each contributing different parts of the full data analysis workflow. In sum, researchers are more and more often faced with learning how to use diverse set of computing architectures, programming languages and orchestrate their entire research assets (data and software) across computing resources even beyond institutional boundaries. Amaretti is meant to provide a seamless solution for orchestrating the full research assets across compute resources and architectures.
 
 ## About Amaretti
 
-Amaretti is a simple REST API service that tries to address some of the issues. Please see [About Amaretti](/) for basic overview.
+Amaretti is a meta processing managment system to orchestrate data and computation execution across multiple compute resources and architectures (e.g., clouds and high-performance computing). Its purpose is to reduce the users' burden for data,  software and computating management, to facilitate data-intensive research and accelerate discovery. Please see [About Amaretti](/) for basic overview.
 
-## Resource / Application trust model
+## Trusted Applications on trusted resources
 
-Amaretti allows any developers to develop and register their apps through Amaretti. Before the app can be submitted, however, resource owner must approve the app to be executed on the resources. Each developer or project member should register their own resource (an account on their HPC systems) to execute their apps so that they can approve their own applications and quickly running their apps. Amaretti, however, allows resources to be shared among other users. This capability is used by Brain-Life platform to allow all new users to immediately start submitting applications through the platform using Brain-Life's shared resource.
+Amaretti allows developers to register their data analyses algorithms or pipelines as *Apps*. Before the app can be submitted, however, resource owner must approve the app to be executed on the resources. Each developer or project member should register their own resource (an account on their HPC systems) to execute their apps so that they can approve their own applications and quickly running their apps. Amaretti, however, allows resources to be shared among other users. This capability is used by Brain-Life platform to allow all new users to immediately start submitting applications through the platform using Brain-Life's shared resource.
 
 We currently only allow administrator to share resources. By sharing resource with other users, an app may start running on resource that user may not want to run it on, as all input data must be staged to a remote resource prior to task execution and user might not want some sensitive data such as from their private projects to be sent to those resources. In the near future, we will implement a capability for users to *accept* shared resource offered by other users; most likely a member of their group. Then, we can start allowing non-administrator to share their resources with other users.
 
 ## Tasks
 
-Tasks are the atomic unit of work executed on various computing resources. It could be a `job` for batch systems, or a vanilla process running on a vanilla VM that are kept track by its process ID.
+Tasks are the atomic unit of computational work executed on various compute resources. It could be a `job` for batch systems, or a `vanilla process` running on a vanilla VM. Amaretti tasks are kept track of by assigment of a process ID.
 
 ## Service
 
-Each ABCD compliant github repository represents `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create a workdir for that task under a chosen resource. 
+Each ABCD compliant github repository represents and *App*. Each App is an Amaretti `service`. User assign `service` when they submit a `task`, and Amaretti git clones specified `service`. For example, if user specifies `brain-life/app-life` as a service, Amaretti will git clones `https://github.com/brain-life/app-life` to create a workdir for that task under a chosen resource. 
 
 ## (Workflow) Instance
 
@@ -43,7 +39,7 @@ Amaretti provides workflow capability by creating dependencies between tasks. Ta
 
 In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criterias (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
 
-## ABCD-spec 
+## ABCD the Apps specification. 
 
 Amaretti can run any service that are published on github.com as public repository and confirms to [ABCD Specification](https://github.com/brain-life/abcd-spec) This lightweight specification allows service developer to define `hooks` in a file named `package.json`.
 
@@ -116,7 +112,7 @@ When our API receives this token, it can lookup what authorization is given to w
 
 Client applications can interface with Amaretti through its RESTful API. 
 
-> TODO..
+> TODO.. (add appropriate amount of summary needed to describe various RESTful APIs)
 
 Please see [API Doc](/apidoc/) for more details.
 
@@ -266,3 +262,7 @@ Amaretti provides API to list and download files and directories from remote res
 ## SSH Connection Cache
 
 Amaretti interfaces with remote resources primarily through ssh and sftp. To reduce the latency of opening new connections and to also reduce the number of total open ssh connections, Amaretti uses connection cache and make use of OpenSSH multi-channel capabilities with capability to defer request in case the channels are full.
+
+## Written in nodejs
+
+As with other services that we have developed, Amaretti is written in nodejs; a Javascript runtime that allows event-driven, non-blocking programming model that can easily be scaled across multiple cores or even across machines. As Amaretti must interface with wide variety of resources, it must deal with many asynchronous events and known and unknown error conditions. We believe that Nodejs is particularly well suited to handle such environment thanks to its robust event-loop and library owned type model which and can cope with dynamic and changing environment.
