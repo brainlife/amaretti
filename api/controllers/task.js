@@ -35,8 +35,14 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
+    let is_admin = false;
+    if(req.user.scopes.sca && ~req.user.scopes.sca.indexOf("admin")) is_admin = true;
+
+    logger.debug(req.user.scopes);
+    logger.debug("is admin", is_admin);
+
     //handling user_id.
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
+    if(!is_admin || find.user_id === undefined) {
         //non admin, or admin didn't set user_id
         find.user_id = req.user.sub;
     } else if(find.user_id == null) {

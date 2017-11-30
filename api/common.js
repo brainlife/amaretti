@@ -165,28 +165,6 @@ exports.get_sftp_connection = function(resource, cb) {
 }
 
 exports.report_ssh = function() {
-
-    /*
-    //report detail to stdout..
-    var max_channels = 0;
-    logger.info("ssh/sftp status-----------------------------------------------");
-    logger.info("ssh connections : ", ssh_cons);
-    for(var rid in ssh_conns) {
-        var c = ssh_conns[rid];
-        logger.info(rid);
-        logger.info("\tready time:",c.ready_time);
-        logger.info("\tlast used:",c.last_used);
-        var chans = Object.keys(c._channels).length;
-        logger.info("\tchannels:",chans);
-        if(chans > max_channels) max_channels = chans;
-    }
-    logger.info("sftp connections : ", sftp_cons);
-    for(var rid in sftp_conns) {
-        var c = sftp_conns[rid];
-        logger.info(rid);
-    }
-    */
-
     return {
         ssh_cons: Object.keys(ssh_conns).length,
         sftp_cons: Object.keys(sftp_conns).length,

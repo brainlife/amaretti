@@ -443,12 +443,10 @@ function handle_requested(task, next) {
         }
         _resource_select(user, task, function(err, resource, score, considered) {
             if(err) return next(err);
-            //logger.debug(considered);
             if(!resource) {
                 task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                
                 //check again in 5 minutes (too soon?)
-                //TODO - I should do exponential back off
+                //TODO - I should do exponential back off.. or better yet
                 task.next_date = new Date(Date.now()+1000*60*5); 
                 return next();
             }
@@ -782,7 +780,7 @@ function start_task(task, resource, cb) {
                 //TODO - should I add timeout?
                 next=>{
                     logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("cd "+taskdir+" && git pull -f", function(err, stream) {
+                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull "+task._id.toString());
@@ -894,7 +892,6 @@ function start_task(task, resource, cb) {
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
 
-                            //TODO - how can I prevent 2 different tasks from trying to rsync at the same time?
                             common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
@@ -903,7 +900,12 @@ function start_task(task, resource, cb) {
                                     if(err) {
                                         logger.error("failed rsyncing.........", dep._id.toString());
                                         common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
-                                        next_dep(err);
+                                        
+                                        //I want to retry if rsyncing fails by leaving the task status to be requested
+                                        //next_dep(err)
+                                        delete task.start_date; //need to release this so that resource.select will calculate resource availability correctly
+                                        task.status_msg = "Failed to synchronize dependent task directories.. retry later -- "+err.toString();
+                                        cb(); //abort the rest of the process
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
                                         common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});

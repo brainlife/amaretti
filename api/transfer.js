@@ -133,20 +133,24 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 logger.debug("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
+                    let errors = "";
                     stream.on('close', function(code, signal) {
-                        if(code) next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" Please check firewall / sshd configuration / disk space / resource availability");
-                        else next();
+                        if(code) { 
+                            //next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" -- "+errors);
+                            logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" -- "+errors);
+                            //" Please check firewall / sshd configuration / disk space / resource availability");
+                            next(errors);
+                        } else next();
                     }).on('data', function(data) {
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
                         logger.debug(data.toString());
                     }).stderr.on('data', function(data) {
                         logger.error(data.toString());
+                        errors += data.toString();
                     });
                 });
             },
         ], err=>{
-            //I need to close ssh connection - since I am not using the ssh connection pool
-            logger.debug("closing rsync ssh connection");
             //conn.end(); //we are using connection queue so we don't need to close it anymore
             cb(err);
         });

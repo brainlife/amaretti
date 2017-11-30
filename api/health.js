@@ -26,13 +26,6 @@ exports.health_check = function() {
         date: new Date(),
     }
 
-    //similar code exists in sca-task/sca-resource
-    /*
-    if(ssh.max_channels > 5) {
-        report.status = "failed";
-        report.messages.push("high ssh channels "+ssh.max_channels);
-    }
-    */
     if(ssh.ssh_cons > 20) {
         report.status = "failed";
         report.messages.push("high ssh connections "+ssh.ssh_cons);
