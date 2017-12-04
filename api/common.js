@@ -277,7 +277,7 @@ function intersect_safe(a, b)
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {
-    if(!resource.active) return false;
+    //if(!resource.active) return false;
     if(resource.user_id == user.sub) return true;
     if(resource.gids && user.gids) {
         var inter = intersect_safe(resource.gids, user.gids);

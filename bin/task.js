@@ -780,7 +780,7 @@ function start_task(task, resource, cb) {
                 //TODO - should I add timeout?
                 next=>{
                     logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard", function(err, stream) {
+                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code) return next("Failed to git pull "+task._id.toString());

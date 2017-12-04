@@ -58,6 +58,7 @@ router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), functio
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
+        if(!resource.active) return res.status(401).json({message: "resource not active"});
         if(!common.check_access(req.user, resource)) return res.status(401).end();
         resource_lib.stat(resource, function(err, stats) {
             if(err) return next(err);
@@ -166,6 +167,7 @@ router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
+        if(!resource.active) return res.status(401).json({message: "resource not active"});
         if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
@@ -417,7 +419,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(err) return next(err);
             if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
             if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
-
+            if(!resource.active) return res.status(401).json({message: "resource not active"});
             if(!common.check_access(req.user, resource)) return res.status(401).end();
             common.get_ssh_connection(resource, function(err, conn_q) {
                 if(err) return next(err);
@@ -472,6 +474,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
+        if(!resource.active) return res.status(401).json({message: "resource not active"});
         if(!common.check_access(req.user, resource)) return res.status(401).end();
         common.get_ssh_connection(resource, function(err, conn_q) {
             if(err) return next(err);
@@ -572,6 +575,7 @@ router.get('/download', jwt({
     db.Resource.findById(resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
+        if(!resource.active) return res.status(401).json({message: "resource not active"});
         if(!common.check_access(req.user, resource)) return res.status(401).end();
         if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
 
@@ -863,6 +867,7 @@ router.post('/installsshkey', function(req, res, next) {
     });
 });
 
+/*
 //intentionally left undocumented
 router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var resource_id = req.params.resource_id;
@@ -904,7 +909,7 @@ router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), fu
         })
     });
 });
-
+*/
 
 module.exports = router;
 
