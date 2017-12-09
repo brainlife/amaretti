@@ -74,7 +74,7 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     if(old) {
-        //old.last_used = new Date();
+        //TODO - check to make sure connection is really alive?
         return cb(null, old);
     }
 
@@ -82,22 +82,22 @@ exports.get_ssh_connection = function(resource, cb) {
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
-        logger.debug("ssh connection ready");
+        logger.debug("ssh connection ready", resource._id.toString());
         ready = true;
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
         cb(null, connq);
     });
     conn.on('end', function() {
-        logger.debug("ssh connection ended");
+        logger.debug("ssh connection ended", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('close', function() {
-        logger.debug("ssh connection closed");
+        logger.debug("ssh connection closed", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
-        logger.error(err);
+        logger.error("ssh connectionn error", err, resource._id.toString());
         //error could fire after ready event is received only call cb if it hasn't been called
         if(!ready) cb(err);
     });
@@ -117,50 +117,46 @@ exports.get_ssh_connection = function(resource, cb) {
     });
 }
 
-//I also need to cache sftp connection.. If I reuse ssh connection to get sftp connection from it, 
-//ssh closed connection eventually.
+//I need to keep up with sftp connection cache independent of ssh connection pool
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
+    //see if we already have an active sftp session
     var old = sftp_conns[resource._id];
     if(old) {
-        logger.debug("reusing previously established sftp connection. number of connections:"+Object.keys(sftp_conns).length);
-        //logger.debug(old);  
+        //TODO - check to make sure connection is really alive?
         return cb(null, old);
     }
-    //get new ssh connection
-    exports.get_ssh_connection(resource, function(err, conn_q) {
-        if(err) return cb(err);
-        let conn = conn_q.connection;
-        conn.sftp(function(err, sftp) {
-            logger.debug("sftp cb");
-            logger.debug(err);
+    //open new sftp connection
+    var detail = config.resources[resource.resource_id];
+    var conn = new Client();
+    conn.on('ready', function() {
+        logger.debug("new sftp connection ready", resource._id.toString());
+        ready = true;
+        conn.sftp((err, sftp)=>{
             if(err) return cb(err);
-            logger.debug("sftp connection ready");
             sftp_conns[resource._id] = sftp;
             cb(null, sftp);
         });
-        //TODO - I think I should be listening events on sftp (not conn), but doc doesn't mention any event..
-        conn.on('end', function() {
-            logger.debug("ssh connection ended - used by sftp");
-            delete sftp_conns[resource._id];
-        });
-        conn.on('close', function() {
-            logger.debug("ssh connection closed - used by sftp");
-            delete sftp_conns[resource._id];
-        });
-
-        //could fire long after connection becomes ready
-        conn.on('error', function(err) {
-            if(err.level && err.level == "client-timeout") {
-                logger.warn("ssh server is dead (sftp).. keepalive not returning.");
-            } else {
-                logger.error("ssh connection error - used by sftp");
-                logger.error(err);
-            }
-            delete sftp_conns[resource._id];
-            //most likely cb is already called through ssh_connection.on('error')
-            //cb(err);
-        });
+    });
+    conn.on('end', function() {
+        logger.debug("sftp connection ended", resource._id.toString());
+        delete sftp_conns[resource._id];
+    });
+    conn.on('close', function() {
+        logger.debug("sftp connection closed", resource._id.toString());
+        delete sftp_conns[resource._id];
+    });
+    conn.on('error', function(err) {
+        logger.error("sftp connectionn error", err, resource._id.toString());
+        if(!ready) cb(err);
+    });
+    exports.decrypt_resource(resource);
+    conn.connect({
+        host: resource.config.hostname || detail.hostname,
+        username: resource.config.username,
+        privateKey: resource.config.enc_ssh_private,
+        keepaliveInterval: 30*1000, //default 0
+        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
 

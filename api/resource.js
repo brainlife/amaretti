@@ -282,14 +282,6 @@ function check_sftp(resource, conn, cb) {
             if(err) return cb(null, "failed", "can't access workdir");
             cb(null, "ok", "workdir is accessible");
             //TODO - I should probably check to see if I can write to it
-
-            /*
-            //maybe it doesn't exist yet.. try to create it
-            sftp.mkdir(workdir, function(err) {
-                if(err) return cb(null, "failed", "can't access workdir"); //ok, it looks like no good
-                cb(null, "ok", "ssh connection is good and workdir is accessible (created)");
-            });
-            */
         });
     });
 }

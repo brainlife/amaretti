@@ -260,8 +260,8 @@ function ls_resource(resource, _path, cb) {
             t = null;
         }, 5000);
         sftp.readdir(_path, function(err, files) {
-            if(t) clearTimeout(t);
-            else return; //timeout called already
+            if(!t) return; //timeout called already
+            clearTimeout(t);
             cb(err, files);
         });
     });
@@ -430,19 +430,15 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
                 mkdirp(conn_q, fields.path, function(err) {
                     if(err) return next(err);
                     logger.debug("opening sftp connection");
-                    let conn = conn_q.connection;
-                    conn.sftp(function(err, sftp) {
+                    common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) return next(err);
-                        //var escaped_filename = part.filename.replace(/"/g, '\\"');
-                        //var _path = fields.path+"/"+escaped_filename;
                         var _path = fields.path+"/"+part.filename;
-
-                        logger.debug("streaming file to "+_path);
                         var stream = sftp.createWriteStream(_path);
+                        logger.debug("streaming file to "+_path);
                         part.pipe(stream).on('close', function() {
                             logger.debug("streaming closed");
                             sftp.stat(_path, function(err, stat) {
-                                sftp.end();
+                                //sftp.end();
                                 if(err) return next(err.toString());
                                 res.json({file: {filename: part.filename, attrs: stat}});
                             });
@@ -484,7 +480,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
             
             mkdirp(conn_q, path.dirname(fullpath), function(err) {
                 if(err) return next(err);
-                conn_q.connection.sftp(function(err, sftp) {
+                common.get_sftp_connection(resource, function(err, sftp) {
                     if(err) return next(err);
                     logger.debug("fullpath",fullpath);
                     var pipe = req.pipe(sftp.createWriteStream(fullpath));
@@ -493,13 +489,11 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
 
                         //this is an undocumented feature to exlode uploade tar.gz
                         if(req.query.untar) {
-                            sftp.end();
-                            
+                            //sftp.end();
                             logger.debug("tar xzf-ing");
                             conn_q.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
                                 "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
-                                "rm \""+path.basename(fullpath).addSlashes()+"\"", 
-                            function(err, stream) {
+                                "rm \""+path.basename(fullpath).addSlashes()+"\"", function(err, stream) {
                                 if(err) return next(err);
                                 stream.on('end', function() {
                                     res.json({msg: "uploaded and untared"});
@@ -511,7 +505,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
                         } else {
                             //get file info (to be sure that the file is uploaded?)
                             sftp.stat(fullpath, function(err, stat) {
-                                sftp.end();
+                                //sftp.end();
                                 if(err) return next(err.toString());
                                 res.json({filename: path.basename(fullpath), attrs: stat});
                             });
@@ -597,13 +591,19 @@ router.get('/download', jwt({
                     common.get_ssh_connection(resource, function(err, conn_q) {
                         if(err) return next(err);
                         //create a nice tar.gz name
+                        logger.debug("got ssh connection");
                         var name = _path.replace(/\//g, '.')+'.tar.gz';
                         res.setHeader('Content-disposition', 'attachment; filename='+name);
                         res.setHeader('Content-Type', "application/x-tgz");
                         var workdir = common.getworkdir(_path, resource);
                         conn_q.exec("cd \""+workdir.addSlashes()+"\" && tar hcz *", function(err, stream) {
                             if(err) return next(err);
-                            stream.pipe(res)
+                            logger.debug("piping tar output to user");
+                            stream.pipe(res);
+                            req.on('close', ()=>{
+                                //logger.debug("request aborted.. closing stream to avoid ssh channel leak");
+                                stream.close();
+                            });
                         });
                     });
                 } else {
@@ -622,6 +622,10 @@ router.get('/download', jwt({
                     if(mimetype) res.setHeader('Content-Type', mimetype);
                     let stream = sftp.createReadStream(fullpath);
                     stream.pipe(res);
+                    req.on('close', ()=>{
+                        //logger.debug("request aborted.. closing stream to avoid ssh channel leak!");
+                        stream.close();
+                    });
                 }
             });
         });

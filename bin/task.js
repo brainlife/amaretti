@@ -872,7 +872,6 @@ function start_task(task, resource, cb) {
                             });
                         });
                         stream.write("\n");
-
                         stream.end();
                     });
                 },
