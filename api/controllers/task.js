@@ -65,6 +65,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+
+
 //returns various event / stats for given service
 router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     var find = {};
@@ -99,6 +101,19 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
                 });
             });
         });
+    });
+});
+
+//get task detail (given a valid task id)
+router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    db.Task.findById(req.params.id).exec((err, task)=>{
+        if(err) return next(err);
+
+        //hide config from sensitive apps..
+        if(task.service == "soichih/sca-product-raw") {
+            task.config = {"masked": true};
+        }
+        res.json(task);
     });
 });
 

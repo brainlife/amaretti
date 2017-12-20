@@ -221,12 +221,11 @@ function handle_housekeeping(task, cb) {
             async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
-                        logger.error("failed to find resource_id:"+resource_id+" for taskdir check will try later");
+                        logger.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
                         return next_resource(err);
                     }
                     if(!resource) {
-                        logger.info("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
-                        return next_resource(); //user sometimes removes resource.. but that's ok..
+                        return next_resource("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" no longer exist");
                     }
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
@@ -573,6 +572,7 @@ function handle_running(task, next) {
                 return next(err); 
             }
 
+            logger.debug("getting ssh connection");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..
@@ -977,7 +977,7 @@ function start_task(task, resource, cb) {
                 next=>{
                     if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
-                    logger.error("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
+                    logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
                     common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                     task.run++;
@@ -1061,10 +1061,12 @@ function load_product(taskdir, resource, cb) {
 }
 
 //counter to keep up with how many checks are performed in the last few minutes
-var _counts = {
+let _counts = {
     checks: 0,
     tasks: 0,
 }
+
+let low_check = 0;
 
 function health_check() {
     var ssh = common.report_ssh();
@@ -1084,7 +1086,12 @@ function health_check() {
     if(_counts.checks == 0) {
         report.status = "failed";
         report.messages.push("low check count");
-    }
+        low_check++;
+        if(low_check > 10) {
+            logger.error("task check loop seems to be dead.. suiciding");
+            process.exit(1);
+        }
+    } else low_check = 0;
 
     //similar code exists in /api/health.js
     if(ssh.max_channels > 5) {
