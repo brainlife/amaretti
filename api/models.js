@@ -34,41 +34,21 @@ var instanceSchema = mongoose.Schema({
     name: String, //name of the workflow
     desc: String, //desc of the workflow
 
-    //user that this workflow instance belongs to
-    user_id: {type: String, index: true}, 
+    //we use string for IDS - because we might move auth service to mongo db someday..
+    user_id: {type: String, index: true}, //user that this workflow instance belongs to
 
-    //(DEPRECATE? - use config.workflow or such..) name of workflow you'd like to use
-    workflow_id: String, 
+    //(optional) make this instance accessible from all members of this group
+    //if this is updated, all task's group_id needs to be updated also
+    group_id: {type: String, index: true}, 
 
+    //workflow_id: String, //deprecated
     config: mongoose.Schema.Types.Mixed,
 
-    /*
-    //(TODO) this is an experimental object to be used by sca-event
-    task_status: mongoose.Schema.Types.Mixed,
-    //example....
-    //stores list of all task status {
-    //"12345<taskid>": {
-    //    status: "running",
-    //    }
-    //}
-    */
     status: String, //instance status (computed from tasks inside it)
 
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
-
-    //instance is just a grouping of tasks, so let's not have its own flag that really means much
-    //but rather, compute it from all child tasks and set status to correct value
-    //removed: { type: Boolean, default: false} ,
 });
-/*
-//mongoose's pre/post are just too fragile.. it gets call on some and not on others.. (like findOneAndUpdate)
-//I prefer doing this manually anyway, because it will be more visible 
-instanceSchema.pre('update', function(next) {
-    this.update_date = new Date();
-    next();
-});
-*/
 
 instanceSchema.post('save', events.instance);
 instanceSchema.post('findOneAndUpdate', events.instance);
@@ -111,7 +91,7 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 
 var taskSchema = mongoose.Schema({
 
-    user_id: String, //sub of user submitted this request
+    user_id: {type: String, index: true}, //sub of user submitted this request
     
     //time when this task was requested
     request_date: {type: Date},
@@ -124,6 +104,10 @@ var taskSchema = mongoose.Schema({
 
     //workflow instance id
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
+    
+    //copy of group_id on instance record (should be the same as instance's group_id)
+    //this exists to help with access control
+    _group_id: {type: String, index: true}, 
 
     //github repo
     service: String, // "soichih/sca-service-life"
@@ -208,7 +192,7 @@ taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 
 taskSchema.index({name: 'text', desc: 'text'});
-taskSchema.index({status: 1, next_date: 1}); //index for sca-wf-task
+taskSchema.index({status: 1, next_date: 1}); 
 
 exports.Task = mongoose.model('Task', taskSchema);
 

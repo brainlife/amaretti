@@ -18,7 +18,7 @@ const common = require('../common');
 /**
  * @apiGroup                    Instance
  * @api {get} /instance         Query Instance
- * @apiDescription              Query instances that belongs to a user with given query (for admin returns all)
+ * @apiDescription              Query instances that belongs to a user or member of the group with optional query
  *
  * @apiParam {Object} [find]    Mongo find query JSON.stringify & encodeURIComponent-ed - defaults to {}
  *                              To pass regex, you need to use {$regex: "...."} format instead of js: /.../
@@ -26,7 +26,6 @@ const common = require('../common');
  * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
- * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  *
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
@@ -38,6 +37,14 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
+    //user can only access their own process or process owned by group that they have access to
+    let gids = req.user.gids||[];
+    find['$or'] = [
+        {user_id: req.user.sub},
+        {group_id: {$in: req.user.gids||[]}},
+    ];
+
+    /*
     //handling user_id.
     if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
         //non admin, or admin didn't set user_id
@@ -46,7 +53,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //admin can set it to null and remove user_id filtering all together
         delete find.user_id;
     }
-
+    */
 
     db.Instance.find(find)
     .select(req.query.select)
@@ -65,7 +72,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 /**
  * @api {put} /instance/:instid Update Instance
  * @apiGroup                    Instance
- * @apiDescription              Update Instance
+ * @apiDescription              Update Instance that you own or you are member of the group that instance belongs to
  *
  * @apiParam {String} [name]    Name for this instance
  * @apiParam {String} [desc]    Description for this instance
@@ -78,17 +85,28 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  */
 router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;
-    delete req.body.user_id; //can't change this
-    delete req.body.create_date; //can't change this
+
+    //can't change these
+    delete req.body.user_id;
+    delete req.body.create_date;
+    delete req.body.group_id; //this could be changed if we updated all task._group_id as well (and revalidate group_id of course)?
+
     req.body.update_date = new Date();
-    db.Instance.update({_id: id, user_id: req.user.sub}, {$set: req.body},
+    db.Instance.update({
+        _id: id, 
+        //user_id: req.user.sub
+        '$or': [
+            {user_id: req.user.sub},
+            {group_id: {$in: req.user.gids||[]}},
+        ]
+    }, {$set: req.body},
     function(err, instance) {
         if(err) return next(err);
         res.json(instance);
 
         //also update name on instance progress
         var progress_key = common.create_progress_key(id);
-        common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
+        common.progress(progress_key, {name: instance.name||instance._id});
     });
 });
 
@@ -97,8 +115,8 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  * @apiGroup                    Instance
  * @apiDescription              Create a new instance
  *
- * @apiParam {String} workflow_id Name of workflow that this instance belongs to (sca-wf-life)
  * @apiParam {String} name      Name of the instance
+ * @apiParam {String} group_id  (optional) Group ID where you want to share this process with
  * @apiParam {String} [desc]    Description of the instance
  * @apiParam {Object} [config]  Any information you'd like to associate with this instanace
  *
@@ -107,19 +125,25 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance = new db.Instance({});
-    instance.workflow_id = req.body.workflow_id; //|| req.params.workflowid; //params.workflowid is dreprecated
     instance.name = req.body.name;
     instance.desc = req.body.desc;
     instance.config = req.body.config;
-
     instance.user_id = req.user.sub;
+
+    //set group_id if user is member of
+    if(req.body.group_id) {
+        let gids = req.user.gids||[];
+        if(~gids.indexOf(req.body.group_id)) instance.group_id = req.body.group_id;
+        else return next("not member of the group you have specified");
+    }
+
     instance.save(function(err) {
         if(err) return next(err);
         res.json(instance);
 
         //set the name for the instance grouping in case use wants to display instance level progress detail
         var progress_key = common.create_progress_key(instance._id);
-        common.progress(progress_key, {name: instance.name||instance.workflow_id||instance._id});
+        common.progress(progress_key, {name: instance.name||instance._id});
     });
 });
 
@@ -144,19 +168,34 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  *
  */
 router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var instid = req.params.instid;
+    let instid = req.params.instid;
 
-    //request all child tasks to be removed
-    db.Task.find({instance_id: instid, user_id: req.user.sub, status: {$ne: "removed"}}, function(err, tasks) {
-        async.eachSeries(tasks, function(task, next_task) {
-            common.request_task_removal(task, next_task);
-        }, function(err) {
-            if(err) return next(err);
-            db.Instance.update({_id: instid, user_id: req.user.sub}, {$set: {
-                'config.removing': true,
-            }}, function(err, instance) {
+    //find the instance user wants to update
+    db.Instance.findOne({
+        _id: instid, 
+        '$or': [
+            {user_id: req.user.sub},
+            {group_id: {$in: req.user.gids||[]}},
+        ]
+    }, function(err, instance) {
+        if(err) return next(err);
+        if(!instance) res.status(404).end("no such instance or you don't have access to it");
+        
+        //request all child tasks to be removed 
+        //no need to update if it's already in removed status)
+        db.Task.find({instance_id: instid, status: {$ne: "removed"}}, function(err, tasks) {
+            async.eachSeries(tasks, function(task, next_task) {
+                common.request_task_removal(task, next_task);
+            }, function(err) {
                 if(err) return next(err);
-                res.json({message: "Instance successfully scheduled for removed "+tasks.length});
+                
+                //set config.removing to true to inform UI that this instance is currently being removed
+                db.Instance.update({_id: instid}, {$set: {
+                    'config.removing': true,
+                }}, function(err, instance) {
+                    if(err) return next(err);
+                    res.json({message: "Instance successfully scheduled -- tasks removed: "+tasks.length});
+                });
             });
         });
     });

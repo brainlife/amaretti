@@ -1,27 +1,27 @@
 'use strict';
 
 //node
-var fs = require('fs');
-var child_process = require('child_process');
+const fs = require('fs');
+const child_process = require('child_process');
 
 //contrib
-var express = require('express');
-var router = express.Router();
-var winston = require('winston');
-var jwt = require('express-jwt');
-var async = require('async');
-var path = require('path');
-var multiparty = require('multiparty');
-var mime = require('mime');
-var request = require('request');
+const express = require('express');
+const router = express.Router();
+const winston = require('winston');
+const jwt = require('express-jwt');
+const async = require('async');
+const path = require('path');
+const multiparty = require('multiparty');
+const mime = require('mime');
+const request = require('request');
 
 //mine
-var config = require('../../config');
-var logger = new winston.Logger(config.logger.winston);
-var db = require('../models');
-var common = require('../common');
-var resource_lib = require('../resource');
-var transfer = require('../transfer');
+const config = require('../../config');
+const logger = new winston.Logger(config.logger.winston);
+const db = require('../models');
+const common = require('../common');
+const resource_lib = require('../resource');
+const transfer = require('../transfer');
 
 function mask_enc(resource) {
     //mask all config parameters that starts with enc_
@@ -33,10 +33,16 @@ function mask_enc(resource) {
     return resource;
 }
 
+function is_admin(user) {
+    if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true; //deprecate (use scopes.amaretti)
+    if(user.scopes.amaretti && ~user.scopes.amaretti.indexOf("admin")) return true;
+    return false;
+}
+
 function canedit(user, resource) {
     if(!user) return false;
     if(resource.user_id == user.sub) return true;
-    if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true;
+    if(is_admin(user)) return true;
     return false;
 }
 
@@ -89,17 +95,15 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
-    //shouldn't be needed, but in case auth service doesn't set it (or admin issued jwt)
-    if(!req.user.gids) req.user.gids = [];
-
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
-        //non admin can only query resources that belongs to him/her or shared with his/her gids
+    if(!is_admin(req.user) || find.user_id === undefined) {
+        //search only resource that user owns or shared with the user
         find["$or"] = [
             {user_id: req.user.sub},
-            {gids: {"$in": req.user.gids}},
+            {gids: {"$in": req.user.gids||[]}},
         ];
     } else if(find.user_id == null) {
         //admin can set it to null and remove user_id / gids filtering
+        //html get method won't allow empty parameter, so by setting it to null, then I can replace with *undefined*
         delete find.user_id;
     }
 
@@ -127,8 +131,10 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+//deprecated... use (get)/task/ls/:taskid
 /**
- * @api {get} /resource/ls/:resource_id      List directory
+ * @api {get} /resource/ls/:resource_id/:instance_id?
+ *                              List directory
  * @apiGroup                    Resource
  * @apiDescription              Get directory listing on a resource on specified path. For HPSS resource, it will
  *                              query HPSS directory under specified path. Use "./" to query home directory, since
@@ -158,6 +164,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *      }
  *  ]}
  */
+/*
 //:resource_id is optional until I can migrate all existing client to use it (some uses req.query.resource_id still)
 router.get('/ls/:resource_id?', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     //req.query.resource_id is deprecated .. use url param
@@ -266,6 +273,7 @@ function ls_resource(resource, _path, cb) {
         });
     });
 }
+*/
 
 //https://stackoverflow.com/questions/770523/escaping-strings-in-javascript
 /*
@@ -291,41 +299,6 @@ String.prototype.addSlashes = function() {
   //   returns 1: "kevin\\'s birthday"
   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
-
-/*
-* I am not sure who uses this, but this looks dangerous..
-*/
-/*
-router.delete('/file', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var resource_id = req.query.resource_id;
-    var _path = req.query.path; //TODO.. validate?
-    db.Resource.findById(resource_id, function(err, resource) {
-        if(err) return next(err);
-        if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end();
-        if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
-
-        //append workdir if relateive (should use path instead?)
-        if(_path[0] != "/") _path = common.getworkdir(_path, resource);
-
-        logger.debug("getting ssh connection");
-        common.get_ssh_connection(resource, function(err, conn) {
-            if(err) return next(err);
-            logger.debug("rm \""+_path.addSlashes()+"\"");
-            conn.exec("rm \""+_path.addSlashes()+"\"", function(err, stream) {
-                if(err) return next(err);
-                stream.on('end', function() {
-                    res.json({msg: "file removed"});
-                });
-                //stream.resume(); //needed now for ssh2>0.5 .. *IF* I don't use on('data')
-                stream.on('data', function(data) {
-                    logger.error(data.toString());
-                });
-            });
-        });
-    });
-});
-*/
 
 /**
  * @apiGroup Resource
@@ -368,32 +341,8 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
     });
 });
 
-//TODO - should use sftp/mkdir ?
-function mkdirp(conn, dir, cb) {
-    //var dir = path.dirname(_path);
-    logger.debug("mkdir -p "+dir);
-    //TODO addsladhes?
-    conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
-        if(err) return cb(err);
-        /*
-        stream.on('close', function(code, signal) {
-            logger.log("mkdir -p done");
-            cb();
-        });
-        */
-        stream.on('end', function(data) {
-            logger.debug("mkdirp done");
-            logger.debug(data);
-            cb();
-        });
-        //stream.resume(); //needed now for ssh2>0.5 .. IF I don't use on('data')
-        stream.on('data', function(data) {
-            logger.error(data.toString());
-        });
-    });
-}
-
-//TODO - deprecate this and use the streaming version below..
+/*
+//TODO - deprecate this and use the streaming version below.. (it's also insecure)
 //ng-upload uses multipart so it won't work, but I can use XMLHttpRequest (see sca-wf-onere)
 //handle file upload request via multipart form
 //takes resource_id and path via headers (mkdirp path if it doesn't exist)
@@ -450,12 +399,15 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     });
     form.parse(req);
 });
+*/
 
+//deprecated by /task/upload/:taskid
+//TODO - we need to add check to make sure user has access to the instance_id
 /**
  * @apiGroup Resource
  * @api {get} /resource/upload/:resourceid/:base64path 
  *                              Upload File
- * @apiDescription              Upload a file to specified resource on specified path (needs to be inside a workdir)
+ * @apiDescription              Upload a file to specified resource on a specified path (needs to be inside a workdir)
  *
  * @apiHeader {String} authorization
  *                              A valid JWT token "Bearer: xxxxx"
@@ -463,6 +415,7 @@ router.post('/upload', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  * @apiSuccessExample {json} Success-Response:
  *                              {file stats uploaded}
  */
+/*
 router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var id = req.params.resourceid;
     var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
@@ -520,7 +473,9 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
         });
     });
 });
+*/
 
+//deprecated by /task/download/:taskid
 //this API allows user to download any files under user's workflow directory
 //TODO - since I can't let <a> pass jwt token via header, I have to expose it via URL.
 //doing so increases the chance of user misusing the token, but unless I use HTML5 File API
@@ -540,6 +495,7 @@ router.post('/upload/:resourceid/:path', jwt({secret: config.sca.auth_pubkey}), 
  * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
  */
+/*
 router.get('/download', jwt({
     secret: config.sca.auth_pubkey,
     getToken: function(req) {
@@ -631,6 +587,7 @@ router.get('/download', jwt({
         });
     });
 });
+*/
 
 /**
  * @api {put} /resource/test/:resource_id Test resource

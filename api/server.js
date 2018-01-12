@@ -42,7 +42,8 @@ app.use(function(err, req, res, next) {
     }
 
     if(err.stack) err.stack = "hidden"; //don't sent call stack to UI - for security reason
-    res.status(err.status || 500);
+    //res.status(err.status || 500); //err.status set to 0?
+    res.status(500);
     res.json(err);
 });
 

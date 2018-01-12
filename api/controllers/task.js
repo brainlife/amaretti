@@ -6,6 +6,9 @@ const router = express.Router();
 const winston = require('winston');
 const jwt = require('express-jwt');
 const async = require('async');
+const mongoose = require('mongoose');
+const path = require('path');
+const mime = require('mime');
 
 //mine
 const config = require('../../config');
@@ -16,14 +19,13 @@ const common = require('../common');
 /**
  * @apiGroup Task
  * @api {get} /task             Query Tasks
- * @apiDescription              Returns all tasks that belongs to a user (for admin returns all)
+ * @apiDescription              Returns all tasks that belongs to a user (for admin returns all) or shared via instance.group_id
  *
  * @apiParam {Object} [find]    Optional Mongo query to perform (you need to JSON.stringify)
  * @apiParam {Object} [sort]    Mongo sort object - defaults to _id. Enter in string format like "-name%20desc"
  * @apiParam {String} [select]  Fields to load - multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
- * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  * 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
@@ -31,15 +33,18 @@ const common = require('../common');
  */
 router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var find = {};
-    if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
+    if(req.query.find) find = JSON.parse(req.query.find);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
+    find['$or'] = [
+        {user_id: req.user.sub},
+        {_group_id: {$in: req.user.gids||[]}},
+    ];
+    //* @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
+    /*
     let is_admin = false;
     if(req.user.scopes.sca && ~req.user.scopes.sca.indexOf("admin")) is_admin = true;
-
-    logger.debug(req.user.scopes);
-    logger.debug("is admin", is_admin);
 
     //handling user_id.
     if(!is_admin || find.user_id === undefined) {
@@ -49,6 +54,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //admin can set it to null and remove user_id filtering all together
         delete find.user_id;
     }
+    */
 
     db.Task.find(find)
     .select(req.query.select)
@@ -64,8 +70,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         //res.json(tasks);
     });
 });
-
-
 
 //returns various event / stats for given service
 router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
@@ -104,7 +108,24 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
     });
 });
 
-//get task detail (given a valid task id)
+//return list of services currently running and number of them
+router.get('/running', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
+    
+    //group by status and count
+    db.Task.aggregate([
+        {$match: {status: "running"}},
+        {$group: {_id: '$service', count: {$sum: 1}}},
+    ]).exec(function(err, services) {
+        if(err) return next(err);
+        res.json(services);
+    });
+ });
+
+//get task detail
+//TODO - right now, any authenticated user can query for any task so that they can view dataset prov / config.
+//but.. I think we can make this part of /dataset (by id) and populate this information - so that only the user
+//who has access to the dataset can query task metadata.
 router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
@@ -116,6 +137,319 @@ router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
         res.json(task);
     });
 });
+
+function ls_resource(resource, _path, cb) {
+    //append workdir if relateive
+    if(_path[0] != "/") _path = common.getworkdir(_path, resource);
+
+    //for ssh resource, simply readdir via sftp
+    logger.debug("getting ssh connection");
+    common.get_sftp_connection(resource, function(err, sftp) {
+        if(err) return cb(err);
+        logger.debug("reading directory:"+_path);
+        var t = setTimeout(function() {
+            cb("Timed out while reading directory: "+_path);
+            t = null;
+        }, 5000);
+        sftp.readdir(_path, function(err, files) {
+            if(!t) return; //timeout called already
+            clearTimeout(t);
+            cb(err, files);
+        });
+    });
+}
+
+/**
+ * @apiGroup                    Task
+ * @api {get} /task/ls/:taskid
+ *                              List directory on task
+ * @apiDescription              Get directory listing on a task.
+ *
+ * @apiParam {String} [p]       sub directory (relative to taskdir) to load inside the task. Use encodeURIComponent() to escape non URL characters
+ *
+ * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *  {"files":[
+ *      {
+ *          "filename":"config.json",
+ *          "directory":false,
+ *          "attrs": {
+ *              "mode":33188,
+ *              "mode_string":"-rw-r--r--",
+ *              "uid":1170473,
+ *              "owner": "hayashis",
+ *              "gid":4160,
+ *              "group": "hpss",
+ *              "size":117,
+ *              "atime":1466517617,
+ *              "mtime":1466517617
+ *          },
+ *          "_raw":"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json"
+ *      }
+ *  ]}
+ */
+router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    /*
+    //find specified task and make sure user has access to it
+    db.Task.findById(req.params.taskid, (err, task)=>{
+        if(err) return next(err);
+        if(!task) return res.status(401).json({message: "no such task or you don't have access to the task"});
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(403).end("don't have access to specified task");
+
+        //find resource that we can use to load file list
+        db.Resource.findById(task.resource_id, (err, resource)=>{
+            if(err) return next(err);
+            if(!resource) return res.status(404).json({message: "couldn't find the resource"});
+    */
+
+    find_resource(req, req.params.taskid, (err, task, resource)=>{
+        if(err) return next(err);
+
+        get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
+            if(err) return next(err);
+
+            ls_resource(resource, fullpath, function(err, files) {
+                if(err) return next(err);
+                var ret = [];
+                //bit of standardization with ls_hpss
+                files.forEach(function(file) {
+                    file.attrs.mode_string = file.longname.substr(0, 10);
+                    ret.push({
+                        filename: file.filename,
+                        directory: file.attrs.mode_string[0]=='d',
+                        attrs: {
+                            mode: file.attrs.mode,
+                            mode_string: file.attrs.mode_string,
+                            //permissions: file.mode,
+                            uid: file.attrs.uid,
+                            gid: file.attrs.gid,
+                            size: file.attrs.size,
+                            atime: file.attrs.atime,
+                            mtime: file.attrs.mtime,
+
+                            owner: null,
+                            group: null,
+                        },
+                        _raw: file.longname,
+                        //_sftp: file,
+                    });
+                });
+                res.json({files: ret});
+            });
+        });
+    });
+});
+
+//load task that user has access to and get resource where user can download the task content
+function find_resource(req, taskid, cb) {
+    //find specified task and make sure user has access to it
+    db.Task.findById(req.params.taskid, (err, task)=>{
+        if(err) return cb(err);
+        if(!task) return cb("no such task or you don't have access to the task");
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
+
+        //find resource that we can use to load file list
+        db.Resource.findById(task.resource_id, (err, resource)=>{
+            if(err) return cb(err);
+            if(!resource) return cb("couldn't find the resource");
+
+            //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
+            if(!resource.active) return cb("resource not active");
+            if(resource.status != "ok") return cb(resource.status_msg);
+            if(!common.check_access(req.user, resource)) return cb("not authorized to access the resource");
+            cb(null, task, resource);
+        });
+    });
+}
+
+function get_fullpath(task, resource, p, cb) {
+    let basepath = task.instance_id+"/"+task._id;
+    let path = basepath; //base by default
+    if(p) path += "/"+p; //let user specify sub directory
+
+    //make sure path doesn't lead out of task dir
+    let fullpath = common.getworkdir(path, resource);
+    let safepath = common.getworkdir(basepath, resource);
+    if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir");
+
+    cb(null, fullpath);
+
+}
+
+//deprecated by /task/download/:taskid
+//this API allows user to download any files under user's workflow directory
+//TODO - since I can't let <a> pass jwt token via header, I have to expose it via URL.
+//doing so increases the chance of user misusing the token, but unless I use HTML5 File API
+//there isn't a good way to let user download files..
+//getToken() below allows me to check jwt token via "at" query.
+//Another way to mitigate this is to issue a temporary jwt token used to do file download (or permanent token that's tied to the URL?)
+/**
+ * @apiGroup Task
+ * @api {get} /task/download/:taskid    
+ *                              Download file/dir from task
+ * @apiDescription              Download file/dir from task. If directory path is specified, it will stream tar gz-ed content
+ *
+ * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters
+ * @apiParam {String} [at]      JWT token - if user can't provide it via authentication header
+ *
+ *
+ * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
+ *
+ */
+router.get('/download/:taskid', jwt({
+    secret: config.sca.auth_pubkey,
+    getToken: function(req) {
+        //load token from req.headers as well as query.at
+        if(req.query.at) return req.query.at;
+        if(req.headers.authorization) {
+            var auth_head = req.headers.authorization;
+            if(auth_head.indexOf("Bearer") === 0) return auth_head.substr(7);
+        }
+        return null;
+    }
+}), function(req, res, next) {
+
+    find_resource(req, req.params.taskid, (err, task, resource)=>{
+        if(err) return next(err);
+        
+        get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
+            if(err) return next(err);
+
+            common.get_sftp_connection(resource, function(err, sftp) {
+                if(err) return next(err);
+
+                sftp.stat(fullpath, function(err, stat) {
+                    if(err) return next(err.toString() + " -- "+fullpath);
+
+                    if(stat.isDirectory()) {
+                        logger.debug("sending directory(.tar.gz) using tar / gzip", fullpath);
+                        common.get_ssh_connection(resource, function(err, conn_q) {
+                            if(err) return next(err);
+
+                            //compose a good unique name
+                            let name = task.instance_id+"."+task._id;
+                            if(req.query.p) name +="."+req.query.p.replace(/\//g, '.');
+                            name += '.tar.gz';
+
+                            res.setHeader('Content-disposition', 'attachment; filename='+name);
+                            res.setHeader('Content-Type', "application/x-tgz");
+                            logger.debug("cd to ", fullpath.addSlashes());
+                            conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
+                                if(err) return next(err);
+                                logger.debug("piping tar output to user");
+                                stream.pipe(res);
+                                req.on('close', stream.close);
+                            });
+                        });
+                    } else {
+                        logger.debug("streaming file via sftp", fullpath);
+                        
+                        //npm-mime uses filename to guess mime type, so I can use this locally
+                        //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
+                        let ext = path.extname(fullpath);
+                        let mimetype = mime.getType(ext);
+                        logger.debug("mimetype:"+mimetype);
+
+                        //without attachment, the file will replace the current page
+                        res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
+                        res.setHeader('Content-Length', stat.size);
+                        if(mimetype) res.setHeader('Content-Type', mimetype);
+                        let stream = sftp.createReadStream(fullpath);
+                        stream.pipe(res);
+                        req.on('close', stream.close);
+                    }
+                });
+            });
+        });
+    });
+});
+
+/**
+ * @apiGroup Task
+ * @api {get} /task/upload/:taskid
+ *                              Upload File
+ * @apiDescription              Upload a file to specified task on a specified path
+ *
+ * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters
+ *
+ * @apiHeader {String} authorization
+ *                              A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *                              {file stats uploaded}
+ */
+router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+    //var id = req.params.resourceid;
+    //var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
+    //logger.debug("request path: "+_path);
+    find_resource(req, req.params.taskid, (err, task, resource)=>{
+        if(err) return next(err);
+        
+        get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
+            if(err) return next(err);
+
+            common.get_ssh_connection(resource, function(err, conn_q) {
+                if(err) return next(err);
+
+                mkdirp(conn_q, path.dirname(fullpath), function(err) {
+                    if(err) return next(err);
+
+                    common.get_sftp_connection(resource, function(err, sftp) {
+                        if(err) return next(err);
+                        logger.debug("fullpath",fullpath);
+                        var pipe = req.pipe(sftp.createWriteStream(fullpath));
+                        pipe.on('close', function() {
+                            logger.debug("streaming closed");
+
+                            //this is an undocumented feature to exlode uploade tar.gz
+                            if(req.query.untar) {
+                                logger.debug("tar xzf-ing");
+                                conn_q.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
+                                    "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
+                                    "rm \""+path.basename(fullpath).addSlashes()+"\"", function(err, stream) {
+                                    if(err) return next(err);
+                                    stream.on('end', function() {
+                                        res.json({msg: "uploaded and untared"});
+                                    });
+                                    stream.on('data', function(data) {
+                                        logger.error(data.toString());
+                                    });
+                                });
+                            } else {
+                                //get file info (to be sure that the file is uploaded?)
+                                sftp.stat(fullpath, function(err, stat) {
+                                    if(err) return next(err.toString());
+                                    res.json({filename: path.basename(fullpath), attrs: stat});
+                                });
+                            }
+                        });
+                        req.on('error', function(err) {
+                            logger.error(err);
+                            next("Failed to upload file to "+_path);
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+//TODO - should use sftp/mkdir ?
+function mkdirp(conn, dir, cb) {
+    logger.debug("mkdir -p "+dir);
+    conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
+        if(err) return cb(err);
+        stream.on('end', function(data) {
+            logger.debug("mkdirp done");
+            logger.debug(data);
+            cb();
+        });
+        stream.on('data', function(data) {
+            logger.error(data.toString());
+        });
+    });
+}
 
 /**
  * @api {post} /task            New Task
@@ -156,16 +490,21 @@ router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  *                              
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    //console.dir(req.body);
-    var instance_id = req.body.instance_id;
-    var service = req.body.service;
+    const instance_id = req.body.instance_id;
+    const service = req.body.service;
 
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
         if(!instance) return next("no such instance:"+instance_id);
         if(instance.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        
+        //check instance access
+        //TODO is this safe if gids happens to contain undefined?
+        const gids = req.user.gids||[];
+        if( instance.user_id != req.user.sub && 
+            !~gids.indexOf(instance.group_id)) return res.status(404).end("don't have access to specified instance");
 
-        var task = new db.Task();
+        const task = new db.Task();
 
         //TODO validate?
         task.name = req.body.name;
@@ -186,10 +525,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
 
         //others set by the API 
         task.user_id = req.user.sub;
-        
-        //task.group_id = req.body.group_id;
+        task._group_id = instance.group_id; //copy
         task.progress_key = common.create_progress_key(instance_id, task._id);
-    
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by task handler";
@@ -224,10 +561,11 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
                 if(task.deps) return next_check();
                 //make sure user owns the task
                 async.eachSeries(task.deps, function(taskid, next_task) {
-                    db.Task.findById(taskid, function(err, task) {
+                    db.Task.findById(taskid, function(err, dep) {
                         if(err) return next_task(err);
-                        if(!task) return next_task("can't find task id:"+taskid);
-                        if(task.user_id != req.user.sub) return next_task("user doesn't own the task_id"+taskid);
+                        if(!dep) return next_task("can't find dep task:"+taskid);
+                        if(dep.user_id != req.user.sub) return next_task("user doesn't own the dep task:"+taskid);
+                        if(!~gids.indexOf(dep._group_id)) return next_task("user doesn't have access to the shared instance for dep task:", taskid);
                         next_task();
                     });
                 }, next_check);
@@ -266,11 +604,12 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  *                              
  */
 router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var task_id = req.params.task_id;
+    const task_id = req.params.task_id;
+    const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
             res.json({message: "Task successfully re-requested", task: task});
@@ -287,11 +626,12 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
  *                              
  */
 router.put('/poke/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var task_id = req.params.task_id;
+    const task_id = req.params.task_id;
+    const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         task.next_date = undefined;
         task.save(err=>{
             if(err) return next(err);
@@ -316,11 +656,12 @@ router.put('/poke/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  *                              
  */
 router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var task_id = req.params.task_id;
+    const task_id = req.params.task_id;
+    const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
-        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
 
         //TODO - _handled is deprecated, but I should still make sure that the task isn't currently handled? but how?
         //if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
@@ -367,11 +708,12 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  *                              
  */
 router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var task_id = req.params.task_id;
+    const task_id = req.params.task_id;
+    const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
-        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
             res.json({message: "Task successfully scheduled for removed"});
@@ -413,7 +755,8 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  *
  */
 router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    var id = req.params.taskid;
+    const id = req.params.taskid;
+    const gids = req.user.gids||[];
 
     //this is admin only api (for now..)
     //if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
@@ -422,13 +765,15 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 
     db.Task.findById(id, function(err, task) {
         if(!task) return next("no such task:"+id);
-        if(task.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        
         //update fields
-        for(var key in req.body) {
+        for(let key in req.body) {
             //don't let some fields updated
             if(key == "_id") continue;
             if(key == "user_id") continue;
             if(key == "instance_id") continue; 
+            if(key == "_group_id") continue; 
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..
@@ -443,7 +788,6 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(task[key] == null) task[key] = undefined;
         }
         task.update_date = new Date();
-
         task.save(function(err) {
             if(err) return next(err);
             //TODO - should I update progress?
