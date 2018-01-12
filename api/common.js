@@ -5,13 +5,17 @@ const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
 const ConnectionQueuer = require('ssh2-multiplexer');
-
+const redis = require('redis');
 const request = require('request');
 
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 const db = require('./models');
 const hpss = require('hpss');
+
+//connect to redis - used to store various shared caches
+exports.redis = redis.createClient(config.redis.port, config.redis.server);
+exports.redis.on('error', err=>{throw err});
 
 exports.getworkdir = function(workflow_id, resource) {
     var detail = config.resources[resource.resource_id];
@@ -312,7 +316,6 @@ exports.request_task_removal = function(task, cb) {
 }
 
 exports.rerun_task = function(task, remove_date, cb) {
-    
     switch(task.status) {
     //don't need to rerun non-terminated task
     case "running":
@@ -358,6 +361,50 @@ exports.rerun_task = function(task, remove_date, cb) {
         exports.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, function(err) {
             cb(err);
         });
+    });
+}
+
+exports.get_gids = function(user_id, cb) {
+    //look in redis first
+    let key = "cache.gids."+user_id;
+    exports.redis.exists(key, (err, exists)=>{
+        if(err) return cb(err);
+        if(exists) {
+            exports.redis.lrange(key, 0, -1, cb);
+            return;
+        } else {
+            //load from profile service
+            logger.debug("looking up user gids from auth service"); 
+            request.get({
+                url: config.api.auth+"/user/groups/"+user_id,
+                json: true,
+                headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+            }, function(err, res, gids) {
+                if(err) return next(err);
+                switch(res.statusCode) {
+                case 404:
+                    //often user_id is set to non existing user_id on auth service (like "sca")
+                    gids = []; 
+                    break;
+                case 401:
+                    //token is misconfigured?
+                    return cb("401 while trying to pull gids from auth service.. bad jwt?");
+                case 200:
+                    //success! 
+                    break;
+                default:
+                    return cb("invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later")
+                }
+
+                //reply to the caller
+                cb(null, gids);
+                
+                //cache on redis
+                gids.unshift(key);
+                exports.redis.rpush(gids);
+                exports.redis.expire(key, 60); //60 seconds too long?
+            });
+        }
     });
 }
 

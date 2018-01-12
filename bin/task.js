@@ -410,35 +410,11 @@ function handle_requested(task, next) {
     }
 
     //need to lookup user's gids to find all resources that user has access to
-    //TODO cache this for each user!
-    logger.debug("looking up user/s gids from auth api"); 
-    request.get({
-        url: config.api.auth+"/user/groups/"+task.user_id,
-        json: true,
-        headers: { 'Authorization': 'Bearer '+config.sca.jwt }
-    }, function(err, res, gids) {
+    common.get_gids(task.user_id, (err, gids)=>{
         if(err) return next(err);
-        switch(res.statusCode) {
-        case 404:
-            //often user_id is set to non existing user_id on auth service (like "sca")
-            gids = []; 
-            break;
-        case 401:
-            //token is misconfigured?
-            task.status_msg = "authentication error while obtaining user's group ids.. retry later";
-            logger.error("jwt:"+config.sca.jwt);
-            return next(err);
-        case 200:
-            //success! 
-            break;
-        default:
-            task.status_msg = "invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later";
-            return next(err);
-        }
-
         var user = {
             sub: task.user_id,
-            gids: gids,
+            gids,
         }
         _resource_select(user, task, function(err, resource, score, considered) {
             if(err) return next(err);

@@ -14,7 +14,7 @@ const common = require('./common');
 //task needs to have populated deps
 exports.select = function(user, task, cb) {
     //select all resource available for the user and active
-    logger.debug("finding resource to run .select task_id:",task._id,"service:",task.service,"branch:",task.service_branch,"user:",user,"deps:");
+    logger.debug("finding resource to run .select task_id:",task._id,"service:",task.service,"branch:",task.service_branch,"user:",user.sub,"deps:");
 
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
