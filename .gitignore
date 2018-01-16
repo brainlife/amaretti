@@ -17,3 +17,4 @@ config/wf.key
 config/*.secret
 docker/config
 docs/_site
+docs/Gemfile.lock
