@@ -244,9 +244,11 @@ router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, r
 //load task that user has access to and get resource where user can download the task content
 function find_resource(req, taskid, cb) {
     //find specified task and make sure user has access to it
+    const gids = req.user.gids||[];
     db.Task.findById(req.params.taskid, (err, task)=>{
         if(err) return cb(err);
         if(!task) return cb("no such task or you don't have access to the task");
+        logger.debug(gids, task._group_id);
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
 
         //find resource that we can use to load file list
@@ -496,7 +498,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
         if(!instance) return next("no such instance:"+instance_id);
-        if(instance.user_id != req.user.sub) return res.status(401).end("user_id mismatch .. req.user.sub:"+req.user.sub);
         
         //check instance access
         //TODO is this safe if gids happens to contain undefined?

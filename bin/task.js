@@ -61,8 +61,12 @@ function set_nextdate(task) {
         var delta = Math.max(delta, 1000*10); //min 10 seconds
         task.next_date = new Date(Date.now() + delta);
         break;
+    case "waiting":
+        task.next_date = new Date(Date.now()+1000*3600*24);  //should never have to deal with waiting task by themselves
+        break;
     default:
         logger.error("don't know how to calculate next_date for status"+task.status);
+        task.next_date = new Date(Date.now()+1000*3600); 
     }
 }
 
@@ -405,7 +409,8 @@ function handle_requested(task, next) {
 
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
-        task.status_msg = "Waiting on dependency";
+        task.status_msg = "Waiting on dependencies";
+        task.status = "waiting";
         return next();
     }
 

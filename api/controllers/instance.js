@@ -44,6 +44,9 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         {group_id: {$in: req.user.gids||[]}},
     ];
 
+    //logger.debug("-----------------------------------------------------------");
+    //logger.debug(JSON.stringify(find, null, 4));
+
     /*
     //handling user_id.
     if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
@@ -116,7 +119,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  * @apiDescription              Create a new instance
  *
  * @apiParam {String} name      Name of the instance
- * @apiParam {String} group_id  (optional) Group ID where you want to share this process with
+ * @apiParam {Number} group_id  (optional) Group ID where you want to share this process with
  * @apiParam {String} [desc]    Description of the instance
  * @apiParam {Object} [config]  Any information you'd like to associate with this instanace
  *

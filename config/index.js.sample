@@ -16,6 +16,10 @@ exports.redis = {
     //port: 6379,
 }
 
+exports.sensu = {
+    prefix: "dev.amaretti.stat"
+}
+
 var wf = {
     auth_pubkey: fs.readFileSync('/home/hayashis/git/auth/api/config/auth.pub'),
 

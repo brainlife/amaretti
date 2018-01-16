@@ -325,6 +325,8 @@ exports.rerun_task = function(task, remove_date, cb) {
     //shouldn't rerun task that's stop_requested
     case "stop_requested":
         return cb();
+
+    //maybe shouldn't rerun if task is stopped
     }
 
     //let user reset remove_date, or set it based on last relationship between request_date and remove_date

@@ -48,7 +48,8 @@ function publish_or_log(ex, key, msg) {
 }
 
 exports.task = function(task) {
-    var key = task.user_id+"."+task.instance_id+"."+task._id;
+    //var key = task.user_id+"."+task.instance_id+"."+task._id;
+    var key = task.instance_id+"."+task._id;
 
     //store event updates if status changes
     db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}, (err, lastevent)=>{
@@ -76,7 +77,9 @@ exports.task = function(task) {
 }
 
 exports.instance = function(instance) {
-    var key = instance.user_id+"."+instance._id;
+    //var key = instance.user_id+"."+instance._id;
+    let group_id = instance.group_id||"na";
+    let key = group_id+"."+instance._id;
     
     //some fields maybe populated (foreign keys are de-referenced)
     //to normalize the field type, let's load the record from database

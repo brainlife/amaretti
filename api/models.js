@@ -39,7 +39,7 @@ var instanceSchema = mongoose.Schema({
 
     //(optional) make this instance accessible from all members of this group
     //if this is updated, all task's group_id needs to be updated also
-    group_id: {type: String, index: true}, 
+    group_id: {type: Number, index: true}, 
 
     //workflow_id: String, //deprecated
     config: mongoose.Schema.Types.Mixed,
@@ -107,7 +107,7 @@ var taskSchema = mongoose.Schema({
     
     //copy of group_id on instance record (should be the same as instance's group_id)
     //this exists to help with access control
-    _group_id: {type: String, index: true}, 
+    _group_id: {type: Number, index: true}, 
 
     //github repo
     service: String, // "soichih/sca-service-life"
@@ -147,7 +147,20 @@ var taskSchema = mongoose.Schema({
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
 
-    status: {type: String, index: true}, //requested, running, failed, stop_requested, stopped, (running_sync), removed, finished
+    status: {type: String, index: true}, 
+    //requested,  
+    //  all new task should be placed under requested
+    //waiting 
+    //  requested tasks will be placed on waiting status if any deps are not yet finished
+    //running, 
+    //failed, 
+    //finished
+    //stop_requested, 
+    //  running job should be placed on stop_requested so that amaretti can stop it 
+    //stopped, 
+    //(running_sync), 
+    //removed, 
+
     status_msg: String,
 
     //resource where the task is currently running (or was)

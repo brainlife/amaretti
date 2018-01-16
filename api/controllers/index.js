@@ -54,6 +54,7 @@ router.use('/task',     require('./task'));
 router.use('/instance', require('./instance')); 
 router.use('/resource', require('./resource'));
 router.use('/event', require('./event'));
+router.use('/admin', require('./admin'));
 
 //TODO DEPRECATED (currently used by th /wf/#!/resources UI)
 //use (get) /resource/type instead
