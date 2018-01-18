@@ -128,12 +128,14 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  */
 router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
     var instance = new db.Instance({});
-    instance.name = req.body.name;
+    instance.name = req.body.name; //mainly used internally
     instance.desc = req.body.desc;
     instance.config = req.body.config;
     instance.user_id = req.user.sub;
 
     //set group_id if user is member of
+    logger.debug("post requested");
+    logger.debug(JSON.stringify(instance, null, 4));
     if(req.body.group_id) {
         let gids = req.user.gids||[];
         if(~gids.indexOf(req.body.group_id)) instance.group_id = req.body.group_id;

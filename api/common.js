@@ -382,7 +382,7 @@ exports.get_gids = function(user_id, cb) {
                 json: true,
                 headers: { 'Authorization': 'Bearer '+config.sca.jwt }
             }, function(err, res, gids) {
-                if(err) return next(err);
+                if(err) return cb(err);
                 switch(res.statusCode) {
                 case 404:
                     //often user_id is set to non existing user_id on auth service (like "sca")
