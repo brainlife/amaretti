@@ -95,7 +95,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     delete req.body.group_id; //this could be changed if we updated all task._group_id as well (and revalidate group_id of course)?
 
     req.body.update_date = new Date();
-    db.Instance.update({
+    db.Instance.findOneAndUpdate({
         _id: id, 
         //user_id: req.user.sub
         '$or': [
@@ -195,7 +195,7 @@ router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                 if(err) return next(err);
                 
                 //set config.removing to true to inform UI that this instance is currently being removed
-                db.Instance.update({_id: instid}, {$set: {
+                db.Instance.findOneAndUpdate({_id: instid}, {$set: {
                     'config.removing': true,
                 }}, function(err, instance) {
                     if(err) return next(err);

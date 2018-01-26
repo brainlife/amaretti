@@ -31,7 +31,7 @@ exports.disconnect = function(cb) {
 
 //*workflow* instance
 var instanceSchema = mongoose.Schema({
-    name: String, //name of the workflow
+    name: String, //name of the workflow (usually used only internally)
     desc: String, //desc of the workflow
 
     //we use string for IDS - because we might move auth service to mongo db someday..

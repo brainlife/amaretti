@@ -50,11 +50,11 @@ function set_nextdate(task) {
         break;
     case "stop_requested":
     case "requested":
-    case "running_sync":
-        //in case request handling failed
-        task.next_date = new Date(Date.now()+1000*3600); //retry in an hour
-        break;
     case "running":
+        if(!task.start_date) {
+            logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
+            task.start_date = new Date(); 
+        }
         var elapsed = Date.now() - task.start_date.getTime(); 
         var delta = elapsed/20; //back off at 1/20 rate
         var delta = Math.min(delta, 1000*3600); //max 1 hour
@@ -71,42 +71,6 @@ function set_nextdate(task) {
 }
 
 //call this whenever you change task status
-function update_instance_status(instance_id, cb) {
-    db.Instance.findById(instance_id, function(err, instance) {
-        if(err) return cb(err);
-        if(!instance) return cb("couldn't find instance by id:"+instance_id);
-
-        //find all tasks under this instance
-        db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
-            if(err) return cb(err);
-
-            //count status
-            let counts = {};
-            tasks.forEach(function(task) {
-                if(counts[task.status] === undefined) counts[task.status] = 0;
-                counts[task.status]++;
-            });
-
-            //decide instance status (TODO - I still need to adjust this, I feel)
-            let newstatus = "unknown";
-            if(tasks.length == 0) newstatus = "empty";
-            else if(counts.running > 0) newstatus = "running";
-            else if(counts.requested > 0) newstatus = "requested";
-            else if(counts.failed > 0) newstatus = "failed";
-            else if(counts.finished > 0) newstatus = "finished";
-            else if(counts.removed > 0) newstatus = "removed";
-
-            //did status changed?
-            if(instance.status != newstatus) {
-                logger.debug("instance status changed",instance._id,newstatus);
-                if(newstatus == "unknown") logger.debug(counts);
-                instance.status = newstatus;
-                instance.update_date = new Date();
-                instance.save(cb);
-            } else cb(); //no change..
-        });
-    });
-}
 
 function check() {
     _counts.checks++; //for health reporting
@@ -188,7 +152,7 @@ function check() {
 
                         //if task status changed, update instance status also
                         if(task.status == previous_status) return next_task(); //no change
-                        update_instance_status(task.instance_id, err=>{
+                        common.update_instance_status(task.instance_id, err=>{
                             if(err) logger.error(err);
                             next_task();
                         });
@@ -236,7 +200,7 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check taskdir
-                    //logger.debug("getting ssh connection to check taskdir");
+                    logger.debug("getting ssh connection for house keeping");
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) {
                             logger.error(err);
@@ -293,7 +257,7 @@ function handle_housekeeping(task, cb) {
                     }
                     task.save(function(err) {
                         if(err) return next(err);
-                        update_instance_status(task.instance_id, next);
+                        common.update_instance_status(task.instance_id, next);
                     });
                 }
             });
@@ -337,7 +301,7 @@ function handle_housekeeping(task, cb) {
                         return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
 
-                    //all good.. now try to remove taskdir for real
+                    logger.debug("getting ssh connection to remove work/task dir");
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
                         var workdir = common.getworkdir(task.instance_id, resource);
@@ -476,7 +440,7 @@ function handle_stop(task, next) {
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
         }
-        if(resource.status != "ok") {
+        if(!resource.status || resource.status != "ok") {
             task.status_msg = "Resource status is not ok .. postponing stop";
             return next();
         }
@@ -484,6 +448,7 @@ function handle_stop(task, next) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) return next(err);
 
+            logger.debug("getting ssh connection to stop task");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -542,7 +507,7 @@ function handle_running(task, next) {
             task.fail_date = new Date();
             return next();
         }
-        if(resource.status != "ok") {
+        if(!resource.status || resource.status != "ok") {
             task.status_msg = "Resource status is not ok.";
             return next();
         }
@@ -553,7 +518,7 @@ function handle_running(task, next) {
                 return next(err); 
             }
 
-            logger.debug("getting ssh connection");
+            logger.debug("getting ssh connection to check status");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..
@@ -655,6 +620,7 @@ function rerun_child(task, cb) {
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
+    logger.debug("getting ssh connection to start task");
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) {
             logger.error(err);
@@ -672,8 +638,8 @@ function start_task(task, resource, cb) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
             var envs = {
-                SERVICE_DIR: taskdir, //deprecated
-                //INST_DIR: workdir, //deprecated
+                //SERVICE_DIR: taskdir, //deprecated
+                SERVICE_DIR: ".", //deprecated
                 
                 //useful to construct job name?
                 TASK_ID: task._id.toString(),
@@ -903,7 +869,7 @@ function start_task(task, resource, cb) {
                     }, next);
                 },
 
-                //finally, start the service!
+                //finally, run the service!
                 next=>{
                     if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
 
@@ -915,7 +881,7 @@ function start_task(task, resource, cb) {
                     task.status_msg = "Starting service";
                     task.save(function(err) {
                         if(err) return next(err);
-                        update_instance_status(task.instance_id, function(err) {
+                        common.update_instance_status(task.instance_id, err=>{
                             if(err) return next(err);
 
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec

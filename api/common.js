@@ -87,10 +87,10 @@ exports.get_ssh_connection = function(resource, cb) {
     var conn = new Client();
     conn.on('ready', function() {
         logger.debug("ssh connection ready", resource._id.toString());
-        ready = true;
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        cb(null, connq);
+        if(cb) cb(null, connq);
+        cb = null;
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended", resource._id.toString());
@@ -102,8 +102,13 @@ exports.get_ssh_connection = function(resource, cb) {
     });
     conn.on('error', function(err) {
         logger.error("ssh connectionn error", err, resource._id.toString());
-        //error could fire after ready event is received only call cb if it hasn't been called
-        if(!ready) cb(err);
+        delete ssh_conns[resource._id];
+        
+        //error could fire after ready event is called.
+        //like timeout, or abnormal disconnect, etc..
+        //don't call cb twice!
+        if(cb) cb(err);
+        cb = null;
     });
 
     exports.decrypt_resource(resource);
@@ -135,11 +140,11 @@ exports.get_sftp_connection = function(resource, cb) {
     var conn = new Client();
     conn.on('ready', function() {
         logger.debug("new sftp connection ready", resource._id.toString());
-        ready = true;
         conn.sftp((err, sftp)=>{
             if(err) return cb(err);
             sftp_conns[resource._id] = sftp;
-            cb(null, sftp);
+            if(cb) cb(null, sftp);
+            cb = null;
         });
     });
     conn.on('end', function() {
@@ -152,7 +157,10 @@ exports.get_sftp_connection = function(resource, cb) {
     });
     conn.on('error', function(err) {
         logger.error("sftp connectionn error", err, resource._id.toString());
-        if(!ready) cb(err);
+        delete sftp_conns[resource._id];
+
+        if(cb) cb(err);
+        cb = null;
     });
     exports.decrypt_resource(resource);
     conn.connect({
@@ -315,18 +323,63 @@ exports.request_task_removal = function(task, cb) {
     task.save(cb);
 }
 
+exports.update_instance_status = function(instance_id, cb) {
+    db.Instance.findById(instance_id, function(err, instance) {
+        if(err) return cb(err);
+        if(!instance) return cb("couldn't find instance by id:"+instance_id);
+
+        //find all tasks under this instance
+        db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
+            if(err) return cb(err);
+
+            //count status
+            let counts = {};
+            tasks.forEach(function(task) {
+                if(counts[task.status] === undefined) counts[task.status] = 0;
+                counts[task.status]++;
+            });
+
+            //decide instance status (TODO - I still need to adjust this, I feel)
+            let newstatus = "unknown";
+            if(tasks.length == 0) newstatus = "empty";
+            else if(counts.running > 0) newstatus = "running";
+            else if(counts.waiting > 0) newstatus = "waiting";
+            else if(counts.requested > 0) newstatus = "requested";
+            else if(counts.failed > 0) newstatus = "failed";
+            else if(counts.finished > 0) newstatus = "finished";
+            else if(counts.removed > 0) newstatus = "removed";
+
+            console.dir(instance.status);
+            console.dir(counts);
+            console.dir(newstatus);
+
+            //did status changed?
+            if(instance.status != newstatus) {
+                logger.debug("instance status changed",instance._id,newstatus);
+                if(newstatus == "unknown") logger.debug(counts);
+                instance.status = newstatus;
+                instance.update_date = new Date();
+                instance.save(cb);
+            } else cb(); //no change..
+        });
+    });
+}
+
 exports.rerun_task = function(task, remove_date, cb) {
     switch(task.status) {
     //don't need to rerun non-terminated task
     case "running":
     case "running_sync":
-        return cb();
-
     //shouldn't rerun task that's stop_requested
     case "stop_requested":
+    //maybe shouldn't rerun if task is stopped?
+    //case "stopped":
         return cb();
+    }
 
-    //maybe shouldn't rerun if task is stopped
+    //don't rerun if task is already starting
+    if(task.start_date && task.status == "requested") {
+        return cb();
     }
 
     //let user reset remove_date, or set it based on last relationship between request_date and remove_date
@@ -337,31 +390,24 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.remove_date.setTime(task.remove_date.getTime() + diff); 
     }
 
-    //if task status is not requested, then immediately request
-    //OR if status is requested and start date is not set, then immediately request (don't re-request if it's already started)
-    if(task.status != "requested" || !task.start_date) {
-        task.request_date = new Date();
-        task.status = "requested";
-    } else {
-        logger.debug("skipping request_date reset");
-    }
-
+    task.status = "requested";
     task.status_msg = "Re-requested";
+    
+    //reset things
+    task.request_date = new Date();
     task.start_date = undefined;
     task.finish_date = undefined;
-
-    //TODO - we should not reset next_date if the task handler is already starting the task..
-    //otherwise I could end up *double* starting. I don't want to introduce new task status just for this..
-    //start_task somehow needs to flag it, or maybe I can somehow not set this..
-    task.next_date = undefined; //reprocess asap
-
     task.products = undefined;
+    task.next_date = undefined; //reprocess asap
     task.run = 0;
 
-    task.save(function(err) {
+    task.save(err=>{
         if(err) return next(err);
-        exports.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, function(err) {
-            cb(err);
+        exports.update_instance_status(task.instance_id, err=>{
+            if(err) return next(err);
+            exports.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, err=>{
+                cb(err);
+            });
         });
     });
 }
