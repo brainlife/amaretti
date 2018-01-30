@@ -134,8 +134,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     instance.user_id = req.user.sub;
 
     //set group_id if user is member of
-    logger.debug("post requested");
-    logger.debug(JSON.stringify(instance, null, 4));
     if(req.body.group_id) {
         let gids = req.user.gids||[];
         if(~gids.indexOf(req.body.group_id)) instance.group_id = req.body.group_id;

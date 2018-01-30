@@ -24,7 +24,12 @@ router.get('/services/running', jwt({secret: config.sca.auth_pubkey}), function(
     
     //group by status and count
     db.Task.aggregate([
-        {$match: {status: {$in: ["running"/*, "requested"*/]}}},//requested / waiting shouldn't be counted?
+        {$match: {
+            $or: [
+                {status: "running"},
+                {status: "requested", start_date: {$exists: true}}, //starting..
+            ]
+        }},
         {$group: {_id: {service: '$service', resource_id: '$resource_id'}, count: {$sum: 1}}},
     ]).exec(function(err, services) {
         if(err) return next(err);
