@@ -507,6 +507,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.max_runtime = req.body.max_runtime;
         task.envs = req.body.envs;
         task.retry = req.body.retry;
+        if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
 
         //checked later
         if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null
@@ -764,6 +765,7 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(key == "user_id") continue;
             if(key == "instance_id") continue; 
             if(key == "_group_id") continue; 
+            if(key == "nice") continue;  //TODO I think I should allow user to change it as long as it positive value??
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..

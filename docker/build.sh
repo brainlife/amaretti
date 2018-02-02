@@ -1,4 +1,4 @@
-tab=1.0.3
+tag=1.0.4
 docker build -t soichih/workflow ..
 if [ ! $? -eq 0 ]; then
     echo "failed to build"
