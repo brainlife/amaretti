@@ -190,18 +190,6 @@ function ls_resource(resource, _path, cb) {
  *  ]}
  */
 router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    /*
-    //find specified task and make sure user has access to it
-    db.Task.findById(req.params.taskid, (err, task)=>{
-        if(err) return next(err);
-        if(!task) return res.status(401).json({message: "no such task or you don't have access to the task"});
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(403).end("don't have access to specified task");
-
-        //find resource that we can use to load file list
-        db.Resource.findById(task.resource_id, (err, resource)=>{
-            if(err) return next(err);
-            if(!resource) return res.status(404).json({message: "couldn't find the resource"});
-    */
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -255,6 +243,7 @@ function find_resource(req, taskid, cb) {
         db.Resource.findById(task.resource_id, (err, resource)=>{
             if(err) return cb(err);
             if(!resource) return cb("couldn't find the resource");
+            if(resource.status == "removed") return cb("resource is removed");
 
             //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
             if(!resource.active) return cb("resource not active");

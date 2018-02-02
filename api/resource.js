@@ -35,6 +35,7 @@ exports.select = function(user, task, cb) {
             {user_id: user.sub},
             {gids: {"$in": user.gids||[] }},
         ],
+        status: {$ne: "removed"},
         active: true,
     })
     .sort('create_date')

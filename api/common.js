@@ -349,10 +349,6 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
 
-            console.dir(instance.status);
-            console.dir(counts);
-            console.dir(newstatus);
-
             //did status changed?
             if(instance.status != newstatus) {
                 logger.debug("instance status changed",instance._id,newstatus);

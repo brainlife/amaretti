@@ -192,8 +192,11 @@ function handle_housekeeping(task, cb) {
                         logger.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
                         return next_resource(err);
                     }
-                    if(!resource) {
-                        return next_resource("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" no longer exist");
+                    if(!resource || resource.status == 'removed') {
+                        logger.info("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" is removed.. assuming task dir to be gone");
+                        
+                        missing_resource_ids.push(resource_id);
+                        return next_resource();
                     }
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
@@ -293,7 +296,7 @@ function handle_housekeeping(task, cb) {
                         logger.error("failed to find resource_id:"+resource_id+" for removal");
                         return next_resource(err);
                     }
-                    if(!resource) {
+                    if(!resource || resource.status == "removed") {
                         logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
                         return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
@@ -387,7 +390,7 @@ function handle_requested(task, next) {
         }
         _resource_select(user, task, function(err, resource, score, considered) {
             if(err) return next(err);
-            if(!resource) {
+            if(!resource || resource.status == "removed") {
                 task.status_msg = "No resource currently available to run this task.. waiting.. ";
                 //check again in 5 minutes (too soon?)
                 //TODO - I should do exponential back off.. or better yet
@@ -434,7 +437,7 @@ function handle_stop(task, next) {
 
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
-        if(!resource) {
+        if(!resource || resource.status == "removed") {
             logger.error("can't stop task_id:"+task._id.toString()+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
@@ -501,7 +504,7 @@ function handle_running(task, next) {
 
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
-        if(!resource) {
+        if(!resource || resource.status == "removed") {
             task.status = "failed";
             task.status_msg = "Lost resource "+task.resource_id;
             task.fail_date = new Date();

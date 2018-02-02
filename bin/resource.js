@@ -33,6 +33,8 @@ function check_resources() {
     db.Resource.find({active: true}, function(err, resources) {
         var counts = {};
         async.eachSeries(resources, function(resource, next_resource) {
+            if(resource.status == "removed") return next_resource();
+
             logger.debug("checking",resource._id, resource.name);
 
             //TODO - should I add timeout?

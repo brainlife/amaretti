@@ -42,8 +42,9 @@
                         <li class="list-group-item resource-instance clickable" 
                             ng-repeat="inst in myresources|filter:{resource_id:rid}" 
                             ng-click="edit(resource, inst)"
-                            ng-class="{'shared-instance': !inst._canedit}">
-                            <div class="row" style="">
+                            ng-class="{'shared-instance': !inst._canedit}" 
+                            ng-if="inst.status != 'removed'">
+                            <div class="row">
                                 <div class="col-md-5">
                                     {{inst.name}}<br>
                                     <span class="text-muted">{{inst.config.username}}</span>

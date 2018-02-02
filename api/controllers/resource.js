@@ -745,7 +745,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  * @apiGroup Resource
  *
  * @apiParam {String} id Resource ID
- * @apiDescription Remove resource instance
+ * @apiDescription Remove resource by setting its status to "removed"
  *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccess {String} ok
@@ -758,11 +758,18 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
         if(!resource) return res.status(404).end("couldn't find such resource");
         //if(resource.user_id != req.user.sub) return res.status(401).end("you don't own this resource");
         if(!canedit(req.user, resource)) return res.status(401).end("you don't have access to this resource");
+        resource.status = "removed";
+        resource.save(err=>{
+            if(err) return next(err);
+            res.json({status: 'ok'});
+        });
+        /*
         resource.remove(function(err) {
             if(err) return next(err);
             console.log("done removing");
             res.json({status: 'ok'});
         });
+        */
     });
 });
 
