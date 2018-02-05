@@ -83,6 +83,7 @@ exports.get_ssh_connection = function(resource, cb) {
     }
 
     //open new connection
+    logger.debug("opening new ssh connection", resource._id);
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {

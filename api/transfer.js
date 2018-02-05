@@ -35,13 +35,12 @@ function get_ssh_connection_with_agent(resource, cb) {
     logger.debug("transfer: opening ssh connection to", resource.name);
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
-    var ready = false;
     conn.on('ready', function() {
         logger.debug("transfer: ssh connection ready");
-        ready = true;
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        cb(null, connq);
+        if(cb) cb(null, connq);
+        cb = null;
     });
     conn.on('end', function() {
         logger.debug("transfer: ssh connection ended");
@@ -53,8 +52,11 @@ function get_ssh_connection_with_agent(resource, cb) {
     });
     conn.on('error', function(err) {
         logger.error(err);
+        delete ssh_conns[resource._id];
+       
         //error could fire after ready event is received only call cb if it hasn't been called
-        if(!ready) cb(err);
+        if(cb) cb(err);
+        cb = null;
     });
 
     common.decrypt_resource(resource);
@@ -71,6 +73,7 @@ function get_ssh_connection_with_agent(resource, cb) {
         //I think I should re-try connecting instead?
         //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
 
+        //we use agent to allow transfer between 2 remote resources
         agent: process.env.SSH_AUTH_SOCK,
         agentForward: true,
     });

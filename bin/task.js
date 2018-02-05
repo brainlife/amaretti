@@ -696,7 +696,7 @@ function start_task(task, resource, cb) {
                 
                 //create task dir by git shallow cloning the requested service
                 next=>{
-                    logger.debug("git cloning taskdir", task._id.toString());
+                    //logger.debug("git cloning taskdir", task._id.toString());
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
@@ -719,7 +719,7 @@ function start_task(task, resource, cb) {
                 
                 //update service
                 next=>{
-                    logger.debug("making sure requested service is up-to-date", task._id.toString());
+                    //logger.debug("making sure requested service is up-to-date", task._id.toString());
                     conn.exec("cd "+taskdir+" && timeout 30 git fetch && timeout 30 git reset --hard && timeout 30 git pull", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -829,12 +829,12 @@ function start_task(task, resource, cb) {
                             if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
+                            //logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
 
-                            common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
+                            //common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
-                                logger.debug("running rsync_resource.............", dep._id.toString());
+                                //logger.debug("running rsync_resource.............", dep._id.toString());
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
                                     if(err) {
                                         logger.error("failed rsyncing.........", dep._id.toString());
