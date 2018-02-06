@@ -65,10 +65,22 @@ function set_nextdate(task) {
         task.next_date = new Date(Date.now()+1000*3600*24);  //should never have to deal with waiting task by themselves
         break;
     default:
-        logger.error("don't know how to calculate next_date for status"+task.status);
+        logger.error("don't know how to calculate next_date for status",task.status," -- setting to 1hour");
         task.next_date = new Date(Date.now()+1000*3600); 
     }
 }
+
+function set_conn_timeout(cqueue, stream, time) {
+    var timeout = setTimeout(()=>{
+        logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
+        //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
+        cqueue.connection.end();
+    }, time);
+    stream.on('close', (code, signal)=>{
+        clearTimeout(timeout);
+    });
+}
+
 
 //call this whenever you change task status
 
@@ -105,9 +117,11 @@ function check() {
             if(err) logger.error("failed to update next_date", err); //continue
 
             //then start processing each tasks
+            var task_count = 0;
             async.eachSeries(tasks, (task, next_task)=>{
+                task_count++;
                 _counts.tasks++;
-                logger.debug("task:"+task._id.toString()+" "+task.service+"("+task.name+")"+" "+task.status);
+                logger.debug("task ("+task_count+"/"+tasks.length+"):"+task._id.toString()+" "+task.service+"("+task.name+")"+" "+task.status);
 
                 //pick which handler to use based on task status
                 let handler = null;
@@ -121,7 +135,6 @@ function check() {
                 case "running": 
                     handler = handle_running; 
                     break;
-
                 case "finished":
                 case "failed":
                 case "stopped":
@@ -213,11 +226,14 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
-                        conn.exec("timeout 15 ls "+taskdir, function(err, stream) {
+                        conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);
+                            set_conn_timeout(conn, stream, 1000*10);
                             stream.on('close', function(code, signal) {
-                                //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
-                                if(code == 2) { //ls couldn't find the directory
+                                if(code === undefined) {
+                                    logger.error("timed out while trying to ls", taskdir, "assuming it still exists");
+                                } else if(code == 2) { //ls couldn't find the directory
+                                    //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
                                     logger.debug("taskdir:"+taskdir+" is missing");
                                     missing_resource_ids.push(resource_id);
                                 }
@@ -305,13 +321,18 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         logger.info("removing "+taskdir+" and workdir if empty");
-                        conn.exec("timeout 60 rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || timeout 10 rmdir --ignore-fail-on-non-empty "+workdir+")", function(err, stream) {
+                        conn.exec("rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")", function(err, stream) {
                             if(err) return next_resource(err);
+                            set_conn_timeout(conn, stream, 1000*60);
                             stream.on('close', function(code, signal) {
-                                if(code) {
+                                if(code === undefined) {
+                                    next_resource("timeout while removing .. retry later");
+                                } else if(code) {
                                     logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
+                                    //TODO should I retry later?
                                     return next_resource();
                                 } else {
+                                    logger.debug("successfully removed!");
                                     removed_count++;
                                     next_resource();
                                 }
@@ -329,7 +350,7 @@ function handle_housekeeping(task, cb) {
                     logger.info(err); //continue
                     next();
                 } else {
-                    //done with removal
+                    logger.debug("done removing");
                     task.status = "removed";
                     task.status_msg = "taskdir removed from "
                     if(removed_count == 0 || removed_count != task.resource_ids.length) {
@@ -342,7 +363,7 @@ function handle_housekeeping(task, cb) {
                     task.resource_ids = [];
 
                     //also post to progress.. (TODO - should I set the status?)
-                    common.progress(task.progress_key, {msg: 'Task directory Removed'});
+                    //common.progress(task.progress_key, {msg: 'Task directory Removed'});
 
                     next();
                 }
@@ -454,21 +475,22 @@ function handle_stop(task, next) {
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                conn.exec("cd "+taskdir+" && source _env.sh && timeout 60 "+service_detail.stop, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.stop, (err, stream)=>{
                     if(err) return next(err);
+                    set_conn_timeout(conn, stream, 1000*60);
                     stream.on('close', function(code, signal) {
                         logger.debug("stream closed "+code);
                         task.status = "stopped";
-                        switch(code) {
-                        case 0: 
+                        if(code === undefined) {
+                            task.status_msg = "Timedout while trying to stop the task";
+                        } else if(code) {
+                            task.status_msg = "Failed to stop the task cleanly -- code:"+code;
+                        } else {
                             task.status_msg = "Cleanly stopped by user";
                             //if we were able to stop it, then rehandle the task immediately so that we can remove it if needed (delete api stops task before removing it)
                             if(task.remove_date && task.remove_date < task.next_date) {
                                 task.next_date = task.remove_date;
                             }
-                            break;
-                        default:
-                            task.status_msg = "Failed to stop the task cleanly -- code:"+code;
                         }
                         next();
                     })
@@ -532,16 +554,21 @@ function handle_running(task, next) {
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
                 logger.debug("running", service_detail.status, task._id.toString(), taskdir)
-                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && timeout 30 "+service_detail.status, (err, stream)=>{
+                conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
+                    set_conn_timeout(conn, stream, 1000*15);
                     var out = "";
                     stream.on('close', function(code, signal) {
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
                         out = out.substring(pos+delimtoken.length).trim();
-                        logger.info(out);
+                        logger.debug(out);
 
                         switch(code) {
+                        case undefined:
+                            task.stauts_msg = "status unknown (timeout)"; //assume it to be still running..
+                            next();
+                            break;
                         case 0: //still running
                             task.status_msg = out; //should I?
                             next();
@@ -679,11 +706,13 @@ function start_task(task, resource, cb) {
                 //(for backward compatibility) remove old taskdir if it doesn't have .git
                 //TODO - get rid of this once we no longer have old tasks
                 next=>{
-                    conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && timeout 60 rm -rf "+taskdir, function(err, stream) {
+                    conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir, function(err, stream) {
                         if(err) return next(err);
+                        set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
-                            if(code && code == 1) return next(); //taskdir not there
-                            if(code) return next("Failed to remove old taskdir:"+taskdir+" code:"+code);
+                            if(code === undefined) return next("timeout while cleaning old service dir");
+                            else if(code && code == 1) return next(); //taskdir not there (good..)
+                            else if(code) return next("Failed to remove old taskdir:"+taskdir+" code:"+code);
                             else next();
                         })
                         .on('data', function(data) {
@@ -700,13 +729,15 @@ function start_task(task, resource, cb) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
-                    cmd += "timeout 60 git clone --depth=1 ";
+                    cmd += "git clone --depth=1 ";
                     if(task.service_branch) cmd += "-b "+task.service_branch+" ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
+                        set_conn_timeout(conn, stream, 1000*15);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to git clone. code:"+code);
+                            if(code === undefined) return next("timeout while git cloning");
+                            else if(code) return next("Failed to git clone. code:"+code);
                             else next();
                         })
                         .on('data', function(data) {
@@ -720,10 +751,12 @@ function start_task(task, resource, cb) {
                 //update service
                 next=>{
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("cd "+taskdir+" && timeout 30 git fetch && timeout 30 git reset --hard && timeout 30 git pull", function(err, stream) {
+                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
                         if(err) return next(err);
+                        set_conn_timeout(conn, stream, 1000*15);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to git pull "+task._id.toString());
+                            if(code === undefined) return next("timeout while git pull");
+                            else if(code) return next("Failed to git pull "+task._id.toString());
                             else next();
                         })
                         .on('data', function(data) {
@@ -742,10 +775,12 @@ function start_task(task, resource, cb) {
                     }
 
                     logger.debug("installing config.json", task._id.toString());
-                    conn.exec("timeout 5 cat > "+taskdir+"/config.json", function(err, stream) {
+                    conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
+                        set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write config.json");
+                            if(code === undefined) return next("timedout while installing config.json");
+                            else if(code) return next("Failed to write config.json");
                             else next();
                         })
                         .on('data', function(data) {
@@ -761,11 +796,13 @@ function start_task(task, resource, cb) {
                 //write _.env.sh
                 next=>{
                     logger.debug("writing _env.sh", task._id.toString());
-                    conn.exec("cd "+taskdir+" && timeout 5 cat > _env.sh && chmod +x _env.sh", function(err, stream) {
+                    conn.exec("cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh", function(err, stream) {
                         if(err) return next(err);
+                        set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
-                            if(code) return next("Failed to write _env.sh -- code:"+code);
-                            next();
+                            if(code === undefined) return next("timedout while writing _env.sh");
+                            else if(code) return next("Failed to write _env.sh -- code:"+code);
+                            else next();
                         })
                         .on('data', function(data) {
                             logger.info(data.toString());
@@ -818,7 +855,7 @@ function start_task(task, resource, cb) {
 
                 //make sure dep task dirs are synced
                 next=>{
-                    if(!task.deps) return next(); //skip
+                    if(!task.deps) return next(); //no deps then skip
                     async.eachSeries(task.deps, function(dep, next_dep) {
                         
                         //if resource is the same, don't need to sync
@@ -835,27 +872,26 @@ function start_task(task, resource, cb) {
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
                                 //logger.debug("running rsync_resource.............", dep._id.toString());
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, function(err) {
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, err=>{
                                     if(err) {
-                                        logger.error("failed rsyncing.........", dep._id.toString());
-                                        common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
+                                        logger.error("failed rsyncing.........", err, dep._id.toString());
+                                        //common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
                                         
                                         //I want to retry if rsyncing fails by leaving the task status to be requested
                                         //next_dep(err)
-                                        delete task.start_date; //need to release this so that resource.select will calculate resource availability correctly
-                                        task.status_msg = "Failed to synchronize dependent task directories.. retry later -- "+err.toString();
+                                        task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
+                                        task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
                                         cb(); //abort the rest of the process
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
-                                        common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
+                                        //common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
                                         //need to add dest resource to source dep
                                         if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                            logger.debug("adding new resource_id", resource._id);
                                             dep.resource_ids.push(resource._id.toString());
                                             dep.save(next_dep);
                                         } else next_dep();
                                     }
-                                }, function(progress) {
-                                    common.progress(task.progress_key+".sync", progress);
                                 });
                             });
                         });
@@ -878,12 +914,13 @@ function start_task(task, resource, cb) {
                             if(err) return next(err);
 
                             //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && timeout 30 "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
+                            conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
                                 if(err) return next(err);
+                                set_conn_timeout(conn, stream, 1000*20);
                                 stream.on('close', function(code, signal) {
-                                    if(code) {
-                                        return next("failed to start (code:"+code+")");
-                                    } else {
+                                    if(code === undefined) return next("timedout while starting task");
+                                    else if(code) return next("failed to start (code:"+code+")");
+                                    else {
                                         task.next_date = new Date(); //so that we check the status soon
                                         task.status_msg = "Service started";
                                         next();
@@ -920,12 +957,13 @@ function start_task(task, resource, cb) {
                         if(err) return next(err);
                         //not updating instance status - because run should only take very short time
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
-                        conn.exec("cd "+taskdir+" && source _env.sh && timeout 60 "+service_detail.run+" > run.log 2>&1", (err, stream)=>{
+                        conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
+                            set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
-                                if(code) {
-                                    return next("failed to run (code:"+code+")");
-                                } else {
+                                if(code === undefined) next("timedout while running_sync");
+                                else if(code) return next("failed to run (code:"+code+")");
+                                else {
                                     load_product(taskdir, resource, function(err, product) {
                                         if(err) return next(err);
                                         common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});

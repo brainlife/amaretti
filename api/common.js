@@ -77,10 +77,8 @@ var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
-    if(old) {
-        //TODO - check to make sure connection is really alive?
-        return cb(null, old);
-    }
+    //TODO - check to make sure connection is really alive?
+    if(old) return cb(null, old);
 
     //open new connection
     logger.debug("opening new ssh connection", resource._id);
@@ -90,7 +88,8 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.debug("ssh connection ready", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        if(cb) cb(null, connq);
+
+        if(cb) cb(null, connq); //success!
         cb = null;
     });
     conn.on('end', function() {
@@ -105,9 +104,7 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.error("ssh connectionn error", err, resource._id.toString());
         delete ssh_conns[resource._id];
         
-        //error could fire after ready event is called.
-        //like timeout, or abnormal disconnect, etc..
-        //don't call cb twice!
+        //error could fire after ready event is called. like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });

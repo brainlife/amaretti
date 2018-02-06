@@ -27,10 +27,8 @@ var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
-    if(old) {
-        //old.last_used = new Date();
-        return cb(null, old);
-    }
+    //TODO - check to make sure connection is really alive?
+    if(old) return cb(null, old);
 
     logger.debug("transfer: opening ssh connection to", resource.name);
     var detail = config.resources[resource.resource_id];
@@ -39,7 +37,8 @@ function get_ssh_connection_with_agent(resource, cb) {
         logger.debug("transfer: ssh connection ready");
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        if(cb) cb(null, connq);
+
+        if(cb) cb(null, connq); //success!
         cb = null;
     });
     conn.on('end', function() {
@@ -51,15 +50,16 @@ function get_ssh_connection_with_agent(resource, cb) {
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
-        logger.error(err);
+        logger.error("transfer: ssh connectionn error", err, resource._id.toString());
         delete ssh_conns[resource._id];
        
-        //error could fire after ready event is received only call cb if it hasn't been called
+        //error could fire after ready event is called. like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });
 
     common.decrypt_resource(resource);
+    //https://github.com/mscdex/ssh2#client-methods
     conn.connect({
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
@@ -79,14 +79,15 @@ function get_ssh_connection_with_agent(resource, cb) {
     });
 }
 
-exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb, progress_cb) {
+exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb) {
+    //logger.debug("rsync_resource", source_resource._id, dest_resource._id, source_path, dest_path);
     get_ssh_connection_with_agent(dest_resource, function(err, conn) {
         if(err) return cb(err); 
         async.series([
             next=>{
                 //forward source's ssh key to dest
                 //var privkey = sshpk.parsePrivateKey(fs.readFileSync("/home/hayashis/.ssh/id_rsa"), 'pem');
-                logger.debug("transfer: decrypting source");
+                //logger.debug("transfer: decrypting source");
                 common.decrypt_resource(source_resource);
                 var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
 
@@ -106,7 +107,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to mkdir -p "+dest_path);
-                        else next();
+                        next();
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
@@ -133,7 +134,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //various HPC clusters with shared file system
                 //-K prevents destination symlink (if already existing) to be replaced by directory. 
                 //this is needed for same-filesystem data transfer that has symlink
-                logger.debug("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
+                logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     let errors = "";
@@ -148,15 +149,12 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
                         logger.debug(data.toString());
                     }).stderr.on('data', function(data) {
-                        logger.error(data.toString());
+                        //logger.error(data.toString());
                         errors += data.toString();
                     });
                 });
             },
-        ], err=>{
-            //conn.end(); //we are using connection queue so we don't need to close it anymore
-            cb(err);
-        });
+        ], cb);
     });
 }
 
