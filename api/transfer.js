@@ -103,6 +103,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
             next=>{
                 //make sure dest dir exists
+                //TODO - set timeout similar to bin/task's?
                 conn.exec("mkdir -p "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
@@ -135,6 +136,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //-K prevents destination symlink (if already existing) to be replaced by directory. 
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
+
+                //TODO set timeout similar to bin/task?
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     let errors = "";

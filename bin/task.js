@@ -212,6 +212,7 @@ function handle_housekeeping(task, cb) {
                         missing_resource_ids.push(resource_id);
                         return next_resource();
                     }
+                    if(!resource.active) return next_resource("resource is inactive.. will try later");
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
@@ -310,6 +311,7 @@ function handle_housekeeping(task, cb) {
                         logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
                         return next_resource(); //user sometimes removes resource.. but that's ok..
                     }
+                    if(!resource.active) return next_resource("resource is inactive.. will try later");
                     if(!resource.status || resource.status != "ok") {
                         return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
@@ -463,6 +465,10 @@ function handle_stop(task, next) {
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
         }
+        if(!resource.active) {
+            task.status_msg = "Resource is inactive .. postponing stop";
+            return next();
+        }
         if(!resource.status || resource.status != "ok") {
             task.status_msg = "Resource status is not ok .. postponing stop";
             return next();
@@ -479,7 +485,6 @@ function handle_stop(task, next) {
                     if(err) return next(err);
                     set_conn_timeout(conn, stream, 1000*60);
                     stream.on('close', function(code, signal) {
-                        logger.debug("stream closed "+code);
                         task.status = "stopped";
                         if(code === undefined) {
                             task.status_msg = "Timedout while trying to stop the task";
@@ -531,8 +536,12 @@ function handle_running(task, next) {
             task.fail_date = new Date();
             return next();
         }
+        if(!resource.active) {
+            task.status_msg = "Resource is inactive .. will check later";
+            return next();
+        }
         if(!resource.status || resource.status != "ok") {
-            task.status_msg = "Resource status is not ok.";
+            task.status_msg = "Resource status is not ok .. will check later";
             return next();
         }
 
@@ -863,7 +872,9 @@ function start_task(task, resource, cb) {
 
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
-                            if(!source_resource) return next_dep("couldn't find dep resource:"+dep.resource_id);
+                            if(!source_resource || source_resource.status == "removed") return next_dep("couldn't find dep resource:"+dep.resource_id);
+                            if(!source_resource.active) return next_dep("source resource is inactive");
+                            if(!source_resource.status || source_resource.status != "ok") return next_dep("source resource status is non-ok");
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             //logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
