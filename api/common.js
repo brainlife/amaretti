@@ -115,8 +115,8 @@ exports.get_ssh_connection = function(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 30*1000, //default 0
-        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveInterval: 10*1000, //default 0 (disabled)
+        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
 
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?
@@ -165,8 +165,8 @@ exports.get_sftp_connection = function(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 30*1000, //default 0
-        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveInterval: 10*1000, //default 0 (disabled)
+        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
 

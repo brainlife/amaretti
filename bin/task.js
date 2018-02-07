@@ -328,7 +328,7 @@ function handle_housekeeping(task, cb) {
                             set_conn_timeout(conn, stream, 1000*60);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
-                                    next_resource("timeout while removing .. retry later");
+                                    next_resource("timeout while removing");
                                 } else if(code) {
                                     logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
                                     //TODO should I retry later?
@@ -712,9 +712,9 @@ function start_task(task, resource, cb) {
             logger.debug("starting task on "+resource.name);
             async.series([
                    
-                //(for backward compatibility) remove old taskdir if it doesn't have .git
-                //TODO - get rid of this once we no longer have old tasks
                 next=>{
+                    //TODO - get rid of this once we no longer have old tasks
+                    logger.debug("(for backward compatibility) remove old taskdir if it doesn't have .git");
                     conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir, function(err, stream) {
                         if(err) return next(err);
                         set_conn_timeout(conn, stream, 1000*5);
@@ -734,7 +734,7 @@ function start_task(task, resource, cb) {
                 
                 //create task dir by git shallow cloning the requested service
                 next=>{
-                    //logger.debug("git cloning taskdir", task._id.toString());
+                    logger.debug("git cloning taskdir", task._id.toString());
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
