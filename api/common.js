@@ -81,11 +81,11 @@ exports.get_ssh_connection = function(resource, cb) {
     if(old) return cb(null, old);
 
     //open new connection
-    logger.debug("opening new ssh connection", resource._id);
+    logger.debug("opening new ssh connection for resource:", resource._id.toString());
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
-        logger.debug("ssh connection ready", resource._id.toString());
+        logger.debug("ssh connection ready for resource:", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
 
@@ -93,18 +93,19 @@ exports.get_ssh_connection = function(resource, cb) {
         cb = null;
     });
     conn.on('end', function() {
-        logger.debug("ssh connection ended", resource._id.toString());
+        logger.debug("ssh connection ended .. resource:", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('close', function() {
-        logger.debug("ssh connection closed", resource._id.toString());
+        logger.debug("ssh connection closed .. resource:", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
-        logger.error("ssh connectionn error", err, resource._id.toString());
+        logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
         delete ssh_conns[resource._id];
         
-        //error could fire after ready event is called. like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
+        //we want to return connection error to caller, but error could fire after ready event is called. 
+        //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });

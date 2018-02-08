@@ -121,7 +121,7 @@ function check() {
             async.eachSeries(tasks, (task, next_task)=>{
                 task_count++;
                 _counts.tasks++;
-                logger.debug("task ("+task_count+"/"+tasks.length+"):"+task._id.toString()+" "+task.service+"("+task.name+")"+" "+task.status);
+                logger.debug("task("+task_count+"/"+tasks.length+") id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
 
                 //pick which handler to use based on task status
                 let handler = null;
@@ -148,17 +148,8 @@ function check() {
                 }
 
                 let previous_status = task.status;
-                
-                let handler_returned = false;
                 handler(task, err=>{
                     if(err) logger.error(err); //continue
-
-                    if(handler_returned) {
-                        //TODO we need to figure why why this happens!
-                        logger.error("handler already returned", task._id.toString(), previous_status, task.status);
-                        return;
-                    }
-                    handler_returned = true;
 
                     //store task one last time
                     task.save(function(err) {
@@ -743,7 +734,7 @@ function start_task(task, resource, cb) {
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*15);
+                        set_conn_timeout(conn, stream, 1000*30);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
                             else if(code) return next("Failed to git clone. code:"+code);
@@ -762,7 +753,7 @@ function start_task(task, resource, cb) {
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
                     conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*15);
+                        set_conn_timeout(conn, stream, 1000*30);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git pull");
                             else if(code) return next("Failed to git pull "+task._id.toString());
