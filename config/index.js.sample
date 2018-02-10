@@ -29,7 +29,12 @@ exports.amaretti = {
 
     //jwt token used to access other services (like pulling users gids from auth service)
     jwt: fs.readFileSync(__dirname+'/amaretti.jwt'),
+
+    //groups that all users has access to. 
+    //all user will have access to any resources that are shared with this group 
+    global_groups: [1],
 }
+
 exports.wf = exports.amaretti; //deprecated
 exports.sca = exports.amaretti; //deprecated
 

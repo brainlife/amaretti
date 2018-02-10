@@ -19,21 +19,19 @@ exports.select = function(user, task, cb) {
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
     if(task.deps) {
-        //logger.debug(JSON.stringify(task.deps, null, 4));
         task.deps.forEach(dep=>{
             dep.resource_ids.forEach(id=>{
                 id = id.toString();
                 if(!~dep_resource_ids.indexOf(id)) dep_resource_ids.push(id);
             });
         });
-        //logger.debug("dep_resource_ids:", dep_resource_ids);
     }
 
     //load resource that user has access
     db.Resource.find({
         "$or": [
             {user_id: user.sub},
-            {gids: {"$in": user.gids||[] }},
+            {gids: {"$in": common.get_user_gids(user)}},
         ],
         status: {$ne: "removed"},
         active: true,

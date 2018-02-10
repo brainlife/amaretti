@@ -51,11 +51,10 @@ function set_nextdate(task) {
     case "stop_requested":
     case "requested":
     case "running":
-        if(!task.start_date) {
-            logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
-            task.start_date = new Date(); 
-        }
-        var elapsed = Date.now() - task.start_date.getTime(); 
+        var elapsed = 0;
+        if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
+        if(!task.start_date && task.status == "running") logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
+
         var delta = elapsed/20; //back off at 1/20 rate
         var delta = Math.min(delta, 1000*3600); //max 1 hour
         var delta = Math.max(delta, 1000*10); //min 10 seconds
@@ -74,19 +73,22 @@ function set_conn_timeout(cqueue, stream, time) {
     var timeout = setTimeout(()=>{
         logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
         //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
-        cqueue.connection.end();
+        cqueue.end();
     }, time);
     stream.on('close', (code, signal)=>{
         clearTimeout(timeout);
     });
 }
 
-
 //call this whenever you change task status
+
+let check_id = 0;
 
 function check() {
     _counts.checks++; //for health reporting
     var limit = 200;
+
+    logger.debug("-------------------------------------------- check", ++check_id,"start");
     
     //if I want to support multiple task handler, I think I can shard task record by user_id mod process count.
     db.Task.find({
@@ -106,7 +108,6 @@ function check() {
     .populate('resource_deps')
     .exec((err, tasks) => {
         if(err) throw err; //throw and let pm2 restart
-        //logger.debug("processing", tasks.length, "tasks");
         if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacity, or adjust next_date logic?");
 
         //save next dates to prevent reprocessing too soon
@@ -165,7 +166,9 @@ function check() {
                 });
             }, ()=>{
                 //wait a bit and recheck again
-                return setTimeout(check, 500);
+                logger.debug("-------------------------------------------- check", check_id,"end");
+                logger.debug("");
+                return setTimeout(check, 2*1000);
             });
         }); 
     });
@@ -307,7 +310,7 @@ function handle_housekeeping(task, cb) {
                         return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
 
-                    logger.debug("getting ssh connection to remove work/task dir");
+                    //logger.debug("getting ssh connection to remove work/task dir");
                     common.get_ssh_connection(resource, function(err, conn) {
                         if(err) return next_resource(err);
                         var workdir = common.getworkdir(task.instance_id, resource);
@@ -420,7 +423,14 @@ function handle_requested(task, next) {
             }
 
             common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
-            start_task(task, resource, function(err) {
+
+            var called = false;
+            start_task(task, resource, err=>{
+                
+                //detect multiple cb calling..
+                if(called) throw new Error("callback called again for start_task");
+                called = true;
+
                 if(err) {
                     //failed to start (or running_sync failed).. mark the task as failed
                     common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
@@ -429,11 +439,13 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-                task.save();
+                task.save(next);
             });
 
-            //don't wait for start_task to finish.. move on to the next task
-            next();
+            //TODO - looks like we have callback braching somewhere.. let's handle task one at a time..
+            //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
+            //start_task is designed to be able to run concurrently..
+            //next();
         });
     });
 }
@@ -468,7 +480,7 @@ function handle_stop(task, next) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) return next(err);
 
-            logger.debug("getting ssh connection to stop task");
+            //logger.debug("getting ssh connection to stop task");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -542,7 +554,7 @@ function handle_running(task, next) {
                 return next(err); 
             }
 
-            logger.debug("getting ssh connection to check status");
+            //logger.debug("getting ssh connection to check status");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..
@@ -642,7 +654,7 @@ function rerun_child(task, cb) {
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
-    logger.debug("getting ssh connection to start task");
+    //logger.debug("getting ssh connection to start task");
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) {
             logger.error(err);

@@ -35,7 +35,7 @@
     "redis": "^2.8.0",
     "request": "^2.83.0",
     "ssh2": "^0.5.5",
-    "ssh2-multiplexer": "0.0.7",
+    "ssh2-multiplexer": "https://github.com/soichih/ssh2-multiplexer",
     "sshpk": "^1.13.1",
     "sshpk-agent": "^1.6.1",
     "supertest": "^2.0.1",

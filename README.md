@@ -1,16 +1,9 @@
 [![Build Status](https://travis-ci.org/soichih/sca-wf.svg?branch=master)](https://travis-ci.org/soichih/sca-wf)
 [![Coverage Status](https://coveralls.io/repos/github/soichih/sca-wf/badge.svg?branch=master)](https://coveralls.io/github/soichih/sca-wf?branch=master)
 
-# Simple Workflow Service
+# Amaretti
 
-This service handles execution of tasks on remote resources. Tasks can be any git repositories with any source code, binaries with defined *hooks* according to [ABCD Specification](https://github.com/soichih/abcd-spec). Resource can be any systems that allows public key based SSH access including HPC/HTC systems, VMs, public cloud, etc.
-* 
+Amaretti is a light-weight, cross-resource, multi-user task orchestration service written in nodejs. Amaretti is a meta processing managment system; it provides cross-resource orchestration relying on the individual resources batch scheduling systems. It manages data and computation execution across multiple architectures (e.g., clouds and high-performance computing). Its purpose is to reduce the users' management burden, facilitate data-intensive research and development and accelerate discovery.
 
-## Features
-
-* 
-
-
-transfer / execution of *tasks* requested by users through the API.
-
+For more information, please see [amaretti documentation](http://www.brainlife.io/amaretti/)
 

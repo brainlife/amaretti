@@ -251,44 +251,23 @@ exports.ssh_command = function(username, password, host, command, opts, cb) {
     });
 }
 
-/* finds the intersection of 
- * two arrays in a simple fashion.  
- *
- * PARAMS
- *  a - first array, must already be sorted
- *  b - second array, must already be sorted
- *
- * NOTES
- *
- *  Should have O(n) operations, where n is 
- *    n = MIN(a.length(), b.length())
- */
-function intersect_safe(a, b)
-{
-  var ai=0, bi=0;
-  var result = [];
-
-  while( ai < a.length && bi < b.length )
-  {
-     if      (a[ai] < b[bi] ){ ai++; }
-     else if (a[ai] > b[bi] ){ bi++; }
-     else /* they're equal */
-     {
-       result.push(a[ai]);
-       ai++;
-       bi++;
-     }
-  }
-  return result;
+exports.get_user_gids = function(user) {
+    var gids = user.gids||[];
+    gids = gids.concat(config.amaretti.global_groups);
+    return gids;
 }
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {
-    //if(!resource.active) return false;
     if(resource.user_id == user.sub) return true;
-    if(resource.gids && user.gids) {
-        var inter = intersect_safe(resource.gids, user.gids);
-        if(inter.length) return true;
+    if(resource.gids) {
+        const gids = exports.get_user_gids(user);
+        //find common ids
+        let found = false;
+        resource.gids.forEach(gid=>{
+            if(~gids.indexOf(gid)) found = true;
+        });
+        if(found) return true;
     }
     return false;
 }

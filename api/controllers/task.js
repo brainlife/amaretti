@@ -236,7 +236,7 @@ function find_resource(req, taskid, cb) {
     db.Task.findById(req.params.taskid, (err, task)=>{
         if(err) return cb(err);
         if(!task) return cb("no such task or you don't have access to the task");
-        logger.debug(gids, task._group_id);
+        //logger.debug(gids, task._group_id);
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
 
         //find resource that we can use to load file list
@@ -314,7 +314,7 @@ router.get('/download/:taskid', jwt({
                     if(err) return next(err.toString() + " -- "+fullpath);
 
                     if(stat.isDirectory()) {
-                        logger.debug("sending directory(.tar.gz) using tar / gzip", fullpath);
+                        //logger.debug("sending directory(.tar.gz) using tar / gzip", fullpath);
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
 
@@ -325,7 +325,7 @@ router.get('/download/:taskid', jwt({
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);
                             res.setHeader('Content-Type', "application/x-tgz");
-                            logger.debug("cd to ", fullpath.addSlashes());
+                            //logger.debug("cd to ", fullpath.addSlashes());
                             conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
                                 if(err) return next(err);
                                 logger.debug("piping tar output to user");
