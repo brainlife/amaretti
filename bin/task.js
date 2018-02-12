@@ -45,21 +45,23 @@ function set_nextdate(task) {
         //to see if task_dir still exists
         task.next_date = new Date(Date.now()+1000*3600*24);
         //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
-        //if(task.remove_date && task.remove_date < task.next_date) task.next_date = task.remove_date;
         if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
+
+    case "running":
+        if(!task.start_date) logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
     case "stop_requested":
     case "requested":
-    case "running":
         var elapsed = 0;
         if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
-        if(!task.start_date && task.status == "running") logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
 
-        var delta = elapsed/20; //back off at 1/20 rate
+        var delta = elapsed/20; 
+        //logger.debug("elapses", elapsed);
         var delta = Math.min(delta, 1000*3600); //max 1 hour
         var delta = Math.max(delta, 1000*10); //min 10 seconds
         task.next_date = new Date(Date.now() + delta);
         break;
+
     case "waiting":
         task.next_date = new Date(Date.now()+1000*3600*24);  //should never have to deal with waiting task by themselves
         break;
@@ -80,18 +82,9 @@ function set_conn_timeout(cqueue, stream, time) {
     });
 }
 
-//call this whenever you change task status
-
-let check_id = 0;
-
-function check() {
+function check(cb) {
     _counts.checks++; //for health reporting
-    var limit = 200;
-
-    logger.debug("-------------------------------------------- check", ++check_id,"start");
-    
-    //if I want to support multiple task handler, I think I can shard task record by user_id mod process count.
-    db.Task.find({
+    db.Task.findOne({
         status: {$ne: "removed"}, //ignore removed tasks
         //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
         $or: [
@@ -99,79 +92,61 @@ function check() {
             {next_date: {$lt: new Date()}}
         ]
     })
-    .sort('nice') //handle nice ones later
-    .limit(limit) //to avoid overwhelmed..
-
-    //maybe I should do these later (only needed by requested task)
-    //.populate('deps', 'status resource_id')
+    .sort('nice next_date') //handle nice ones later, then sort by next_date
+    //.limit(limit) //to avoid overwhelmed..
+    //TODO maybe I should do these later (only needed by requested task)
     .populate('deps')
     .populate('resource_deps')
-    .exec((err, tasks) => {
+    .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
-        if(tasks.length == limit) logger.error("too many tasks to handle... maybe we need to increase capacity, or adjust next_date logic?");
+        if(!task) return setTimeout(check, 2000);
 
-        //save next dates to prevent reprocessing too soon
-        async.eachSeries(tasks, (task, next)=>{
-            set_nextdate(task);
-            task.save(next);
-        }, err=>{
-            if(err) logger.error("failed to update next_date", err); //continue
+        set_nextdate(task);
+        //task.save(next);
+        _counts.tasks++;
+        logger.debug("task id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
 
-            //then start processing each tasks
-            var task_count = 0;
-            async.eachSeries(tasks, (task, next_task)=>{
-                task_count++;
-                _counts.tasks++;
-                logger.debug("task("+task_count+"/"+tasks.length+") id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
+        //pick which handler to use based on task status
+        let handler = null;
+        switch(task.status) {
+        case "stop_requested": 
+            handler = handle_stop; 
+            break;
+        case "requested": 
+            handler = handle_requested; 
+            break;
+        case "running": 
+            handler = handle_running; 
+            break;
+        case "finished":
+        case "failed":
+        case "stopped":
+            handler = handle_housekeeping;
+            break;
+        default:
+            handler = handle_unknown;
+        }
 
-                //pick which handler to use based on task status
-                let handler = null;
-                switch(task.status) {
-                case "stop_requested": 
-                    handler = handle_stop; 
-                    break;
-                case "requested": 
-                    handler = handle_requested; 
-                    break;
-                case "running": 
-                    handler = handle_running; 
-                    break;
-                case "finished":
-                case "failed":
-                case "stopped":
-                    handler = handle_housekeeping;
-                    break;
-                }
+        let previous_status = task.status;
+        handler(task, err=>{
+            if(err) logger.error(err); //continue
+            task.save(function(err) {
+                if(err) logger.error(err); //continue..
 
-                if(!handler) {
-                    logger.debug("don't have anything particular to do with this task");
-                    return next_task(); 
-                }
-
-                let previous_status = task.status;
-                handler(task, err=>{
-                    if(err) logger.error(err); //continue
-
-                    //store task one last time
-                    task.save(function(err) {
-                        if(err) logger.error(err); //continue..
-
-                        //if task status changed, update instance status also
-                        if(task.status == previous_status) return next_task(); //no change
-                        common.update_instance_status(task.instance_id, err=>{
-                            if(err) logger.error(err);
-                            next_task();
-                        });
-                    });
+                //if task status changed, update instance status also
+                if(task.status == previous_status) return check(); //no change
+                common.update_instance_status(task.instance_id, err=>{
+                    if(err) logger.error(err);
+                    check();
                 });
-            }, ()=>{
-                //wait a bit and recheck again
-                logger.debug("-------------------------------------------- check", check_id,"end");
-                logger.debug("");
-                return setTimeout(check, 2*1000);
             });
-        }); 
+        });
     });
+}
+
+function handle_unknown(task, cb) {
+    logger.debug("don't have anything particular to do with this task");
+    return cb(); 
 }
 
 function handle_housekeeping(task, cb) {
@@ -263,10 +238,13 @@ function handle_housekeeping(task, cb) {
                         task.status = "removed"; //most likely removed by cluster
                         task.status_msg = "Output from this task seems to have been removed";
                     }
+                    /*
                     task.save(function(err) {
                         if(err) return next(err);
                         common.update_instance_status(task.instance_id, next);
                     });
+                    */
+                    next();
                 }
             });
         },
@@ -439,7 +417,8 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-                task.save(next);
+                //task.save(next);
+                next();
             });
 
             //TODO - looks like we have callback braching somewhere.. let's handle task one at a time..

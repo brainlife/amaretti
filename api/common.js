@@ -321,9 +321,9 @@ exports.update_instance_status = function(instance_id, cb) {
             let newstatus = "unknown";
             if(tasks.length == 0) newstatus = "empty";
             else if(counts.running > 0) newstatus = "running";
-            else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.failed > 0) newstatus = "failed";
+            else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
 
@@ -360,8 +360,13 @@ exports.rerun_task = function(task, remove_date, cb) {
     if(remove_date) task.remove_date = remove_date;
     else if(task.remove_date) {
         var diff = task.remove_date - task.request_date;
-        task.remove_date = new Date();
-        task.remove_date.setTime(task.remove_date.getTime() + diff); 
+        if(diff < 0) {
+            logger.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
+            task.remove_date = undefined;
+        } else {
+            task.remove_date = new Date();
+            task.remove_date.setTime(task.remove_date.getTime() + diff); 
+        }
     }
 
     task.status = "requested";
