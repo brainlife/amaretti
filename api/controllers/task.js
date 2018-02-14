@@ -206,10 +206,10 @@ router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                     ret.push({
                         filename: file.filename,
                         directory: file.attrs.mode_string[0]=='d',
+                        link: file.attrs.mode_string[0]=='l',
                         attrs: {
                             mode: file.attrs.mode,
                             mode_string: file.attrs.mode_string,
-                            //permissions: file.mode,
                             uid: file.attrs.uid,
                             gid: file.attrs.gid,
                             size: file.attrs.size,
@@ -220,7 +220,6 @@ router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                             group: null,
                         },
                         _raw: file.longname,
-                        //_sftp: file,
                     });
                 });
                 res.json({files: ret});
@@ -262,7 +261,7 @@ function get_fullpath(task, resource, p, cb) {
     //make sure path doesn't lead out of task dir
     let fullpath = common.getworkdir(path, resource);
     let safepath = common.getworkdir(basepath, resource);
-    if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir");
+    if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir", fullpath, safepath);
 
     cb(null, fullpath);
 

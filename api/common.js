@@ -397,7 +397,7 @@ exports.get_gids = function(user_id, cb) {
     exports.redis.exists(key, (err, exists)=>{
         if(err) return cb(err);
         if(exists) {
-            exports.redis.lrange(key, 0, -1, cb);
+            exports.redis.lrange(key, 0, -1, cb); //return all gids
             return;
         } else {
             //load from profile service
@@ -426,10 +426,15 @@ exports.get_gids = function(user_id, cb) {
                 //reply to the caller
                 cb(null, gids);
                 
-                //cache on redis
-                gids.unshift(key);
-                exports.redis.rpush(gids);
-                exports.redis.expire(key, 60); //60 seconds too long?
+                //cache on redis (can't rpush empty list to redis)
+                if(gids.length == 0) {
+                    logger.warning("gids empty", key);
+                    return;
+                } else {
+                    gids.unshift(key);
+                    exports.redis.rpush(gids);
+                    exports.redis.expire(key, 60); //60 seconds too long?
+                }
             });
         }
     });
