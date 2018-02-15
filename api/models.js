@@ -135,10 +135,10 @@ var taskSchema = mongoose.Schema({
     //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
     remove_date: Date,
 
-    //mili-seconds after start_date to stop running job (default to 20 days)
-    //TODO - I should deprecate this.. We shouldn't be implementing features that local batch scheduler can do
-    //for Vanilla VM, status script should be able to abort the process after certain amount of time.
-    max_runtime: { type: Number, default: 1000*3600*24*20},
+    //mili-seconds after start_date to stop running job (default to 7 days)
+    //note.. this includes time that task is in the queue
+    //this mainly exists to prevent jobs from getting stuck running, but also to stop tasks while it's being started.
+    max_runtime: { type: Number, default: 1000*3600*24*7},
 
     //TODO - I should probaly deprecate this. also.. app should handle its own retry if it's expecting things to fail
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run

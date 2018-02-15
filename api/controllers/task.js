@@ -72,6 +72,9 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 //returns various event / stats for given service
+//TODO - I don't really feel this is thought through.. I might deprecate.
+//current clients: 
+//   * warehouse UI app stats
 router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     var find = {};
     if(req.query.service) find.service = req.query.service;
@@ -665,6 +668,8 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         case "running_sync":
             //TODO - kill the process?
             break;
+        case "requested":
+            if(task.start_date) break; //don't stop task that's currently started
         default:
             task.status = "stopped";
             task.status_msg = "Stopped by user";
@@ -704,9 +709,10 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        //if(task.status == "requested" && task.start_date) return res.status(500).end("You can not remove task that is currently started.");
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
-            res.json({message: "Task successfully scheduled for removed"});
+            res.json({message: "Task requested for removal"});
         }); 
     });
 });

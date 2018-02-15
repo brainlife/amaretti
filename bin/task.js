@@ -495,7 +495,6 @@ function handle_stop(task, next) {
 
 //check for task status of already running tasks
 function handle_running(task, next) {
-
     if(!task.resource_id) {
         //not yet submitted to any resource .. maybe just got submitted?
         return next();
@@ -504,9 +503,12 @@ function handle_running(task, next) {
     //calculate runtime
     var now = new Date();
     var runtime = now - task.start_date;
-    if(task.max_runtime && task.max_runtime < runtime) {
+    //logger.debug("task runtime", runtime, "max", task.max_runtime);
+    if(task.max_runtime !== undefined && task.max_runtime < runtime) {
+        logger.warn("task running too long.. stopping", runtime);
         task.status = "stop_requested";
         task.status_msg = "Runtime exceeded stop date. Stopping";
+        task.next_date = undefined;
         return next();
     }
 
@@ -533,7 +535,6 @@ function handle_running(task, next) {
                 return next(err); 
             }
 
-            //logger.debug("getting ssh connection to check status");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) {
                     //retry laster..

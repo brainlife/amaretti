@@ -294,8 +294,30 @@ exports.ls_hpss = function(resource, _path, cb) {
 }
 
 exports.request_task_removal = function(task, cb) {
-    if(task.status == "running"|| task.status == "requested") task.status = "stop_requested";
-    else task.status_msg = "Waiting to be removed";
+    //running jobs needs to be stopped first
+    switch(task.status) {
+    case "running":
+        task.status = "stop_requested";
+        task.status_msg = "Task needs to be stopped and removed";
+        break;
+    case "requested":
+        if(task.start_date) {
+            //we can't stop "staring" task.. so let's just make sure it stops as soon as it starts up
+            task.max_runtime = 0;
+            task.status_msg = "Task scheduled to be stopped soon and be removed";
+        } else {
+            task.status = "stopped"; //not yet started.. just stop
+            task.status_msg = "Task stopped";
+        }
+        break;
+    case "running_sync":
+        //we don't have a way to stop running_rsync.. I think.. just wait for it to be stopped
+        break;
+    default:
+        task.status_msg = "Task scheduled to be removed soon";
+    }
+
+    //set remove_date to now so that the task will be cleaned up by house keeper immediately
     task.remove_date = new Date();
     task.next_date = undefined;
     task.save(cb);
