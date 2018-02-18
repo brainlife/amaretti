@@ -81,6 +81,7 @@ function get_ssh_connection_with_agent(resource, cb) {
 
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb) {
     //logger.debug("rsync_resource", source_resource._id, dest_resource._id, source_path, dest_path);
+
     get_ssh_connection_with_agent(dest_resource, function(err, conn) {
         if(err) return cb(err); 
         async.series([
@@ -108,6 +109,27 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         if(code) return next("Failed to mkdir -p "+dest_path);
+                        next();
+                    })
+                    .on('data', function(data) {
+                        logger.info(data.toString());
+                    }).stderr.on('data', function(data) {
+                        logger.error(data.toString());
+                    });
+                });
+            },  
+
+            next=>{
+                //cleanup broken symlinks on source resource
+                //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is somewhat an ugly 
+                //workaround for rsync not being forgivng..
+                //TODO - set timeout similar to bin/task's?
+                logger.debug("finding and removing broken symlink on source resource before rsync");
+                var hostname = source_resource.config.hostname || source_resource_detail.hostname;
+                conn.exec("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                    if(err) return next(err);
+                    stream.on('close', function(code, signal) {
+                        if(code) return next("Failed to cleanup broken symlinks on source");
                         next();
                     })
                     .on('data', function(data) {

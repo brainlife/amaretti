@@ -17,10 +17,10 @@ module.exports = {
         //services supported by this resource and score
         services: {
             //"soichih/sca-product-raw": {score: 8},
-            "soichih/sca-service-hpss": {score: 10},
+            //"soichih/sca-service-hpss": {score: 10},
 
             //"brain-life/app-freesurfer": {score: 4},
-            "brain-life/app-networkneuro": {score: 4}, 
+            //"brain-life/app-networkneuro": {score: 4}, 
 
             //"soichih/sca-service-noop": {score: 10},
 
@@ -45,25 +45,25 @@ module.exports = {
         services: {
             //"_upload": {score: 8},
 
-            "soichih/sca-service-hpss": {score: 10},
+            //"soichih/sca-service-hpss": {score: 10},
             //"soichih/sca-product-raw": {score: 9},
             //"soichih/sca-service-noop": {score: 10},
 
             //"brain-life/app-freesurfer": {score: 5},
 
             //"brain-life/app-dtiinit": {score: 4},
-            "brain-life/app-autoalignacpc": {score: 4},
-            "brain-life/app-tractclassification": {score: 4},
+            //"brain-life/app-autoalignacpc": {score: 4},
+            //"brain-life/app-tractclassification": {score: 4},
             //"brain-life/app-tracking": {score: 4},
             //"brain-life/app-life": {score: 4},
 
-            "soichih/sca-service-connectome-data-comparison": {score: 10},
+            //"soichih/sca-service-connectome-data-comparison": {score: 10},
 
-            "brain-life/app-datanormalize": {score: 10},
-            "brain-life/app-splitshells": {score: 10},
+            //"brain-life/app-datanormalize": {score: 10},
+            //"brain-life/app-splitshells": {score: 10},
 
             //lindsey might be able to use app-tracking
-            "brain-life/app-ensembletracking": {score: 10},
+            //"brain-life/app-ensembletracking": {score: 10},
         }    
     },
 
@@ -75,8 +75,8 @@ module.exports = {
         workdir: "/local-scratch/__username__/dev1-workflows",
         
         services: {
-            "soichih/sca-service-osgblast": {score: 10},
-            "soichih/app-fsurf": {score: 10},
+            //"soichih/sca-service-osgblast": {score: 10},
+            //"soichih/app-fsurf": {score: 10},
         },
         envs: {
             ENV: "OSG",

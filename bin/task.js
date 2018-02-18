@@ -102,7 +102,6 @@ function check(cb) {
         if(!task) return setTimeout(check, 2000);
 
         set_nextdate(task);
-        //task.save(next);
         _counts.tasks++;
         logger.debug("task id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
 
@@ -721,7 +720,7 @@ function start_task(task, resource, cb) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
-                    cmd += "git clone --depth=1 ";
+                    cmd += "git clone -q --depth=1 ";
                     if(task.service_branch) cmd += "-b "+task.service_branch+" ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {

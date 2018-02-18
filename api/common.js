@@ -310,6 +310,9 @@ exports.request_task_removal = function(task, cb) {
             task.status_msg = "Task stopped";
         }
         break;
+    case "waiting":
+        task.status = "stopped";
+        break;
     case "running_sync":
         //we don't have a way to stop running_rsync.. I think.. just wait for it to be stopped
         break;
@@ -450,7 +453,7 @@ exports.get_gids = function(user_id, cb) {
                 
                 //cache on redis (can't rpush empty list to redis)
                 if(gids.length == 0) {
-                    logger.warning("gids empty", key);
+                    logger.warn("gids empty", key);
                     return;
                 } else {
                     gids.unshift(key);
