@@ -237,12 +237,6 @@ function handle_housekeeping(task, cb) {
                         task.status = "removed"; //most likely removed by cluster
                         task.status_msg = "Output from this task seems to have been removed";
                     }
-                    /*
-                    task.save(function(err) {
-                        if(err) return next(err);
-                        common.update_instance_status(task.instance_id, next);
-                    });
-                    */
                     next();
                 }
             });
@@ -894,39 +888,36 @@ function start_task(task, resource, cb) {
                 //finally, run the service!
                 next=>{
                     if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
-
                     logger.debug("starting service: "+taskdir+"/"+service_detail.start);
                     common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
-                    task.run++;
-                    task.status = "running";
+                    //save status since it might take a while to start
                     task.status_msg = "Starting service";
                     task.save(function(err) {
                         if(err) return next(err);
-                        common.update_instance_status(task.instance_id, err=>{
+                    
+                        //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
+                        conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
+                            set_conn_timeout(conn, stream, 1000*20);
+                            stream.on('close', function(code, signal) {
+                                if(code === undefined) return next("timedout while starting task");
+                                else if(code) return next("failed to start (code:"+code+")");
+                                else {
+                                    task.next_date = new Date(); //so that we check the status soon
+                                    task.run++;
+                                    task.status = "running";
+                                    task.status_msg = "Service started";
+                                    next();
+                                }
+                            });
 
-                            //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
-                            conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
-                                if(err) return next(err);
-                                set_conn_timeout(conn, stream, 1000*20);
-                                stream.on('close', function(code, signal) {
-                                    if(code === undefined) return next("timedout while starting task");
-                                    else if(code) return next("failed to start (code:"+code+")");
-                                    else {
-                                        task.next_date = new Date(); //so that we check the status soon
-                                        task.status_msg = "Service started";
-                                        next();
-                                    }
-                                });
-
-                                //NOTE - no stdout / err should be received since it's redirected to boot.log
-                                stream.on('data', function(data) {
-                                    logger.info(data.toString());
-                                });
-                                stream.stderr.on('data', function(data) {
-                                    logger.error(data.toString());
-                                });
+                            //NOTE - no stdout / err should be received since it's redirected to boot.log
+                            stream.on('data', function(data) {
+                                logger.info(data.toString());
+                            });
+                            stream.stderr.on('data', function(data) {
+                                logger.error(data.toString());
                             });
                         });
                     });
@@ -943,6 +934,7 @@ function start_task(task, resource, cb) {
                     logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
                     common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
+                    //need to save now for running_sync (TODO - I should call update instance?
                     task.run++;
                     task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                     task.status_msg = "Synchronously running service";

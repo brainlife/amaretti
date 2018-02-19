@@ -332,7 +332,7 @@ router.get('/download/:taskid', jwt({
                                 if(err) return next(err);
                                 logger.debug("piping tar output to user");
                                 stream.pipe(res);
-                                req.on('close', stream.close);
+                                //req.on('close', stream.close);
                             });
                         });
                     } else {
@@ -350,7 +350,7 @@ router.get('/download/:taskid', jwt({
                         if(mimetype) res.setHeader('Content-Type', mimetype);
                         let stream = sftp.createReadStream(fullpath);
                         stream.pipe(res);
-                        req.on('close', stream.close);
+                        //req.on('close', stream.close);
                     }
                 });
             });
