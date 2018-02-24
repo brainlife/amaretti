@@ -29,29 +29,24 @@ request.get({
     //convert list of service/resouce_id keys into various statistics
     let services = [];
     let resources = [];
+    let users = [];
 
     list.forEach(item=>{
         let service = item._id.service;
         let resource_id = item._id.resource_id;
+        let user_id = item._id.user_id;
         let count = item.count;
-
-
-        /*
-        //make service sensu safe name
-        let service_org = sensu_safe(service.split("/")[0]);
-        let service_name = sensu_Safe(service.split("/")[1]);
-        console.log(service_org);
-        console.log(service_name);
-        */
 
         if(!services[service]) services[service] = 0;
         services[service] += count;
+
+        if(!users[user_id]) users[user_id] = 0;
+        users[user_id] += count;
 
         if(resource_id) {
             if(!resources[resource_id]) resources[resource_id] = 0;
             resources[resource_id] += count;
         }
-
     });
 
     //let's pull resource detail
@@ -81,6 +76,9 @@ request.get({
         for(let resource_id in resources) {
             let detail = resource_details[resource_id];
             console.log(config.sensu.prefix+".resource."+sensu_name(detail.name)+" "+resources[resource_id]+" "+time);
+        }
+        for(let user_id in users) {
+            console.log(config.sensu.prefix+".users."+user_id+" "+users[user_id]+" "+time);
         }
     });
 });

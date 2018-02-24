@@ -30,7 +30,7 @@ router.get('/services/running', jwt({secret: config.sca.auth_pubkey}), function(
                 {status: "requested", start_date: {$exists: true}}, //starting..
             ]
         }},
-        {$group: {_id: {service: '$service', resource_id: '$resource_id'}, count: {$sum: 1}}},
+        {$group: {_id: {service: '$service', resource_id: '$resource_id', user_id: '$user_id'}, count: {$sum: 1}}},
     ]).exec(function(err, services) {
         if(err) return next(err);
         res.json(services);
