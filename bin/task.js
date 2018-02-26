@@ -850,7 +850,12 @@ function start_task(task, resource, cb) {
                             if(err) return next_dep(err);
                             if(!source_resource || source_resource.status == "removed") return next_dep("couldn't find dep resource:"+dep.resource_id);
                             if(!source_resource.active) return next_dep("source resource is inactive");
-                            if(!source_resource.status || source_resource.status != "ok") return next_dep("source resource status is non-ok");
+                            if(!source_resource.status || source_resource.status != "ok") {
+                                task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
+                                task.status_msg = "source resource status is non-ok .. will retry later";
+                                cb(); //abort the rest of the process
+                                return;
+                            }
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             //logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);

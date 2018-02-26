@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const request = require('request');
 const winston = require('winston');
+const async = require('async');
 
 //mine
 const config = require('../config');
@@ -49,24 +50,49 @@ request.get({
         }
     });
 
-    //let's pull resource detail
-    request.get({
-        url: "http://localhost:"+config.express.port+"/resource", json: true,
-        qs: {
-            find: JSON.stringify({
-                _id: {$in: Object.keys(resources)},
-                user_id: null, //admin can do this to bypass user id filtering
-            }),
-        },
-        headers: { authorization: "Bearer "+config.wf.jwt },
-    }, function(err, res, _resources) {
-        if(err) throw err;
+    //let's pull contact details
+    async.parallel({
 
-        let resource_details = {};
-        _resources.resources.forEach(resource=>{
-            resource_details[resource._id] = resource;
-        });
-            
+        resource_details: cb=>{
+            //let's pull resource detail
+            request.get({
+                url: "http://localhost:"+config.express.port+"/resource", json: true,
+                qs: {
+                    find: JSON.stringify({
+                        _id: {$in: Object.keys(resources)},
+                        user_id: null, //admin can do this to bypass user id filtering
+                    }),
+                },
+                headers: { authorization: "Bearer "+config.wf.jwt },
+            }, function(err, res, _resources) {
+                let resource_details = {};
+                _resources.resources.forEach(resource=>{
+                    resource_details[resource._id] = resource;
+                });
+                cb(err, resource_details);
+            });
+        },
+
+        contact_details: cb=>{
+            request.get({
+                url: config.api.auth+"/profile", json: true,
+                qs: {
+                    find: JSON.stringify({
+                        _id: {$in: Object.keys(users)},
+                    }),
+                },
+                headers: { authorization: "Bearer "+config.wf.jwt },
+            }, function(err, res, _contacts) {
+                let contact_details = {};
+                _contacts.profiles.forEach(contact=>{
+                    contact_details[contact.id] = contact;
+                });
+                cb(err, contact_details);
+            });
+        },
+
+    }, (err, results)=>{
+        //console.dir(results.contact_details);
         //now emit
         let time = Math.round(new Date().getTime()/1000);
         for(let service in services) {
@@ -74,11 +100,12 @@ request.get({
             console.log(config.sensu.prefix+".service."+safe_name+" "+services[service]+" "+time);
         }
         for(let resource_id in resources) {
-            let detail = resource_details[resource_id];
+            let detail = results.resource_details[resource_id];
             console.log(config.sensu.prefix+".resource."+sensu_name(detail.name)+" "+resources[resource_id]+" "+time);
         }
         for(let user_id in users) {
-            console.log(config.sensu.prefix+".users."+user_id+" "+users[user_id]+" "+time);
+            let user = results.contact_details[user_id];
+            console.log(config.sensu.prefix+".users."+user.username+" "+users[user_id]+" "+time);
         }
     });
 });

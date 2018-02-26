@@ -34,7 +34,6 @@ exports.amaretti = {
     //all user will have access to any resources that are shared with this group 
     global_groups: [1],
 }
-
 exports.wf = exports.amaretti; //deprecated
 exports.sca = exports.amaretti; //deprecated
 
