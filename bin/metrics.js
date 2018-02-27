@@ -80,6 +80,7 @@ request.get({
                     find: JSON.stringify({
                         _id: {$in: Object.keys(users)},
                     }),
+                    limit: 5000, //TODO unsustainable?
                 },
                 headers: { authorization: "Bearer "+config.wf.jwt },
             }, function(err, res, _contacts) {

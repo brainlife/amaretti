@@ -719,7 +719,7 @@ function start_task(task, resource, cb) {
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*30);
+                        set_conn_timeout(conn, stream, 1000*45);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
                             else if(code) return next("Failed to git clone. code:"+code);
@@ -738,7 +738,7 @@ function start_task(task, resource, cb) {
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
                     conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*30);
+                        set_conn_timeout(conn, stream, 1000*45);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git pull");
                             else if(code) return next("Failed to git pull "+task._id.toString());
