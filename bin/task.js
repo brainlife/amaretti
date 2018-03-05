@@ -541,7 +541,7 @@ function handle_running(task, next) {
                 logger.debug("running", service_detail.status, task._id.toString(), taskdir)
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
-                    set_conn_timeout(conn, stream, 1000*15);
+                    set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
                     stream.on('close', function(code, signal) {
                         //remove everything before sca token (to ignore output from .bashrc)
@@ -797,16 +797,13 @@ function start_task(task, resource, cb) {
                         stream.write("#!/bin/bash\n");
 
                         //write some debugging info
-                        //logger.debug(JSON.stringify(resource_detail, null, 4));
                         stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+" of "+(task.retry+1)+")\n");
-                        //stream.write("# resource id    : "+resource._id+"\n");
                         var username = (resource.config.username||resource_detail.username);
                         var hostname = (resource.config.hostname||resource_detail.hostname);
                         stream.write("# resource       : "+resource_detail.name+" / "+resource.name+"\n");
                         stream.write("# resource       : "+resource.name+" ("+resource_detail.name+")\n");
                         stream.write("#                : "+username+"@"+hostname+"\n");
                         stream.write("# task dir       : "+taskdir+"\n");
-                        //stream.write("# task deps      : "+task.deps+"\n"); //need to unpopulate
                         if(task.remove_date) stream.write("# remove_date    : "+task.remove_date+"\n");
 
                         //write ENVs
@@ -859,24 +856,17 @@ function start_task(task, resource, cb) {
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             //logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
-
-                            //common.progress(task.progress_key+".sync", {status: 'running', progress: 0, weight: 0, name: 'Transferring source task directory'});
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
-                                //logger.debug("running rsync_resource.............", dep._id.toString());
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, err=>{
                                     if(err) {
                                         logger.error("failed rsyncing.........", err, dep._id.toString());
-                                        //common.progress(task.progress_key+".sync", {status: 'failed', msg: err.toString()});
-                                        
                                         //I want to retry if rsyncing fails by leaving the task status to be requested
-                                        //next_dep(err)
                                         task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
                                         task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
                                         cb(); //abort the rest of the process
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
-                                        //common.progress(task.progress_key+".sync", {status: 'finished', msg: "Successfully synced", progress: 1});
                                         //need to add dest resource to source dep
                                         if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
                                             logger.debug("adding new resource_id", resource._id);
