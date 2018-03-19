@@ -104,5 +104,5 @@ function health_check(resources, counts) {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
 
-    rcon.set("health.workflow.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+    rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }

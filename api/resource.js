@@ -141,7 +141,7 @@ function score_resource(user, resource, task, cb) {
         //check number of tasks currently running on this resource and compare it with maxtask if set
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask; //override with resource specific maxtask
-        if(!maxtask) return cb(null, score, detail); //no maxtask set.. don't need to check
+        if(!maxtask) return cb(null, score, detail); //no maxtask set (or 0?).. don't need to check
         db.Task.find({
             resource_id: resource._id, 
             $or: [

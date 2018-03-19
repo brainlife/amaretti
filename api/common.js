@@ -103,6 +103,9 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('error', function(err) {
         logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
         delete ssh_conns[resource._id];
+
+        logger.debug("sftp channel dump..");
+        console.dir(ssh_conns);
         
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
@@ -126,15 +129,19 @@ exports.get_ssh_connection = function(resource, cb) {
 }
 
 //I need to keep up with sftp connection cache independent of ssh connection pool
+//TODO - looks like sftp connection is leaking somewhere..?
+//sftp becomes unresponsive until I restart warehouse api
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
     //see if we already have an active sftp session
     var old = sftp_conns[resource._id];
     if(old) {
         //TODO - check to make sure connection is really alive?
+
+        logger.debug("reusing sftp for resource:"+resource._id);
         return cb(null, old);
     }
-    //open new sftp connection
+    logger.debug("open new sftp connection");
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
@@ -158,6 +165,11 @@ exports.get_sftp_connection = function(resource, cb) {
         logger.error("sftp connectionn error", err, resource._id.toString());
         delete sftp_conns[resource._id];
 
+        logger.error("sftp channel dump..");
+        console.error(sftp_conns);
+
+        //we want to return connection error to caller, but error could fire after ready event is called. 
+        //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });
@@ -171,10 +183,47 @@ exports.get_sftp_connection = function(resource, cb) {
     });
 }
 
+/*
+if(config.amaretti.debug) {
+    setInterval(()=>{
+        logger.debug("ssh channel dump..");
+        console.dir(ssh_conns);
+        logger.debug("sftp channel dump..");
+        console.dir(sftp_conns);
+    }, 1000*60);
+}
+*/
+
 exports.report_ssh = function() {
+    /*
+    let ssh_channels = {};
+    for(var id in ssh_conns) {
+        ssh_channels[id] = ssh_conns[id];
+    }
+    let sftp_channels = {};
+    for(var id in sftp_conns) {
+        sftp_channels[id] = sftp_conns[id];
+    }
+    */
+
+    /*
+    //let's make sure all sftp connections are still good
+    var sftp_status = {};
+    for(var id in sftp_conns) {
+        let sftp = sftp_conns[id]; 
+        //sftp_status[id] = "ok";
+        sftp.readdir(".", (err, files)=>{
+            logger.debug("sftp.readdir test finished");
+            if(err) return sftp_status[id] = err;
+            sftp_status[id] = "got files:"+files.length;
+        });
+    }
+    */
+
     return {
         ssh_cons: Object.keys(ssh_conns).length,
         sftp_cons: Object.keys(sftp_conns).length,
+        //sftp_status, 
     }
 }
 

@@ -33,6 +33,9 @@ exports.amaretti = {
     //groups that all users has access to. 
     //all user will have access to any resources that are shared with this group 
     global_groups: [1],
+
+    //show a bit more debug loggin
+    debug: true,
 }
 exports.wf = exports.amaretti; //deprecated
 exports.sca = exports.amaretti; //deprecated
@@ -45,7 +48,7 @@ exports.github = {
 
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
-    amqp: {url: "amqp://wf:test@localhost:5672/brainlife"},
+    amqp: {url: "amqp://amaretti:gobrain@localhost:5672/brainlife"},
     exchange: "wf", //used as prefix for full exchange name
 }
 

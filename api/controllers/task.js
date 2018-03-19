@@ -41,20 +41,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         {user_id: req.user.sub},
         {_group_id: {$in: req.user.gids||[]}},
     ];
-    //* @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
-    /*
-    let is_admin = false;
-    if(req.user.scopes.sca && ~req.user.scopes.sca.indexOf("admin")) is_admin = true;
-
-    //handling user_id.
-    if(!is_admin || find.user_id === undefined) {
-        //non admin, or admin didn't set user_id
-        find.user_id = req.user.sub;
-    } else if(find.user_id == null) {
-        //admin can set it to null and remove user_id filtering all together
-        delete find.user_id;
-    }
-    */
 
     db.Task.find(find)
     .select(req.query.select)
@@ -302,6 +288,7 @@ router.get('/download/:taskid', jwt({
         return null;
     }
 }), function(req, res, next) {
+    logger.debug("/download/task/"+req.params.taskid);
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -311,12 +298,12 @@ router.get('/download/:taskid', jwt({
 
             common.get_sftp_connection(resource, function(err, sftp) {
                 if(err) return next(err);
-
+                logger.debug("stat-ing");
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
                     if(stat.isDirectory()) {
-                        //logger.debug("sending directory(.tar.gz) using tar / gzip", fullpath);
+                        logger.debug("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
 
@@ -336,7 +323,7 @@ router.get('/download/:taskid', jwt({
                             });
                         });
                     } else {
-                        logger.debug("streaming file via sftp", fullpath);
+                        logger.debug("file.. streaming file via sftp", fullpath);
                         
                         //npm-mime uses filename to guess mime type, so I can use this locally
                         //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
@@ -350,7 +337,6 @@ router.get('/download/:taskid', jwt({
                         if(mimetype) res.setHeader('Content-Type', mimetype);
                         let stream = sftp.createReadStream(fullpath);
                         stream.pipe(res);
-                        //req.on('close', stream.close);
                     }
                 });
             });
@@ -373,9 +359,6 @@ router.get('/download/:taskid', jwt({
  *                              {file stats uploaded}
  */
 router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    //var id = req.params.resourceid;
-    //var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
-    //logger.debug("request path: "+_path);
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
         
@@ -720,7 +703,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
 /**
  * @api {put} /task/:taskid     Update Task
  * @apiGroup Task
- * @apiDescription              (Admin only) This API allows you to update task detail. Normally, you don't really
+ * @apiDescription              This API allows you to update task detail. Normally, you don't really
  *                              want to update task detail after it's submitted. Doing so might cause task to become
  *                              inconsistent with the actual state. 
  *                              To remove a field, set the field to null (not undefined - since it's not valid JSON)
@@ -754,8 +737,6 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     const id = req.params.taskid;
     const gids = req.user.gids||[];
 
-    //this is admin only api (for now..)
-    //if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
     //warehouse service currently relies on config to store archival information
     //I need to store it somewhere else - since I shouldn't be letting user modify this
 

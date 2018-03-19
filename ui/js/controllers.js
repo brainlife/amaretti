@@ -91,10 +91,17 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
     
     //set isadmin flag
     var isadmin = false;
+
+    //deprecated (use scopes.amaretti)
     if( resource_scope.user && 
         resource_scope.user.scopes &&
         resource_scope.user.scopes.sca &&
         ~resource_scope.user.scopes.sca.indexOf("admin") ) isadmin = true;
+
+    if( resource_scope.user && 
+        resource_scope.user.scopes &&
+        resource_scope.user.scopes.amaretti &&
+        ~resource_scope.user.scopes.amaretti.indexOf("admin") ) isadmin = true;
 
     serverconf.then(function(_c) { 
         $scope.serverconf = _c; 
@@ -233,6 +240,7 @@ function($scope, menu, serverconf, scaMessage, toaster, $routeParams, $http, res
             templateUrl: template,
             controller: function($scope, inst, resource, $modalInstance, $http, appconf) {
                 $scope.isadmin = isadmin;
+                $scope.keycomment = window.location.hostname;
 
                 $scope.reset_sshkey = function(inst) {
                     forge.pki.rsa.generateKeyPair({bits: 2048, workers: 2/*e: 0x10001*/}, function(err, keypair) {

@@ -56,8 +56,8 @@ exports.health_check = function() {
                 if(report.status != "ok") logger.error(report);
                 
                 //report to redis
-                //logger.debug("reporting to redis");
-                redis_client.set("health.workflow.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+                //logger.debug("reporting to redis--------------------------------------------------");
+                redis_client.set("health.amaretti.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
             });
         });
     } catch(err) {
@@ -68,7 +68,7 @@ exports.health_check = function() {
 
 //load all heath reports posted
 exports.get_reports = function(cb) { 
-    redis_client.keys("health.workflow.*", (err, keys)=>{
+    redis_client.keys("health.amaretti.*", (err, keys)=>{
         if(err) return cb(err);
         redis_client.mget(keys, (err, _reports)=>{
             if(err) return cb(err);

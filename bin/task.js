@@ -440,10 +440,15 @@ function handle_stop(task, next) {
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
         }
+
+        //TODO - should I go ahead and try stopping task even if resource status is inactive?
+        //to let user manually *drain* tasks?
+        //(admin can also set maxtask to 0 ... for now)
         if(!resource.active) {
             task.status_msg = "Resource is inactive .. postponing stop";
             return next();
         }
+
         if(!resource.status || resource.status != "ok") {
             task.status_msg = "Resource status is not ok .. postponing stop";
             return next();
@@ -496,7 +501,6 @@ function handle_running(task, next) {
     //calculate runtime
     var now = new Date();
     var runtime = now - task.start_date;
-    //logger.debug("task runtime", runtime, "max", task.max_runtime);
     if(task.max_runtime !== undefined && task.max_runtime < runtime) {
         logger.warn("task running too long.. stopping", runtime);
         task.status = "stop_requested";
@@ -513,10 +517,15 @@ function handle_running(task, next) {
             task.fail_date = new Date();
             return next();
         }
+
+        //TODO - should I remove this so that we check running task status
+        //even after the resource becomes inactive (to simulate "draining"?)
+        //admin can also set max task to 0 for now
         if(!resource.active) {
             task.status_msg = "Resource is inactive .. will check later";
             return next();
         }
+
         if(!resource.status || resource.status != "ok") {
             task.status_msg = "Resource status is not ok .. will check later";
             return next();
@@ -939,7 +948,11 @@ function start_task(task, resource, cb) {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
                         conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
-                            set_conn_timeout(conn, stream, 1000*20);
+                            
+                            //20 seconds too short to validate large dwi by validator-neuro-track
+                            //TODO - I should really make validator-neuro-track asynchronous
+                            set_conn_timeout(conn, stream, 1000*60); 
+
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) next("timedout while running_sync");
                                 else if(code) return next("failed to run (code:"+code+")");
@@ -1055,7 +1068,7 @@ function health_check() {
             report.messages.push(err);
         }
         report.agent_keys = keys.length;
-        rcon.set("health.workflow.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+        rcon.set("health.amaretti.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 
         //reset counter
         _counts.checks = 0;

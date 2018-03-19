@@ -83,7 +83,7 @@ router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), functio
  * @apiParam {String} [select]  Fields to load - defaults to 'logical_id'. Multiple fields can be entered with %20 as delimiter
  * @apiParam {Number} [limit]   Maximum number of records to return - defaults to 100
  * @apiParam {Number} [skip]    Record offset for pagination (default to 0)
- * @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
+ * @apiParam {String} [user_id] (Only for amaretti:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
  *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
@@ -237,7 +237,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  * @apiParam {String} [name]      Name of this resource instance
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
- * @apiParam {Number[]} [gids]    List of groups that can use this resource (only sca admin can update)
+ * @apiParam {Number[]} [gids]    List of groups that can use this resource (only amaretti admin can update)
  * @apiParam {Boolean} [active]   Set true to enable resource
  *
  * @apiDescription Update the resource instance (only the resource that user owns)
@@ -253,11 +253,8 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
         if(!resource) return res.status(404).end();
         //if(resource.user_id != req.user.sub) return res.status(401).end();
         if(!canedit(req.user, resource)) return res.status(401).end();
-
         //only admin can update gids
-        if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
-            delete resource.gids;
-        }
+        if(!is_admin(req.user)) delete resource.gids;
 
         //need to decrypt first so that I can preserve previous values
         common.decrypt_resource(resource);
@@ -298,7 +295,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  * @apiParam {String} [name]    Name of this resource instance (like "soichi's karst account")
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
- * @apiParam {Number[]} [gids]  List of groups that can use this resource (only sca admin can enter this)
+ * @apiParam {Number[]} [gids]  List of groups that can use this resource (only amaretti admin can enter this)
  * @apiParam {Boolean} [active] Set true to enable resource
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
@@ -326,9 +323,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     var resource = new db.Resource(req.body);
 
     //only admin can update gids
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) {
-        delete resource.gids;
-    }
+    if(!is_admin(req.user)) delete resource.gids;
 
     resource.user_id = req.user.sub;
     common.encrypt_resource(resource);
