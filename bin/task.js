@@ -265,20 +265,27 @@ function handle_housekeeping(task, cb) {
             if(!need_remove) return next();
 
             logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
-            var removed_count = 0;
+            //var removed_count = 0;
+            let removed_resource_ids = [];
             async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
-                        logger.error("failed to find resource_id:"+resource_id+" for removal");
-                        return next_resource(err);
+                        logger.error("failed to find resource_id:"+resource_id+" for removal.. db issue?", err);
+                        return next_resource();
                     }
                     if(!resource || resource.status == "removed") {
-                        logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exist");
-                        return next_resource(); //user sometimes removes resource.. but that's ok..
+                        //user sometimes removes resource.. but that's ok..
+                        logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exists in db..");
+                        removed_resource_ids.push(resource_id);
+                        return next_resource(); 
                     }
-                    if(!resource.active) return next_resource("resource is inactive.. will try later");
+                    if(!resource.active) {
+                        logger.info("resource("+resource._id.toString()+") is inactive.. will try removing it later");
+                        return next_resource();
+                    }
                     if(!resource.status || resource.status != "ok") {
-                        return next_resource("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
+                        logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try removing it later");
+                        return next_resource();
                     }
 
                     //logger.debug("getting ssh connection to remove work/task dir");
@@ -293,16 +300,14 @@ function handle_housekeeping(task, cb) {
                             set_conn_timeout(conn, stream, 1000*60);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
-                                    next_resource("timeout while removing");
+                                    logger.error("timeout while removing taskdir.. will try later");
                                 } else if(code) {
-                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
-                                    //TODO should I retry later?
-                                    return next_resource();
+                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?).. will try later");
                                 } else {
                                     logger.debug("successfully removed!");
-                                    removed_count++;
-                                    next_resource();
+                                    removed_resource_ids.push(resource_id);
                                 }
+                                next_resource();
                             })
                             .on('data', function(data) {
                                 logger.info(data.toString());
@@ -314,23 +319,22 @@ function handle_housekeeping(task, cb) {
                 });
             }, function(err) {
                 if(err) {
-                    logger.info(err); //continue
+                    logger.error(err); //continue with other task..
                     next();
                 } else {
-                    logger.debug("done removing");
-                    task.status = "removed";
-                    task.status_msg = "taskdir removed from "
-                    if(removed_count == 0 || removed_count != task.resource_ids.length) {
-                        task.status_msg += removed_count+" out of "+task.resource_ids.length+" resources";
+                    if(removed_resource_ids.length == task.resource_ids.length) {
+                        task.status_msg = "removed all task directories";
+                        task.status = "removed";
                     } else {
-                        task.status_msg += " all resources";
+                        task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
                     }
 
-                    //reset resource ids
-                    task.resource_ids = [];
-
-                    //also post to progress.. (TODO - should I set the status?)
-                    //common.progress(task.progress_key, {msg: 'Task directory Removed'});
+                    //remove removed resource_ids
+                    var resource_ids = [];
+                    task.resource_ids.forEach(function(id) {
+                        if(!~common.indexOfObjectId(removed_resource_ids, id)) resource_ids.push(id);
+                    });
+                    task.resource_ids = resource_ids;
 
                     next();
                 }
