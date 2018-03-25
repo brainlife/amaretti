@@ -130,8 +130,10 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //TODO - set timeout similar to bin/task's?
                 conn.exec("mkdir -p "+dest_path, function(err, stream) {
                     if(err) return next(err);
+                    common.set_conn_timeout(conn, stream, 1000*20);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to mkdir -p "+dest_path);
+                        if(code === undefined) return next("timedout while mkdir -p "+dest_path);
+                        else if(code) return next("Failed to mkdir -p "+dest_path);
                         next();
                     })
                     .on('data', function(data) {
@@ -151,8 +153,10 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
                 conn.exec("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
+                    common.set_conn_timeout(conn, stream, 1000*20);
                     stream.on('close', function(code, signal) {
-                        if(code) return next("Failed to cleanup broken symlinks on source");
+                        if(code === undefined) return next("timedout while removing broken symlinks");
+                        else if(code) return next("Failed to cleanup broken symlinks on source");
                         next();
                     })
                     .on('data', function(data) {
@@ -182,12 +186,13 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
 
-                //TODO set timeout similar to bin/task?
                 conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
+                    common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
                     let errors = "";
                     stream.on('close', function(code, signal) {
-                        if(code) { 
+                        if(code === undefined) return next("timedout while rsyncing");
+                        else if(code) { 
                             //next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" -- "+errors);
                             logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" -- "+errors);
                             //" Please check firewall / sshd configuration / disk space / resource availability");

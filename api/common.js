@@ -522,3 +522,16 @@ exports.indexOfObjectId = function(ids, search_id, cb) {
     });
     return pos;
 }
+
+exports.set_conn_timeout = function(cqueue, stream, time) {
+    var timeout = setTimeout(()=>{
+        logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
+        //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
+        cqueue.end();
+    }, time);
+    stream.on('close', (code, signal)=>{
+        clearTimeout(timeout);
+    });
+}
+
+

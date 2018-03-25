@@ -71,17 +71,6 @@ function set_nextdate(task) {
     }
 }
 
-function set_conn_timeout(cqueue, stream, time) {
-    var timeout = setTimeout(()=>{
-        logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
-        //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
-        cqueue.end();
-    }, time);
-    stream.on('close', (code, signal)=>{
-        clearTimeout(timeout);
-    });
-}
-
 function check(cb) {
     _counts.checks++; //for health reporting
     db.Task.findOne({
@@ -197,7 +186,7 @@ function handle_housekeeping(task, cb) {
                         //TODO is it better to use sftp?
                         conn.exec("ls "+taskdir, function(err, stream) {
                             if(err) return next_resource(err);
-                            set_conn_timeout(conn, stream, 1000*10);
+                            common.set_conn_timeout(conn, stream, 1000*10);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
                                     logger.error("timed out while trying to ls", taskdir, "assuming it still exists");
@@ -297,7 +286,7 @@ function handle_housekeeping(task, cb) {
                         logger.info("removing "+taskdir+" and workdir if empty");
                         conn.exec("rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")", function(err, stream) {
                             if(err) return next_resource(err);
-                            set_conn_timeout(conn, stream, 1000*60);
+                            common.set_conn_timeout(conn, stream, 1000*60);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
                                     logger.error("timeout while removing taskdir.. will try later");
@@ -467,7 +456,7 @@ function handle_stop(task, next) {
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.stop, (err, stream)=>{
                     if(err) return next(err);
-                    set_conn_timeout(conn, stream, 1000*60);
+                    common.set_conn_timeout(conn, stream, 1000*60);
                     stream.on('close', function(code, signal) {
                         task.status = "stopped";
                         if(code === undefined) {
@@ -554,7 +543,7 @@ function handle_running(task, next) {
                 logger.debug("running", service_detail.status, task._id.toString(), taskdir)
                 conn.exec("cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status, (err, stream)=>{
                     if(err) return next(err);
-                    set_conn_timeout(conn, stream, 1000*45);
+                    common.set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
                     stream.on('close', function(code, signal) {
                         //remove everything before sca token (to ignore output from .bashrc)
@@ -706,7 +695,7 @@ function start_task(task, resource, cb) {
                     logger.debug("(for backward compatibility) remove old taskdir if it doesn't have .git");
                     conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir, function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*5);
+                        common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while cleaning old service dir");
                             else if(code && code == 1) return next(); //taskdir not there (good..)
@@ -732,7 +721,7 @@ function start_task(task, resource, cb) {
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*45);
+                        common.set_conn_timeout(conn, stream, 1000*45);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
                             else if(code) return next("Failed to git clone. code:"+code);
@@ -751,7 +740,7 @@ function start_task(task, resource, cb) {
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
                     conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*45);
+                        common.set_conn_timeout(conn, stream, 1000*45);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git pull");
                             else if(code) return next("Failed to git pull "+task._id.toString());
@@ -775,7 +764,7 @@ function start_task(task, resource, cb) {
                     logger.debug("installing config.json", task._id.toString());
                     conn.exec("cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*5);
+                        common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while installing config.json");
                             else if(code) return next("Failed to write config.json");
@@ -796,7 +785,7 @@ function start_task(task, resource, cb) {
                     logger.debug("writing _env.sh", task._id.toString());
                     conn.exec("cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh", function(err, stream) {
                         if(err) return next(err);
-                        set_conn_timeout(conn, stream, 1000*5);
+                        common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while writing _env.sh");
                             else if(code) return next("Failed to write _env.sh -- code:"+code);
@@ -907,7 +896,7 @@ function start_task(task, resource, cb) {
                         //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
                         conn.exec("cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1", (err, stream)=>{
                             if(err) return next(err);
-                            set_conn_timeout(conn, stream, 1000*20);
+                            common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) return next("timedout while starting task");
                                 else if(code) return next("failed to start (code:"+code+")");
@@ -955,7 +944,7 @@ function start_task(task, resource, cb) {
                             
                             //20 seconds too short to validate large dwi by validator-neuro-track
                             //TODO - I should really make validator-neuro-track asynchronous
-                            set_conn_timeout(conn, stream, 1000*60); 
+                            common.set_conn_timeout(conn, stream, 1000*60); 
 
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) next("timedout while running_sync");
