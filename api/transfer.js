@@ -22,19 +22,22 @@ exports.sshagent_list_keys = function(cb) {
     sshagent_client.listKeys(cb);
 }
 
-//very similar to the one in api/common, but I don't want to fix it with non-agennt enabled one for security reason
+//very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
 var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
     //TODO - check to make sure connection is really alive?
-    if(old) return cb(null, old);
+    if(old) {
+        logger.debug("reusing connection for", resource._id.toString());
+        return cb(null, old);
+    }
 
-    logger.debug("transfer: opening ssh connection to", resource.name);
+    logger.debug("transfer: opening ssh connection to", resource._id.toString());
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
-        logger.debug("transfer: ssh connection ready");
+        logger.debug("transfer: ssh connection ready", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
 
@@ -42,11 +45,11 @@ function get_ssh_connection_with_agent(resource, cb) {
         cb = null;
     });
     conn.on('end', function() {
-        logger.debug("transfer: ssh connection ended");
+        logger.debug("transfer: ssh connection ended", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('close', function() {
-        logger.debug("transfer: ssh connection closed");
+        logger.debug("transfer: ssh connection closed", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
@@ -79,11 +82,31 @@ function get_ssh_connection_with_agent(resource, cb) {
     });
 }
 
+/*
+3|task     | 0> Sun Mar 25 2018 11:53:14 GMT+0000 (UTC) - error: failed rsyncing......... { Error: (SSH) Channel open failure: open failed
+3|task     |     at SSH2Stream.onFailure (/app/node_modules/ssh2/lib/client.js:1195:13)
+3|task     |     at Object.onceWrapper (events.js:315:30)
+3|task     |     at emitOne (events.js:116:13)
+3|task     |     at SSH2Stream.emit (events.js:211:7)
+3|task     |     at parsePacket (/app/node_modules/ssh2-streams/lib/ssh.js:3708:10)
+3|task     |     at SSH2Stream._transform (/app/node_modules/ssh2-streams/lib/ssh.js:669:13)
+3|task     |     at SSH2Stream.Transform._read (_stream_transform.js:186:10)
+3|task     |     at SSH2Stream._read (/app/node_modules/ssh2-streams/lib/ssh.js:251:15)
+3|task     |     at SSH2Stream.Transform._write (_stream_transform.js:174:12)
+3|task     |     at doWrite (_stream_writable.js:397:12)
+3|task     |     at writeOrBuffer (_stream_writable.js:383:5)
+3|task     |     at SSH2Stream.Writable.write (_stream_writable.js:290:11)
+3|task     |     at Socket.ondata (_stream_readable.js:639:20)
+3|task     |     at emitOne (events.js:116:13)
+3|task     |     at Socket.emit (events.js:211:7)
+3|task     |     at addChunk (_stream_readable.js:263:12) reason: 'ADMINISTRATIVELY_PROHIBITED', lang: '' } 5ab7211312aa03002bf955cd
+*/
+
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb) {
     //logger.debug("rsync_resource", source_resource._id, dest_resource._id, source_path, dest_path);
-
     get_ssh_connection_with_agent(dest_resource, function(err, conn) {
         if(err) return cb(err); 
+        logger.debug("got ssh conn");
         async.series([
             next=>{
                 //forward source's ssh key to dest

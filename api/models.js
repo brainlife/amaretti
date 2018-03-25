@@ -229,20 +229,3 @@ var taskeventSchema = mongoose.Schema({
 });
 exports.Taskevent = mongoose.model('Taskevent', taskeventSchema);
 
-/*
-//used to comments on various *things*
-var commentSchema = mongoose.Schema({
-
-    type: String, //workflow, instance, task, etc..
-    subid: String, //workflow_id, instance_id, whatever... could be not set
-
-    user_id: String, //author user id
-    create_date: {type: Date, default: Date.now },
-    text: String, //content of the comment
-
-    //profile cache to speed things up
-    //TODO update this cache periodically, or whenever user changes profile
-    _profile: mongoose.Schema.Types.Mixed,
-});
-exports.Comment = mongoose.model('Comment', commentSchema);
-*/

@@ -7,11 +7,14 @@ const os = require('os');
 const request = require('request');
 const winston = require('winston');
 const async = require('async');
+const redis = require('redis');
 
 //mine
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
-//const db = require('../api/models');
+
+//connect to redis - used to store previously non-0 data
+const re = redis.createClient(config.redis.port, config.redis.server);
 
 function sensu_name(name) {
     name = name.toLowerCase();
@@ -23,7 +26,8 @@ function sensu_name(name) {
 //I can just load this directly from mongo.. but to be consistent 
 //with what user sees (via API) let's pull it from API..
 request.get({
-    url: "http://localhost:"+config.express.port+"/admin/services/running", json: true,
+    url: "http://localhost:"+config.express.port+"/admin/services/running?duration=300", 
+    json: true,
     headers: { authorization: "Bearer "+config.wf.jwt },
 }, function(err, res, list) {
     if(err) throw err;
@@ -49,6 +53,8 @@ request.get({
             resources[resource_id] += count;
         }
     });
+
+    let emits = {}; //key value to emit
 
     //let's pull contact details
     async.parallel({
@@ -92,22 +98,57 @@ request.get({
             });
         },
 
+        recent: cb=>{
+            //set 0 values for recently non-0 values
+            re.keys("amaretti.metric.*", (err, recs)=>{
+                if(err) return cb(err);
+                recs.forEach(rec=>{
+                    //grab all the path after amaretti.metric.
+                    let path = rec.split(".").slice(2).join(".");
+                    emits[path] = 0;
+                });
+                cb();
+            });
+        },
+
     }, (err, results)=>{
-        //console.dir(results.contact_details);
-        //now emit
+        
         let time = Math.round(new Date().getTime()/1000);
         for(let service in services) {
             let safe_name = sensu_name(service).replace("/", ".");
-            console.log(config.sensu.prefix+".service."+safe_name+" "+services[service]+" "+time);
+            let sensu_key = config.sensu.prefix+".service."+safe_name;
+            re.set('amaretti.metric.'+sensu_key, 1);
+            re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+
+            emits[sensu_key] = services[service];
         }
         for(let resource_id in resources) {
             let detail = results.resource_details[resource_id];
-            console.log(config.sensu.prefix+".resource."+sensu_name(detail.name)+" "+resources[resource_id]+" "+time);
+            if(!detail) {
+                console.error("no detail for", resource_id);
+            } else {
+                let sensu_key = config.sensu.prefix+".resource."+sensu_name(detail.name);
+                re.set('amaretti.metric.'+sensu_key, 1);
+                re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+                //console.log(sensu_key+" "+resources[resource_id]+" "+time); //emit
+                emits[sensu_key] = resources[resource_id];
+            }
         }
         for(let user_id in users) {
             let user = results.contact_details[user_id];
-            console.log(config.sensu.prefix+".users."+user.username+" "+users[user_id]+" "+time);
+            let sensu_key = config.sensu.prefix+".users."+user.username;
+            re.set('amaretti.metric.'+sensu_key, 1);
+            re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+            //console.log(sensu_key+" "+users[user_id]+" "+time); //emit
+            emits[sensu_key] = users[user_id];
         }
+    
+        //now emit
+        for(var key in emits) {
+            console.log(key+" "+emits[key]+" "+time);
+        }
+
+        re.end(true);
     });
 });
 
