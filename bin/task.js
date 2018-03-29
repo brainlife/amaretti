@@ -738,22 +738,36 @@ function start_task(task, resource, cb) {
                 //update service
                 next=>{
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull", function(err, stream) {
+                    conn.exec("cd "+taskdir+" && git fetch && git reset --hard && git pull && git log -1", (err, stream)=>{
                         if(err) return next(err);
                         common.set_conn_timeout(conn, stream, 1000*45);
+                        let out = "";
                         stream.on('close', function(code, signal) {
-                            if(code === undefined) return next("timeout while git pull");
-                            else if(code) return next("Failed to git pull "+task._id.toString());
-                            else next();
+                            if(code === undefined) {
+                                return next("timeout while git pull");
+                            } else if(code) {
+                                return next("Failed to git pull "+task._id.toString());
+                            } else {
+                                let lines = out.split("\n");
+                                let commit_id = null;
+                                lines.forEach(line=>{
+                                    if(line.indexOf("commit ") == 0) {
+                                        commit_id = line.substring(7);
+                                    }
+                                });
+                                task.commit_id = commit_id;
+                                next();
+                            }
                         })
                         .on('data', function(data) {
                             logger.info(data.toString());
+                            out+=data.toString();
                         }).stderr.on('data', function(data) {
                             logger.error(data.toString());
                         });
                     });
                 },                
-                
+
                 //install config.json in the taskdir
                 next=>{
                     if(!task.config) {

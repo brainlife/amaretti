@@ -112,6 +112,8 @@ var taskSchema = mongoose.Schema({
     //github repo
     service: String, // "soichih/sca-service-life"
     service_branch: String, //master by default
+
+    commit_id: String, //git commit id when the task was started
        
     //TEXT INDEX field (below) to be searchable with text search
     name: String, 
