@@ -42,6 +42,14 @@ request.get({
         let user_id = item._id.user_id;
         let count = item.count;
 
+        /*
+        //make service sensu safe name
+        let service_org = sensu_safe(service.split("/")[0]);
+        let service_name = sensu_Safe(service.split("/")[1]);
+        console.log(service_org);
+        console.log(service_name);
+        */
+
         if(!services[service]) services[service] = 0;
         services[service] += count;
 
