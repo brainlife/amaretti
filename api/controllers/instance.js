@@ -44,20 +44,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         {group_id: {$in: req.user.gids||[]}},
     ];
 
-    //logger.debug("-----------------------------------------------------------");
-    //logger.debug(JSON.stringify(find, null, 4));
-
-    /*
-    //handling user_id.
-    if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin") || find.user_id === undefined) {
-        //non admin, or admin didn't set user_id
-        find.user_id = req.user.sub;
-    } else if(find.user_id == null) {
-        //admin can set it to null and remove user_id filtering all together
-        delete find.user_id;
-    }
-    */
-
     db.Instance.find(find)
     .select(req.query.select)
     .limit(req.query.limit || 100)
@@ -134,8 +120,6 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
     instance.user_id = req.user.sub;
 
     //set group_id if user is member of
-    logger.debug("post requested");
-    logger.debug(JSON.stringify(instance, null, 4));
     if(req.body.group_id) {
         let gids = req.user.gids||[];
         if(~gids.indexOf(req.body.group_id)) instance.group_id = req.body.group_id;

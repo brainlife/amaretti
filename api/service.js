@@ -71,7 +71,7 @@ exports.loaddetail = function(service_name, branch, cb) {
                 Object.assign(detail, pkg.scripts, pkg.abcd); //pkg.scripts should be deprecated in favor of pkg.abcd
                 detail._pkg = pkg; //also store the entire package.json content under detail..
             } else {
-                logger.info("couldn't load package.json - using default");
+                //logger.info("couldn't load package.json - using default");
             }
 
             //cache the detail

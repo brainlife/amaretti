@@ -42,8 +42,9 @@
                         <li class="list-group-item resource-instance clickable" 
                             ng-repeat="inst in myresources|filter:{resource_id:rid}" 
                             ng-click="edit(resource, inst)"
-                            ng-class="{'shared-instance': !inst._canedit}">
-                            <div class="row" style="">
+                            ng-class="{'shared-instance': !inst._canedit}" 
+                            ng-if="inst.status != 'removed'">
+                            <div class="row">
                                 <div class="col-md-5">
                                     {{inst.name}}<br>
                                     <span class="text-muted">{{inst.config.username}}</span>
@@ -173,12 +174,7 @@
             <p class="help-block">* Please add following key to ~/.ssh/authorized_keys on {{resource.hostname}}. Please read <a href="https://kb.iu.edu/d/aews" target="_blank">https://kb.iu.edu/d/aews</a> for more information.</p>
             <button class="btn btn-xs pull-right" type="button" ng-click="reset_sshkey(inst)">Reset Keys</button>
             <p class="well well-sm" style="font-family: Courier; font-size: 75%; word-wrap: break-word;">#Public key to allow access to this resource through ({{inst.name}})<br>
-{{inst.config.ssh_public}} {{inst.config.username}}@sca</p>
-            <!--
-            <label>SSH Private Key</label>
-            <pre class="well well-sm" style="overflow: auto; font-family: Courier; font-size: 60%; height: 150px;">
-{{inst.config.enc_ssh_private}}</pre>
-            -->
+{{inst.config.ssh_public}} {{keycomment}}({{inst.name}})</p>
         </div>
         <div class="form-group">
             <label>Sharing</label>
@@ -196,13 +192,6 @@
         </div>
         <div class="form-group">
             <label>Services</label>
-            <!--
-            <ui-select multiple tagging="service_transform" ng-model="inst.config.services" title="Enter services to run">
-                <ui-select-match placeholder="Specify Services..">{{$item.name}} {{$item.score}}</ui-select-match>
-                <ui-select-choices repeat="service in []">{{service.name}} (score:{{service.score}})</ul-select-choices> 
-            </ui-select>
-            -->
-
             <div class="input-group" ng-repeat="service in inst.config.services" style="margin-bottom: 2px;">
                 <span class="input-group-addon">Service</span>
                 <input type="text" class="form-control" id="basic-url" ng-model="service.name" style="width: 320px">

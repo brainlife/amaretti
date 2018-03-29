@@ -4,6 +4,7 @@
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
+const fs = require('fs');
 
 //mine
 const config = require('../config');
@@ -19,22 +20,21 @@ exports.select = function(user, task, cb) {
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
     if(task.deps) {
-        //logger.debug(JSON.stringify(task.deps, null, 4));
         task.deps.forEach(dep=>{
             dep.resource_ids.forEach(id=>{
                 id = id.toString();
                 if(!~dep_resource_ids.indexOf(id)) dep_resource_ids.push(id);
             });
         });
-        //logger.debug("dep_resource_ids:", dep_resource_ids);
     }
 
     //load resource that user has access
     db.Resource.find({
         "$or": [
             {user_id: user.sub},
-            {gids: {"$in": user.gids||[] }},
+            {gids: {"$in": common.get_user_gids(user)}},
         ],
+        status: {$ne: "removed"},
         active: true,
     })
     .sort('create_date')
@@ -141,7 +141,7 @@ function score_resource(user, resource, task, cb) {
         //check number of tasks currently running on this resource and compare it with maxtask if set
         var maxtask = resource_detail.maxtask;
         if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask; //override with resource specific maxtask
-        if(!maxtask) return cb(null, score, detail); //no maxtask set.. don't need to check
+        if(!maxtask) return cb(null, score, detail); //no maxtask set (or 0?).. don't need to check
         db.Task.find({
             resource_id: resource._id, 
             $or: [
@@ -202,11 +202,108 @@ function check_hpss(resource, cb) {
 function check_ssh(resource, cb) {
     var conn = new Client();
     var ready = false;
-    var nexted = false;
+
+    function cb_once(err, status, message) {
+        if(cb) {
+            cb(err, status, message);
+            cb = null;
+        } else {
+            logger.error("cb already called", err, status, message);
+        }
+
+        conn.end();
+    }
+    
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.on('ready', function() {
         ready = true;
 
+        //send test script
+        var workdir = common.getworkdir(null, resource);
+        conn.sftp((err, sftp)=>{
+            if(err) return cb_once(err);
+
+            var to = setTimeout(()=>{
+                cb_once(null, "failed", "send test script timeout - filesytem is offline?");
+            }, 5*1000); 
+            
+            /*
+            sftp.opendir(workdir, function(err, stat) {
+                clearTimeout(to);
+                if(err) return cb(null, "failed", "can't access workdir");
+                cb(null, "ok", "workdir is accessible");
+                //TODO - I should probably check to see if I can write to it
+            });
+            */
+            let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
+            let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
+            writestream.on('close', ()=>{
+                clearTimeout(to);
+                logger.debug("resource_test.sh write stream closed - running resource_test.sh");
+                conn.exec('cd '+workdir+' && bash resource_test.sh', (err, stream)=>{
+                    if (err) return cb_once(err);
+                    var out = "";
+                    stream.on('close', function(code, signal) {
+                        logger.debug(out);
+                        if(code == 0) cb_once(null, "ok", out);
+                        else cb_once(null, "failed", out);
+                    }).on('data', function(data) {
+                        out += data;
+                    }).stderr.on('data', function(data) {
+                        out += data;
+                    });
+                })
+            });
+            writestream.on('error', err=>{
+                logger.debug("resource_test.sh write stream errored");
+                clearTimeout(to);
+                if(err) return cb_once(null, "failed", "failed to stream resource_test.sh");
+            });
+            writestream.on('end', ()=>{
+                logger.debug("resource_test.sh write stream ended - running");
+            });
+            readstream.pipe(writestream);
+        });
+
+
+        /*
+        check_sftp(resource, conn, function(err, status, msg) {
+            if(err) return cb_once(err);
+            if(status != "ok") return cb_once(null, status, msg);
+
+            //send resource test script
+            conn.exec('whoami', function(err, stream) {
+                if (err) {
+                    conn.end();
+                    nexted = true;
+                    return cb(err);
+                }
+                var ret_username = "";
+                stream.on('close', function(code, signal) {
+                    nexted = true;
+                    if(ret_username.trim() == resource.config.username) {
+                        check_sftp(resource, conn, function(err, status, msg) {
+                            conn.end();
+                            if(err) return cb(err);
+                            cb(null, status, msg);
+                        });
+                    } else {
+                        conn.end();
+                        //I need to fail if user is outputing something on the terminal (right now, it kills ssh2/sftp)
+                        cb(null, "failed", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username+" Please make sure your .bashrc is not outputting any content for non-interactive session."); 
+                    }
+                }).on('data', function(data) {
+                    ret_username += data;
+                }).stderr.on('data', function(data) {
+                    //I get \n stuff occasionally
+                    logger.debug('whoami error: ');
+                });
+            })
+            
+        });
+        */
+
+        /*
         //make sure correct user id is returned from whoami
         conn.exec('whoami', function(err, stream) {
             if (err) {
@@ -235,17 +332,21 @@ function check_ssh(resource, cb) {
                 logger.debug('whoami error: ');
             });
         })
+        */
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended");
     });
     conn.on('close', function() {
         logger.debug("ssh connection closed");
-        if(!ready && !nexted) cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
+        if(!ready && cb) {
+            cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
+            cb = null;
+        }
     });
     conn.on('error', function(err) {
-        nexted = true;
-        cb(null, "failed", err.toString());
+        if(cb) cb(null, "failed", err.toString());
+        cb = null;
     });
 
     //clone resource so that decrypted content won't leak out of here

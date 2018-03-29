@@ -77,36 +77,38 @@ var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
-    if(old) {
-        //TODO - check to make sure connection is really alive?
-        return cb(null, old);
-    }
+    //TODO - check to make sure connection is really alive?
+    if(old) return cb(null, old);
 
     //open new connection
+    logger.debug("opening new ssh connection for resource:", resource._id.toString());
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
-        logger.debug("ssh connection ready", resource._id.toString());
+        logger.debug("ssh connection ready for resource:", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-        if(cb) cb(null, connq);
+
+        if(cb) cb(null, connq); //success!
         cb = null;
     });
     conn.on('end', function() {
-        logger.debug("ssh connection ended", resource._id.toString());
+        logger.debug("ssh connection ended .. resource:", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('close', function() {
-        logger.debug("ssh connection closed", resource._id.toString());
+        logger.debug("ssh connection closed .. resource:", resource._id.toString());
         delete ssh_conns[resource._id];
     });
     conn.on('error', function(err) {
-        logger.error("ssh connectionn error", err, resource._id.toString());
+        logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
         delete ssh_conns[resource._id];
+
+        logger.debug("sftp channel dump..");
+        console.dir(ssh_conns);
         
-        //error could fire after ready event is called.
-        //like timeout, or abnormal disconnect, etc..
-        //don't call cb twice!
+        //we want to return connection error to caller, but error could fire after ready event is called. 
+        //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });
@@ -117,8 +119,8 @@ exports.get_ssh_connection = function(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 30*1000, //default 0
-        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveInterval: 10*1000, //default 0 (disabled)
+        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
 
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?
@@ -127,15 +129,19 @@ exports.get_ssh_connection = function(resource, cb) {
 }
 
 //I need to keep up with sftp connection cache independent of ssh connection pool
+//TODO - looks like sftp connection is leaking somewhere..?
+//sftp becomes unresponsive until I restart warehouse api
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
     //see if we already have an active sftp session
     var old = sftp_conns[resource._id];
     if(old) {
         //TODO - check to make sure connection is really alive?
+
+        logger.debug("reusing sftp for resource:"+resource._id);
         return cb(null, old);
     }
-    //open new sftp connection
+    logger.debug("open new sftp connection");
     var detail = config.resources[resource.resource_id];
     var conn = new Client();
     conn.on('ready', function() {
@@ -159,6 +165,11 @@ exports.get_sftp_connection = function(resource, cb) {
         logger.error("sftp connectionn error", err, resource._id.toString());
         delete sftp_conns[resource._id];
 
+        logger.error("sftp channel dump..");
+        console.error(sftp_conns);
+
+        //we want to return connection error to caller, but error could fire after ready event is called. 
+        //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
         cb = null;
     });
@@ -167,15 +178,52 @@ exports.get_sftp_connection = function(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 30*1000, //default 0
-        keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveInterval: 10*1000, //default 0 (disabled)
+        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
 
+/*
+if(config.amaretti.debug) {
+    setInterval(()=>{
+        logger.debug("ssh channel dump..");
+        console.dir(ssh_conns);
+        logger.debug("sftp channel dump..");
+        console.dir(sftp_conns);
+    }, 1000*60);
+}
+*/
+
 exports.report_ssh = function() {
+    /*
+    let ssh_channels = {};
+    for(var id in ssh_conns) {
+        ssh_channels[id] = ssh_conns[id];
+    }
+    let sftp_channels = {};
+    for(var id in sftp_conns) {
+        sftp_channels[id] = sftp_conns[id];
+    }
+    */
+
+    /*
+    //let's make sure all sftp connections are still good
+    var sftp_status = {};
+    for(var id in sftp_conns) {
+        let sftp = sftp_conns[id]; 
+        //sftp_status[id] = "ok";
+        sftp.readdir(".", (err, files)=>{
+            logger.debug("sftp.readdir test finished");
+            if(err) return sftp_status[id] = err;
+            sftp_status[id] = "got files:"+files.length;
+        });
+    }
+    */
+
     return {
         ssh_cons: Object.keys(ssh_conns).length,
         sftp_cons: Object.keys(sftp_conns).length,
+        //sftp_status, 
     }
 }
 
@@ -252,44 +300,23 @@ exports.ssh_command = function(username, password, host, command, opts, cb) {
     });
 }
 
-/* finds the intersection of 
- * two arrays in a simple fashion.  
- *
- * PARAMS
- *  a - first array, must already be sorted
- *  b - second array, must already be sorted
- *
- * NOTES
- *
- *  Should have O(n) operations, where n is 
- *    n = MIN(a.length(), b.length())
- */
-function intersect_safe(a, b)
-{
-  var ai=0, bi=0;
-  var result = [];
-
-  while( ai < a.length && bi < b.length )
-  {
-     if      (a[ai] < b[bi] ){ ai++; }
-     else if (a[ai] > b[bi] ){ bi++; }
-     else /* they're equal */
-     {
-       result.push(a[ai]);
-       ai++;
-       bi++;
-     }
-  }
-  return result;
+exports.get_user_gids = function(user) {
+    var gids = user.gids||[];
+    gids = gids.concat(config.amaretti.global_groups);
+    return gids;
 }
 
 //return true if user has access to the resource
 exports.check_access = function(user, resource) {
-    //if(!resource.active) return false;
     if(resource.user_id == user.sub) return true;
-    if(resource.gids && user.gids) {
-        var inter = intersect_safe(resource.gids, user.gids);
-        if(inter.length) return true;
+    if(resource.gids) {
+        const gids = exports.get_user_gids(user);
+        //find common ids
+        let found = false;
+        resource.gids.forEach(gid=>{
+            if(~gids.indexOf(gid)) found = true;
+        });
+        if(found) return true;
     }
     return false;
 }
@@ -316,8 +343,33 @@ exports.ls_hpss = function(resource, _path, cb) {
 }
 
 exports.request_task_removal = function(task, cb) {
-    if(task.status == "running"|| task.status == "requested") task.status = "stop_requested";
-    else task.status_msg = "Waiting to be removed";
+    //running jobs needs to be stopped first
+    switch(task.status) {
+    case "running":
+        task.status = "stop_requested";
+        task.status_msg = "Task needs to be stopped and removed";
+        break;
+    case "requested":
+        if(task.start_date) {
+            //we can't stop "staring" task.. so let's just make sure it stops as soon as it starts up
+            task.max_runtime = 0;
+            task.status_msg = "Task scheduled to be stopped soon and be removed";
+        } else {
+            task.status = "stopped"; //not yet started.. just stop
+            task.status_msg = "Task stopped";
+        }
+        break;
+    case "waiting":
+        task.status = "stopped";
+        break;
+    case "running_sync":
+        //we don't have a way to stop running_rsync.. I think.. just wait for it to be stopped
+        break;
+    default:
+        task.status_msg = "Task scheduled to be removed soon";
+    }
+
+    //set remove_date to now so that the task will be cleaned up by house keeper immediately
     task.remove_date = new Date();
     task.next_date = undefined;
     task.save(cb);
@@ -343,15 +395,11 @@ exports.update_instance_status = function(instance_id, cb) {
             let newstatus = "unknown";
             if(tasks.length == 0) newstatus = "empty";
             else if(counts.running > 0) newstatus = "running";
-            else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.failed > 0) newstatus = "failed";
+            else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
-
-            console.dir(instance.status);
-            console.dir(counts);
-            console.dir(newstatus);
 
             //did status changed?
             if(instance.status != newstatus) {
@@ -386,8 +434,13 @@ exports.rerun_task = function(task, remove_date, cb) {
     if(remove_date) task.remove_date = remove_date;
     else if(task.remove_date) {
         var diff = task.remove_date - task.request_date;
-        task.remove_date = new Date();
-        task.remove_date.setTime(task.remove_date.getTime() + diff); 
+        if(diff < 0) {
+            logger.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
+            task.remove_date = undefined;
+        } else {
+            task.remove_date = new Date();
+            task.remove_date.setTime(task.remove_date.getTime() + diff); 
+        }
     }
 
     task.status = "requested";
@@ -418,7 +471,7 @@ exports.get_gids = function(user_id, cb) {
     exports.redis.exists(key, (err, exists)=>{
         if(err) return cb(err);
         if(exists) {
-            exports.redis.lrange(key, 0, -1, cb);
+            exports.redis.lrange(key, 0, -1, cb); //return all gids
             return;
         } else {
             //load from profile service
@@ -447,10 +500,15 @@ exports.get_gids = function(user_id, cb) {
                 //reply to the caller
                 cb(null, gids);
                 
-                //cache on redis
-                gids.unshift(key);
-                exports.redis.rpush(gids);
-                exports.redis.expire(key, 60); //60 seconds too long?
+                //cache on redis (can't rpush empty list to redis)
+                if(gids.length == 0) {
+                    logger.warn("gids empty", key);
+                    return;
+                } else {
+                    gids.unshift(key);
+                    exports.redis.rpush(gids);
+                    exports.redis.expire(key, 60); //60 seconds too long?
+                }
             });
         }
     });
@@ -464,3 +522,16 @@ exports.indexOfObjectId = function(ids, search_id, cb) {
     });
     return pos;
 }
+
+exports.set_conn_timeout = function(cqueue, stream, time) {
+    var timeout = setTimeout(()=>{
+        logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
+        //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
+        cqueue.end();
+    }, time);
+    stream.on('close', (code, signal)=>{
+        clearTimeout(timeout);
+    });
+}
+
+

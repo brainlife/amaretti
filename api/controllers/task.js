@@ -41,20 +41,6 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
         {user_id: req.user.sub},
         {_group_id: {$in: req.user.gids||[]}},
     ];
-    //* @apiParam {String} [user_id] (Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.
-    /*
-    let is_admin = false;
-    if(req.user.scopes.sca && ~req.user.scopes.sca.indexOf("admin")) is_admin = true;
-
-    //handling user_id.
-    if(!is_admin || find.user_id === undefined) {
-        //non admin, or admin didn't set user_id
-        find.user_id = req.user.sub;
-    } else if(find.user_id == null) {
-        //admin can set it to null and remove user_id filtering all together
-        delete find.user_id;
-    }
-    */
 
     db.Task.find(find)
     .select(req.query.select)
@@ -72,6 +58,9 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 //returns various event / stats for given service
+//TODO - I don't really feel this is thought through.. I might deprecate.
+//current clients: 
+//   * warehouse UI app stats
 router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     var find = {};
     if(req.query.service) find.service = req.query.service;
@@ -190,18 +179,6 @@ function ls_resource(resource, _path, cb) {
  *  ]}
  */
 router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    /*
-    //find specified task and make sure user has access to it
-    db.Task.findById(req.params.taskid, (err, task)=>{
-        if(err) return next(err);
-        if(!task) return res.status(401).json({message: "no such task or you don't have access to the task"});
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(403).end("don't have access to specified task");
-
-        //find resource that we can use to load file list
-        db.Resource.findById(task.resource_id, (err, resource)=>{
-            if(err) return next(err);
-            if(!resource) return res.status(404).json({message: "couldn't find the resource"});
-    */
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -218,10 +195,10 @@ router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                     ret.push({
                         filename: file.filename,
                         directory: file.attrs.mode_string[0]=='d',
+                        link: file.attrs.mode_string[0]=='l',
                         attrs: {
                             mode: file.attrs.mode,
                             mode_string: file.attrs.mode_string,
-                            //permissions: file.mode,
                             uid: file.attrs.uid,
                             gid: file.attrs.gid,
                             size: file.attrs.size,
@@ -232,7 +209,6 @@ router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, r
                             group: null,
                         },
                         _raw: file.longname,
-                        //_sftp: file,
                     });
                 });
                 res.json({files: ret});
@@ -248,13 +224,14 @@ function find_resource(req, taskid, cb) {
     db.Task.findById(req.params.taskid, (err, task)=>{
         if(err) return cb(err);
         if(!task) return cb("no such task or you don't have access to the task");
-        logger.debug(gids, task._group_id);
+        //logger.debug(gids, task._group_id);
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
 
         //find resource that we can use to load file list
         db.Resource.findById(task.resource_id, (err, resource)=>{
             if(err) return cb(err);
             if(!resource) return cb("couldn't find the resource");
+            if(resource.status == "removed") return cb("resource is removed");
 
             //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
             if(!resource.active) return cb("resource not active");
@@ -273,7 +250,7 @@ function get_fullpath(task, resource, p, cb) {
     //make sure path doesn't lead out of task dir
     let fullpath = common.getworkdir(path, resource);
     let safepath = common.getworkdir(basepath, resource);
-    if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir");
+    if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir", fullpath, safepath);
 
     cb(null, fullpath);
 
@@ -311,6 +288,7 @@ router.get('/download/:taskid', jwt({
         return null;
     }
 }), function(req, res, next) {
+    logger.debug("/download/task/"+req.params.taskid);
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -320,12 +298,12 @@ router.get('/download/:taskid', jwt({
 
             common.get_sftp_connection(resource, function(err, sftp) {
                 if(err) return next(err);
-
+                logger.debug("stat-ing");
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
                     if(stat.isDirectory()) {
-                        logger.debug("sending directory(.tar.gz) using tar / gzip", fullpath);
+                        logger.debug("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
 
@@ -336,16 +314,16 @@ router.get('/download/:taskid', jwt({
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);
                             res.setHeader('Content-Type', "application/x-tgz");
-                            logger.debug("cd to ", fullpath.addSlashes());
+                            //logger.debug("cd to ", fullpath.addSlashes());
                             conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
                                 if(err) return next(err);
                                 logger.debug("piping tar output to user");
                                 stream.pipe(res);
-                                req.on('close', stream.close);
+                                //req.on('close', stream.close);
                             });
                         });
                     } else {
-                        logger.debug("streaming file via sftp", fullpath);
+                        logger.debug("file.. streaming file via sftp", fullpath);
                         
                         //npm-mime uses filename to guess mime type, so I can use this locally
                         //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
@@ -359,7 +337,6 @@ router.get('/download/:taskid', jwt({
                         if(mimetype) res.setHeader('Content-Type', mimetype);
                         let stream = sftp.createReadStream(fullpath);
                         stream.pipe(res);
-                        req.on('close', stream.close);
                     }
                 });
             });
@@ -382,9 +359,6 @@ router.get('/download/:taskid', jwt({
  *                              {file stats uploaded}
  */
 router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
-    //var id = req.params.resourceid;
-    //var _path = (new Buffer(req.params.path, 'base64').toString('ascii'));
-    //logger.debug("request path: "+_path);
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
         
@@ -518,6 +492,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.max_runtime = req.body.max_runtime;
         task.envs = req.body.envs;
         task.retry = req.body.retry;
+        if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
 
         //checked later
         if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null
@@ -676,6 +651,8 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         case "running_sync":
             //TODO - kill the process?
             break;
+        case "requested":
+            if(task.start_date) break; //don't stop task that's currently started
         default:
             task.status = "stopped";
             task.status_msg = "Stopped by user";
@@ -715,9 +692,10 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        //if(task.status == "requested" && task.start_date) return res.status(500).end("You can not remove task that is currently started.");
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
-            res.json({message: "Task successfully scheduled for removed"});
+            res.json({message: "Task requested for removal"});
         }); 
     });
 });
@@ -725,7 +703,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
 /**
  * @api {put} /task/:taskid     Update Task
  * @apiGroup Task
- * @apiDescription              (Admin only) This API allows you to update task detail. Normally, you don't really
+ * @apiDescription              This API allows you to update task detail. Normally, you don't really
  *                              want to update task detail after it's submitted. Doing so might cause task to become
  *                              inconsistent with the actual state. 
  *                              To remove a field, set the field to null (not undefined - since it's not valid JSON)
@@ -759,8 +737,6 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
     const id = req.params.taskid;
     const gids = req.user.gids||[];
 
-    //this is admin only api (for now..)
-    //if(!req.user.scopes.sca || !~req.user.scopes.sca.indexOf("admin")) return res.send(401);
     //warehouse service currently relies on config to store archival information
     //I need to store it somewhere else - since I shouldn't be letting user modify this
 
@@ -775,6 +751,7 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
             if(key == "user_id") continue;
             if(key == "instance_id") continue; 
             if(key == "_group_id") continue; 
+            if(key == "nice") continue;  //TODO I think I should allow user to change it as long as it positive value??
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..

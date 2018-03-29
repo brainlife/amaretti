@@ -112,6 +112,8 @@ var taskSchema = mongoose.Schema({
     //github repo
     service: String, // "soichih/sca-service-life"
     service_branch: String, //master by default
+
+    commit_id: String, //git commit id when the task was started
        
     //TEXT INDEX field (below) to be searchable with text search
     name: String, 
@@ -135,14 +137,15 @@ var taskSchema = mongoose.Schema({
     //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
     remove_date: Date,
 
-    //mili-seconds after start_date to stop running job (default to 20 days)
-    //TODO - I should deprecate this.. We shouldn't be implementing features that local batch scheduler can do
-    //for Vanilla VM, status script should be able to abort the process after certain amount of time.
-    max_runtime: { type: Number, default: 1000*3600*24*20},
+    //mili-seconds after start_date to stop running job (default to 7 days)
+    //note.. this includes time that task is in the queue
+    //this mainly exists to prevent jobs from getting stuck running, but also to stop tasks while it's being started.
+    max_runtime: { type: Number, default: 1000*3600*24*7},
 
     //TODO - I should probaly deprecate this. also.. app should handle its own retry if it's expecting things to fail
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run
     retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
+    nice: Number, //nice-ness of this task can't be negative (except a paid user?)
   
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
@@ -228,20 +231,3 @@ var taskeventSchema = mongoose.Schema({
 });
 exports.Taskevent = mongoose.model('Taskevent', taskeventSchema);
 
-/*
-//used to comments on various *things*
-var commentSchema = mongoose.Schema({
-
-    type: String, //workflow, instance, task, etc..
-    subid: String, //workflow_id, instance_id, whatever... could be not set
-
-    user_id: String, //author user id
-    create_date: {type: Date, default: Date.now },
-    text: String, //content of the comment
-
-    //profile cache to speed things up
-    //TODO update this cache periodically, or whenever user changes profile
-    _profile: mongoose.Schema.Types.Mixed,
-});
-exports.Comment = mongoose.model('Comment', commentSchema);
-*/

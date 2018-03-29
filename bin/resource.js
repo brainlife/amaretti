@@ -33,6 +33,8 @@ function check_resources() {
     db.Resource.find({active: true}, function(err, resources) {
         var counts = {};
         async.eachSeries(resources, function(resource, next_resource) {
+            if(resource.status == "removed") return next_resource();
+
             logger.debug("checking",resource._id, resource.name);
 
             //TODO - should I add timeout?
@@ -102,5 +104,5 @@ function health_check(resources, counts) {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
 
-    rcon.set("health.workflow.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+    rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }
