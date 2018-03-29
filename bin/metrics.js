@@ -35,7 +35,6 @@ request.get({
         let resource_id = item._id.resource_id;
         let count = item.count;
 
-
         /*
         //make service sensu safe name
         let service_org = sensu_safe(service.split("/")[0]);

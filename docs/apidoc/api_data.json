@@ -37,7 +37,7 @@
     "type": "get",
     "url": "/instance",
     "title": "Query Instance",
-    "description": "<p>Query instances that belongs to a user with given query (for admin returns all)</p>",
+    "description": "<p>Query instances that belongs to a user or member of the group with optional query</p>",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -75,13 +75,6 @@
             "optional": true,
             "field": "skip",
             "description": "<p>Record offset for pagination (default to 0)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "user_id",
-            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
@@ -130,15 +123,15 @@
             "group": "Parameter",
             "type": "String",
             "optional": false,
-            "field": "workflow_id",
-            "description": "<p>Name of workflow that this instance belongs to (sca-wf-life)</p>"
+            "field": "name",
+            "description": "<p>Name of the instance</p>"
           },
           {
             "group": "Parameter",
-            "type": "String",
+            "type": "Number",
             "optional": false,
-            "field": "name",
-            "description": "<p>Name of the instance</p>"
+            "field": "group_id",
+            "description": "<p>(optional) Group ID where you want to share this process with</p>"
           },
           {
             "group": "Parameter",
@@ -180,7 +173,7 @@
     "url": "/instance/:instid",
     "title": "Update Instance",
     "group": "Instance",
-    "description": "<p>Update Instance</p>",
+    "description": "<p>Update Instance that you own or you are member of the group that instance belongs to</p>",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -443,7 +436,7 @@
   },
   {
     "type": "get",
-    "url": "/resource/ls/:resource_id",
+    "url": "/resource/ls/:resource_id/:instance_id?",
     "title": "List directory",
     "group": "Resource",
     "description": "<p>Get directory listing on a resource on specified path. For HPSS resource, it will query HPSS directory under specified path. Use &quot;./&quot; to query home directory, since path is a required parameter.</p>",
@@ -485,7 +478,7 @@
     "version": "0.0.0",
     "filename": "api/controllers/resource.js",
     "groupTitle": "Resource",
-    "name": "GetResourceLsResource_id"
+    "name": "GetResourceLsResource_idInstance_id"
   },
   {
     "group": "Resource",
@@ -529,7 +522,7 @@
     "type": "get",
     "url": "/resource/upload/:resourceid/:base64path",
     "title": "Upload File",
-    "description": "<p>Upload a file to specified resource on specified path (needs to be inside a workdir)</p>",
+    "description": "<p>Upload a file to specified resource on a specified path (needs to be inside a workdir)</p>",
     "header": {
       "fields": {
         "Header": [
@@ -912,7 +905,7 @@
     "type": "get",
     "url": "/task",
     "title": "Query Tasks",
-    "description": "<p>Returns all tasks that belongs to a user (for admin returns all)</p>",
+    "description": "<p>Returns all tasks that belongs to a user (for admin returns all) or shared via instance.group_id</p>",
     "parameter": {
       "fields": {
         "Parameter": [
@@ -950,13 +943,6 @@
             "optional": true,
             "field": "skip",
             "description": "<p>Record offset for pagination (default to 0)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "user_id",
-            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
@@ -991,6 +977,142 @@
     "filename": "api/controllers/task.js",
     "groupTitle": "Task",
     "name": "GetTask"
+  },
+  {
+    "group": "Task",
+    "type": "get",
+    "url": "/task/download/:taskid",
+    "title": "Download file/dir from task",
+    "description": "<p>Download file/dir from task. If directory path is specified, it will stream tar gz-ed content</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "p",
+            "description": "<p>File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "at",
+            "description": "<p>JWT token - if user can't provide it via authentication header</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": true,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "GetTaskDownloadTaskid"
+  },
+  {
+    "group": "Task",
+    "type": "get",
+    "url": "/task/ls/:taskid",
+    "title": "List directory on task",
+    "description": "<p>Get directory listing on a task.</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "p",
+            "description": "<p>sub directory (relative to taskdir) to load inside the task. Use encodeURIComponent() to escape non URL characters</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "Authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "{\"files\":[\n    {\n        \"filename\":\"config.json\",\n        \"directory\":false,\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "GetTaskLsTaskid"
+  },
+  {
+    "group": "Task",
+    "type": "get",
+    "url": "/task/upload/:taskid",
+    "title": "Upload File",
+    "description": "<p>Upload a file to specified task on a specified path</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
+            "field": "p",
+            "description": "<p>File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "examples": [
+        {
+          "title": "Success-Response:",
+          "content": "{file stats uploaded}",
+          "type": "json"
+        }
+      ]
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/task.js",
+    "groupTitle": "Task",
+    "name": "GetTaskUploadTaskid"
   },
   {
     "type": "post",
