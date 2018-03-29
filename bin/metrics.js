@@ -118,7 +118,7 @@ request.get({
             let safe_name = sensu_name(service).replace("/", ".");
             let sensu_key = config.sensu.prefix+".service."+safe_name;
             re.set('amaretti.metric.'+sensu_key, 1);
-            re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+            re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
 
             emits[sensu_key] = services[service];
         }
@@ -129,7 +129,7 @@ request.get({
             } else {
                 let sensu_key = config.sensu.prefix+".resource."+sensu_name(detail.name);
                 re.set('amaretti.metric.'+sensu_key, 1);
-                re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+                re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                 //console.log(sensu_key+" "+resources[resource_id]+" "+time); //emit
                 emits[sensu_key] = resources[resource_id];
             }
@@ -138,7 +138,7 @@ request.get({
             let user = results.contact_details[user_id];
             let sensu_key = config.sensu.prefix+".users."+user.username;
             re.set('amaretti.metric.'+sensu_key, 1);
-            re.expire('amaretti.metric.'+sensu_key, 60*10); //expire in 30 minutes
+            re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
             //console.log(sensu_key+" "+users[user_id]+" "+time); //emit
             emits[sensu_key] = users[user_id];
         }
