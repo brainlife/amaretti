@@ -67,10 +67,7 @@ function get_ssh_connection_with_agent(resource, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        
-        //I shouldn't need keepalive for rsync
-        //keepaliveInterval: 60*1000, //defualt 0
-        //keepaliveCountMax: 10, //default 3
+        keepaliveInterval: 10*1000, //default 0 (disabled) - I need to keep it alive because I am caching
 
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?
