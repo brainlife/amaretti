@@ -112,13 +112,11 @@ router.get('/running', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  });
 
 //get task detail
-//TODO - right now, any authenticated user can query for any task so that they can view dataset prov / config.
-//but.. I think we can make this part of /dataset (by id) and populate this information - so that only the user
-//who has access to the dataset can query task metadata.
-router.get('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+//unauthenticated user sometimes need to get task detail (like app used, etc..)
+//let's allow them to query for task detail as long as they know which task id to load
+router.get('/:id', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
-
         //hide config from sensitive apps..
         if(task.service == "soichih/sca-product-raw") {
             task.config = {"masked": true};

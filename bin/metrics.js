@@ -120,14 +120,17 @@ request.get({
         },
 
     }, (err, results)=>{
-        
-        let time = Math.round(new Date().getTime()/1000);
+        //sensu keys that just popedup
+        let newkeys = []; 
+
+        time = Math.round(new Date().getTime()/1000);
         for(let service in services) {
             let safe_name = sensu_name(service).replace("/", ".");
             let sensu_key = config.sensu.prefix+".service."+safe_name;
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
 
+            if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
             emits[sensu_key] = services[service];
         }
         for(let resource_id in resources) {
@@ -139,6 +142,7 @@ request.get({
                 re.set('amaretti.metric.'+sensu_key, 1);
                 re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                 //console.log(sensu_key+" "+resources[resource_id]+" "+time); //emit
+                if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                 emits[sensu_key] = resources[resource_id];
             }
         }
@@ -148,10 +152,14 @@ request.get({
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
             //console.log(sensu_key+" "+users[user_id]+" "+time); //emit
+            if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
             emits[sensu_key] = users[user_id];
         }
     
         //now emit
+        newkeys.forEach(key=>{
+            console.log(key+" 0 "+(time-1));
+        });
         for(var key in emits) {
             console.log(key+" "+emits[key]+" "+time);
         }
