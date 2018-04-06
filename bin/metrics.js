@@ -13,6 +13,12 @@ const redis = require('redis');
 const config = require('../config');
 const logger = new winston.Logger(config.logger.winston);
 
+const graphite_prefix = process.argv[2]||config.sensu.prefix;
+if(!graphite_prefix) {
+    console.error("usage: metrics.js <graphite_prefix>");
+    process.exit(1);
+}
+
 //connect to redis - used to store previously non-0 data
 const re = redis.createClient(config.redis.port, config.redis.server);
 
@@ -123,10 +129,10 @@ request.get({
         //sensu keys that just popedup
         let newkeys = []; 
 
-        time = Math.round(new Date().getTime()/1000);
+        const time = Math.round(new Date().getTime()/1000);
         for(let service in services) {
             let safe_name = sensu_name(service).replace("/", ".");
-            let sensu_key = config.sensu.prefix+".service."+safe_name;
+            let sensu_key = graphite_prefix+".service."+safe_name;
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
 
@@ -138,7 +144,7 @@ request.get({
             if(!detail) {
                 console.error("no detail for", resource_id);
             } else {
-                let sensu_key = config.sensu.prefix+".resource."+sensu_name(detail.name);
+                let sensu_key = graphite_prefix+".resource."+sensu_name(detail.name);
                 re.set('amaretti.metric.'+sensu_key, 1);
                 re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                 //console.log(sensu_key+" "+resources[resource_id]+" "+time); //emit
@@ -148,7 +154,7 @@ request.get({
         }
         for(let user_id in users) {
             let user = results.contact_details[user_id];
-            let sensu_key = config.sensu.prefix+".users."+user.username;
+            let sensu_key = graphite_prefix+".users."+user.username;
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
             //console.log(sensu_key+" "+users[user_id]+" "+time); //emit

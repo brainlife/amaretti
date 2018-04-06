@@ -14,17 +14,23 @@ const events = require('./events');
 mongoose.Promise = global.Promise; 
 
 exports.init = function(cb) {
-    mongoose.connect(config.mongodb, {
-        //TODO - isn't auto_reconnect set by default?
-        server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
-    }, function(err) {
+    events.init(err=>{
         if(err) return cb(err);
-        logger.info("connected to mongo");
-        cb();
+        mongoose.connect(config.mongodb, {
+            //TODO - isn't auto_reconnect set by default?
+            server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
+        }, function(err) {
+            if(err) return cb(err);
+            //logger.info("connected to mongo");
+            cb();
+        });
     });
 }
+
 exports.disconnect = function(cb) {
-    mongoose.disconnect(cb);
+    mongoose.disconnect(err=>{
+        events.disconnect(cb);
+    });
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
