@@ -26,7 +26,7 @@ db.init(function(err) {
 
     //grab recent events
     let recent = new Date();
-    recent.setTime(recent.getTime()-1000*60*10); //60 seconds?
+    recent.setTime(recent.getTime()-1000*60); //60 seconds?
     db.Taskevent.find({date: {$gt: recent}}).exec((err, events)=>{
         if(err) throw err;
 

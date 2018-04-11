@@ -94,6 +94,6 @@ exports.logger = {
                 colorize: true
             }),
         ]
-    },
+    }
 }
 

@@ -721,7 +721,7 @@ function start_task(task, resource, cb) {
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec(cmd, function(err, stream) {
                         if(err) return next(err);
-                        common.set_conn_timeout(conn, stream, 1000*45);
+                        common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
                             else if(code) return next("Failed to git clone. code:"+code);
@@ -862,11 +862,12 @@ function start_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             if(!source_resource || source_resource.status == "removed") return next_dep("couldn't find dep resource:"+dep.resource_id);
-                            if(!source_resource.active) return next_dep("source resource is inactive");
+                            logger.debug("syncing", source_resource.name);
+                            if(!source_resource.active) return cb("source resource("+source_resource.name+") is inactive.. retry later");
                             if(!source_resource.status || source_resource.status != "ok") {
                                 task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
                                 task.status_msg = "source resource status is non-ok .. will retry later";
-                                cb(); //abort the rest of the process
+                                cb(); //abort the rest of the process - retry later
                                 return;
                             }
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
@@ -880,7 +881,7 @@ function start_task(task, resource, cb) {
                                         //I want to retry if rsyncing fails by leaving the task status to be requested
                                         task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
                                         task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
-                                        cb(); //abort the rest of the process
+                                        cb(); //abort the rest of the process - retry later
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
                                         //need to add dest resource to source dep
