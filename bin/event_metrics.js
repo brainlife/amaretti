@@ -30,10 +30,20 @@ db.init(function(err) {
     db.Taskevent.find({date: {$gt: recent}}).exec((err, events)=>{
         if(err) throw err;
 
-        let counts = {};
+        let counts = {
+            failed: 0,
+            finished: 0,
+            removed: 0,
+            requested: 0,
+            running: 0,
+            running_sync: 0,
+            stop_requested: 0,
+            stopped: 0,
+            waiting: 0,
+        };
         events.forEach(event=>{
-            if(counts[event.status] === undefined) counts[event.status] = 1;
-            else counts[event.status]++;
+            //if(counts[event.status] === undefined) counts[event.status] = 1;
+            counts[event.status]++;
         });
 
         const time = Math.round(new Date().getTime()/1000);

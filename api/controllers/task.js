@@ -78,20 +78,14 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
             counts[status._id] = status.count;
         });
 
-        //count distinct tasks requested
+        //count distinct users requested 
         //TODO is there a better way?
-        db.Taskevent.find(find).distinct('task_id').exec(function(err, tasks) {
+        db.Taskevent.find(find).distinct('user_id').exec(function(err, users) {
             if(err) return next(err);
-
-            //count distinct users requested 
-            //TODO is there a better way?
-            db.Taskevent.find(find).distinct('user_id').exec(function(err, users) {
-                if(err) return next(err);
-                res.json({
-                    counts: counts, 
-                    tasks: tasks.length, 
-                    users: users.length,
-                });
+            res.json({
+                counts: counts, 
+                //tasks: tasks.length, 
+                users: users.length,
             });
         });
     });
