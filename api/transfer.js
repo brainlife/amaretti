@@ -30,7 +30,33 @@ function get_ssh_connection_with_agent(resource, cb) {
     //TODO - check to make sure connection is really alive?
     if(old) {
         logger.debug("reusing connection for", resource._id.toString());
-        return cb(null, old);
+
+        //test the connection... because it sometimes dies
+        //TODO _ I need to find out why it goes sour
+        old.exec("hostname", function(err, stream) {
+            if(err) {
+                logger.error("ssh connection for "+resource._id.toString()+" went bad");
+                old.disconnect();
+                return cb(err);
+            }
+            common.set_conn_timeout(old, stream, 1000*5);
+            stream.on('close', function(code, signal) {
+                if(code === undefined) {
+                    old.disconnect();
+                    return next("timedout while checking old connection");
+                } else if(code) {
+                    old.disconnect();
+                    return cb(err);
+                } else cb(null, old);
+            });
+            stream.on('data', function(data) {
+                logger.debug(data.toString());
+            }).stderr.on('data', function(data) {
+                logger.error(data.toString());
+            });
+        });
+
+        return;
     }
 
     logger.debug("transfer: opening ssh connection to", resource._id.toString());

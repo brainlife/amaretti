@@ -168,8 +168,8 @@ function score_resource(user, resource, task, cb) {
 exports.check = function(resource, cb) {
     var detail = config.resources[resource.resource_id];
     if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
-    if(detail.type === undefined) return cb(resource.resource_id+" doesn't have type defined.. don't know how to check");
-
+    //if(detail.type === undefined) return cb(resource.resource_id+" doesn't have type defined.. don't know how to check");
+    /*
     switch(detail.type) {
     case "ssh":
         check_ssh(resource, update_status);
@@ -178,20 +178,21 @@ exports.check = function(resource, cb) {
         //update_status(null, "ok", "Don't know how to check "+resource.type + " .. assuming it to be ok");
         check_hpss(resource, update_status);
     }
-
-    function update_status(err, status, msg) {
+    */
+    check_ssh(resource, (err, status, msg)=> {
         if(err) return cb(err);
         logger.info("resource_id: "+resource._id+" status:"+status+" msg:"+msg);
         resource.status = status;
-        resource.status_msg = msg;
+        resource.status_msg = "test failed";
         resource.status_update = new Date();
         if(status == "ok") resource.lastok_date = new Date();
         resource.save(function(err) {
-            cb(err, {status: status, message: msg});
+            cb(err, {status, message: msg});
         });
-    }
+    });
 }
 
+/*
 function check_hpss(resource, cb) {
     //find best resource to run hpss
     common.ls_hpss(resource, "./", function(err, files) {
@@ -199,6 +200,7 @@ function check_hpss(resource, cb) {
         cb(null, "ok", "hsi/ls returned "+files.length+" files on home directory");
     });
 }
+*/
 
 //TODO this is too similar to common.js:ssh_command... can we refactor?
 function check_ssh(resource, cb) {
@@ -229,14 +231,6 @@ function check_ssh(resource, cb) {
                 cb_once(null, "failed", "send test script timeout - filesytem is offline?");
             }, 5*1000); 
             
-            /*
-            sftp.opendir(workdir, function(err, stat) {
-                clearTimeout(to);
-                if(err) return cb(null, "failed", "can't access workdir");
-                cb(null, "ok", "workdir is accessible");
-                //TODO - I should probably check to see if I can write to it
-            });
-            */
             let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
             let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
             writestream.on('close', ()=>{

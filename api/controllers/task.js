@@ -228,7 +228,7 @@ function find_resource(req, taskid, cb) {
             //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
             if(!resource.active) return cb("resource not active");
             if(resource.status != "ok") return cb(resource.status_msg);
-            if(!common.check_access(req.user, resource)) return cb("not authorized to access the resource");
+            if(!common.check_access(req.user, resource)) return cb("Not authorized to access this resource");
             cb(null, task, resource);
         });
     });

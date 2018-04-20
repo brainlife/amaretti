@@ -585,8 +585,9 @@ function handle_running(task, next) {
                             if(task.retry >= task.run) {
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
                                 task.status = "requested";
+                                task.next_date = undefined; //too soon?
                                 task.start_date = undefined;
-                                task.status_msg = out;
+                                task.status_msg = out+" - retrying "+task.run;
                             } else {
                                 common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed";
