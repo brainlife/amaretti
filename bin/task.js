@@ -862,21 +862,48 @@ function start_task(task, resource, cb) {
 
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
-                            if(!source_resource || source_resource.status == "removed") return next_dep("couldn't find dep resource:"+dep.resource_id);
                             logger.debug("syncing", source_resource.name);
-                            if(!source_resource.active) return cb("source resource("+source_resource.name+") is inactive.. retry later");
-                            if(!source_resource.status || source_resource.status != "ok") {
-                                task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
-                                task.status_msg = "source resource status is non-ok .. will retry later";
-                                cb(); //abort the rest of the process - retry later
-                                return;
+
+                            /*
+                            if(!source_resource || source_resource.status == "removed") {
+                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                    return next_dep("source resource:"+dep.resource_id+" went missing"); //fail
+                                } else {
+                                    logger.warn("source resource is gone but we've already synced it to executing resource before.. let's proceed");
+                                }
                             }
+                            if(!source_resource.active) {
+                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                    task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
+                                    task.status_msg = "source resource("+source_resource.name+") is inactive.. retry later";
+                                    return cb();
+                                } else {
+                                    logger.warn("source(dep) resource status is inactive but we've already synced it to executing resource before.. let's proceed");
+                                }
+                            }
+                            if(!source_resource.active || !source_resource.status || source_resource.status != "ok") {
+                                //see if we really need to sync it
+                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                    task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
+                                    task.status_msg = "source resource status is non-ok .. will retry later";
+                                    return cb(); //abort the rest of the process - retry later
+                                } else {
+                                    logger.warn("source(dep) resource status not ok, but we've already synced it to executing resource before.. let's proceed");
+                                }
+                            }
+                            */
+
                             var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            //logger.debug("syncing from source:"+source_path+" to dest:"+dest_path);
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
+
+                                //try syncing
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, err=>{
+
+                                    //if its already synced, rsyncing is optional, so I don't really care about errors
+                                    if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
+
                                     if(err) {
                                         logger.error("failed rsyncing.........", err, dep._id.toString());
                                         //I want to retry if rsyncing fails by leaving the task status to be requested
@@ -886,11 +913,9 @@ function start_task(task, resource, cb) {
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
                                         //need to add dest resource to source dep
-                                        if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                            logger.debug("adding new resource_id", resource._id);
-                                            dep.resource_ids.push(resource._id.toString());
-                                            dep.save(next_dep);
-                                        } else next_dep();
+                                        logger.debug("adding new resource_id", resource._id);
+                                        dep.resource_ids.push(resource._id.toString());
+                                        dep.save(next_dep);
                                     }
                                 });
                             });

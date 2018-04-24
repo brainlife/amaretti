@@ -97,8 +97,8 @@ request.get({
             request.get({
                 url: config.api.auth+"/profile", json: true,
                 qs: {
-                    find: JSON.stringify({
-                        _id: {$in: Object.keys(users)},
+                    where: JSON.stringify({
+                        sub: {$in: Object.keys(users)},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },

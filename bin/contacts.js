@@ -31,49 +31,21 @@ function list_users(cb) {
             url: config.api.auth+"/profile", json: true,
             qs: {
                 find: JSON.stringify({
-                    _id: {$in: Object.keys(user_ids)},
+                    sub: {$in: user_ids},
                 }),
                 limit: 5000, //TODO unsustainable?
             },
             headers: { authorization: "Bearer "+config.wf.jwt },
         }, function(err, res, _contacts) {
-            let contact_details = {};
-            _contacts.profiles.forEach(contact=>{
-                contact_details[contact.id] = contact;
-            });
-
             console.log("users-----------------------------------------------");
-            console.log("\"fullname\",\"email\"");
             _contacts.profiles.forEach(contact=>{
-                console.log("\""+contact.fullname+"\",\""+contact.email+"\"");
+                if(!contact.active) return;
+                if(!~user_ids.indexOf(contact.id.toString())) return;
+                let name = contact.fullname.split(" ");
+                console.log("\""+name[0]+"\",\""+name[1]+"\", \""+contact.email+"\"");
             });
-        });
-     /*
-        //console.log("\"id\",\"uid\",\"fullname\",\"email\",\"app\"");
-        let contacts = {} ;
-        async.eachSeries(apps, (app, next_app)=>{
-            app.admins.forEach(id=>{
-                let contact = common.deref_contact(id);
-                if(contact) {
-                    //console.log("\""+id+"\",\""+contact.username+"\",\""+contact.fullname+"\",\""+contact.email+"\",\""+app.github+"\"");
-                    contacts[id] = contact;
-                } else {
-                    console.log("missing", id);
-                }
-            });
-            next_app();
-        }, err=>{
-            if(err) return cb(err);
 
-            console.log("app-----------------------------------------------");
-            console.log("\"fullname\",\"email\"");
-            for(let id in contacts) {
-                console.log("\""+contacts[id].fullname+"\",\""+contacts[id].email+"\"");
-            }
-            logger.debug("done with all apps");
-            cb();
         });
-        */
 	});
 }
 
