@@ -71,6 +71,7 @@ var resourceSchema = mongoose.Schema({
     user_id: {type: String, index: true}, 
     active: {type: Boolean, default: true},
     name: String, 
+    desc: String, 
     
     //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
     type: String, 

@@ -1,4 +1,4 @@
-tag=1.1.8
+tag=1.1.9
 docker build -t brainlife/amaretti ..
 if [ ! $? -eq 0 ]; then
     echo "failed to build"

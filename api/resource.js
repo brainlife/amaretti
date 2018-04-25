@@ -38,7 +38,7 @@ exports.select = function(user, task, cb) {
         active: true,
     })
     .sort('create_date')
-    .exec(function(err, resources) {
+    .exec((err, resources)=>{
         if(err) return cb(err);
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
@@ -47,51 +47,66 @@ exports.select = function(user, task, cb) {
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
-            //logger.debug(resource.name);
             score_resource(user, resource, task, (err, score, detail)=>{
+
                 if(score === null) {
                     //not configured to run on this resource.. ignore
                     return next_resource();         
                 }
 
+                let resource_detail = config.resources[resource.resource_id];
+                let consider = {
+                    id: resource._id, 
+                    name: resource.name, 
+                    desc: resource.desc, 
+                    status: resource.status, 
+                    status_msg: resource.status_msg, 
+                    score: score, 
+                    owner: resource.user_id,
+                    detail,
+                    info: {
+                        desc: resource_detail.desc,
+                        name: resource_detail.name,
+                        maxtask: resource_detail.maxtask,
+                    },
+                };
+                considered.push(consider);
+
                 if(resource.status != 'ok') {
                     //logger.debug("  resource status not ok");
-                    detail += "resource status not ok";
-                    considered.push({id: resource._id, name: resource.name, status: resource.status, score: 0, detail});
+                    consider.detail += "resource status is not ok";
                     return next_resource();
                 }
 
+                //if score is 0, leave it 0
                 if(score == 0) {
-                    considered.push({id: resource._id, name: resource.name, status: resource.status, score, detail});
                     return next_resource();
                 }
                 
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {
-                    detail+="resource listed in deps/resource_ids.. +5\n";
-                    score = score+5;
+                    consider.detail+="resource listed in deps/resource_ids.. +5\n";
+                    consider.score = score+5;
                 }
 
                 //+10 score if it's owned by user
                 if(resource.user_id == user.sub) {
-                    detail+="user owns this.. +10\n";
-                    score = score+10;
+                    consider.detail+="user owns this.. +10\n";
+                    consider.score = score+10;
                 }
                 //+15 score if it's preferred by user (TODO need to make sure this still works)
                 if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
-                    detail+="user prefers this.. +15\n";
-                    score = score+15;
+                    consider.detail+="user prefers this.. +15\n";
+                    consider.score = score+15;
                 }
 
-                detail+="final score:"+score+"\n";
+                consider.detail+="final score:"+consider.score+"\n";
 
                 //pick the best score...
-                if(!best || score > best_score) {
-                    best_score = score;
+                if(!best || consider.score > best_score) {
+                    best_score = consider.score;
                     best = resource;
                 } 
-
-                considered.push({id: resource._id, name: resource.name, status: resource.status, score, detail});
                 next_resource();
             });
         }, err=>{
@@ -121,8 +136,7 @@ function score_resource(user, resource, task, cb) {
         var detail = "";
     
         //first, pull score from resource_detail
-        if( resource_detail.services &&
-            resource_detail.services[task.service]) {
+        if(resource_detail.services && resource_detail.services[task.service]) {
             score = parseInt(resource_detail.services[task.service].score);
             detail += "resource_detail score:"+score+"\n";
         }
@@ -137,6 +151,8 @@ function score_resource(user, resource, task, cb) {
                 }
             });
         }
+
+        if(score === null) return cb(null, null); //not handled by this resource
 
         //check number of tasks currently running on this resource and compare it with maxtask if set
         var maxtask = resource_detail.maxtask;
@@ -183,9 +199,13 @@ exports.check = function(resource, cb) {
         if(err) return cb(err);
         logger.info("resource_id: "+resource._id+" status:"+status+" msg:"+msg);
         resource.status = status;
-        resource.status_msg = "test failed";
         resource.status_update = new Date();
-        if(status == "ok") resource.lastok_date = new Date();
+        if(status == "ok") {
+            resource.lastok_date = new Date();
+            resource.status_msg = "test ok";
+        } else {
+            resource.status_msg = "test failed";
+        }
         resource.save(function(err) {
             cb(err, {status, message: msg});
         });
