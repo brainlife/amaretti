@@ -98,17 +98,18 @@ request.get({
                 url: config.api.auth+"/profile", json: true,
                 qs: {
                     where: JSON.stringify({
-                        sub: {$in: Object.keys(users)},
+                        id: {$in: Object.keys(users)},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },
                 headers: { authorization: "Bearer "+config.wf.jwt },
             }, function(err, res, _contacts) {
+                if(err) return cb(err);
                 let contact_details = {};
                 _contacts.profiles.forEach(contact=>{
                     contact_details[contact.id] = contact;
                 });
-                cb(err, contact_details);
+                cb(null, contact_details);
             });
         },
 

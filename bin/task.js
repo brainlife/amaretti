@@ -696,7 +696,7 @@ function start_task(task, resource, cb) {
                     logger.debug("(for backward compatibility) remove old taskdir if it doesn't have .git");
                     conn.exec("[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir, function(err, stream) {
                         if(err) return next(err);
-                        common.set_conn_timeout(conn, stream, 1000*5);
+                        common.set_conn_timeout(conn, stream, 1000*15);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while cleaning old service dir");
                             else if(code && code == 1) return next(); //taskdir not there (good..)

@@ -170,7 +170,7 @@ function score_resource(user, resource, task, cb) {
         }, (err, tasks)=>{
             if(err) logger.error(err);
             detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
-            if(maxtask < tasks.length) {
+            if(maxtask <= tasks.length) {
                 detail += "resource is busy\n";
                 cb(null, 0, detail); 
             } else {

@@ -545,10 +545,14 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
                 if(err) return next(err);
                 //TODO - I should just return _task - to be consistent with other API
                 res.json({message: "Task successfully registered", task: _task});
+
+                common.update_instance_status(instance_id, err=>{
+                    if(err) logger.error(err);
+                });
             });
            
             //also send the first progress update
-            common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
+            //common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
         });
     });
 });
@@ -581,6 +585,9 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
             res.json({message: "Task successfully re-requested", task: task});
+            common.update_instance_status(task.instance_id, err=>{
+                if(err) logger.error(err);
+            });
         }); 
     });
 });
@@ -652,8 +659,14 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
         //task.products = [];
         task.save(function(err) {
             if(err) return next(err);
+            /*
             common.progress(task.progress_key, {msg: 'Stop Requested'}, function() {
                 res.json({message: "Task successfully requested to stop", task: task});
+            });
+            */
+            res.json({message: "Task successfully requested to stop", task: task});
+            common.update_instance_status(task.instance_id, err=>{
+                if(err) logger.error(err);
             });
         });
     });

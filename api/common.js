@@ -183,43 +183,7 @@ exports.get_sftp_connection = function(resource, cb) {
     });
 }
 
-/*
-if(config.amaretti.debug) {
-    setInterval(()=>{
-        logger.debug("ssh channel dump..");
-        console.dir(ssh_conns);
-        logger.debug("sftp channel dump..");
-        console.dir(sftp_conns);
-    }, 1000*60);
-}
-*/
-
 exports.report_ssh = function() {
-    /*
-    let ssh_channels = {};
-    for(var id in ssh_conns) {
-        ssh_channels[id] = ssh_conns[id];
-    }
-    let sftp_channels = {};
-    for(var id in sftp_conns) {
-        sftp_channels[id] = sftp_conns[id];
-    }
-    */
-
-    /*
-    //let's make sure all sftp connections are still good
-    var sftp_status = {};
-    for(var id in sftp_conns) {
-        let sftp = sftp_conns[id]; 
-        //sftp_status[id] = "ok";
-        sftp.readdir(".", (err, files)=>{
-            logger.debug("sftp.readdir test finished");
-            if(err) return sftp_status[id] = err;
-            sftp_status[id] = "got files:"+files.length;
-        });
-    }
-    */
-
     return {
         ssh_cons: Object.keys(ssh_conns).length,
         sftp_cons: Object.keys(sftp_conns).length,
@@ -243,6 +207,7 @@ exports.progress = function(key, p, cb) {
     });
 }
 
+//TODO should I deprecate this?
 //ssh to host using username/password
 //currently only used by sshkey installer
 exports.ssh_command = function(username, password, host, command, opts, cb) {
@@ -291,7 +256,6 @@ exports.ssh_command = function(username, password, host, command, opts, cb) {
         }
     });
     conn.connect({
-        //debug: true,
         port: 22,
         host: host,
         username: username,
@@ -381,7 +345,10 @@ exports.update_instance_status = function(instance_id, cb) {
         if(!instance) return cb("couldn't find instance by id:"+instance_id);
 
         //find all tasks under this instance
-        db.Task.find({instance_id: instance._id}, 'status status_msg', function(err, tasks) {
+        db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
+        .sort({create_date: 1})
+        .select('status status_msg service name')
+        .exec((err, tasks)=>{
             if(err) return cb(err);
 
             //count status
@@ -399,16 +366,33 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.failed > 0) newstatus = "failed";
             else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
-            else if(counts.removed > 0) newstatus = "removed";
+            //else if(counts.removed > 0) newstatus = "removed";
 
             //did status changed?
-            if(instance.status != newstatus) {
-                logger.debug("instance status changed",instance._id,newstatus);
-                if(newstatus == "unknown") logger.debug(counts);
-                instance.status = newstatus;
-                instance.update_date = new Date();
-                instance.save(cb);
-            } else cb(); //no change..
+            //if(instance.status != newstatus) {
+            //logger.debug("instance status changed",instance._id,newstatus);
+            if(newstatus == "unknown") logger.debug(counts);
+            
+            //create task summary
+            if(!instance.config) instance.config = {};
+            instance.config.summary = [];
+            tasks.forEach(task=>{
+                instance.config.summary.push({
+                    task_id: task._id, 
+                    service: task.service, 
+                    status: task.status, 
+                    name: task.name, 
+                    //user_id: task.user_id
+                }); 
+            });
+            instance.markModified("config");
+            //logger.debug("instance status update");
+            //logger.debug(instance.config);
+
+            instance.status = newstatus;
+            instance.update_date = new Date();
+            instance.save(cb);
+            //} else cb(); //no change..
         });
     });
 }

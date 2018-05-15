@@ -47,7 +47,7 @@ var instanceSchema = mongoose.Schema({
     //if this is updated, all task's group_id needs to be updated also
     group_id: {type: Number, index: true}, 
 
-    //workflow_id: String, //deprecated
+    //store details mainly used by UI
     config: mongoose.Schema.Types.Mixed,
 
     status: String, //instance status (computed from tasks inside it)

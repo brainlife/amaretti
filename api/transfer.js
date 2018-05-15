@@ -36,16 +36,16 @@ function get_ssh_connection_with_agent(resource, cb) {
         old.exec("hostname", function(err, stream) {
             if(err) {
                 logger.error("ssh connection for "+resource._id.toString()+" went bad");
-                old.disconnect();
+                old.end();
                 return cb(err);
             }
             common.set_conn_timeout(old, stream, 1000*5);
             stream.on('close', function(code, signal) {
                 if(code === undefined) {
-                    old.disconnect();
+                    old.end();
                     return next("timedout while checking old connection");
                 } else if(code) {
-                    old.disconnect();
+                    old.end();
                     return cb(err);
                 } else cb(null, old);
             });
@@ -176,7 +176,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
                 conn.exec("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
-                    common.set_conn_timeout(conn, stream, 1000*20);
+                    common.set_conn_timeout(conn, stream, 1000*30);
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while removing broken symlinks");
                         else if(code) return next("Failed to cleanup broken symlinks on source");
