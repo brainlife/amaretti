@@ -76,9 +76,37 @@ exports.decrypt_resource = function(resource) {
 var ssh_conns = {};
 exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
-    var old = ssh_conns[resource._id];
-    //TODO - check to make sure connection is really alive?
-    if(old) return cb(null, old);
+    let old = ssh_conns[resource._id];
+    if(old) {
+        logger.debug("reusing connection for", resource._id.toString());
+
+        //test the connection... because it sometimes dies
+        //TODO _ I sitll need to find out why it goes sour
+        old.exec("hostname", function(err, stream) {
+            if(err) {
+                logger.error("ssh connection for "+resource._id.toString()+" went bad");
+                old.end();
+                return cb(err);
+            }
+            common.set_conn_timeout(old, stream, 1000*5);
+            stream.on('close', function(code, signal) {
+                if(code === undefined) {
+                    old.end();
+                    return next("timedout while checking old connection");
+                } else if(code) {
+                    old.end();
+                    return cb(err);
+                } else cb(null, old);
+            });
+            stream.on('data', function(data) {
+                logger.debug(data.toString());
+            }).stderr.on('data', function(data) {
+                logger.error(data.toString());
+            });
+        });
+
+        return;
+    }
 
     //open new connection
     logger.debug("opening new ssh connection for resource:", resource._id.toString());

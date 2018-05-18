@@ -27,12 +27,11 @@ var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
     //see if we already have an active ssh session
     var old = ssh_conns[resource._id];
-    //TODO - check to make sure connection is really alive?
     if(old) {
         logger.debug("reusing connection for", resource._id.toString());
 
         //test the connection... because it sometimes dies
-        //TODO _ I need to find out why it goes sour
+        //TODO _ I sitll need to find out why it goes sour
         old.exec("hostname", function(err, stream) {
             if(err) {
                 logger.error("ssh connection for "+resource._id.toString()+" went bad");
