@@ -86,8 +86,7 @@ exports.get_ssh_connection = function(resource, cb) {
         }
 
         logger.debug("reusing ssh(cqueue) connection for", resource._id.toString());
-        logger.debug("queue len:", old.queue.length);
-        logger.debug("remaining channel counter:", old.counter);
+        logger.debug("queue len:", old.queue.length, "remaining channels:", old.counter);
         return cb(null, old);
 
         /*

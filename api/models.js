@@ -11,7 +11,7 @@ const events = require('./events');
 
 //use native promise for mongoose
 //without this, I will get Mongoose: mpromise (mongoose's default promise library) is deprecated
-mongoose.Promise = global.Promise; 
+//mongoose.Promise = global.Promise; 
 
 exports.init = function(cb) {
     events.init(err=>{

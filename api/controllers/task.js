@@ -281,9 +281,10 @@ router.get('/download/:taskid', jwt({
 }), function(req, res, next) {
     logger.debug("/task/download/"+req.params.taskid);
     
-    //sometime request gets canceled
+    //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
     let req_closed = false;
     req.on('close', ()=>{
+        logger.debug("request closed");
         req_closed = true;
     });
 
@@ -294,22 +295,22 @@ router.get('/download/:taskid', jwt({
             if(err) return next(err);
 
             logger.debug("gettingn sftp connection");
+            if(req_closed) return next("request already closed.. bailing p1");
             common.get_sftp_connection(resource, function(err, sftp) {
                 if(err) return next(err);
+
+                if(req_closed) return next("request already closed.. bailing p2");
 
                 logger.debug("sftp.stat-ing");
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
-                    if(req_closed) return next("request already closed");
+                    if(req_closed) return next("request already closed.. bailing p3");
                 
-                    //logger.debug(stat);
                     if(stat.isDirectory()) {
-
                         logger.debug("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
-                            if(req_closed) return next("request already closed");
 
                             /*
                             //TODO - I am not sure if there is more elegant way of handling this..
@@ -330,16 +331,18 @@ router.get('/download/:taskid', jwt({
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);
                             res.setHeader('Content-Type', "application/x-tgz");
-                            logger.debug("running tar via conn_q", conn_q.counter);
+                            logger.debug("running tar via conn_q");
+
+                            if(req_closed) return next("request already closed... skipping exec()!");
                             conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
                                 if(err) return next(err);
-                                common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
-                                if(req_closed) stream.close("request already closed");
-                                //sometime request gets canceled
+                                if(req_closed) return stream.close("request already closed - before pipe");
                                 req.on('close', ()=>{
-                                    logger.error("request closed........");
+                                    logger.debug("request close after pipe began.. closing stream");
                                     stream.close();
                                 });
+
+                                common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                 stream.pipe(res);
                             });
                         });
@@ -357,10 +360,14 @@ router.get('/download/:taskid', jwt({
                         res.setHeader('Content-Length', stat.size);
                         if(mimetype) res.setHeader('Content-Type', mimetype);
                         let stream = sftp.createReadStream(fullpath);
+
+                        /*
+                        //in case user terminate in the middle?
                         req.on('close', ()=>{
-                            logger.error("request closed........");
+                            logger.error("request closed........ closing sftp stream");
                             stream.close();
                         });
+                        */
                         stream.pipe(res);
                     }
                 });
@@ -384,19 +391,28 @@ router.get('/download/:taskid', jwt({
  *                              {file stats uploaded}
  */
 router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+
+    /* connectionqueue leaking has never happened here (afaik..) so let's leave this for now
+    //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
+    let req_closed = false;
+    req.on('close', ()=>{
+        req_closed = true;
+    });
+    */
+
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
         
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
 
-            common.get_ssh_connection(resource, function(err, conn_q) {
+            common.get_ssh_connection(resource, (err, conn_q)=>{
                 if(err) return next(err);
 
-                mkdirp(conn_q, path.dirname(fullpath), function(err) {
+                mkdirp(conn_q, path.dirname(fullpath), err=>{
                     if(err) return next(err);
 
-                    common.get_sftp_connection(resource, function(err, sftp) {
+                    common.get_sftp_connection(resource, (err, sftp)=>{
                         if(err) return next(err);
                         logger.debug("fullpath",fullpath);
                         var pipe = req.pipe(sftp.createWriteStream(fullpath));
@@ -406,10 +422,15 @@ router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(r
                             //this is an undocumented feature to exlode uploade tar.gz
                             if(req.query.untar) {
                                 logger.debug("tar xzf-ing");
-                                conn_q.exec("cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
+
+                                //is this secure enough?
+                                let cmd = "cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
                                     "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
-                                    "rm \""+path.basename(fullpath).addSlashes()+"\"", function(err, stream) {
+                                    "rm \""+path.basename(fullpath).addSlashes()+"\"";
+                                
+                                conn_q.exec(cmd, (err, stream)=>{
                                     if(err) return next(err);
+                                    common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                     stream.on('end', function() {
                                         res.json({msg: "uploaded and untared"});
                                     });

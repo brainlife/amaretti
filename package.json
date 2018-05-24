@@ -27,7 +27,7 @@
     "hpss": "0.0.20",
     "jsonwebtoken": "^8.2.1",
     "mime": "^2.3.1",
-    "mongoose": "^4.13.13",
+    "mongoose": "^5.1.2",
     "multiparty": "^4.1.4",
     "redis": "^2.8.0",
     "request": "^2.87.0",
