@@ -22,6 +22,7 @@ exports.sshagent_list_keys = function(cb) {
     sshagent_client.listKeys(cb);
 }
 
+/*
 //very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
 var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
@@ -103,6 +104,47 @@ function get_ssh_connection_with_agent(resource, cb) {
         agentForward: true,
     });
 }
+*/
+
+//very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
+var ssh_conns = {};
+function get_ssh_connection_with_agent(resource, cb) {
+    logger.debug("transfer: opening ssh connection to", resource._id.toString());
+    var conn = new Client();
+    conn.on('ready', function() {
+        logger.debug("transfer: ssh connection ready", resource._id.toString());
+        if(cb) cb(null, conn); //success!
+        cb = null;
+    });
+    conn.on('end', function() {
+        logger.debug("transfer: ssh connection ended", resource._id.toString());
+    });
+    conn.on('close', function() {
+        logger.debug("transfer: ssh connection closed", resource._id.toString());
+    });
+    conn.on('error', function(err) {
+        logger.error("transfer: ssh connectionn error", err, resource._id.toString());
+        if(cb) cb(err);
+        cb = null;
+    });
+
+    common.decrypt_resource(resource);
+    let detail = config.resources[resource.resource_id];
+    conn.connect({
+        host: resource.config.hostname || detail.hostname,
+        username: resource.config.username,
+        privateKey: resource.config.enc_ssh_private,
+        keepaliveInterval: 10*1000, //default 0 (disabled) - I need to keep it alive because I am caching
+
+        //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
+        //I think I should re-try connecting instead?
+        //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
+
+        //we use agent to allow transfer between 2 remote resources
+        agent: process.env.SSH_AUTH_SOCK,
+        agentForward: true,
+    });
+}
 
 /*
 3|task     | 0> Sun Mar 25 2018 11:53:14 GMT+0000 (UTC) - error: failed rsyncing......... { Error: (SSH) Channel open failure: open failed
@@ -133,7 +175,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             next=>{
                 //forward source's ssh key to dest
                 //var privkey = sshpk.parsePrivateKey(fs.readFileSync("/home/hayashis/.ssh/id_rsa"), 'pem');
-                //logger.debug("transfer: decrypting source");
                 common.decrypt_resource(source_resource);
                 var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
 
@@ -173,7 +214,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //TODO - set timeout similar to bin/task's?
                 logger.debug("finding and removing broken symlink on source resource before rsync");
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
-                conn.exec("ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                conn.exec("ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
                     common.set_conn_timeout(conn, stream, 1000*30);
                     stream.on('close', function(code, signal) {
@@ -229,7 +270,11 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     });
                 });
             },
-        ], cb);
+        ], err=>{
+            logger.debug("closing ssh");
+            conn.end();
+            cb(err);
+        });
     });
 }
 

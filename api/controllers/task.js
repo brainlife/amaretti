@@ -248,7 +248,6 @@ function get_fullpath(task, resource, p, cb) {
 
 }
 
-//deprecated by /task/download/:taskid
 //this API allows user to download any files under user's workflow directory
 //TODO - since I can't let <a> pass jwt token via header, I have to expose it via URL.
 //doing so increases the chance of user misusing the token, but unless I use HTML5 File API
@@ -280,24 +279,49 @@ router.get('/download/:taskid', jwt({
         return null;
     }
 }), function(req, res, next) {
-    logger.debug("/download/task/"+req.params.taskid);
+    logger.debug("/task/download/"+req.params.taskid);
+    
+    //sometime request gets canceled
+    let req_closed = false;
+    req.on('close', ()=>{
+        req_closed = true;
+    });
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
-        
+
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
 
+            logger.debug("gettingn sftp connection");
             common.get_sftp_connection(resource, function(err, sftp) {
                 if(err) return next(err);
-                logger.debug("stat-ing");
+
+                logger.debug("sftp.stat-ing");
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
+                    if(req_closed) return next("request already closed");
+                
+                    //logger.debug(stat);
                     if(stat.isDirectory()) {
+
                         logger.debug("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
+                            if(req_closed) return next("request already closed");
+
+                            /*
+                            //TODO - I am not sure if there is more elegant way of handling this..
+                            //if there are no more channels available, abort..
+                            if(conn_q.counter == 0) {
+                                let after = new Date();
+                                after.setHours(after.getHours()+1); //ask to retry in an hour..
+                                res.set("Retry-After", after.toISOString());
+                                res.status(503).json({message: "connection busy. please try later"});
+                                return;
+                            }
+                            */  
 
                             //compose a good unique name
                             let name = task.instance_id+"."+task._id;
@@ -306,12 +330,17 @@ router.get('/download/:taskid', jwt({
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);
                             res.setHeader('Content-Type', "application/x-tgz");
-                            //logger.debug("cd to ", fullpath.addSlashes());
+                            logger.debug("running tar via conn_q", conn_q.counter);
                             conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
                                 if(err) return next(err);
-                                logger.debug("piping tar output to user");
+                                common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                if(req_closed) stream.close("request already closed");
+                                //sometime request gets canceled
+                                req.on('close', ()=>{
+                                    logger.error("request closed........");
+                                    stream.close();
+                                });
                                 stream.pipe(res);
-                                //req.on('close', stream.close);
                             });
                         });
                     } else {
@@ -328,6 +357,10 @@ router.get('/download/:taskid', jwt({
                         res.setHeader('Content-Length', stat.size);
                         if(mimetype) res.setHeader('Content-Type', mimetype);
                         let stream = sftp.createReadStream(fullpath);
+                        req.on('close', ()=>{
+                            logger.error("request closed........");
+                            stream.close();
+                        });
                         stream.pipe(res);
                     }
                 });

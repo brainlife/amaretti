@@ -91,7 +91,8 @@ exports.logger = {
                     return d.toString();
                 },
                 level: 'debug',
-                colorize: true
+                colorize: true,
+                stderrLevels: ["error"], //default includes debug
             }),
         ]
     }

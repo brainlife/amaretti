@@ -78,8 +78,19 @@ exports.get_ssh_connection = function(resource, cb) {
     //see if we already have an active ssh session
     let old = ssh_conns[resource._id];
     if(old) {
-        logger.debug("reusing connection for", resource._id.toString());
+        if(old.connecting) {
+            logger.debug("still connecting.. postponing");
+            return setTimeout(()=>{
+                exports.get_ssh_connection(resource, cb);
+            }, 1000);
+        }
 
+        logger.debug("reusing ssh(cqueue) connection for", resource._id.toString());
+        logger.debug("queue len:", old.queue.length);
+        logger.debug("remaining channel counter:", old.counter);
+        return cb(null, old);
+
+        /*
         //test the connection... because it sometimes dies
         //TODO _ I sitll need to find out why it goes sour
         old.exec("hostname", function(err, stream) {
@@ -88,7 +99,7 @@ exports.get_ssh_connection = function(resource, cb) {
                 old.end();
                 return cb(err);
             }
-            common.set_conn_timeout(old, stream, 1000*5);
+            exports.set_conn_timeout(old, stream, 1000*5);
             stream.on('close', function(code, signal) {
                 if(code === undefined) {
                     old.end();
@@ -104,9 +115,10 @@ exports.get_ssh_connection = function(resource, cb) {
                 logger.error(data.toString());
             });
         });
-
         return;
+        */
     }
+    ssh_conns[resource._id] = {connecting: new Date()};
 
     //open new connection
     logger.debug("opening new ssh connection for resource:", resource._id.toString());
@@ -116,8 +128,7 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.debug("ssh connection ready for resource:", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
         ssh_conns[resource._id] = connq;
-
-        if(cb) cb(null, connq); //success!
+        if(cb) cb(null, connq); //ready!
         cb = null;
     });
     conn.on('end', function() {
@@ -131,10 +142,6 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('error', function(err) {
         logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
         delete ssh_conns[resource._id];
-
-        logger.debug("sftp channel dump..");
-        console.dir(ssh_conns);
-        
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
@@ -156,6 +163,54 @@ exports.get_ssh_connection = function(resource, cb) {
     });
 }
 
+/*
+//testing temporary workaround for ssh connection getting stuck..
+//sftp and/or ssh cache goes sour and gets stuck.. until I can figure out why it
+//does that, let's periodically check the connection and make sure it's still working...
+//I don't know why keepalive can't detect the connection going bad.
+function check_ssh_conns() {
+    logger.debug("check_ssh_conns");
+    async.eachOf(ssh_conns, (conn, resource_id, next_conn)=>{
+        let c = ssh_conns[resource_id];
+        logger.debug("checking ssh_conn", resource_id.toString());
+        logger.debug("queue len:", c.queue.length);
+        logger.debug("remaining channel counter:", c.counter);
+        c.exec("hostname", function(err, stream) {
+            logger.debug("got hostname stream");
+            if(err) {
+                logger.error("ssh connection for "+resource._id.toString()+" went bad (couldn't create new stream)");
+                c.end(); 
+                delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
+                return next_conn();
+            }
+            exports.set_conn_timeout(c, stream, 1000*10);
+            stream.on('close', function(code, signal) {
+                if(code === undefined) {
+                    logger.error("timedout while checking ssh connection");
+                    c.end(); 
+                    delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
+                } else if(code) {
+                    logger.error("hostname check returned code:"+code);
+                    old.end(); 
+                    delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
+                }
+                next_conn();
+            });
+            stream.on('data', function(data) {
+                logger.debug(data.toString());
+            }).stderr.on('data', function(data) {
+                logger.error(data.toString());
+            });
+        });
+    }, err=>{
+        if(err) logger.error(err);
+        logger.debug("finished checking ssh_conn");
+        setTimeout(check_ssh_conns, 10*1000);
+    });
+} 
+check_ssh_conns(); //begin testing
+*/
+
 //I need to keep up with sftp connection cache independent of ssh connection pool
 //TODO - looks like sftp connection is leaking somewhere..?
 //sftp becomes unresponsive until I restart warehouse api
@@ -164,8 +219,6 @@ exports.get_sftp_connection = function(resource, cb) {
     //see if we already have an active sftp session
     var old = sftp_conns[resource._id];
     if(old) {
-        //TODO - check to make sure connection is really alive?
-
         logger.debug("reusing sftp for resource:"+resource._id);
         return cb(null, old);
     }
@@ -176,6 +229,7 @@ exports.get_sftp_connection = function(resource, cb) {
         logger.debug("new sftp connection ready", resource._id.toString());
         conn.sftp((err, sftp)=>{
             if(err) return cb(err);
+            sftp._workdir = exports.getworkdir(null, resource); //to be used by tester
             sftp_conns[resource._id] = sftp;
             if(cb) cb(null, sftp);
             cb = null;
@@ -210,6 +264,42 @@ exports.get_sftp_connection = function(resource, cb) {
         //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
+
+/*
+//testing temporary workaround for ssh connection getting stuck..
+//sftp and/or ssh cache goes sour and gets stuck.. until I can figure out why it
+//does that, let's periodically check the connection and make sure it's still working...
+//I don't know why keepalive can't detect the connection going bad.
+function check_sftp_conns() {
+    async.eachOf(sftp_conns, (conn, resource_id, next_conn)=>{
+        logger.debug("checking sftp_conn", resource_id.toString());
+        let ftp = sftp_conns[resource_id];
+        let to = setTimeout(()=>{
+            logger.error("readdir timeout");
+            next_conn();
+            next_conn = null; //just incase opendir cb returns later still
+            //c.end(); c is sft
+            delete sftp_conns[resource_id]; //c.end() should raise close event.. but just in case
+        }, 5000);
+        ftp.opendir(conn._workdir, (err,files)=>{
+            clearTimeout(to);
+            if(err) {
+                logger.error("failed to readdir");
+                //c.end();
+                delete sftp_conns[resource_id]; //c.end() should raise close event.. but just in case
+            } else {
+                logger.debug("files returned", files.length);
+            }
+            if(next_conn) next_conn(err);
+        });
+    }, err=>{
+        if(err) logger.error(err);
+        logger.debug("finished checking sftp_conn");
+        setTimeout(check_sftp_conns, 30*1000);
+    });
+} 
+check_sftp_conns(); //begin testing
+*/
 
 exports.report_ssh = function() {
     return {
@@ -537,11 +627,15 @@ exports.indexOfObjectId = function(ids, search_id, cb) {
 
 exports.set_conn_timeout = function(cqueue, stream, time) {
     var timeout = setTimeout(()=>{
-        logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
-        //stream.close() won't do anything, so the only option is to close the whole connection :: https://github.com/mscdex/ssh2/issues/339
-        cqueue.end();
+        //logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
+        logger.error("reached connection timeout.. closing ssh connection");
+        //stream.close() won't do anything, so the only option is to close the whole connection 
+        //https://github.com/mscdex/ssh2/issues/339
+        //cqueue.end();
+        stream.close(); //seems to work now?
     }, time);
     stream.on('close', (code, signal)=>{
+        logger.debug("exec closed!");
         clearTimeout(timeout);
     });
 }
