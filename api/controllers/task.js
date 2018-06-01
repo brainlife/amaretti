@@ -334,15 +334,14 @@ router.get('/download/:taskid', jwt({
                             logger.debug("running tar via conn_q");
 
                             if(req_closed) return next("request already closed... skipping exec()!");
-                            conn_q.exec("cd \""+fullpath.addSlashes()+"\" && tar hcz *", (err, stream)=>{
+                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
                                 if(req_closed) return stream.close("request already closed - before pipe");
                                 req.on('close', ()=>{
                                     logger.debug("request close after pipe began.. closing stream");
                                     stream.close();
                                 });
-
-                                common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                 stream.pipe(res);
                             });
                         });
@@ -428,9 +427,9 @@ router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(r
                                     "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
                                     "rm \""+path.basename(fullpath).addSlashes()+"\"";
                                 
-                                conn_q.exec(cmd, (err, stream)=>{
+                                conn_q.exec("timeout 600 bash -c\""+cmd+"\"", (err, stream)=>{
                                     if(err) return next(err);
-                                    common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                    //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                     stream.on('end', function() {
                                         res.json({msg: "uploaded and untared"});
                                     });

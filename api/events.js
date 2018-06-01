@@ -24,7 +24,7 @@ exports.init = function(cb) {
     conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
     conn.on('ready', function() {
         connected = true;
-        //logger.info("amqp connection ready.. creating exchanges");
+        logger.info("amqp connection ready.. creating exchanges");
         conn.exchange(config.events.exchange+".task", 
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             task_ex = ex;
@@ -70,8 +70,8 @@ function publish_or_log(ex, key, msg) {
         logger.info(key);
         logger.info(msg);
     } else {
+        logger.debug("publishing", key);
         ex.publish(key, msg, {});
-        //logger.debug("posting event", ex, key, msg);
     }
 }
 

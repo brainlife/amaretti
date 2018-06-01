@@ -207,6 +207,11 @@ var taskSchema = mongoose.Schema({
     fail_date: {type: Date},
     //time when this task was last updated (only used by put api?)
     update_date: {type: Date},
+
+    //experimental.............
+    //number of times to tried to request (task will be marked as failed once it reaches certain number)
+    request_count: {type: Number, default: 0 },
+    
 });
 
 taskSchema.post('save', events.task);

@@ -22,90 +22,6 @@ exports.sshagent_list_keys = function(cb) {
     sshagent_client.listKeys(cb);
 }
 
-/*
-//very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
-var ssh_conns = {};
-function get_ssh_connection_with_agent(resource, cb) {
-    //see if we already have an active ssh session
-    var old = ssh_conns[resource._id];
-    if(old) {
-        logger.debug("reusing connection for", resource._id.toString());
-
-        //test the connection... because it sometimes dies
-        //TODO _ I sitll need to find out why it goes sour
-        old.exec("hostname", function(err, stream) {
-            if(err) {
-                logger.error("ssh connection for "+resource._id.toString()+" went bad");
-                old.end();
-                return cb(err);
-            }
-            common.set_conn_timeout(old, stream, 1000*5);
-            stream.on('close', function(code, signal) {
-                if(code === undefined) {
-                    old.end();
-                    return next("timedout while checking old connection");
-                } else if(code) {
-                    old.end();
-                    return cb(err);
-                } else cb(null, old);
-            });
-            stream.on('data', function(data) {
-                logger.debug(data.toString());
-            }).stderr.on('data', function(data) {
-                logger.error(data.toString());
-            });
-        });
-
-        return;
-    }
-
-    logger.debug("transfer: opening ssh connection to", resource._id.toString());
-    var detail = config.resources[resource.resource_id];
-    var conn = new Client();
-    conn.on('ready', function() {
-        logger.debug("transfer: ssh connection ready", resource._id.toString());
-        var connq = new ConnectionQueuer(conn);
-        ssh_conns[resource._id] = connq;
-
-        if(cb) cb(null, connq); //success!
-        cb = null;
-    });
-    conn.on('end', function() {
-        logger.debug("transfer: ssh connection ended", resource._id.toString());
-        delete ssh_conns[resource._id];
-    });
-    conn.on('close', function() {
-        logger.debug("transfer: ssh connection closed", resource._id.toString());
-        delete ssh_conns[resource._id];
-    });
-    conn.on('error', function(err) {
-        logger.error("transfer: ssh connectionn error", err, resource._id.toString());
-        delete ssh_conns[resource._id];
-       
-        //error could fire after ready event is called. like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
-        if(cb) cb(err);
-        cb = null;
-    });
-
-    common.decrypt_resource(resource);
-    //https://github.com/mscdex/ssh2#client-methods
-    conn.connect({
-        host: resource.config.hostname || detail.hostname,
-        username: resource.config.username,
-        privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 10*1000, //default 0 (disabled) - I need to keep it alive because I am caching
-
-        //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
-        //I think I should re-try connecting instead?
-        //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
-
-        //we use agent to allow transfer between 2 remote resources
-        agent: process.env.SSH_AUTH_SOCK,
-        agentForward: true,
-    });
-}
-*/
-
 //very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
 var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
@@ -191,9 +107,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             next=>{
                 //make sure dest dir exists
                 //TODO - set timeout similar to bin/task's?
-                conn.exec("mkdir -p "+dest_path, function(err, stream) {
+                conn.exec("timeout 20 mkdir -p "+dest_path, function(err, stream) {
                     if(err) return next(err);
-                    common.set_conn_timeout(conn, stream, 1000*20);
+                    //common.set_conn_timeout(conn, stream, 1000*20);
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while mkdir -p "+dest_path);
                         else if(code) return next("Failed to mkdir -p "+dest_path);
@@ -214,9 +130,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //TODO - set timeout similar to bin/task's?
                 logger.debug("finding and removing broken symlink on source resource before rsync");
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
-                conn.exec("ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                conn.exec("timeout 30 ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
-                    common.set_conn_timeout(conn, stream, 1000*30);
+                    //common.set_conn_timeout(conn, stream, 1000*30);
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while removing broken symlinks");
                         else if(code) return next("Failed to cleanup broken symlinks on source");
@@ -249,9 +165,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
 
-                conn.exec("rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                conn.exec("timeout 300 rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
-                    common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
+                    //common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
                     let errors = "";
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while rsyncing");
