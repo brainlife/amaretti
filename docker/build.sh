@@ -1,4 +1,6 @@
-tag=1.1.15
+tag=1.1.16
+
+docker pull node:8
 docker build -t brainlife/amaretti ..
 if [ ! $? -eq 0 ]; then
     echo "failed to build"

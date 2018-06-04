@@ -343,7 +343,7 @@ function handle_requested(task, next) {
     if(!task.request_count) task.request_count = 0;
     task.request_count++;
 
-    if(task.request_count > 20) {
+    if(task.request_count > 10) {
         task.status_msg = "Task couldn't be started";
         task.status = "failed";
         task.fail_date = new Date();
@@ -400,7 +400,7 @@ function handle_requested(task, next) {
                 task.resource_ids.push(resource._id);
             }
 
-            common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
+            //common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
 
             var called = false;
             start_task(task, resource, err=>{
@@ -707,6 +707,7 @@ function start_task(task, resource, cb) {
             logger.debug("starting task on "+resource.name);
             async.series([
                    
+                /*
                 next=>{
                     //TODO - get rid of this once we no longer have old tasks
                     logger.debug("(for backward compatibility) remove old taskdir if it doesn't have .git");
@@ -726,6 +727,7 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
+                */
                 
                 //create task dir by git shallow cloning the requested service
                 next=>{
@@ -734,7 +736,7 @@ function start_task(task, resource, cb) {
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
                     cmd += "git clone -q --depth=1 ";
-                    if(task.service_branch) cmd += "-b "+task.service_branch+" ";
+                    if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
                         if(err) return next(err);

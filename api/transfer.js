@@ -135,13 +135,13 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     //common.set_conn_timeout(conn, stream, 1000*30);
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while removing broken symlinks");
-                        else if(code) return next("Failed to cleanup broken symlinks on source");
+                        else if(code) return next("Failed to cleanup broken symlinks on source: code:"+code);
                         next();
                     })
                     .on('data', function(data) {
                         logger.info(data.toString());
                     }).stderr.on('data', function(data) {
-                        logger.error(data.toString());
+                        logger.warn(data.toString());
                     });
                 });
             },  
@@ -187,7 +187,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 });
             },
         ], err=>{
-            logger.debug("closing ssh");
+            //logger.debug("closing ssh");
             conn.end();
             cb(err);
         });

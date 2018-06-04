@@ -423,9 +423,9 @@ router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(r
                                 logger.debug("tar xzf-ing");
 
                                 //is this secure enough?
-                                let cmd = "cd \""+path.dirname(fullpath).addSlashes()+"\" && "+
-                                    "tar xzf \""+path.basename(fullpath).addSlashes()+"\" && "+
-                                    "rm \""+path.basename(fullpath).addSlashes()+"\"";
+                                let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
+                                    "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
+                                    "rm '"+path.basename(fullpath).addSlashes()+"'";
                                 
                                 conn_q.exec("timeout 600 bash -c\""+cmd+"\"", (err, stream)=>{
                                     if(err) return next(err);
