@@ -427,7 +427,7 @@ router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(r
                                     "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
                                     "rm '"+path.basename(fullpath).addSlashes()+"'";
                                 
-                                conn_q.exec("timeout 600 bash -c\""+cmd+"\"", (err, stream)=>{
+                                conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                     if(err) return next(err);
                                     //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                     stream.on('end', function() {
