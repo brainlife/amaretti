@@ -561,8 +561,7 @@ exports.rerun_task = function(task, remove_date, cb) {
     }
 
     task.status = "requested";
-    task.status_msg = "Re-requested";
-    task.request_count = 0;
+    task.status_msg = "Waiting to be started";
     
     //reset things
     task.request_date = new Date();
@@ -571,6 +570,7 @@ exports.rerun_task = function(task, remove_date, cb) {
     task.products = undefined;
     task.next_date = undefined; //reprocess asap
     task.run = 0;
+    task.request_count = 0;
 
     task.save(err=>{
         if(err) return next(err);

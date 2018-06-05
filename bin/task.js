@@ -51,7 +51,6 @@ function set_nextdate(task) {
     case "running":
         if(!task.start_date) logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
     case "stop_requested":
-    case "requested":
         var elapsed = 0;
         if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
 
@@ -59,6 +58,10 @@ function set_nextdate(task) {
         var delta = Math.min(delta, 1000*3600); //max 1 hour
         var delta = Math.max(delta, 1000*10); //min 10 seconds
         task.next_date = new Date(Date.now() + delta);
+        break;
+
+    case "requested":
+        task.next_date = new Date(Date.now() + 1000*180); //rety in 3 minutes
         break;
 
     case "waiting":
@@ -340,15 +343,6 @@ function handle_housekeeping(task, cb) {
 }
 
 function handle_requested(task, next) {
-    if(!task.request_count) task.request_count = 0;
-    task.request_count++;
-
-    if(task.request_count > 10) {
-        task.status_msg = "Task couldn't be started";
-        task.status = "failed";
-        task.fail_date = new Date();
-        return next();
-    }
 
     //make sure dependent tasks has all finished
     var deps_all_done = true;
@@ -372,6 +366,16 @@ function handle_requested(task, next) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependencies";
         task.status = "waiting";
+        return next();
+    }
+
+    //consider request_count
+    if(!task.request_count) task.request_count = 0;
+    task.request_count++;
+    if(task.request_count > 10) {
+        task.status_msg = "Task couldn't be started";
+        task.status = "failed";
+        task.fail_date = new Date();
         return next();
     }
 
@@ -924,10 +928,13 @@ function start_task(task, resource, cb) {
 
                                     if(err) {
                                         logger.error("failed rsyncing.........", err, dep._id.toString());
-                                        //I want to retry if rsyncing fails by leaving the task status to be requested
-                                        task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
+                                        
+                                        //need to release this so that resource.select will calculate resource availability correctly
+                                        task.start_date = undefined; 
                                         task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
-                                        cb(); //abort the rest of the process - retry later
+                                        
+                                        //I want to retry if rsyncing fails by leaving the task status to be requested
+                                        cb(); 
                                     } else {
                                         logger.debug("succeeded rsyncing.........", dep._id.toString());
                                         //need to add dest resource to source dep
