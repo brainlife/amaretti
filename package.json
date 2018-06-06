@@ -1,6 +1,5 @@
 {
   "name": "amaretti",
-  "version": "1.1.0",
   "description": "Light weight inter-resource meta task orchestration service for ABCD compatible apps.",
   "scripts": {
     "test": "mocha --reporter spec",

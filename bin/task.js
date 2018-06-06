@@ -308,7 +308,7 @@ function handle_housekeeping(task, cb) {
                             .on('data', function(data) {
                                 logger.info(data.toString());
                             }).stderr.on('data', function(data) {
-                                logger.error(data.toString());
+                                logger.info(data.toString());
                             });
                         });
                     });
@@ -493,8 +493,7 @@ function handle_stop(task, next) {
                     .on('data', function(data) {
                         logger.info(data.toString());
                     }).stderr.on('data', function(data) {
-                        logger.debug("received stderr");
-                        logger.error(data.toString());
+                        logger.info(data.toString());
                     });
                 });
             });
@@ -753,7 +752,7 @@ function start_task(task, resource, cb) {
                         .on('data', function(data) {
                             logger.info(data.toString());
                         }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
+                            logger.info(data.toString());
                         });
                     });
                 },
@@ -786,7 +785,7 @@ function start_task(task, resource, cb) {
                             logger.info(data.toString());
                             out+=data.toString();
                         }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
+                            logger.info(data.toString());
                         });
                     });
                 },                
@@ -810,7 +809,7 @@ function start_task(task, resource, cb) {
                         .on('data', function(data) {
                             logger.info(data.toString());
                         }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
+                            logger.info(data.toString());
                         });
                         stream.write(JSON.stringify(task.config, null, 4));
                         stream.end();
@@ -831,7 +830,7 @@ function start_task(task, resource, cb) {
                         .on('data', function(data) {
                             logger.info(data.toString());
                         }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
+                            logger.info(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
 
@@ -980,7 +979,7 @@ function start_task(task, resource, cb) {
                                 logger.info(data.toString());
                             });
                             stream.stderr.on('data', function(data) {
-                                logger.error(data.toString());
+                                logger.info(data.toString());
                             });
                         });
                     });
@@ -1032,7 +1031,7 @@ function start_task(task, resource, cb) {
                             .on('data', function(data) {
                                 logger.info(data.toString());
                             }).stderr.on('data', function(data) {
-                                logger.error(data.toString());
+                                logger.info(data.toString());
                             });
                         });
                     });
