@@ -42,10 +42,10 @@ function set_nextdate(task) {
     case "failed":
     case "finished":
     case "stopped":
-        //to see if task_dir still exists
         task.next_date = new Date(Date.now()+1000*3600*24);
+            
         //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
-        if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
+        //if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
 
     case "running":
@@ -249,11 +249,12 @@ function handle_housekeeping(task, cb) {
                 need_remove = true;
             }
 
-            //check for max life time
             var maxage = new Date();
             maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
             if(task.finish_date && task.finish_date < maxage) {
-                logger.info("this task was requested more than 25 days ago..");
+                need_remove = true;
+            }
+            if(task.fail_date && task.fail_date < maxage) {
                 need_remove = true;
             }
 
@@ -369,15 +370,6 @@ function handle_requested(task, next) {
         return next();
     }
 
-    //consider request_count
-    if(!task.request_count) task.request_count = 0;
-    task.request_count++;
-    if(task.request_count > 10) {
-        task.status_msg = "Task couldn't be started";
-        task.status = "failed";
-        task.fail_date = new Date();
-        return next();
-    }
 
     //need to lookup user's gids to find all resources that user has access to
     common.get_gids(task.user_id, (err, gids)=>{
@@ -395,6 +387,17 @@ function handle_requested(task, next) {
                 task.next_date = new Date(Date.now()+1000*60*5); 
                 return next();
             }
+            
+            //consider request_count
+            if(!task.request_count) task.request_count = 0;
+            task.request_count++;
+            if(task.request_count > 10) {
+                task.status_msg = "Task couldn't be started";
+                task.status = "failed";
+                task.fail_date = new Date();
+                return next();
+            }
+
             task.status_msg = "Starting task";
             task.start_date = new Date();
             task._considered = considered;
@@ -403,8 +406,6 @@ function handle_requested(task, next) {
                 logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
                 task.resource_ids.push(resource._id);
             }
-
-            //common.progress(task.progress_key, {status: 'running', progress: 0, msg: 'Initializing'});
 
             var called = false;
             start_task(task, resource, err=>{
@@ -760,7 +761,7 @@ function start_task(task, resource, cb) {
                 //update service
                 next=>{
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && git fetch && git reset --hard && git pull && git log -1\"", (err, stream)=>{
+                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git log -1\"", (err, stream)=>{
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*45);
                         let out = "";
@@ -1092,7 +1093,7 @@ function health_check() {
         messages: [],
         date: new Date(),
         counts: _counts,
-        maxage: 1000*60*3,
+        maxage: 1000*240,
     }
 
     if(_counts.tasks == 0) { //should have at least 1 from noop check
@@ -1138,7 +1139,7 @@ var rcon = redis.createClient(config.redis.port, config.redis.server);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     logger.info("connected to redis");
-    setInterval(health_check, 1000*60);
+    setInterval(health_check, 1000*120);
 });
 
 //run noop periodically to keep task loop occupied

@@ -478,7 +478,8 @@ exports.update_instance_status = function(instance_id, cb) {
         if(!instance) return cb("couldn't find instance by id:"+instance_id);
 
         //find all tasks under this instance
-        db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
+        //db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
+        db.Task.find({instance_id: instance._id})
         .sort({create_date: 1})
         .select('status status_msg service name')
         .exec((err, tasks)=>{
@@ -499,12 +500,12 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.failed > 0) newstatus = "failed";
             else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
-            //else if(counts.removed > 0) newstatus = "removed";
+            else if(counts.removed > 0) newstatus = "removed";
 
-            //did status changed?
-            //if(instance.status != newstatus) {
-            //logger.debug("instance status changed",instance._id,newstatus);
-            if(newstatus == "unknown") logger.debug(counts);
+            if(newstatus == "unknown") {
+                logger.error("can't figure out instance status", instance._id.toString());
+                logger.error(counts);
+            }
             
             //create task summary
             if(!instance.config) instance.config = {};
@@ -515,17 +516,13 @@ exports.update_instance_status = function(instance_id, cb) {
                     service: task.service, 
                     status: task.status, 
                     name: task.name, 
-                    //user_id: task.user_id
                 }); 
             });
             instance.markModified("config");
-            //logger.debug("instance status update");
-            //logger.debug(instance.config);
 
             instance.status = newstatus;
             instance.update_date = new Date();
             instance.save(cb);
-            //} else cb(); //no change..
         });
     });
 }

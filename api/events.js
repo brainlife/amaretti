@@ -70,7 +70,7 @@ function publish_or_log(ex, key, msg) {
         logger.info(key);
         logger.info(msg);
     } else {
-        logger.debug("publishing", key);
+        //logger.debug("publishing", key);
         ex.publish(key, msg, {});
     }
 }

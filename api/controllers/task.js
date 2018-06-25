@@ -131,7 +131,7 @@ function ls_resource(resource, _path, cb) {
         var t = setTimeout(function() {
             cb("Timed out while reading directory: "+_path);
             t = null;
-        }, 5000);
+        }, 5000); //sometimes it times out with 5 sec.. but I am not sure if increasing timeout is the right solution
         sftp.readdir(_path, function(err, files) {
             if(!t) return; //timeout called already
             clearTimeout(t);
