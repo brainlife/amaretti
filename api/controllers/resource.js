@@ -389,6 +389,7 @@ router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequire
 //intentionally left undocumented
 //TODO - I should limit access to certain IP range
 //currently only used by DAART
+/*
 router.post('/installsshkey', function(req, res, next) {
     var username = req.body.username;
     var password = req.body.password;
@@ -405,17 +406,17 @@ router.post('/installsshkey', function(req, res, next) {
     var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey.addSlashes()+'\" COMMENT=\"'+comment.addSlashes()+'\" bash';
     //var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | bash';
     common.ssh_command(username, password, host, command, {
-        /* karst sshd doesn't allow ssh client env
-        env: {
-            PUBKEY: pubkey,
-            comment: comment,
-        }
-        */
+        //karst sshd doesn't allow ssh client env
+        //env: {
+        //    PUBKEY: pubkey,
+        //    comment: comment,
+        //}
     }, function(err) {
         if(err) return next(err);
         res.json({message: 'ok'});
     });
 });
+*/
 
 /*
 //intentionally left undocumented

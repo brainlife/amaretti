@@ -511,6 +511,7 @@ exports.update_instance_status = function(instance_id, cb) {
             if(!instance.config) instance.config = {};
             instance.config.summary = [];
             tasks.forEach(task=>{
+                if(task.status == "removed") return; //hide removed tasks
                 instance.config.summary.push({
                     task_id: task._id, 
                     service: task.service, 
