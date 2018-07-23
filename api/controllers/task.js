@@ -527,8 +527,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         const task = new db.Task();
 
         //TODO validate?
-        task.name = req.body.name;
-        task.desc = req.body.desc;
+        task.name = req.body.name.trim();
+        task.desc = req.body.desc.trim();
         task.service = req.body.service;
         task.service_branch = req.body.service_branch;
         task.instance_id = req.body.instance_id;
@@ -750,7 +750,6 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
-        //if(task.status == "requested" && task.start_date) return res.status(500).end("You can not remove task that is currently started.");
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
             res.json({message: "Task requested for removal"});
@@ -813,7 +812,7 @@ router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..
-            console.log(key)
+            //console.log(key)
 
             task[key] = req.body[key];
 

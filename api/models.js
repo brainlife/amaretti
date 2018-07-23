@@ -100,9 +100,6 @@ var taskSchema = mongoose.Schema({
 
     user_id: {type: String, index: true}, //sub of user submitted this request
     
-    //time when this task was requested
-    request_date: {type: Date},
-
     //progress service key for this task
     progress_key: {type: String, index: true}, 
 
@@ -141,9 +138,6 @@ var taskSchema = mongoose.Schema({
     //resource dependencies..  (for hpss, it will copy the heytab)
     resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
-    //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
-    remove_date: Date,
-
     //mili-seconds after start_date to stop running job (default to 7 days)
     //note.. this includes time that task is in the queue
     //this mainly exists to prevent jobs from getting stuck running, but also to stop tasks while it's being started.
@@ -160,7 +154,7 @@ var taskSchema = mongoose.Schema({
     status: {type: String, index: true}, 
     //requested,  
     //  all new task should be placed under requested
-    //waiting 
+    //waiting  (trying to deprecate)
     //  requested tasks will be placed on waiting status if any deps are not yet finished
     //running, 
     //failed, 
@@ -207,6 +201,10 @@ var taskSchema = mongoose.Schema({
     fail_date: {type: Date},
     //time when this task was last updated (only used by put api?)
     update_date: {type: Date},
+    //time when this task was requested (!=create_date if re-requested)
+    request_date: {type: Date},
+    //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
+    remove_date: Date,
 
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)

@@ -64,9 +64,11 @@ function set_nextdate(task) {
         task.next_date = new Date(Date.now() + 1000*180); //rety in 3 minutes
         break;
 
+    /*
     case "waiting":
         task.next_date = new Date(Date.now()+1000*3600*24);  //should never have to deal with waiting task by themselves
         break;
+    */
     case "running_sync":
         logger.error("don't know how to set next_date for running_sync..");
         //TODO - maybe fail the task if it's running too long?
@@ -110,6 +112,11 @@ function check(cb) {
         case "requested": 
             handler = handle_requested; 
             break;
+        /*
+        case "waiting": 
+            handler = handle_waiting; 
+            break;
+        */
         case "running": 
             handler = handle_running; 
             break;
@@ -362,14 +369,24 @@ function handle_requested(task, next) {
         task.fail_date = new Date();
         return next();
     }
+    
+    //fail if requested for too long
+    var now = new Date();
+    var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
+    if(reqtime > 1000 * 3600*24*20) {
+        task.status_msg = "Task has been stuck in requested state for >20 days.. failing";
+        task.status = "failed";
+        task.fail_date = new Date();
+        return next();
+    }
 
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependencies";
-        task.status = "waiting";
+        //task.status = "waiting";
+        task.next_date = new Date(Date.now()+1000*3600*24); //when dependency finished, it should auto-poke it
         return next();
     }
-
 
     //need to lookup user's gids to find all resources that user has access to
     common.get_gids(task.user_id, (err, gids)=>{
@@ -389,6 +406,7 @@ function handle_requested(task, next) {
             }
             
             //consider request_count
+            //TODO - do I really need this - now that I am checking for max request time?
             if(!task.request_count) task.request_count = 0;
             task.request_count++;
             if(task.request_count > 10) {
@@ -502,6 +520,11 @@ function handle_stop(task, next) {
     });
 }
 
+/*
+function handle_waiting(task, next) {
+}
+*/
+
 //check for task status of already running tasks
 function handle_running(task, next) {
     if(!task.resource_id) {
@@ -606,6 +629,7 @@ function handle_running(task, next) {
                                 task.status = "requested";
                                 task.next_date = undefined; //too soon?
                                 task.start_date = undefined;
+                                task.request_date = new Date();
                                 task.request_count = 0;
                                 task.status_msg = out+" - retrying "+task.run;
                             } else {
@@ -1167,6 +1191,7 @@ function run_noop() {
                     user_id: "1", //picking random user here..
                     instance_id: instance._id,
                     status: "requested",
+                    request_date: new Date(),
                     config: { "test": 123 },
                     service: "soichih/sca-service-noop",  
                 });
@@ -1189,6 +1214,7 @@ function run_noop() {
                 task.status = "requested";
                 task.next_date = undefined;
                 task.start_date = undefined;
+                task.request_date = new Date();
                 task.request_count = 0;
                 task.save();
             }

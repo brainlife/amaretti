@@ -456,9 +456,11 @@ exports.request_task_removal = function(task, cb) {
             task.status_msg = "Task stopped";
         }
         break;
+    /*
     case "waiting":
         task.status = "stopped";
         break;
+    */
     case "running_sync":
         //we don't have a way to stop running_rsync.. I think.. just wait for it to be stopped
         break;
@@ -481,7 +483,7 @@ exports.update_instance_status = function(instance_id, cb) {
         //db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
         db.Task.find({instance_id: instance._id})
         .sort({create_date: 1})
-        .select('status status_msg service name')
+        .select('status status_msg service name user_id')
         .exec((err, tasks)=>{
             if(err) return cb(err);
 
@@ -498,7 +500,7 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.running > 0) newstatus = "running";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.failed > 0) newstatus = "failed";
-            else if(counts.waiting > 0) newstatus = "waiting";
+            //else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
 
@@ -514,6 +516,7 @@ exports.update_instance_status = function(instance_id, cb) {
                 if(task.status == "removed") return; //hide removed tasks
                 instance.config.summary.push({
                     task_id: task._id, 
+                    user_id: task.user_id, 
                     service: task.service, 
                     status: task.status, 
                     name: task.name, 
@@ -574,9 +577,12 @@ exports.rerun_task = function(task, remove_date, cb) {
         if(err) return next(err);
         exports.update_instance_status(task.instance_id, err=>{
             if(err) return next(err);
-            exports.progress(task.progress_key, {status: 'waiting', /*progress: 0,*/ msg: 'Task Re-requested'}, err=>{
+            /*
+            exports.progress(task.progress_key, {status: 'waiting', msg: 'Task Re-requested'}, err=>{
                 cb(err);
             });
+            */
+            cb(err);
         });
     });
 }
