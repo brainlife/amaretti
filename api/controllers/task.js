@@ -527,8 +527,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         const task = new db.Task();
 
         //TODO validate?
-        task.name = req.body.name.trim();
-        task.desc = req.body.desc.trim();
+        task.name = req.body.name;
+        task.desc = req.body.desc;
         task.service = req.body.service;
         task.service_branch = req.body.service_branch;
         task.instance_id = req.body.instance_id;
@@ -538,6 +538,8 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
         task.envs = req.body.envs;
         task.retry = req.body.retry;
         if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
+
+        if(task.name) task.name = task.name.trim();
 
         //checked later
         if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null

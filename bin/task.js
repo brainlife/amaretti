@@ -769,15 +769,17 @@ function start_task(task, resource, cb) {
                     conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
+                        let last_error = "";
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
-                            else if(code) return next("Failed to git clone. code:"+code);
+                            else if(code) return next("Failed to git clone. code:"+code+" "+error);
                             else next();
                         })
                         .on('data', function(data) {
                             logger.info(data.toString());
                         }).stderr.on('data', function(data) {
                             logger.info(data.toString());
+                            last_error = data.toString();
                         });
                     });
                 },
