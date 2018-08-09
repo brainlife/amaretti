@@ -355,9 +355,11 @@ function handle_requested(task, next) {
     //make sure dependent tasks has all finished
     var deps_all_done = true;
     var failed_deps = [];
+    var removed_deps = [];
     task.deps.forEach(function(dep) {
         if(dep.status != "finished") deps_all_done = false;
         if(dep.status == "failed") failed_deps.push(dep);
+        if(dep.status == "removed") removed_deps.push(dep);
     });
 
     //fail the task if any dependency fails
@@ -370,6 +372,15 @@ function handle_requested(task, next) {
         return next();
     }
     
+    //fail the task if any dependency is removed
+    if(removed_deps.length > 0) {
+        logger.debug("dependency removed.. failing this task");
+        task.status_msg = "Dependency removed.";
+        task.status = "failed";
+        task.fail_date = new Date();
+        return next();
+    }
+     
     //fail if requested for too long
     var now = new Date();
     var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task

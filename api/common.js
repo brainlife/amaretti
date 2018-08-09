@@ -104,34 +104,6 @@ exports.get_ssh_connection = function(resource, cb) {
         logger.debug("reusing ssh(cqueue) connection for", resource._id.toString());
         logger.debug("queue len:", old.queue.length, "remaining channels:", old.counter);
         return cb(null, old);
-
-        /*
-        //test the connection... because it sometimes dies
-        //TODO _ I sitll need to find out why it goes sour
-        old.exec("hostname", function(err, stream) {
-            if(err) {
-                logger.error("ssh connection for "+resource._id.toString()+" went bad");
-                old.end();
-                return cb(err);
-            }
-            exports.set_conn_timeout(old, stream, 1000*5);
-            stream.on('close', function(code, signal) {
-                if(code === undefined) {
-                    old.end();
-                    return next("timedout while checking old connection");
-                } else if(code) {
-                    old.end();
-                    return cb(err);
-                } else cb(null, old);
-            });
-            stream.on('data', function(data) {
-                logger.debug(data.toString());
-            }).stderr.on('data', function(data) {
-                logger.error(data.toString());
-            });
-        });
-        return;
-        */
     }
     ssh_conns[resource._id] = {connecting: new Date()};
 
@@ -178,57 +150,8 @@ exports.get_ssh_connection = function(resource, cb) {
     });
 }
 
-/*
-//testing temporary workaround for ssh connection getting stuck..
-//sftp and/or ssh cache goes sour and gets stuck.. until I can figure out why it
-//does that, let's periodically check the connection and make sure it's still working...
-//I don't know why keepalive can't detect the connection going bad.
-function check_ssh_conns() {
-    logger.debug("check_ssh_conns");
-    async.eachOf(ssh_conns, (conn, resource_id, next_conn)=>{
-        let c = ssh_conns[resource_id];
-        logger.debug("checking ssh_conn", resource_id.toString());
-        logger.debug("queue len:", c.queue.length);
-        logger.debug("remaining channel counter:", c.counter);
-        c.exec("hostname", function(err, stream) {
-            logger.debug("got hostname stream");
-            if(err) {
-                logger.error("ssh connection for "+resource._id.toString()+" went bad (couldn't create new stream)");
-                c.end(); 
-                delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
-                return next_conn();
-            }
-            exports.set_conn_timeout(c, stream, 1000*10);
-            stream.on('close', function(code, signal) {
-                if(code === undefined) {
-                    logger.error("timedout while checking ssh connection");
-                    c.end(); 
-                    delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
-                } else if(code) {
-                    logger.error("hostname check returned code:"+code);
-                    old.end(); 
-                    delete ssh_conns[resource_id]; //c.end() should raise close event which then delete the ssh_conn.. but just in case
-                }
-                next_conn();
-            });
-            stream.on('data', function(data) {
-                logger.debug(data.toString());
-            }).stderr.on('data', function(data) {
-                logger.error(data.toString());
-            });
-        });
-    }, err=>{
-        if(err) logger.error(err);
-        logger.debug("finished checking ssh_conn");
-        setTimeout(check_ssh_conns, 10*1000);
-    });
-} 
-check_ssh_conns(); //begin testing
-*/
-
 //I need to keep up with sftp connection cache independent of ssh connection pool
-//TODO - looks like sftp connection is leaking somewhere..?
-//sftp becomes unresponsive until I restart warehouse api
+//TODO - won't this run out of sftp channel for a resource if too many requests are made?
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
     //see if we already have an active sftp session
@@ -279,42 +202,6 @@ exports.get_sftp_connection = function(resource, cb) {
         //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
-
-/*
-//testing temporary workaround for ssh connection getting stuck..
-//sftp and/or ssh cache goes sour and gets stuck.. until I can figure out why it
-//does that, let's periodically check the connection and make sure it's still working...
-//I don't know why keepalive can't detect the connection going bad.
-function check_sftp_conns() {
-    async.eachOf(sftp_conns, (conn, resource_id, next_conn)=>{
-        logger.debug("checking sftp_conn", resource_id.toString());
-        let ftp = sftp_conns[resource_id];
-        let to = setTimeout(()=>{
-            logger.error("readdir timeout");
-            next_conn();
-            next_conn = null; //just incase opendir cb returns later still
-            //c.end(); c is sft
-            delete sftp_conns[resource_id]; //c.end() should raise close event.. but just in case
-        }, 5000);
-        ftp.opendir(conn._workdir, (err,files)=>{
-            clearTimeout(to);
-            if(err) {
-                logger.error("failed to readdir");
-                //c.end();
-                delete sftp_conns[resource_id]; //c.end() should raise close event.. but just in case
-            } else {
-                logger.debug("files returned", files.length);
-            }
-            if(next_conn) next_conn(err);
-        });
-    }, err=>{
-        if(err) logger.error(err);
-        logger.debug("finished checking sftp_conn");
-        setTimeout(check_sftp_conns, 30*1000);
-    });
-} 
-check_sftp_conns(); //begin testing
-*/
 
 exports.report_ssh = function() {
     return {

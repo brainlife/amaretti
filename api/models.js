@@ -73,8 +73,7 @@ var resourceSchema = mongoose.Schema({
     name: String, 
     desc: String, 
     
-    //DEPRECATED... don't use this.. just lookup resource config via resource_id and use the type specified there
-    type: String, 
+    type: String, //DEPRECATED... use resource config via resource_id and use the type specified there
 
     resource_id: String, //like sda, bigred2 (resource base id..)
 
