@@ -111,6 +111,7 @@ router.get('/running', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 router.get('/:id', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
+        if(!task) return next("no such task id");
         //hide config from sensitive apps..
         if(task.service == "soichih/sca-product-raw") {
             task.config = {"masked": true};

@@ -190,7 +190,9 @@ function handle_housekeeping(task, cb) {
 
                     //all good.. now check taskdir
                     //logger.debug("getting ssh connection for house keeping");
+                    logger.debug("getting ssh connection for house keeping", resource_id);
                     common.get_ssh_connection(resource, function(err, conn) {
+                        logger.debug("got err/conn");
                         if(err) {
                             logger.error(err);
                             return next_resource(); //maybe a temp. resource error?
@@ -198,7 +200,9 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
+                        logger.debug("querying ls");
                         conn.exec("timeout 10 ls "+taskdir, function(err, stream) {
+                            logger.debug("querying ls -err/stream");
                             if(err) return next_resource(err);
                             //common.set_conn_timeout(conn, stream, 1000*10);
                             stream.on('close', function(code, signal) {
@@ -774,7 +778,7 @@ function start_task(task, resource, cb) {
                     common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
-                    cmd += "git clone -q --depth=1 ";
+                    cmd += "git clone -q --depth 1 ";
                     if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
                     conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
