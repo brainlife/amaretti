@@ -284,15 +284,15 @@ function handle_housekeeping(task, cb) {
                     if(!resource || resource.status == "removed") {
                         //user sometimes removes resource.. but that's ok..
                         logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exists in db..");
-                        removed_resource_ids.push(resource_id);
+                        //removed_resource_ids.push(resource_id);
                         return next_resource(); 
                     }
                     if(!resource.active) {
-                        logger.info("resource("+resource._id.toString()+") is inactive.. will try removing it later");
+                        logger.info("resource("+resource._id.toString()+") is inactive.. can't remove from this resource");
                         return next_resource();
                     }
                     if(!resource.status || resource.status != "ok") {
-                        logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try removing it later");
+                        logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. can't remove from this resource");
                         return next_resource();
                     }
 
@@ -308,9 +308,9 @@ function handle_housekeeping(task, cb) {
                             //common.set_conn_timeout(conn, stream, 1000*60);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
-                                    logger.error("timeout while removing taskdir.. will try later");
+                                    logger.error("timeout while removing taskdir");
                                 } else if(code) {
-                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?).. will try later");
+                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
                                 } else {
                                     logger.debug("successfully removed!");
                                     removed_resource_ids.push(resource_id);
@@ -330,12 +330,16 @@ function handle_housekeeping(task, cb) {
                     logger.error(err); //continue with other task..
                     next();
                 } else {
+                    /*
                     if(removed_resource_ids.length == task.resource_ids.length) {
                         task.status_msg = "removed all task directories";
                         task.status = "removed";
                     } else {
                         task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
                     }
+                    */
+                    task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
+                    task.status = "removed";
 
                     //remove removed resource_ids
                     var resource_ids = [];
