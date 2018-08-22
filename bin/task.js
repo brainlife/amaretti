@@ -1115,7 +1115,7 @@ function load_product(taskdir, resource, cb) {
                 logger.info("successfully loaded product.json");
                 cb(null, product);
             } catch(e) {
-                logger.error("Failed to parse product.json (continuing): "+e.toString());
+                logger.error("Failed to parse product.json (ignoring): "+e.toString());
                 cb();
             }
         });

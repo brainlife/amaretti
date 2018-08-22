@@ -217,7 +217,7 @@ taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 
 taskSchema.index({name: 'text', desc: 'text'});
-taskSchema.index({status: 1, next_date: 1}); 
+taskSchema.index({nice: 1, status: 1, next_date: 1}); 
 
 exports.Task = mongoose.model('Task', taskSchema);
 

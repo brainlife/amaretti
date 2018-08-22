@@ -329,6 +329,7 @@ exports.ls_hpss = function(resource, _path, cb) {
 exports.request_task_removal = function(task, cb) {
     //running jobs needs to be stopped first
     switch(task.status) {
+    case "waiting": //should be deprecated now .. but still exists
     case "running":
         task.status = "stop_requested";
         task.status_msg = "Task needs to be stopped and removed";
