@@ -73,14 +73,25 @@ exports.select = function(user, task, cb) {
                 considered.push(consider);
 
                 if(resource.status != 'ok') {
-                    //logger.debug("  resource status not ok");
                     consider.detail += "resource status is not ok";
                     return next_resource();
                 }
 
-                //if score is 0, leave it 0
-                if(score == 0) {
+                //if score is 0, assume it's disabled..
+                if(score === 0) {
+                    consider.detail+="score is set to 0.. not running here";
                     return next_resource();
+                }
+               
+                //for niced tasks, make sure resource score is at least greater than nide. 
+                //this make niced tasks to not submit on low score resources to allow for non-nice 
+                //jobs. For example, rule submitted jobs won't be using brainlife's UI staging resource to stage
+                //input datasets there.
+                if(task.nice) {
+                    if(consider.score < task.nice) {
+                        consider.detail+="score lower than "+task.nice+". not running here\n";
+                        return next_resource();
+                    }
                 }
                 
                 //+5 if resource is listed in dep
@@ -94,6 +105,7 @@ exports.select = function(user, task, cb) {
                     consider.detail+="user owns this.. +10\n";
                     consider.score = score+10;
                 }
+                
                 //+15 score if it's preferred by user (TODO need to make sure this still works)
                 if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
                     consider.detail+="user prefers this.. +15\n";
