@@ -58,8 +58,8 @@ exports.encrypt_resource = function(resource) {
             //encrypt using configured password and resource._id as IV
             if(!resource._id) throw new Error("can't encrypt without resource._id set");
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
-            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
-            var c = crypto.createCipheriv(config.sca.resource_cipher_algo, key, iv);
+            var key = crypto.pbkdf2Sync(config.amaretti.resource_enc_password, iv, 100000, 32, 'sha512');
+            var c = crypto.createCipheriv(config.amaretti.resource_cipher_algo, key, iv);
             var e = c.update(resource.config[k], 'utf8', 'hex');
             e += c.final('hex');
             
@@ -79,8 +79,8 @@ exports.decrypt_resource = function(resource) {
     for(var k in resource.config) {
         if(k.indexOf("enc_") === 0) {
             var iv = resource._id.toString().substr(0, 16); //needs to be 16 bytes
-            var key = crypto.pbkdf2Sync(config.sca.resource_enc_password, iv, 100000, 32, 'sha512');
-            var c = crypto.createDecipheriv(config.sca.resource_cipher_algo, key, iv);
+            var key = crypto.pbkdf2Sync(config.amaretti.resource_enc_password, iv, 100000, 32, 'sha512');
+            var c = crypto.createDecipheriv(config.amaretti.resource_cipher_algo, key, iv);
             var e = c.update(resource.config[k], 'hex', 'utf8');
             e += c.final('utf8');
             resource.config[k] = e;
@@ -388,7 +388,6 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.running > 0) newstatus = "running";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.failed > 0) newstatus = "failed";
-            //else if(counts.waiting > 0) newstatus = "waiting";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
 
@@ -465,11 +464,6 @@ exports.rerun_task = function(task, remove_date, cb) {
         if(err) return next(err);
         exports.update_instance_status(task.instance_id, err=>{
             if(err) return next(err);
-            /*
-            exports.progress(task.progress_key, {status: 'waiting', msg: 'Task Re-requested'}, err=>{
-                cb(err);
-            });
-            */
             cb(err);
         });
     });
@@ -478,18 +472,19 @@ exports.rerun_task = function(task, remove_date, cb) {
 exports.get_gids = function(user_id, cb) {
     //look in redis first
     let key = "cache.gids."+user_id;
-    exports.redis.exists(key, (err, exists)=>{
+    let ekey = "cache.gids."+user_id+".exists"; //we can't store empty array but we want to cache that..
+    exports.redis.exists(ekey, (err, exists)=>{
         if(err) return cb(err);
         if(exists) {
             exports.redis.lrange(key, 0, -1, cb); //return all gids
             return;
         } else {
             //load from profile service
-            logger.debug("looking up user gids from auth service"); 
+            logger.debug("cache miss.. looking up user gids from auth service", key); 
             request.get({
                 url: config.api.auth+"/user/groups/"+user_id,
                 json: true,
-                headers: { 'Authorization': 'Bearer '+config.sca.jwt }
+                headers: { 'Authorization': 'Bearer '+config.amaretti.jwt }
             }, function(err, res, gids) {
                 if(err) return cb(err);
                 switch(res.statusCode) {
@@ -512,10 +507,14 @@ exports.get_gids = function(user_id, cb) {
                 
                 //cache on redis (can't rpush empty list to redis)
                 if(gids.length == 0) {
-                    logger.warn("gids empty", key);
+                    //logger.warn("gids empty.", key);
+                    exports.redis.set(ekey, "empty");
+                    exports.redis.expire(ekey, 60); //60 seconds too long?
                     return;
                 } else {
                     gids.unshift(key);
+                    exports.redis.set(ekey, "not empty");
+                    exports.redis.expire(ekey, 60); //60 seconds too long?
                     exports.redis.rpush(gids);
                     exports.redis.expire(key, 60); //60 seconds too long?
                 }

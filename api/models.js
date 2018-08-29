@@ -240,3 +240,27 @@ var taskeventSchema = mongoose.Schema({
 });
 exports.Taskevent = mongoose.model('Taskevent', taskeventSchema);
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// store service info
+//
+var serviceinfoSchema = mongoose.Schema({
+    service: {type: String, index: true}, 
+
+    counts: new mongoose.Schema({
+        failed: Number,
+        finished: Number,
+        stop_requested: Number,
+        stopoped: Number,
+        running_sync: Number,
+        running: Number,
+        requested: Number,
+        removed: Number,
+    }),
+
+    users: Number,
+
+    runtime: Number,
+});
+exports.Serviceinfo = mongoose.model('Serviceinfo', serviceinfoSchema);
+

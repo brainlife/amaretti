@@ -6,14 +6,11 @@ const os = require('os');
 const request = require('request');
 const winston = require('winston');
 const async = require('async');
-const redis = require('redis');
 
 const config = require('../config');
-//const logger = new winston.Logger(config.logger.winston);
 const db = require('../api/models');
 
-//connect to redis - used to store previously non-0 data
-//const re = redis.createClient(config.redis.port, config.redis.server);
+const duration = 1000*60; //msec to pull taskevent - should match up with the frequency of the execution
 
 const graphite_prefix = process.argv[2];
 if(!graphite_prefix) {
@@ -26,7 +23,7 @@ db.init(function(err) {
 
     //grab recent events
     let recent = new Date();
-    recent.setTime(recent.getTime()-1000*60); //60 seconds?
+    recent.setTime(recent.getTime()-duration);
     db.Taskevent.find({date: {$gt: recent}}).exec((err, events)=>{
         if(err) throw err;
 
@@ -42,7 +39,6 @@ db.init(function(err) {
             waiting: 0,
         };
         events.forEach(event=>{
-            //if(counts[event.status] === undefined) counts[event.status] = 1;
             counts[event.status]++;
         });
 

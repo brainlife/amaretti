@@ -90,7 +90,7 @@ exports.task = function(task) {
                 status: task.status, 
                 status_msg: task.status_msg, 
                 service: task.service, 
-                service_branch: task.service_branch, 
+                service_branch: task.service_branch,  //might deprecate..
             });
             taskevent.save();
         }

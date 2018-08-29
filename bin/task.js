@@ -64,11 +64,6 @@ function set_nextdate(task) {
         task.next_date = new Date(Date.now() + 1000*180); //rety in 3 minutes
         break;
 
-    /*
-    case "waiting":
-        task.next_date = new Date(Date.now()+1000*3600*24);  //should never have to deal with waiting task by themselves
-        break;
-    */
     case "running_sync":
         logger.error("don't know how to set next_date for running_sync..");
         //TODO - maybe fail the task if it's running too long?
@@ -91,8 +86,6 @@ function check(cb) {
         ]
     })
     .sort('nice next_date') //handle nice ones later, then sort by next_date
-    //.limit(limit) //to avoid overwhelmed..
-    //TODO maybe I should do these later (only needed by requested task)
     .populate('deps')
     .populate('resource_deps')
     .exec((err, task) => {
@@ -112,11 +105,6 @@ function check(cb) {
         case "requested": 
             handler = handle_requested; 
             break;
-        /*
-        case "waiting": 
-            handler = handle_waiting; 
-            break;
-        */
         case "running": 
             handler = handle_running; 
             break;

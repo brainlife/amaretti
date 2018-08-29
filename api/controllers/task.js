@@ -58,7 +58,8 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
 });
 
 //returns various event / stats for given service
-//TODO - I don't really feel this is thought through.. I might deprecate.
+//TODO bin/serviceinfo will do something similar asynchrnously with more information (like average runtime per service)
+//the API shouldn't be hosted under /task (maybe /event, or just /?)
 //current clients: 
 //   * warehouse UI app stats
 router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
@@ -72,7 +73,6 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
         {$group: {_id: '$status', count: {$sum: 1}}},
     ]).exec(function(err, statuses) {
         if(err) return next(err);
-    
         var counts = {};
         statuses.forEach(status=>{
             counts[status._id] = status.count;
@@ -84,7 +84,6 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
             if(err) return next(err);
             res.json({
                 counts: counts, 
-                //tasks: tasks.length, 
                 users: users.length,
             });
         });
