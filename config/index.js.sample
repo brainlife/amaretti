@@ -37,8 +37,8 @@ exports.amaretti = {
     //show a bit more debug loggin
     debug: true,
 }
-exports.wf = exports.amaretti; //deprecated
-exports.sca = exports.amaretti; //deprecated
+exports.wf = exports.amaretti; //deprecated (use amaretti)
+exports.sca = exports.amaretti; //deprecated (use amaretti)
 
 //used to use github api (like service.js)
 exports.github = {

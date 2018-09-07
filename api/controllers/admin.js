@@ -26,7 +26,7 @@ const common = require('../common');
  *
  * @apiSuccess {Object}         List of count groups
  */
-router.get('/services/running', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/services/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
     db.Task.aggregate([

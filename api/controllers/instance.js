@@ -31,7 +31,7 @@ const common = require('../common');
  *
  * @apiSuccess {Object}         List of instances (maybe limited / skipped) and total number of instances
  */
-router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
@@ -72,7 +72,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  * @apiSuccess {Object}         Instance created
  *
  */
-router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var id = req.params.instid;
 
     //can't change these
@@ -112,7 +112,7 @@ router.put('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res,
  * @apiHeader {String}          Authorization A valid JWT token "Bearer: xxxxx"
  *
  */
-router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var instance = new db.Instance({});
     instance.name = req.body.name; //mainly used internally
     instance.desc = req.body.desc;
@@ -156,7 +156,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  *     }
  *
  */
-router.delete('/:instid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     let instid = req.params.instid;
 
     //find the instance user wants to update

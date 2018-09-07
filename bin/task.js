@@ -779,7 +779,7 @@ function start_task(task, resource, cb) {
                         let last_error = "";
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
-                            else if(code) return next("Failed to git clone. code:"+code+" "+error);
+                            else if(code) return next("Failed to git clone. code:"+code+" signal:"+signal);
                             else next();
                         })
                         .on('data', function(data) {

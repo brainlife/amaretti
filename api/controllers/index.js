@@ -58,7 +58,7 @@ router.use('/admin', require('./admin'));
 
 //TODO DEPRECATED (currently used by th /wf/#!/resources UI)
 //use (get) /resource/type instead
-router.get('/config', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res) {
+router.get('/config', jwt({secret: config.amaretti.auth_pubkey, credentialsRequired: false}), function(req, res) {
     var conf = {
         resources: config.resources, //resoruce types
     };

@@ -55,11 +55,11 @@ function canedit(user, resource) {
  *
  * @apiSuccess {Object}         List of resources types (in key/value where key is resource type ID, and value is resource detail)
  */
-router.get('/types', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/types', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     res.json(config.resources);
 });
 
-router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/stats/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     //check access
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
         if(err) return next(err);
@@ -89,7 +89,7 @@ router.get('/stats/:resource_id', jwt({secret: config.sca.auth_pubkey}), functio
  *
  * @apiSuccess {Object}         List of resources (maybe limited / skipped) and total number of resources
  */
-router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
@@ -153,7 +153,7 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
  *                              _canedit: true,
  *                              }
  */
-router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     logger.debug("choosing best resource for service:"+req.query.service);
 
     var query = {};
@@ -195,7 +195,7 @@ router.get('/best', jwt({secret: config.sca.auth_pubkey}), function(req, res, ne
  *     }
  *
  */
-router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/test/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -231,7 +231,7 @@ router.put('/test/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res
  * @apiSuccess {Object} Resource Object
  *
  */
-router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -305,7 +305,7 @@ router.put('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, nex
  *      active: true }
  *
  */
-router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var resource = new db.Resource(req.body);
 
     //only admin can update gids
@@ -333,7 +333,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  * @apiSuccess {String} ok
  *
  */
-router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -373,7 +373,7 @@ router.delete('/:id', jwt({secret: config.sca.auth_pubkey}), function(req, res, 
  *     { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',
  *       key: '-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\n-----END RSA PRIVATE KEY-----' }
  *
-router.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
+router.get('/gensshkey', jwt({secret: config.amaretti.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
     common.ssh_keygen({
         //ssh-keygen opts (https://github.com/ericvicenti/ssh-keygen)
         destroy: true,
@@ -420,7 +420,7 @@ router.post('/installsshkey', function(req, res, next) {
 
 /*
 //intentionally left undocumented
-router.post('/setkeytab/:resource_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/setkeytab/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var resource_id = req.params.resource_id;
     var username = req.body.username;
     var password = req.body.password;

@@ -31,12 +31,13 @@ const common = require('../common');
  *
  * @apiSuccess {Object}         List of tasks (maybe limited / skipped) and total number of tasks
  */
-router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     var find = {};
     if(req.query.find) find = JSON.parse(req.query.find);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
+    //only return task that user has submitted or belongs to the _group_id(project for warehouse) that user is member of
     find['$or'] = [
         {user_id: req.user.sub},
         {_group_id: {$in: req.user.gids||[]}},
@@ -57,12 +58,12 @@ router.get('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) 
     });
 });
 
+//TODO TO-BE-DEPRECATED bin/serviceinfo will do something similar asynchrnously with more information (like average runtime per service)
 //returns various event / stats for given service
-//TODO bin/serviceinfo will do something similar asynchrnously with more information (like average runtime per service)
 //the API shouldn't be hosted under /task (maybe /event, or just /?)
 //current clients: 
 //   * warehouse UI app stats
-router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
+router.get('/stats', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req, res, next) {
     var find = {};
     if(req.query.service) find.service = req.query.service;
     if(req.query.service_branch) find.service_branch = req.query.service_branch;
@@ -90,8 +91,8 @@ router.get('/stats', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, re
     });
 });
 
-//return list of services currently running and number of them
-router.get('/running', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+//(admin only) return list of services currently running and number of them
+router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
     
     //group by status and count
@@ -107,7 +108,7 @@ router.get('/running', jwt({secret: config.sca.auth_pubkey}), function(req, res,
 //get task detail
 //unauthenticated user sometimes need to get task detail (like app used, etc..)
 //let's allow them to query for task detail as long as they know which task id to load
-router.get('/:id', /*jwt({secret: config.sca.auth_pubkey}),*/ function(req, res, next) {
+router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req, res, next) {
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
         if(!task) return next("no such task id");
@@ -170,7 +171,7 @@ function ls_resource(resource, _path, cb) {
  *      }
  *  ]}
  */
-router.get('/ls/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -268,7 +269,7 @@ function get_fullpath(task, resource, p, cb) {
  *
  */
 router.get('/download/:taskid', jwt({
-    secret: config.sca.auth_pubkey,
+    secret: config.amaretti.auth_pubkey,
     getToken: function(req) {
         //load token from req.headers as well as query.at
         if(req.query.at) return req.query.at;
@@ -357,7 +358,7 @@ router.get('/download/:taskid', jwt({
                         //without attachment, the file will replace the current page
                         res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
                         res.setHeader('Content-Length', stat.size);
-                        if(mimetype) res.setHeader('Content-Type', mimetype);
+                        res.setHeader('Content-Type', mimetype||"application/octet-stream"); //not setting content-type causes firefox to raise XML error
                         let stream = sftp.createReadStream(fullpath);
 
                         /*
@@ -389,7 +390,7 @@ router.get('/download/:taskid', jwt({
  * @apiSuccessExample {json} Success-Response:
  *                              {file stats uploaded}
  */
-router.post('/upload/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
     /* connectionqueue leaking has never happened here (afaik..) so let's leave this for now
     //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
@@ -510,7 +511,7 @@ function mkdirp(conn, dir, cb) {
  *     }
  *                              
  */
-router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const instance_id = req.body.instance_id;
     const service = req.body.service;
 
@@ -630,7 +631,7 @@ router.post('/', jwt({secret: config.sca.auth_pubkey}), function(req, res, next)
  *     }
  *                              
  */
-router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -655,7 +656,7 @@ router.put('/rerun/:task_id', jwt({secret: config.sca.auth_pubkey}), function(re
  * @apiHeader {String} authorization    A valid JWT token "Bearer: xxxxx"
  *                              
  */
-router.put('/poke/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/poke/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -685,7 +686,7 @@ router.put('/poke/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  *     }
  *                              
  */
-router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -745,7 +746,7 @@ router.put('/stop/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req
  *     }
  *                              
  */
-router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -792,7 +793,7 @@ router.delete('/:task_id', jwt({secret: config.sca.auth_pubkey}), function(req, 
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
  */
-router.put('/:taskid', jwt({secret: config.sca.auth_pubkey}), function(req, res, next) {
+router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const id = req.params.taskid;
     const gids = req.user.gids||[];
 
