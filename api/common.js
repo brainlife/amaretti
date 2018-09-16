@@ -199,7 +199,7 @@ exports.get_sftp_connection = function(resource, cb) {
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 10*1000, //default 0 (disabled)
-        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveCountMax: 10, //default 3 (https://github.com/mscdex/ssh2/issues/367)
     });
 }
 

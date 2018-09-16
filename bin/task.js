@@ -65,12 +65,12 @@ function set_nextdate(task) {
         break;
 
     case "running_sync":
-        logger.error("don't know how to set next_date for running_sync..");
+        logger.warn("don't know how to set next_date for running_sync..");
         //TODO - maybe fail the task if it's running too long?
         task.next_date = new Date(Date.now()+1000*3600); 
         break;
     default:
-        logger.error("don't know how to calculate next_date for status",task.status," -- setting to 1hour");
+        logger.warn("don't know how to calculate next_date for status",task.status," -- setting to 1hour");
         task.next_date = new Date(Date.now()+1000*3600); 
     }
 }
@@ -606,7 +606,8 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 0: //still running
-                            task.status_msg = out; //should I?
+                            if(out.length > 300) out = "... "+out.substring(out.length - 300); //grab the last N chars if it's too long
+                            task.status_msg = out;
                             next();
                             break;
                         case 1: //finished
