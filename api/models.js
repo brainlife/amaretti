@@ -260,7 +260,10 @@ var serviceinfoSchema = mongoose.Schema({
 
     users: Number,
 
-    runtime: Number,
+    runtime_mean: Number,
+    runtime_std: Number,
+
+    readme_status: String,
 });
 exports.Serviceinfo = mongoose.model('Serviceinfo', serviceinfoSchema);
 

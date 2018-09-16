@@ -3,68 +3,26 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const request = require('request');
 const winston = require('winston');
+const request = require('request');
 const async = require('async');
+const ss = require('simple-statistics');
 
 const config = require('../config');
 const db = require('../api/models');
+//const service = require('../api/service');
 
 db.init(function(err) {
     if(err) throw err;
-
-    /*
-    //grab recent events
-    let recent = new Date();
-    recent.setTime(recent.getTime()-duration);
-    db.Taskevent.find({date: {$gt: recent}}).exec((err, events)=>{
-        if(err) throw err;
-
-        let counts = {
-            failed: 0,
-            finished: 0,
-            removed: 0,
-            requested: 0,
-            running: 0,
-            running_sync: 0,
-            stop_requested: 0,
-            stopped: 0,
-            waiting: 0,
-        };
-        events.forEach(event=>{
-            counts[event.status]++;
-        });
-
-        const time = Math.round(new Date().getTime()/1000);
-        for(let status in counts) {
-            console.log(graphite_prefix+".events.status."+status+" "+counts[status]+" "+time);
-        }
-
-        db.disconnect();
-    });
-    */
-
     let service_info = {};
     async.series([
         next=>{
             console.log("group events by service and status");
             db.Taskevent.aggregate([
-                //{$match: find},
                 {$group: {_id: { status: "$status", service: "$service"}, count: {$sum: 1}}},
             ]).exec((err, statuses)=>{
                 if(err) return next(err);
                 console.log("got service state counts");
-                /*
-                //count distinct users requested (TODO is there a better way?)
-                db.Taskevent.find(find).distinct('user_id').exec(function(err, users) {
-                    if(err) return next(err);
-                    console.dir({
-                        counts: counts,
-                        users: users.length,
-                    });
-                });
-                */
-                //console.log(JSON.stringify(statuses, null, 4));
                 statuses.forEach(status=>{
                     if(!service_info[status._id.service]) {
                         //init
@@ -99,7 +57,7 @@ db.init(function(err) {
             ]).exec((err, users)=>{
                 if(err) return next(err);
                 console.log("got user count"); 
-                //console.log(JSON.stringify(users, null, 4));
+                console.log(JSON.stringify(users, null, 4));
                 users.forEach(user=>{
                     service_info[user._id.service].users = user.distinct;
                 });
@@ -108,57 +66,63 @@ db.init(function(err) {
         },
 
         next=>{
-            console.log("computing average runtime");
-
-            /*
-            //first pick the most recent finish events for each services
-            db.Taskevent.aggregate([
-                {$match: { status: "finished", service: {$nin: [
-                    "soichih/sca-service-noop",
-                    "soichih/sca-product-raw",
-                ] } }},
-                
-                //first aggregate by service/user
-                {$group: {_id: {service: "$service", task_id: "$task_id", date: "$date"}}}, 
-            ]).exec((err, finishes)=>{
-                if(err) return next(err);
-                //console.dir(finishes);
-                finishes.forEach(finish=>{
-                    console.log(finish._id.service);
-                    console.dir(finish._id.task_id.toString());
-                });
-            });
-            */
+            console.log("loading README.md");
             async.eachOfSeries(service_info, (v, k, next_service)=>{
-                console.log("find the most recent finish for...", k);
-                db.Taskevent.findOne({service: k, status: "finished"}).sort('-date').exec((err, finish_event)=>{
+                let url = "https://raw.githubusercontent.com/"+k+"/master/README.md";
+                request(url, (err, res)=>{
+                    let status = "ok";
+                    if(err) status = err.toString();
+                    else if(res.statusCode != 200) status = "no README.md";
+                    else if(!res.body) status = "empty";
+                    else if(res.body.length < 1000) status = "too short";
+                    service_info[k].readme_status = status;
+                    //console.log(k, status);
+                    next_service();
+                });
+            }, next);
+        },
+
+        next=>{
+            console.log("computing average runtime");
+            async.eachOfSeries(service_info, (v, k, next_service)=>{
+                console.log("find the most recent N finishes for...", k);
+                db.Taskevent.find({service: k, status: "finished"}).sort('-date').limit(10).exec((err, finish_events)=>{
                     if(err) return next_service(err);
-                    //console.dir(finish_event.toObject());
-                    if(!finish_event) {
+                    if(finish_events.length == 0) {
                         console.log("never finished..");
                         return next_service();
                     }
-                    
-                    //find when it started running for tha task
-                    //console.log("finding running event", finish_event.task_id);
-                    db.Taskevent.findOne({service: k, status: "running", task_id: finish_event.task_id, date: {$lt: finish_event.date}}).sort('-date').exec((err, start_event)=>{
+
+                    let runtimes = [];
+                    console.log("analyzing finish_event", finish_events);
+                    async.eachSeries(finish_events, (finish_event, next_finish_event)=>{
+                        //find when it started running for tha task
+                        db.Taskevent.findOne({service: k, status: {$in: ["running", "running_sync"]}, task_id: finish_event.task_id, date: {$lt: finish_event.date}}).sort('-date').exec((err, start_event)=>{
+                            if(err) return next_finish_event(err);
+                            if(!start_event) {
+                                console.log("no running/running_sync event.. odd?");
+                                return next_finish_event();
+                            }
+                            runtimes.push(finish_event.date - start_event.date);
+                            next_finish_event();
+                        });
+                    }, err=>{
                         if(err) return next_service(err);
-                        if(!start_event) {
-                            console.log("no running event.. maybe sync service?");
+                        /*
+                        if(runtimes.length == 0) {
+                            console.log("no runtime info");
                             return next_service();
                         }
-                        //console.log("looking started..");
-                        //console.dir(start_event.toObject());
-                        //console.log("todo.............");
-                        //console.dir(start_event.toObject());
-                        //console.dir(finish_event.toObject());
-                        service_info[k].runtime = finish_event.date - start_event.date;
-                        console.log(service_info[k].runtime);
+                        */
+                        service_info[k].runtime_mean = ss.mean(runtimes);
+                        service_info[k].runtime_std = ss.standardDeviation(runtimes);
+                        //console.dir(service_info[k]);
                         next_service();
                     });
                 });
             }, next);
         },
+
 
     ], err=>{
         if(err) throw err;
@@ -174,9 +138,10 @@ db.init(function(err) {
                     s.save(next_service);
                 } else {
                     console.log("updating", k);
-                    s.counts = info.counts;
-                    s.users = info.users;
-                    s.runtime = info.runtime; //TODO - should I average?
+                    for(var key in info) s[key] = info[key];
+                    //s.counts = info.counts;
+                    //s.users = info.users;
+                    //s.runtime = info.runtime; //TODO - should I average?
                     s.save(next_service);
                 }
             });
@@ -184,6 +149,12 @@ db.init(function(err) {
             if(err) throw err;
             console.log("all done");
             db.disconnect();
+            /*
+            setTimeout(()=>{
+                console.log("somehow doesn't terminate... so killing myself");
+                process.exit(1);
+            }, 2000);
+            */
         });
     });
 });

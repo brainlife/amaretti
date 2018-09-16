@@ -30,6 +30,7 @@
     "multiparty": "^4.1.4",
     "redis": "^2.8.0",
     "request": "^2.87.0",
+    "simple-statistics": "^6.1.0",
     "ssh2": "^0.6.1",
     "ssh2-multiplexer": "0.0.8",
     "sshpk": "^1.14.2",
