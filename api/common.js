@@ -282,6 +282,32 @@ exports.ssh_command = function(username, password, host, command, opts, cb) {
     });
 }
 
+exports.ssh_stat = function(conn, path, cb) {
+    //console.log("-----------statting--------------------");
+    conn.exec("stat --format='%s %F' "+path, (err, stream)=>{
+        if(err) return cb(err);
+		let out = "";
+		stream.on('error', cb);
+		stream.on('close', code=>{
+			//console.log("read stream closed", code);
+			if(code != 0) return cb("stat failed "+code);
+			let tokens = out.trim().split(" ");	
+			let size = parseInt(tokens[0]);
+			let dir = false;
+			if(tokens[1] == "directory") dir = true;
+            //console.log("-----------done statting--------------------");
+			cb(null, { size, dir });
+		});
+		stream.on('data', data=>{
+            //console.log(data.toString());
+			out+=data.toString();
+		});
+		stream.stderr.on('data', data=>{
+			logger.error(data.toString());
+		});
+    });
+}
+
 exports.get_user_gids = function(user) {
     var gids = user.gids||[];
     gids = gids.concat(config.amaretti.global_groups);

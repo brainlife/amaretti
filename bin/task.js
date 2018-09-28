@@ -780,7 +780,7 @@ function start_task(task, resource, cb) {
                         let last_error = "";
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timeout while git cloning");
-                            else if(code) return next("Failed to git clone. code:"+code+" signal:"+signal);
+                            else if(code) return next("Failed to git clone. code:"+code+" signal:"+signal+" "+last_error);
                             else next();
                         })
                         .on('data', function(data) {
@@ -999,7 +999,7 @@ function start_task(task, resource, cb) {
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) return next("timedout while starting task");
-                                else if(code) return next("failed to start (code:"+code+")");
+                                else if(code) return next(service_detail.start+" failed. code:"+code+"");
                                 else {
                                     task.next_date = new Date(); //so that we check the status soon
                                     task.run++;

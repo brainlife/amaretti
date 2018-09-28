@@ -59,6 +59,7 @@ db.init(function(err) {
                 console.log("got user count"); 
                 console.log(JSON.stringify(users, null, 4));
                 users.forEach(user=>{
+                    if(user._id.service == null) return; //TODO why does this happen?
                     service_info[user._id.service].users = user.distinct;
                 });
                 next();

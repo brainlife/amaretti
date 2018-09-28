@@ -247,6 +247,9 @@ exports.Taskevent = mongoose.model('Taskevent', taskeventSchema);
 var serviceinfoSchema = mongoose.Schema({
     service: {type: String, index: true}, 
 
+    status: String,
+    status_msg: String,
+
     counts: new mongoose.Schema({
         failed: Number,
         finished: Number,
@@ -263,7 +266,7 @@ var serviceinfoSchema = mongoose.Schema({
     runtime_mean: Number,
     runtime_std: Number,
 
-    readme_status: String,
+    readme_status: String, //I think I am going to deprecate this (by status/status_msg)
 });
 exports.Serviceinfo = mongoose.model('Serviceinfo', serviceinfoSchema);
 
