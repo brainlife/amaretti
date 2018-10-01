@@ -63,7 +63,7 @@ exports.select = function(user, task, cb) {
                     status_msg: resource.status_msg, 
                     score: score, 
                     owner: resource.user_id,
-                    detail,
+                    detail, //{msg: .., maxtask: 10, running: 5}
                     info: {
                         desc: resource_detail.desc,
                         name: resource_detail.name,
@@ -73,13 +73,13 @@ exports.select = function(user, task, cb) {
                 considered.push(consider);
 
                 if(resource.status != 'ok') {
-                    consider.detail += "resource status is not ok";
+                    consider.detail.msg += "resource status is not ok";
                     return next_resource();
                 }
 
                 //if score is 0, assume it's disabled..
                 if(score === 0) {
-                    consider.detail+="score is set to 0.. not running here";
+                    consider.detail.msg+="score is set to 0.. not running here";
                     return next_resource();
                 }
                
@@ -87,32 +87,43 @@ exports.select = function(user, task, cb) {
                 //this make niced tasks to not submit on low score resources to allow for non-nice 
                 //jobs. For example, rule submitted jobs won't be using brainlife's UI staging resource to stage
                 //input datasets there.
+                //TODO - this doesn't work too well.. non-nice tasks are still getting stuck..
+                /*
                 if(task.nice) {
                     if(consider.score < task.nice) {
-                        consider.detail+="score lower than "+task.nice+". not running here\n";
+                        consider.detail.msg+="score lower than "+task.nice+". not running here\n";
+                        return next_resource();
+                    }
+                }
+                */
+
+                //don't let nice tasks take up all resources.
+                if(task.nice && consider.detail.fullness) {
+                    if(consider.detail.fullness > .9) {
+                        consider.detail.msg+="resource is >90% full. and this is niced task.. not running here";
                         return next_resource();
                     }
                 }
                 
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {
-                    consider.detail+="resource listed in deps/resource_ids.. +5\n";
+                    consider.detail.msg+="resource listed in deps/resource_ids.. +5\n";
                     consider.score = score+5;
                 }
 
                 //+10 score if it's owned by user
                 if(resource.user_id == user.sub) {
-                    consider.detail+="user owns this.. +10\n";
+                    consider.detail.msg+="user owns this.. +10\n";
                     consider.score = score+10;
                 }
                 
                 //+15 score if it's preferred by user (TODO need to make sure this still works)
                 if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
-                    consider.detail+="user prefers this.. +15\n";
+                    consider.detail.msg+="user prefers this.. +15\n";
                     consider.score = score+15;
                 }
 
-                consider.detail+="final score:"+consider.score+"\n";
+                consider.detail.msg+="final score:"+consider.score+"\n";
 
                 //pick the best score...
                 if(!best || consider.score > best_score) {
@@ -142,15 +153,15 @@ function score_resource(user, resource, task, cb) {
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
     if(!resource_detail) {
         logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
-        return cb(null, 0, "no resource_detail");
+        return cb(null, 0, {msg: "no resource_detail"});
     } else {
         var score = null;
-        var detail = "";
+        var detail = {msg: ""};
     
         //first, pull score from resource_detail
         if(resource_detail.services && resource_detail.services[task.service]) {
             score = parseInt(resource_detail.services[task.service].score);
-            detail += "resource_detail score:"+score+"\n";
+            detail.msg += "resource_detail score:"+score+"\n";
         }
         
         //override it with instance specific score
@@ -159,19 +170,24 @@ function score_resource(user, resource, task, cb) {
             resource.config.services.forEach(function(service) {
                 if(service.name == task.service) {
                     score = parseInt(service.score);
-                    detail += "resource.config score:"+score+"\n";
+                    detail.msg += "resource.config score:"+score+"\n";
                 }
             });
         }
 
-        if(score === null) return cb(null, null); //not handled by this resource
+        if(score === null) return cb(null, null); //this resource doesn't know about this service..
 
         //check number of tasks currently running on this resource and compare it with maxtask if set
-        var maxtask = resource_detail.maxtask;
+        detail.maxtask = resource_detail.maxtask;
         //override with resource specific maxtask
-        if(resource.config && resource.config.maxtask) maxtask = resource.config.maxtask; 
-        //if no maxtask set .. limit less!
-        if(maxtask === null || maxtask === undefined) return cb(null, score, detail); 
+        if(resource.config && resource.config.maxtask) detail.maxtask = resource.config.maxtask; 
+        
+        //if no maxtask set .. limitless!
+        if(detail.maxtask === null || detail.maxtask === undefined) {
+            detail.msg += "This resource has no max task";
+            return cb(null, score, detail); 
+        }
+
         db.Task.find({
             resource_id: resource._id, 
             $or: [
@@ -181,11 +197,14 @@ function score_resource(user, resource, task, cb) {
             _id: {$ne: task._id}, //don't count myself waiting
         }, (err, tasks)=>{
             if(err) logger.error(err);
-            detail+="tasks running:"+tasks.length+" maxtask:"+maxtask+"\n";
-            if(maxtask <= tasks.length) {
-                detail += "resource is busy\n";
+            detail.running = tasks.length;
+            detail.msg+="tasks running:"+tasks.length+" maxtask:"+detail.maxtask+"\n";
+            detail.fullness = detail.running / detail.maxtask;
+            if(detail.fullness == 1) {
+                detail.msg += "resource is busy\n";
                 cb(null, 0, detail); 
             } else {
+                detail.msg += "resource is "+Math.round(detail.fullness*100)+"% occupied\n";
                 cb(null, score, detail);
             }
         });

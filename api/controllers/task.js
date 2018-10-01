@@ -283,9 +283,10 @@ router.get('/download/:taskid', jwt({
     logger.debug("/task/download/"+req.params.taskid);
     
     //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
+    //only thrown if client terminates request (including no change?)
     let req_closed = false;
     req.on('close', ()=>{
-        logger.debug("request closed");
+        logger.debug("req/close");
         req_closed = true;
     });
 
@@ -302,7 +303,6 @@ router.get('/download/:taskid', jwt({
 
                 if(req_closed) return next("request already closed.. bailing p2");
 
-                logger.debug("sftp.stat-ing");
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
@@ -359,16 +359,14 @@ router.get('/download/:taskid', jwt({
                         res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
                         res.setHeader('Content-Length', stat.size);
                         res.setHeader('Content-Type', mimetype||"application/octet-stream"); //not setting content-type causes firefox to raise XML error
-                        let stream = sftp.createReadStream(fullpath);
-
-                        /*
-                        //in case user terminate in the middle?
-                        req.on('close', ()=>{
-                            logger.error("request closed........ closing sftp stream");
-                            stream.close();
+                        sftp.createReadStream(fullpath, (err, stream)=>{
+                            //in case user terminate in the middle.. read stream doesn't raise any event!
+                            req.on('close', ()=>{
+                                logger.info("request closed........ closing sftp stream also");
+                                stream.close();
+                            });
+                            stream.pipe(res);
                         });
-                        */
-                        stream.pipe(res);
                     }
                 });
             });
@@ -415,40 +413,49 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
                     common.get_sftp_connection(resource, (err, sftp)=>{
                         if(err) return next(err);
                         logger.debug("fullpath",fullpath);
-                        var pipe = req.pipe(sftp.createWriteStream(fullpath));
-                        pipe.on('close', function() {
-                            logger.debug("streaming closed");
+                        sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
-                            //this is an undocumented feature to exlode uploade tar.gz
-                            if(req.query.untar) {
-                                logger.debug("tar xzf-ing");
+                            //just in case..
+                            req.on('close', ()=>{
+                                logger.error("request closed........ closing sftp stream also");
+                                write_stream.close();
+                            });
 
-                                //is this secure enough?
-                                let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
-                                    "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
-                                    "rm '"+path.basename(fullpath).addSlashes()+"'";
-                                
-                                conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
-                                    if(err) return next(err);
-                                    //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
-                                    stream.on('end', function() {
-                                        res.json({msg: "uploaded and untared"});
+                            var pipe = req.pipe(write_stream);
+                            pipe.on('close', function() {
+                                logger.debug("streaming closed");
+
+                                //this is an undocumented feature to exlode uploade tar.gz
+                                if(req.query.untar) {
+                                    logger.debug("tar xzf-ing");
+
+                                    //is this secure enough?
+                                    let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
+                                        "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
+                                        "rm '"+path.basename(fullpath).addSlashes()+"'";
+                                    
+                                    conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
+                                        if(err) return next(err);
+                                        //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                        stream.on('end', function() {
+                                            res.json({msg: "uploaded and untared"});
+                                        });
+                                        stream.on('data', function(data) {
+                                            logger.error(data.toString());
+                                        });
                                     });
-                                    stream.on('data', function(data) {
-                                        logger.error(data.toString());
+                                } else {
+                                    //get file info (to be sure that the file is uploaded?)
+                                    sftp.stat(fullpath, function(err, stat) {
+                                        if(err) return next(err.toString());
+                                        res.json({filename: path.basename(fullpath), attrs: stat});
                                     });
-                                });
-                            } else {
-                                //get file info (to be sure that the file is uploaded?)
-                                sftp.stat(fullpath, function(err, stat) {
-                                    if(err) return next(err.toString());
-                                    res.json({filename: path.basename(fullpath), attrs: stat});
-                                });
-                            }
-                        });
-                        req.on('error', function(err) {
-                            logger.error(err);
-                            next("Failed to upload file to "+_path);
+                                }
+                            });
+                            req.on('error', function(err) {
+                                logger.error(err);
+                                next("Failed to upload file to "+_path);
+                            });
                         });
                     });
                 });

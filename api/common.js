@@ -150,6 +150,74 @@ exports.get_ssh_connection = function(resource, cb) {
     });
 }
 
+function sftp_ref(sftp) {
+    sftp._count = 0;
+    function stat(path, cb) {
+        sftp.stat(path, cb);
+    }
+    function readdir(path, cb) {
+        sftp.readdir(path, cb);
+    }
+    /*
+    function stat(path, cb) {
+        logger.debug("stat", sftp._count);
+        if(sftp._count > 4) return setTimeout(()=>{
+            stat(path, cb);
+        }, 1000);
+        sftp._count++;
+        sftp.stat(path, (err, stat)=>{
+            logger.debug("done stat");
+            sftp._count--;
+            cb(err, stat);
+        });
+    }
+    function readdir(path, cb) {
+        logger.debug("readdir", sftp._count);
+        if(sftp._count > 4) return setTimeout(()=>{
+            readdir(path, cb);
+        }, 1000);
+        sftp._count++;
+        sftp.readdir(path, (err, files)=>{
+            logger.debug("done readdir");
+            sftp._count--;
+            cb(err, files);
+        });
+    }
+    */
+    function createReadStream(path, cb) {
+        logger.debug("createReadStream", sftp._count);
+        if(sftp._count > 4) {
+            return setTimeout(()=>{
+                createReadStream(path, cb);
+            }, 1000);
+        }
+        sftp._count++;
+        let stream = sftp.createReadStream(path);
+        stream.on('close', ()=>{
+            logger.debug("createreadstream close");
+            sftp._count--;
+        });
+        cb(null, stream);
+    }
+    function createWriteStream(path, cb) {
+        logger.debug("createWriteStream", sftp._count);
+        if(sftp._count > 4) {
+            return setTimeout(()=>{
+                createWriteStream(path, cb);
+            }, 1000);
+        }
+        sftp._count++;
+        let stream = sftp.createWriteStream(path);
+        stream.on('close', ()=>{
+            logger.debug("createwritestream close");
+            sftp._count--;
+        });
+        cb(null, stream);
+    }
+    
+    return  { stat, readdir, createReadStream, createWriteStream };
+}
+
 //I need to keep up with sftp connection cache independent of ssh connection pool
 //TODO - won't this run out of sftp channel for a resource if too many requests are made?
 var sftp_conns = {};
@@ -167,6 +235,7 @@ exports.get_sftp_connection = function(resource, cb) {
         logger.debug("new sftp connection ready", resource._id.toString());
         conn.sftp((err, sftp)=>{
             if(err) return cb(err);
+            sftp = sftp_ref(sftp);
             sftp._workdir = exports.getworkdir(null, resource); //to be used by tester
             sftp_conns[resource._id] = sftp;
             if(cb) cb(null, sftp);

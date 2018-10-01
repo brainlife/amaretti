@@ -899,7 +899,7 @@ function start_task(task, resource, cb) {
                         stream.write("\n# why was this resource chosen?\n");
                         task._considered.forEach(con=>{
                             stream.write("# "+con.name+" ("+con.id+")\n");
-                            con.detail.split("\n").forEach(line=>{
+                            con.detail.msg.split("\n").forEach(line=>{
                                 stream.write("#    "+line+"\n");
                             });
                         });
@@ -954,7 +954,7 @@ function start_task(task, resource, cb) {
                             task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
                             task.save(err=>{
 
-                                //try syncing
+                                //try syncing - could take a long time..
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, err=>{
 
                                     //if its already synced, rsyncing is optional, so I don't really care about errors
@@ -1083,30 +1083,31 @@ function load_product(taskdir, resource, cb) {
     logger.debug("loading "+taskdir+"/product.json");
     common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
-        var stream = sftp.createReadStream(taskdir+"/product.json");
-        var product_json = "";
-        var error_msg = "";
-        stream.on('error', function(err) {
-            error_msg += err;
-        });
-        stream.on('data', function(data) {
-            product_json += data;
-        })
-        stream.on('close', function(code, signal) {
-            if(code) return cb("Failed to retrieve product.json from the task directory - code:",code);
-            if(error_msg) {
-                logger.info("Failed to load product.json (continuing)");
-                logger.info(error_msg);
-                return cb();
-            }
-            try {
-                var product = JSON.parse(product_json);
-                logger.info("successfully loaded product.json");
-                cb(null, product);
-            } catch(e) {
-                logger.error("Failed to parse product.json (ignoring): "+e.toString());
-                cb();
-            }
+        sftp.createReadStream(taskdir+"/product.json", (err, stream)=>{
+            var product_json = "";
+            var error_msg = "";
+            stream.on('error', function(err) {
+                error_msg += err;
+            });
+            stream.on('data', function(data) {
+                product_json += data;
+            })
+            stream.on('close', function(code, signal) {
+                if(code) return cb("Failed to retrieve product.json from the task directory - code:",code);
+                if(error_msg) {
+                    logger.info("Failed to load product.json (continuing)");
+                    logger.info(error_msg);
+                    return cb();
+                }
+                try {
+                    var product = JSON.parse(product_json);
+                    logger.info("successfully loaded product.json");
+                    cb(null, product);
+                } catch(e) {
+                    logger.error("Failed to parse product.json (ignoring): "+e.toString());
+                    cb();
+                }
+            });
         });
     });
 }
