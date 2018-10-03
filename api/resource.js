@@ -200,7 +200,7 @@ function score_resource(user, resource, task, cb) {
             detail.running = tasks.length;
             detail.msg+="tasks running:"+tasks.length+" maxtask:"+detail.maxtask+"\n";
             detail.fullness = detail.running / detail.maxtask;
-            if(detail.fullness == 1) {
+            if(detail.fullness >= 1) {
                 detail.msg += "resource is busy\n";
                 cb(null, 0, detail); 
             } else {
