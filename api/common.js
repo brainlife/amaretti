@@ -424,6 +424,8 @@ exports.request_task_removal = function(task, cb) {
     switch(task.status) {
     case "waiting": //should be deprecated now .. but still exists
     case "running":
+        //TODO - if task handler is currently checking status for this task, this update could be 
+        //overwritten.. #20
         task.status = "stop_requested";
         task.status_msg = "Task needs to be stopped and removed";
         break;

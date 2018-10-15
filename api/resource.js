@@ -87,16 +87,14 @@ exports.select = function(user, task, cb) {
                 //this make niced tasks to not submit on low score resources to allow for non-nice 
                 //jobs. For example, rule submitted jobs won't be using brainlife's UI staging resource to stage
                 //input datasets there.
-                //TODO - this doesn't work too well.. non-nice tasks are still getting stuck..
-                /*
                 if(task.nice) {
                     if(consider.score < task.nice) {
                         consider.detail.msg+="score lower than "+task.nice+". not running here\n";
                         return next_resource();
                     }
                 }
-                */
 
+                /*
                 //don't let nice tasks take up all resources.
                 if(task.nice && consider.detail.fullness) {
                     if(consider.detail.fullness > .9) {
@@ -104,6 +102,7 @@ exports.select = function(user, task, cb) {
                         return next_resource();
                     }
                 }
+                */
                 
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {

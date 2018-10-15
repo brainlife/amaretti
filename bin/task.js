@@ -140,20 +140,24 @@ function handle_unknown(task, cb) {
 }
 
 function handle_housekeeping(task, cb) {
+    //logger.debug("houskeeping!");
     async.series([
         //check to see if taskdir still exists
         //TODO...
         //taskdir could *appear* to be gone if admin temporarily unmount the file system, or metadata server is slow, etc, etc..
         //I need to be really be sure that the directory is indeed removed before concluding that it is.
         //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
-        //I also don't see much value in detecting if the directory is removed or not.. 
+        //TODO..
+        //I need to sole this.. if task gets removed by resource, we need to mark the task as removed or dependending task
+        //will fail! For now, we can make sure that resource won't remove tasks for at least 25 days... Maybe we could make this
+        //number configurable for each task?
         next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
-            minage.setDate(minage.getDate() - 10); 
+            minage.setDate(minage.getDate() - 25); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
-                //logger.info("skipping missing task dir check - as this task is too fresh");
+                logger.info("skipping missing task dir check - as this task is too fresh");
                 return next();
             }
 
@@ -406,14 +410,19 @@ function handle_requested(task, next) {
             if(err) return next(err);
             if(!resource || resource.status == "removed") {
                 task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                //check again in 5 minutes (too soon?)
-                //TODO - I should do exponential back off.. or better yet
-                task.next_date = new Date(Date.now()+1000*60*5); 
-                return next();
+                //check again in N minutes where N is determined by the number of tasks the project is running
+                //this should make sure that no project will consume all available slots simply because the project
+                //submits tons of tasks..
+                db.Task.count({status: "running",  _group_id: task._group_id}, (err, counts)=>{
+                    logger.debug("group",task._group_id, "running", counts);
+                    task.next_date = new Date(Date.now()+1000*60*(1+counts));
+                    next();
+                });
+                return;
             }
             
             //consider request_count
-            //TODO - do I really need this - now that I am checking for max request time?
+            /*
             if(!task.request_count) task.request_count = 0;
             task.request_count++;
             if(task.request_count > 10) {
@@ -422,6 +431,7 @@ function handle_requested(task, next) {
                 task.fail_date = new Date();
                 return next();
             }
+            */
 
             task.status_msg = "Starting task";
             task.start_date = new Date();
