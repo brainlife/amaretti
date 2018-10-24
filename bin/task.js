@@ -710,16 +710,14 @@ function start_task(task, resource, cb) {
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
             var envs = {
-                //SERVICE_DIR: taskdir, //deprecated
-                SERVICE_DIR: ".", //deprecated
+                SERVICE_DIR: ".", //deprecate! (there are some apps still using this..)
                 
                 //useful to construct job name?
                 TASK_ID: task._id.toString(),
                 USER_ID: task.user_id,
                 SERVICE: task.service,
 
-                //not really used much (yet?)
-                PROGRESS_URL: config.progress.api+"/status/"+task.progress_key,
+                //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key, //deprecated
             };
             task._envs = envs;
 
@@ -1109,6 +1107,13 @@ function load_product(taskdir, resource, cb) {
                     logger.info(error_msg);
                     return cb();
                 }
+                /*
+                if(product_json.length > 1024*10) {
+                    logger.warn("product.json is >10kb("+product_json.length+") It should be only a few kilobytes");
+                }
+                */
+                if(product_json.length > 1024*1024) return cb("product.json is too big.. 1MB max (should be around a few kilobytes)");
+
                 try {
                     var product = JSON.parse(product_json);
                     logger.info("successfully loaded product.json");

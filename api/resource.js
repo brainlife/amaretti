@@ -57,6 +57,7 @@ exports.select = function(user, task, cb) {
                 let resource_detail = config.resources[resource.resource_id];
                 let consider = {
                     id: resource._id, 
+                    gids: resource.gids,
                     name: resource.name, 
                     desc: resource.desc, 
                     status: resource.status, 
@@ -71,6 +72,7 @@ exports.select = function(user, task, cb) {
                     },
                 };
                 considered.push(consider);
+
 
                 if(resource.status != 'ok') {
                     consider.detail.msg += "resource status is not ok";
@@ -103,16 +105,23 @@ exports.select = function(user, task, cb) {
                     }
                 }
                 */
-                
+
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {
                     consider.detail.msg+="resource listed in deps/resource_ids.. +5\n";
                     consider.score = score+5;
                 }
 
+                /*
                 //+10 score if it's owned by user
                 if(resource.user_id == user.sub) {
                     consider.detail.msg+="user owns this.. +10\n";
+                    consider.score = score+10;
+                }
+                */
+                //+10 if it's private resource
+                if(resource.gids.length == 0) {
+                    consider.detail.msg+="private resource.. +10\n";
                     consider.score = score+10;
                 }
                 

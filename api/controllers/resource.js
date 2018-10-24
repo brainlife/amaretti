@@ -153,12 +153,12 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
  *                              _canedit: true,
  *                              }
  */
-router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)=>{
     logger.debug("choosing best resource for service:"+req.query.service);
 
     var query = {};
     if(req.query.service) query.service = req.query.service;
-    resource_lib.select(req.user, query, function(err, resource, score, considered) {
+    resource_lib.select(req.user, query, (err, resource, score, considered)=>{
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true, considered});
         var resource_detail = config.resources[resource.resource_id];

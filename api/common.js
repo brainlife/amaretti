@@ -193,7 +193,15 @@ function sftp_ref(sftp) {
         }
         sftp._count++;
         let stream = sftp.createReadStream(path);
+        let stream_timeout = setTimeout(()=>{
+            logger.error("readstream timeout.. force closing");
+            stream.close();
+        }, 1000*60*10); //10 minutes should be enough
         stream.on('close', ()=>{
+            clearTimeout(stream_timeout);
+            //this gets fired if stream 'error' (due to missing path)
+            //'ready' doesn't fire for stream
+            //'finish' doesn't fire for stream
             logger.debug("createreadstream close");
             sftp._count--;
         });
@@ -208,7 +216,12 @@ function sftp_ref(sftp) {
         }
         sftp._count++;
         let stream = sftp.createWriteStream(path);
+        let stream_timeout = setTimeout(()=>{
+            logger.error("readstream timeout.. force closing");
+            stream.close();
+        }, 1000*60*10); //10 minutes should be enough
         stream.on('close', ()=>{
+            clearTimeout(stream_timeout);
             logger.debug("createwritestream close");
             sftp._count--;
         });
@@ -427,7 +440,7 @@ exports.request_task_removal = function(task, cb) {
         //TODO - if task handler is currently checking status for this task, this update could be 
         //overwritten.. #20
         task.status = "stop_requested";
-        task.status_msg = "Task needs to be stopped and removed";
+        task.status_msg = "Task will be stopped and removed";
         break;
     case "requested":
         if(task.start_date) {
