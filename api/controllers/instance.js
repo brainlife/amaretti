@@ -105,7 +105,8 @@ router.put('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
  * @apiDescription              Create a new instance
  *
  * @apiParam {String} name      Name of the instance
- * @apiParam {Number} group_id  (optional) Group ID where you want to share this process with
+ * @apiParam {Number} [group_id] 
+ *                              Group ID where you want to share this process with
  * @apiParam {String} [desc]    Description of the instance
  * @apiParam {Object} [config]  Any information you'd like to associate with this instanace
  *

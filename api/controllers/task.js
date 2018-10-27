@@ -114,7 +114,10 @@ router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req,
         if(!task) return next("no such task id");
         //hide config from sensitive apps..
         if(task.service == "soichih/sca-product-raw") {
-            task.config = {"masked": true};
+            for(let key in task.config.masked) {
+                if(key[0] != "_") delete task.config.masked[key];
+            }
+            task.config.masked = true;
         }
         res.json(task);
     });
