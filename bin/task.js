@@ -61,7 +61,7 @@ function set_nextdate(task) {
         break;
 
     case "requested":
-        task.next_date = new Date(Date.now() + 1000*180); //rety in 3 minutes
+        task.next_date = new Date(Date.now()+1000*3600); //handle_requested will reset next_date.. this is for retry
         break;
 
     case "running_sync":
@@ -394,8 +394,7 @@ function handle_requested(task, next) {
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependencies";
-        //task.status = "waiting";
-        task.next_date = new Date(Date.now()+1000*3600*24); //when dependency finished, it should auto-poke it
+        task.next_date = new Date(Date.now()+1000*3600*24); //when dependency finished, it should auto-poke this task. so it's okay for this to be long
         return next();
     }
 
@@ -445,7 +444,7 @@ function handle_requested(task, next) {
             var called = false;
             start_task(task, resource, err=>{
                 
-                //detect multiple cb calling..
+                //detect multiple cb calling.. (this hasn't happened lately.. maybe I've finally cured it?)
                 if(called) throw new Error("callback called again for start_task");
                 called = true;
 
@@ -457,14 +456,14 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-                //task.save(next);
-                next();
+                task.save();
+                //next();
             });
 
-            //TODO - looks like we have callback braching somewhere.. let's handle task one at a time..
             //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
             //start_task is designed to be able to run concurrently..
-            //next();
+            //(used to) looks like we have callback braching somewhere.. we might need to handle one task at a time..
+            next();
         });
     });
 }

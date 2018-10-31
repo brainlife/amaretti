@@ -50,7 +50,8 @@ router.get('/health', function(req, res, next) {
     });
 });
 
-router.use('/task',     require('./task'));
+router.use('/service', require('./service'));
+router.use('/task', require('./task'));
 router.use('/instance', require('./instance')); 
 router.use('/resource', require('./resource'));
 router.use('/event', require('./event'));

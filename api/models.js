@@ -261,10 +261,22 @@ var serviceinfoSchema = mongoose.Schema({
         removed: Number,
     }),
 
+    hist: new mongoose.Schema({
+        failed: [Number],
+        finished: [Number],
+        //stop_requested: Number,
+        //stopoped: Number,
+        running_sync: [Number],
+        running: [Number],
+        requested: [Number],
+        removed: [Number],
+    }),
+
     users: Number,
 
     runtime_mean: Number,
     runtime_std: Number,
+    success_rate: Number,
 
     readme_status: String, //I think I am going to deprecate this (by status/status_msg)
 });

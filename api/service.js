@@ -18,12 +18,12 @@ exports.loaddetail_cached = function(service_name, branch, cb) {
     if(cache) {
         //check for date
         var age = new Date() - cache.date;
-        if(age > 1000*60*5) {
+        if(age > 1000*60*10) {
             //expired
             delete _details_cache[service_name];
         } else {
             //cache is good!
-            //logger.debug("using service cache", service_name);
+            logger.debug("using service cache", service_name);
             return cb(null, cache.detail);
         }
     }
@@ -46,6 +46,7 @@ exports.loaddetail = function(service_name, branch, cb) {
             logger.error(_res.body);
             return cb("failed to query requested repo. code:"+_res.statusCode);
         }
+        logger.debug(_res.headers);
 
         //then load package.json
         var pac_url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';

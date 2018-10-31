@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+//populate serviceinfos collection by parsing Taskevent collection
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -16,6 +18,7 @@ db.init(function(err) {
     if(err) throw err;
     let service_info = {};
     async.series([
+
         next=>{
             console.log("group events by service and status");
             db.Taskevent.aggregate([
@@ -36,11 +39,63 @@ db.init(function(err) {
                                 running_sync: 0,
                                 stop_requested: 0,
                                 stopped: 0,
-                            },
-                            users: null,
+                            }
                         }
                     }
                     service_info[status._id.service].counts[status._id.status] = status.count;
+                    
+                    //calculate success_rate
+                    let finished = service_info[status._id.service].counts.finished;
+                    let failed = service_info[status._id.service].counts.failed;
+                    if(finished+failed > 0) service_info[status._id.service].success_rate = (finished / (failed+finished))*100;
+                });
+                next();
+            });
+        },
+
+        next=>{
+            console.log("also generate last 180 days usage graph");
+            let hist_days = 180;
+            let hist_start = new Date(Date.now() - 3600*24*hist_days*1000);
+            db.Taskevent.aggregate([
+                {$match: {
+                    service: { $nin: ["soichih/sca-service-noop", /*"soichih/sca-product-raw"*/] },
+                    date: {$gt: hist_start},
+                }}, 
+                {$project: { date: {$substr: ["$date", 0, 10]}, status: "$status", service: "$service"}},
+                {$group: {_id: { status: "$status", service: "$service", date: "$date" }, count: {$sum: 1}}},
+            ]).exec((err, events)=>{
+                if(err) return next(err);
+
+                let empty = [];
+                for(let d = -hist_days; d != 0;d++) empty.push(0);
+
+                for(let service in service_info) {
+                    //service_info[service].hist_start = hist_start;
+                    //service_info[service].hist_days = hist_days;
+                    service_info[service].hist = {
+                        failed: empty.slice(),
+                        finished: empty.slice(),
+                        removed: empty.slice(),
+                        requested: empty.slice(),
+                        running: empty.slice(),
+                        running_sync: empty.slice(),
+                        //stop_requested: empty.slice(),
+                        //stopped: empty.slice(),
+                    }
+                }
+
+                //populate from events
+                events.forEach(event=>{
+                    if(!event._id.date) {
+                        return;
+                    }
+                    let etime = new Date(event._id.date);
+                    let d = Math.floor((etime.getTime() - hist_start.getTime())/(3600*24*1000));
+                    if(service_info[event._id.service].hist[event._id.status]) {
+                        service_info[event._id.service].hist[event._id.status][d] = event.count;
+                    }
+                    //console.dir(service_info[event._id.service]);
                 });
                 next();
             });

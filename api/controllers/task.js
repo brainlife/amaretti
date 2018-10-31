@@ -63,7 +63,8 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
 //the API shouldn't be hosted under /task (maybe /event, or just /?)
 //current clients: 
 //   * warehouse UI app stats
-router.get('/stats', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req, res, next) {
+/*
+router.get('/stats', function(req, res, next) {
     var find = {};
     if(req.query.service) find.service = req.query.service;
     if(req.query.service_branch) find.service_branch = req.query.service_branch;
@@ -90,6 +91,7 @@ router.get('/stats', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(re
         });
     });
 });
+*/
 
 //(admin only) return list of services currently running and number of them
 router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
@@ -224,15 +226,19 @@ function find_resource(req, taskid, cb) {
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
 
         //find resource that we can use to load file list
+        //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
         db.Resource.findById(task.resource_id, (err, resource)=>{
             if(err) return cb(err);
             if(!resource) return cb("couldn't find the resource");
             if(resource.status == "removed") return cb("resource is removed");
 
-            //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
             if(!resource.active) return cb("resource not active");
             if(resource.status != "ok") return cb(resource.status_msg);
-            if(!common.check_access(req.user, resource)) return cb("Not authorized to access this resource");
+
+            //going to allow access to the resource as long as user can access the task
+            //apply access control if necessary based on use case.
+            //if(!common.check_access(req.user, resource)) return cb("Not authorized to access this resource");
+
             cb(null, task, resource);
         });
     });
@@ -403,6 +409,7 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
+        if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
         
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
