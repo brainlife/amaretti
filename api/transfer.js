@@ -82,7 +82,7 @@ function get_ssh_connection_with_agent(resource, cb) {
 3|task     |     at addChunk (_stream_readable.js:263:12) reason: 'ADMINISTRATIVELY_PROHIBITED', lang: '' } 5ab7211312aa03002bf955cd
 */
 
-exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, cb) {
+exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, progress_cb, cb) {
     //logger.debug("rsync_resource", source_resource._id, dest_resource._id, source_path, dest_path);
     get_ssh_connection_with_agent(dest_resource, function(err, conn) {
         if(err) return cb(err); 
@@ -156,6 +156,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //-v writes output to stderr.. even though it's not error..
                 //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
                 //-e opts is for ssh
+                //-h is to make it human readable
                 
                 //I think this only works if the symlink exists on the root of the taskdir.. any symlinks under subdir is
                 //still removed if same directory is rsynced as "inter" resource transfer (like karst>carbonate)
@@ -165,23 +166,31 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
 
-                conn.exec("timeout 600 rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                conn.exec("timeout 600 rsync --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
                     let errors = "";
+                    let progress_date = new Date();
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while rsyncing");
                         else if(code) { 
-                            //next("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" -- "+errors);
                             logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" code:"+code);
                             logger.error(errors);
-                            //" Please check firewall / sshd configuration / disk space / resource availability");
                             next(errors);
                         } else next();
-                    }).on('data', function(data) {
-                        //TODO rsync --progress output tons of stuff. I should parse / pick message to show and send to progress service
-                        logger.debug(data.toString());
-                    }).stderr.on('data', function(data) {
+                    }).on('data', data=>{
+                        let str = data.toString().trim();
+                        if(str == "") return;
+                        
+                        //send progress report every few seconds 
+                        let now = new Date();
+                        let delta = now.getTime() - progress_date.getTime();
+                        if(delta > 1000*5) {
+                            progress_cb(str);
+                            progress_date = now;
+                            logger.debug(str);
+                        } 
+                    }).stderr.on('data', data=>{
                         //logger.error(data.toString());
                         errors += data.toString();
                     });

@@ -479,7 +479,7 @@ exports.update_instance_status = function(instance_id, cb) {
         //db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
         db.Task.find({instance_id: instance._id})
         .sort({create_date: 1})
-        .select('status status_msg service name user_id')
+        .select('status status_msg service name user_id config._tid')
         .exec((err, tasks)=>{
             if(err) return cb(err);
 
@@ -510,6 +510,7 @@ exports.update_instance_status = function(instance_id, cb) {
             tasks.forEach(task=>{
                 if(task.status == "removed") return; //hide removed tasks
                 instance.config.summary.push({
+                    tid: task.config._tid,
                     task_id: task._id, 
                     user_id: task.user_id, 
                     service: task.service, 

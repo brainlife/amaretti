@@ -956,13 +956,15 @@ function start_task(task, resource, cb) {
                             }
                             */
 
-                            var source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
-                            var dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            task.status_msg = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                            let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
+                            let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
+                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                            task.status_msg = msg_prefix;
                             task.save(err=>{
-
-                                //try syncing - could take a long time..
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, err=>{
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
+                                    task.status_msg = msg_prefix+" "+progress;
+                                    task.save(); 
+                                }, err=>{
 
                                     //if its already synced, rsyncing is optional, so I don't really care about errors
                                     if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
