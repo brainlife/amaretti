@@ -450,7 +450,7 @@ function handle_requested(task, next) {
 
                 if(err) {
                     //failed to start (or running_sync failed).. mark the task as failed
-                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                     logger.error(task._id.toString(), err);
                     task.status = "failed";
                     task.status_msg = err;
@@ -622,34 +622,38 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 0: //still running
+                            logger.debug("still running");
                             if(out.length > 300) out = "... "+out.substring(out.length - 300); //grab the last N chars if it's too long
                             task.status_msg = out;
                             next();
                             break;
                         case 1: //finished
                             //I am not sure if I have enough usecases to warrent the automatical retrieval of product.json to task..
+                            logger.debug("finished!");
                             load_product(taskdir, resource, function(err, product) {
                                 if(err) {
                                     logger.info("failed to load product");
-                                    common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                     task.status = "failed";
                                     task.status_msg = err;
                                     task.fail_date = new Date();
                                     next();
                                 } else {
                                     logger.info("loaded product.json");
-                                    common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
-                                    task.status = "finished";
-                                    task.status_msg = "Service completed successfully";
-                                    task.product = product;
+                                    //common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                                     task.finish_date = new Date();
+                                    let runtime = task.finish_date.getTime() - task.start_date.getTime();
+                                    task.status = "finished";
+                                    task.status_msg = "Successfully completed in "+(runtime/(1000*60)).toFixed(2)+" mins on "+resource.name;
+                                    task.product = product;
                                     rerun_child(task, next);
                                 }
                             });
                             break;
                         case 2: //job failed
+                            logger.debug("job failed");
                             if(task.retry >= task.run) {
-                                common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
+                                //common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
                                 task.status = "requested";
                                 task.next_date = undefined; //too soon?
                                 task.start_date = undefined;
@@ -657,7 +661,7 @@ function handle_running(task, next) {
                                 task.request_count = 0;
                                 task.status_msg = out+" - retrying "+task.run;
                             } else {
-                                common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
+                                //common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed";
                                 task.status_msg = out;
                                 task.fail_date = new Date();
@@ -782,7 +786,7 @@ function start_task(task, resource, cb) {
                 //create task dir by git shallow cloning the requested service
                 next=>{
                     logger.debug("git cloning taskdir", task._id.toString());
-                    common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
+                    //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
                     cmd += "git clone -q --depth 1 ";
@@ -1002,7 +1006,7 @@ function start_task(task, resource, cb) {
                 next=>{
                     if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
                     logger.debug("starting service: "+taskdir+"/"+service_detail.start);
-                    common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
+                    //common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
                     //save status since it might take a while to start
                     task.status_msg = "Starting service";
@@ -1045,7 +1049,7 @@ function start_task(task, resource, cb) {
                     if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
                     logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
-                    common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
+                    //common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                     //need to save now for running_sync (TODO - I should call update instance?
                     task.run++;
@@ -1068,7 +1072,7 @@ function start_task(task, resource, cb) {
                                 else {
                                     load_product(taskdir, resource, function(err, product) {
                                         if(err) return next(err);
-                                        common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
+                                        //common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                         task.status = "finished";
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();

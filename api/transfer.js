@@ -166,7 +166,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //this is needed for same-filesystem data transfer that has symlink
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
 
-                conn.exec("timeout 600 rsync --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                conn.exec("timeout 600 rsync --info=progress2 -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
                     let errors = "";
