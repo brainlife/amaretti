@@ -456,8 +456,15 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-                task.save();
                 //next();
+
+                //now that we run start_task asynchrously, I need to take care of updating things
+                task.save(err=>{
+                    if(err) logger.error(err);
+                    common.update_instance_status(task.instance_id, err=>{
+                        if(err) logger.error(err);
+                    });
+                });
             });
 
             //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 

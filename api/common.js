@@ -509,6 +509,11 @@ exports.update_instance_status = function(instance_id, cb) {
             instance.config.summary = [];
             tasks.forEach(task=>{
                 if(task.status == "removed") return; //hide removed tasks
+
+                //some task doesn't have _tid set... for somereason
+                if(!task.config) task.config = {};
+                if(!task.config._tid) task.config._tid = 0;
+                
                 instance.config.summary.push({
                     tid: task.config._tid,
                     task_id: task._id, 
@@ -519,6 +524,7 @@ exports.update_instance_status = function(instance_id, cb) {
                 }); 
             });
             instance.markModified("config");
+            //console.log("instance status----------------------------------------------------------------", newstatus);
 
             instance.status = newstatus;
             instance.update_date = new Date();
