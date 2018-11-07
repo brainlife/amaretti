@@ -153,8 +153,6 @@ var taskSchema = mongoose.Schema({
     status: {type: String, index: true}, 
     //requested,  
     //  all new task should be placed under requested
-    //waiting  (trying to deprecate)
-    //  requested tasks will be placed on waiting status if any deps are not yet finished
     //running, 
     //failed, 
     //finished

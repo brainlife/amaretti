@@ -90,7 +90,10 @@ function check(cb) {
     .populate('resource_deps')
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
-        if(!task) return setTimeout(check, 2000);
+        if(!task) {
+            logger.debug("no task to handle.. sleeping..");
+            return setTimeout(check, 1000); 
+        }
 
         set_nextdate(task);
         _counts.tasks++;

@@ -196,7 +196,7 @@ function sftp_ref(sftp) {
         let stream_timeout = setTimeout(()=>{
             logger.error("readstream timeout.. force closing");
             stream.close();
-        }, 1000*60*10); //10 minutes should be enough
+        }, 1000*60*30); //10 minutes isn't enough for azure/vm to send output_fe.mat (1.2G)
         stream.on('close', ()=>{
             clearTimeout(stream_timeout);
             //this gets fired if stream 'error' (due to missing path)
@@ -217,9 +217,9 @@ function sftp_ref(sftp) {
         sftp._count++;
         let stream = sftp.createWriteStream(path);
         let stream_timeout = setTimeout(()=>{
-            logger.error("readstream timeout.. force closing");
+            logger.error("writestream timeout.. force closing");
             stream.close();
-        }, 1000*60*10); //10 minutes should be enough
+        }, 1000*60*30); 
         stream.on('close', ()=>{
             clearTimeout(stream_timeout);
             logger.debug("createwritestream close");
