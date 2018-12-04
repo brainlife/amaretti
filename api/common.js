@@ -158,52 +158,35 @@ function sftp_ref(sftp) {
     function readdir(path, cb) {
         sftp.readdir(path, cb);
     }
-    /*
-    function stat(path, cb) {
-        logger.debug("stat", sftp._count);
-        if(sftp._count > 4) return setTimeout(()=>{
-            stat(path, cb);
-        }, 1000);
-        sftp._count++;
-        sftp.stat(path, (err, stat)=>{
-            logger.debug("done stat");
-            sftp._count--;
-            cb(err, stat);
-        });
+    function realpath(path, cb) {
+        sftp.realpath(path, cb);
     }
-    function readdir(path, cb) {
-        logger.debug("readdir", sftp._count);
-        if(sftp._count > 4) return setTimeout(()=>{
-            readdir(path, cb);
-        }, 1000);
-        sftp._count++;
-        sftp.readdir(path, (err, files)=>{
-            logger.debug("done readdir");
-            sftp._count--;
-            cb(err, files);
-        });
-    }
-    */
     function createReadStream(path, cb) {
-        logger.debug("createReadStream", sftp._count);
+        //prevent more than 5 concurrent connection (most places only allows up to 8)
         if(sftp._count > 4) {
+            logger.info("waiting sftp._count", sftp._count);
             return setTimeout(()=>{
                 createReadStream(path, cb);
-            }, 1000);
+            }, 3000);
         }
         sftp._count++;
+        logger.debug("createReadStream sftp._count:", sftp._count);
         let stream = sftp.createReadStream(path);
+
+        //10 minutes isn't enough for azure/vm to send output_fe.mat (1.2G) 
+        //(todo). but output_fe.mat could be as big as 6G!
         let stream_timeout = setTimeout(()=>{
             logger.error("readstream timeout.. force closing");
             stream.close();
-        }, 1000*60*30); //10 minutes isn't enough for azure/vm to send output_fe.mat (1.2G)
+        }, 1000*60*30); 
+
         stream.on('close', ()=>{
             clearTimeout(stream_timeout);
             //this gets fired if stream 'error' (due to missing path)
             //'ready' doesn't fire for stream
             //'finish' doesn't fire for stream
-            logger.debug("createreadstream close");
             sftp._count--;
+            logger.debug("createreadstream closed _count:", sftp._count);
         });
         cb(null, stream);
     }
@@ -228,7 +211,7 @@ function sftp_ref(sftp) {
         cb(null, stream);
     }
     
-    return  { stat, readdir, createReadStream, createWriteStream };
+    return { stat, readdir, createReadStream, createWriteStream, realpath };
 }
 
 //I need to keep up with sftp connection cache independent of ssh connection pool

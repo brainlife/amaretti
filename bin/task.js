@@ -1,6 +1,8 @@
 #!/usr/bin/node
 'use strict';
 
+//only this service initiate write access to remote resource
+
 //node
 const fs = require('fs');
 const path = require('path');
@@ -98,7 +100,7 @@ function check(cb) {
         set_nextdate(task);
         _counts.tasks++;
         logger.debug("task id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
-
+        
         //pick which handler to use based on task status
         let handler = null;
         switch(task.status) {
@@ -111,13 +113,14 @@ function check(cb) {
         case "running": 
             handler = handle_running; 
             break;
+t
+        /*
         case "finished":
         case "failed":
         case "stopped":
-            handler = handle_housekeeping;
-            break;
+        */
         default:
-            handler = handle_unknown;
+            handler = handle_housekeeping;
         }
 
         let previous_status = task.status;
@@ -137,10 +140,12 @@ function check(cb) {
     });
 }
 
+/*
 function handle_unknown(task, cb) {
     logger.debug("don't have anything particular to do with this task");
     return cb(); 
 }
+*/
 
 function handle_housekeeping(task, cb) {
     //logger.debug("houskeeping!");
@@ -256,11 +261,16 @@ function handle_housekeeping(task, cb) {
             }
 
             var maxage = new Date();
-            maxage.setDate(now.getDate() - 25); //25 days max (TODO - use resource's configured data)
+            maxage.setDate(now.getDate() - 90);
+            /*
             if(task.finish_date && task.finish_date < maxage) {
                 need_remove = true;
             }
             if(task.fail_date && task.fail_date < maxage) {
+                need_remove = true;
+            }
+            */
+            if(task.create_date < maxage) {
                 need_remove = true;
             }
 
@@ -513,13 +523,11 @@ function handle_stop(task, next) {
         _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
             if(err) return next(err);
 
-            //logger.debug("getting ssh connection to stop task");
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
                     if(err) return next(err);
-                    //common.set_conn_timeout(conn, stream, 1000*60);
                     stream.on('close', function(code, signal) {
                         task.status = "stopped";
                         if(code === undefined) {

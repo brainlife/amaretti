@@ -141,7 +141,53 @@ function ls_resource(resource, _path, cb) {
         sftp.readdir(_path, function(err, files) {
             if(!t) return; //timeout called already
             clearTimeout(t);
-            cb(err, files);
+
+            if(err) return cb(err);
+
+            //I need to stat each symlink files to find out if it's directory or not
+            async.eachSeries(files, (file, next_file)=>{
+                file.attrs.mode_string = file.longname.substr(0, 10);
+                if(file.attrs.mode_string[0]=='l') {
+                    file.link = true;
+                    sftp.stat(_path+"/"+file.filename, (err, stat)=>{
+                        if(err) return next_file(err);
+                        file.directory = stat.isDirectory();
+                        next_file();
+                    });
+                } else {
+                    file.directory = file.attrs.mode_string[0]=='d';
+                    file.link = false;
+                    next_file();
+                }
+            }, err=>{
+                if(err) return cb(err);
+                
+                //bit of standardization with ls_hpss
+                var ret = [];
+                files.forEach(function(file) {
+                    ret.push({
+                        filename: file.filename,
+                        directory: file.directory,
+                        link: file.link,
+                        attrs: {
+                            mode: file.attrs.mode,
+                            mode_string: file.attrs.mode_string,
+                            uid: file.attrs.uid,
+                            gid: file.attrs.gid,
+                            size: file.attrs.size,
+                            atime: file.attrs.atime,
+                            mtime: file.attrs.mtime,
+
+                            owner: null,
+                            group: null,
+                        },
+                        _raw: file.longname,
+                    });
+                });
+
+                cb(null, ret);
+            });
+            
         });
     });
 }
@@ -186,30 +232,7 @@ router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(r
 
             ls_resource(resource, fullpath, function(err, files) {
                 if(err) return next(err);
-                var ret = [];
-                //bit of standardization with ls_hpss
-                files.forEach(function(file) {
-                    file.attrs.mode_string = file.longname.substr(0, 10);
-                    ret.push({
-                        filename: file.filename,
-                        directory: file.attrs.mode_string[0]=='d',
-                        link: file.attrs.mode_string[0]=='l',
-                        attrs: {
-                            mode: file.attrs.mode,
-                            mode_string: file.attrs.mode_string,
-                            uid: file.attrs.uid,
-                            gid: file.attrs.gid,
-                            size: file.attrs.size,
-                            atime: file.attrs.atime,
-                            mtime: file.attrs.mtime,
-
-                            owner: null,
-                            group: null,
-                        },
-                        _raw: file.longname,
-                    });
-                });
-                res.json({files: ret});
+                res.json({files});
             });
         });
     });
@@ -250,12 +273,14 @@ function get_fullpath(task, resource, p, cb) {
     if(p) path += "/"+p; //let user specify sub directory
 
     //make sure path doesn't lead out of task dir
+    //WARNING - this doesn't prevent symlinked files to point outside of the task dir.. and expose those files
+    //this is to make sure our *API user* from escaping out of the task dir. App developer can symlink, copy , etc.. 
+    //any files that they have access to and make it part of the workdir which we can't realy do anything about.
     let fullpath = common.getworkdir(path, resource);
     let safepath = common.getworkdir(basepath, resource);
     if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir", fullpath, safepath);
 
     cb(null, fullpath);
-
 }
 
 //this API allows user to download any files under user's workflow directory
@@ -311,12 +336,10 @@ router.get('/download/:taskid', jwt({
                 if(err) return next(err);
 
                 if(req_closed) return next("request already closed.. bailing p2");
-
                 sftp.stat(fullpath, function(err, stat) {
                     if(err) return next(err.toString() + " -- "+fullpath);
 
                     if(req_closed) return next("request already closed.. bailing p3");
-                
                     if(stat.isDirectory()) {
                         logger.debug("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
@@ -346,7 +369,7 @@ router.get('/download/:taskid', jwt({
                             if(req_closed) return next("request already closed... skipping exec()!");
                             conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
-                                if(req_closed) return stream.close("request already closed - before pipe");
+                                if(req_closed) return stream.close();
                                 req.on('close', ()=>{
                                     logger.debug("request close after pipe began.. closing stream");
                                     stream.close();
@@ -369,7 +392,8 @@ router.get('/download/:taskid', jwt({
                         res.setHeader('Content-Length', stat.size);
                         res.setHeader('Content-Type', mimetype||"application/octet-stream"); //not setting content-type causes firefox to raise XML error
                         sftp.createReadStream(fullpath, (err, stream)=>{
-                            //in case user terminate in the middle.. read stream doesn't raise any event!
+                            //in case user terminates in the middle.. read stream doesn't raise any event!
+                            if(req_closed) return stream.close();
                             req.on('close', ()=>{
                                 logger.info("request closed........ closing sftp stream also");
                                 stream.close();
