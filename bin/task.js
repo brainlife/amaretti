@@ -262,14 +262,6 @@ function handle_housekeeping(task, cb) {
 
             var maxage = new Date();
             maxage.setDate(now.getDate() - 90);
-            /*
-            if(task.finish_date && task.finish_date < maxage) {
-                need_remove = true;
-            }
-            if(task.fail_date && task.fail_date < maxage) {
-                need_remove = true;
-            }
-            */
             if(task.create_date < maxage) {
                 need_remove = true;
             }
@@ -335,14 +327,6 @@ function handle_housekeeping(task, cb) {
                     logger.error(err); //continue with other task..
                     next();
                 } else {
-                    /*
-                    if(removed_resource_ids.length == task.resource_ids.length) {
-                        task.status_msg = "removed all task directories";
-                        task.status = "removed";
-                    } else {
-                        task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
-                    }
-                    */
                     task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
                     task.status = "removed";
 
@@ -433,18 +417,6 @@ function handle_requested(task, next) {
                 return;
             }
             
-            //consider request_count
-            /*
-            if(!task.request_count) task.request_count = 0;
-            task.request_count++;
-            if(task.request_count > 10) {
-                task.status_msg = "Task couldn't be started";
-                task.status = "failed";
-                task.fail_date = new Date();
-                return next();
-            }
-            */
-
             task.status_msg = "Starting task";
             task.start_date = new Date();
             task._considered = considered;
@@ -553,11 +525,6 @@ function handle_stop(task, next) {
         });
     });
 }
-
-/*
-function handle_waiting(task, next) {
-}
-*/
 
 //check for task status of already running tasks
 function handle_running(task, next) {
@@ -772,28 +739,6 @@ function start_task(task, resource, cb) {
             logger.debug("starting task on "+resource.name);
             async.series([
                    
-                /*
-                next=>{
-                    //TODO - get rid of this once we no longer have old tasks
-                    logger.debug("(for backward compatibility) remove old taskdir if it doesn't have .git");
-                    conn.exec("timeout 15 bash -c \"[ -d "+taskdir+" ] && [ ! -d "+taskdir+"/.git ] && rm -rf "+taskdir+"\"", function(err, stream) {
-                        if(err) return next(err);
-                        //common.set_conn_timeout(conn, stream, 1000*15);
-                        stream.on('close', function(code, signal) {
-                            if(code === undefined) return next("timeout while cleaning old service dir");
-                            else if(code && code == 1) return next(); //taskdir not there (good..)
-                            else if(code) return next("Failed to remove old taskdir:"+taskdir+" code:"+code);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.error(data.toString());
-                        });
-                    });
-                },
-                */
-                
                 //create task dir by git shallow cloning the requested service
                 next=>{
                     logger.debug("git cloning taskdir", task._id.toString());
@@ -948,36 +893,6 @@ function start_task(task, resource, cb) {
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
                             logger.debug("syncing", source_resource.name);
-
-                            /*
-                            if(!source_resource || source_resource.status == "removed") {
-                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                    return next_dep("source resource:"+dep.resource_id+" went missing"); //fail
-                                } else {
-                                    logger.warn("source resource is gone but we've already synced it to executing resource before.. let's proceed");
-                                }
-                            }
-                            if(!source_resource.active) {
-                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                    task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
-                                    task.status_msg = "source resource("+source_resource.name+") is inactive.. retry later";
-                                    return cb();
-                                } else {
-                                    logger.warn("source(dep) resource status is inactive but we've already synced it to executing resource before.. let's proceed");
-                                }
-                            }
-                            if(!source_resource.active || !source_resource.status || source_resource.status != "ok") {
-                                //see if we really need to sync it
-                                if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                    task.start_date = undefined; //need to release this so that resource.select will calculate resource availability correctly
-                                    task.status_msg = "source resource status is non-ok .. will retry later";
-                                    return cb(); //abort the rest of the process - retry later
-                                } else {
-                                    logger.warn("source(dep) resource status not ok, but we've already synced it to executing resource before.. let's proceed");
-                                }
-                            }
-                            */
-
                             let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());

@@ -85,12 +85,12 @@ module.exports = {
 
     iuhpc: {
         type: "ssh",
-        name: "IU HPC Systems",
-        desc: "IU's HPC Systems",
-        workdir: "/N/dc2/scratch/__username__/dev1-workflows",
+        name: "HPC Systems",
+        desc: "HPC Systems",
+        workdir: "/scratch",
 
         envs: {
-           ENV: "IUHPC",
+           //ENV: "IUHPC",
         },
 
         //services supported by this resource and score
