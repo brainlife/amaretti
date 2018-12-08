@@ -260,6 +260,7 @@ function handle_housekeeping(task, cb) {
                 need_remove = true;
             }
 
+            //remove task that's more than 3 months
             var maxage = new Date();
             maxage.setDate(now.getDate() - 90);
             if(task.create_date < maxage) {
@@ -269,76 +270,89 @@ function handle_housekeeping(task, cb) {
             //no need to remove, then no need to go further
             if(!need_remove) return next();
 
-            logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
-            //var removed_count = 0;
-            let removed_resource_ids = [];
-            async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
-                db.Resource.findById(resource_id, function(err, resource) {
-                    if(err) {
-                        logger.error("failed to find resource_id:"+resource_id+" for removal.. db issue?", err);
-                        return next_resource();
-                    }
-                    if(!resource || resource.status == "removed") {
-                        //user sometimes removes resource.. but that's ok..
-                        logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exists in db..");
-                        //removed_resource_ids.push(resource_id);
-                        return next_resource(); 
-                    }
-                    if(!resource.active) {
-                        logger.info("resource("+resource._id.toString()+") is inactive.. can't remove from this resource");
-                        return next_resource();
-                    }
-                    if(!resource.status || resource.status != "ok") {
-                        logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. can't remove from this resource");
-                        return next_resource();
-                    }
+            //find any tasks that depends on me.. 
+            db.Task.findOne({ 
+                deps: task._id, 
+                status: {$in: [ "requested", "running", "running_syc" ]} 
+            }).count((err, count)=>{
+                if(err) next(err);
+                if(count > 0) {
+                    task.status_msg = "Waiting for active deps("+count+") before removing.. ";
+                    return next(); //veto!
+                }
 
-                    //logger.debug("getting ssh connection to remove work/task dir");
-                    common.get_ssh_connection(resource, function(err, conn) {
-                        if(err) return next_resource(err);
-                        var workdir = common.getworkdir(task.instance_id, resource);
-                        var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                        if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        logger.info("removing "+taskdir+" and workdir if empty");
-                        conn.exec("timeout 60 bash -c \"rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")\"", function(err, stream) {
+                //start removing!
+                logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
+                let removed_resource_ids = [];
+                async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
+                    db.Resource.findById(resource_id, function(err, resource) {
+                        if(err) {
+                            logger.error("failed to find resource_id:"+resource_id+" for removal.. db issue?", err);
+                            return next_resource();
+                        }
+                        if(!resource || resource.status == "removed") {
+                            //user sometimes removes resource.. but that's ok..
+                            logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exists in db..");
+                            //removed_resource_ids.push(resource_id);
+                            return next_resource(); 
+                        }
+                        if(!resource.active) {
+                            logger.info("resource("+resource._id.toString()+") is inactive.. can't remove from this resource");
+                            return next_resource();
+                        }
+                        if(!resource.status || resource.status != "ok") {
+                            logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. can't remove from this resource");
+                            return next_resource();
+                        }
+
+                        //logger.debug("getting ssh connection to remove work/task dir");
+                        common.get_ssh_connection(resource, function(err, conn) {
                             if(err) return next_resource(err);
-                            //common.set_conn_timeout(conn, stream, 1000*60);
-                            stream.on('close', function(code, signal) {
-                                if(code === undefined) {
-                                    logger.error("timeout while removing taskdir");
-                                } else if(code) {
-                                    logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
-                                } else {
-                                    logger.debug("successfully removed!");
-                                    removed_resource_ids.push(resource_id);
-                                }
-                                next_resource();
-                            })
-                            .on('data', function(data) {
-                                logger.info(data.toString());
-                            }).stderr.on('data', function(data) {
-                                logger.info(data.toString());
+                            var workdir = common.getworkdir(task.instance_id, resource);
+                            var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                            if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                            logger.info("removing "+taskdir+" and workdir if empty");
+                            conn.exec("timeout 60 bash -c \"rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")\"", function(err, stream) {
+                                if(err) return next_resource(err);
+                                //common.set_conn_timeout(conn, stream, 1000*60);
+                                stream.on('close', function(code, signal) {
+                                    if(code === undefined) {
+                                        logger.error("timeout while removing taskdir");
+                                    } else if(code) {
+                                        logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
+                                    } else {
+                                        logger.debug("successfully removed!");
+                                        removed_resource_ids.push(resource_id);
+                                    }
+                                    next_resource();
+                                })
+                                .on('data', function(data) {
+                                    logger.info(data.toString());
+                                }).stderr.on('data', function(data) {
+                                    logger.info(data.toString());
+                                });
                             });
                         });
                     });
+                }, function(err) {
+                    if(err) {
+                        logger.error(err); //continue with other task..
+                        next();
+                    } else {
+                        task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
+                        task.status = "removed";
+
+                        //remove removed resource_ids
+                        var resource_ids = [];
+                        task.resource_ids.forEach(function(id) {
+                            if(!~common.indexOfObjectId(removed_resource_ids, id)) resource_ids.push(id);
+                        });
+                        task.resource_ids = resource_ids;
+
+                        next();
+                    }
                 });
-            }, function(err) {
-                if(err) {
-                    logger.error(err); //continue with other task..
-                    next();
-                } else {
-                    task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
-                    task.status = "removed";
 
-                    //remove removed resource_ids
-                    var resource_ids = [];
-                    task.resource_ids.forEach(function(id) {
-                        if(!~common.indexOfObjectId(removed_resource_ids, id)) resource_ids.push(id);
-                    });
-                    task.resource_ids = resource_ids;
-
-                    next();
-                }
             });
         },
 
