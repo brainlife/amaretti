@@ -6,7 +6,7 @@ const winston = require('winston');
 
 //mine
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 
 //use native promise for mongoose
@@ -98,6 +98,9 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 var taskSchema = mongoose.Schema({
 
     user_id: {type: String, index: true}, //sub of user submitted this request
+    //admin: {type: Boolean, default: false}, //(experimental) set to true if submitted by scopes.amaretti.admin (skips some checks)
+
+    gids: [{type: Number}], //resource belongs to these set of group will be considered for resource selection (only admin can set it)
     
     //progress service key for this task
     progress_key: {type: String, index: true}, 
@@ -129,7 +132,7 @@ var taskSchema = mongoose.Schema({
     config: mongoose.Schema.Types.Mixed, 
 
     //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
-    envs: mongoose.Schema.Types.Mixed, 
+    //envs: mongoose.Schema.Types.Mixed, 
 
     //task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task'} ],

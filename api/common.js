@@ -9,7 +9,7 @@ const redis = require('redis');
 const request = require('request');
 
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const hpss = require('hpss');
 
@@ -30,6 +30,7 @@ String.prototype.addSlashes = function() {
 }
 
 //connect to redis - used to store various shared caches
+//TODO who use this now?
 exports.redis = redis.createClient(config.redis.port, config.redis.server);
 exports.redis.on('error', err=>{throw err});
 
@@ -533,40 +534,57 @@ exports.rerun_task = function(task, remove_date, cb) {
         return cb();
     }
 
-    //let user reset remove_date, or set it based on last relationship between request_date and remove_date
-    if(remove_date) task.remove_date = remove_date;
-    else if(task.remove_date) {
-        var diff = task.remove_date - task.request_date;
-        if(diff < 0) {
-            logger.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
-            task.remove_date = undefined;
-        } else {
-            task.remove_date = new Date();
-            task.remove_date.setTime(task.remove_date.getTime() + diff); 
+    //check to see if any deps tasks are running currently using this task.
+    db.Task.findOne({ 
+        deps: task._id, 
+        status: {$in: [ "requested", "running", "running_sync" ]} 
+    }).countDocuments((err, count)=>{
+        if(err) next(err);
+        if(count > 0) {
+            //TODO - rerunning task with active deps might not be always bad - if the tasks are in different resource.
+            //let's not veto this completely.. I need to think more
+            logger.warn("rerunning task with active deps - it might make the deps fail");
+            //return cb("Can't rerun this task as it has dependent tasks that are currrently running.");
         }
-    }
 
-    task.status = "requested";
-    task.status_msg = "Waiting to be started";
-    
-    //reset things
-    task.request_date = new Date();
-    task.start_date = undefined;
-    task.finish_date = undefined;
-    task.products = undefined;
-    task.next_date = undefined; //reprocess asap
-    task.run = 0;
-    task.request_count = 0;
+        //all good! let's proceed with rerunning
+        
+        //let user reset remove_date, or set it based on last relationship between request_date and remove_date
+        if(remove_date) task.remove_date = remove_date;
+        else if(task.remove_date) {
+            var diff = task.remove_date - task.request_date;
+            if(diff < 0) {
+                logger.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
+                task.remove_date = undefined;
+            } else {
+                task.remove_date = new Date();
+                task.remove_date.setTime(task.remove_date.getTime() + diff); 
+            }
+        }
 
-    task.save(err=>{
-        if(err) return next(err);
-        exports.update_instance_status(task.instance_id, err=>{
+        task.status = "requested";
+        task.status_msg = "Waiting to be started";
+        
+        //reset things
+        task.request_date = new Date();
+        task.start_date = undefined;
+        task.finish_date = undefined;
+        task.products = undefined;
+        task.next_date = undefined; //reprocess asap
+        task.run = 0;
+        task.request_count = 0;
+
+        task.save(err=>{
             if(err) return next(err);
-            cb(err);
+            exports.update_instance_status(task.instance_id, err=>{
+                if(err) return next(err);
+                cb(err);
+            });
         });
     });
 }
 
+/*
 exports.get_gids = function(user_id, cb) {
     //look in redis first
     let key = "cache.gids."+user_id;
@@ -620,6 +638,7 @@ exports.get_gids = function(user_id, cb) {
         }
     });
 }
+*/
 
 //search inside a list of mongoose ObjectID return position
 exports.indexOfObjectId = function(ids, search_id, cb) {

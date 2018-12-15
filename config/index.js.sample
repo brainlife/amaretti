@@ -1,7 +1,8 @@
 'use strict';
 
 const fs = require('fs');
-const winston = require('winston');
+const { createLogger, format, transports } = require('winston');
+const { combine, timestamp, label, prettyPrint } = format;
 
 process.env.SSH_AUTH_SOCK = "/home/hayashis/docker/ssh-agent/ssh-agent.sock";
 
@@ -28,7 +29,7 @@ exports.amaretti = {
     resource_cipher_algo: 'aes-256-cbc',
 
     //jwt token used to access other services (like pulling users gids from auth service)
-    jwt: fs.readFileSync(__dirname+'/amaretti.jwt'),
+    jwt: fs.readFileSync(__dirname+'/amaretti.jwt', 'ascii').trim(),
 
     //groups that all users has access to. 
     //all user will have access to any resources that are shared with this group 
@@ -80,18 +81,30 @@ exports.resources = require('./resources');
 exports.logger = {
     winston: {
         //hide headers which may contain jwt
+        level: "debug",
         requestWhitelist: ['url', /*'headers',*/ 'method', 'httpVersion', 'originalUrl', 'query'],
+        format: combine(
+            //label({ label: 'right meow!' }),
+            timestamp(),
+            format.colorize(),
+            //prettyPrint(),
+            //format.splat(),
+            format.simple()
+            //format.json()
+        ),
         transports: [
             //display all logs to console
-            new winston.transports.Console({
+            new transports.Console({
+                /*
                 timestamp: function() {
                     var d = new Date();
                     if(process.env.NODE_APP_INSTANCE) return process.env.NODE_APP_INSTANCE + "> "+ d.toString();
                     return d.toString();
                 },
-                level: 'debug',
-                colorize: true,
-                stderrLevels: ["error"], //default includes debug
+                */
+                //level: 'debug',
+                //colorize: true,
+                //stderrLevels: ["error"], //default includes debug
             }),
         ]
     }

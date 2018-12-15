@@ -10,7 +10,7 @@ const ConnectionQueuer = require('ssh2-multiplexer');
 
 //mine
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('../api/common');
 

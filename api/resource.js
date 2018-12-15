@@ -8,7 +8,7 @@ const fs = require('fs');
 
 //mine
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
@@ -29,10 +29,11 @@ exports.select = function(user, task, cb) {
     }
 
     //load resource that user has access
+    let gids = common.get_user_gids(user); //just pull from user.gids and adds global gids
     db.Resource.find({
         "$or": [
             {user_id: user.sub},
-            {gids: {"$in": common.get_user_gids(user)}},
+            {gids: {"$in": gids}},
         ],
         status: {$ne: "removed"},
         active: true,
@@ -223,17 +224,6 @@ function score_resource(user, resource, task, cb) {
 exports.check = function(resource, cb) {
     var detail = config.resources[resource.resource_id];
     if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
-    //if(detail.type === undefined) return cb(resource.resource_id+" doesn't have type defined.. don't know how to check");
-    /*
-    switch(detail.type) {
-    case "ssh":
-        check_ssh(resource, update_status);
-        break;
-    default: 
-        //update_status(null, "ok", "Don't know how to check "+resource.type + " .. assuming it to be ok");
-        check_hpss(resource, update_status);
-    }
-    */
     check_ssh(resource, (err, status, msg)=> {
         if(err) return cb(err);
         logger.info("resource_id: "+resource._id+" status:"+status+" msg:"+msg);
@@ -250,16 +240,6 @@ exports.check = function(resource, cb) {
         });
     });
 }
-
-/*
-function check_hpss(resource, cb) {
-    //find best resource to run hpss
-    common.ls_hpss(resource, "./", function(err, files) {
-        if(err) return cb(null, "failed", err);
-        cb(null, "ok", "hsi/ls returned "+files.length+" files on home directory");
-    });
-}
-*/
 
 //TODO this is too similar to common.js:ssh_command... can we refactor?
 function check_ssh(resource, cb) {
@@ -319,75 +299,6 @@ function check_ssh(resource, cb) {
             });
             readstream.pipe(writestream);
         });
-
-
-        /*
-        check_sftp(resource, conn, function(err, status, msg) {
-            if(err) return cb_once(err);
-            if(status != "ok") return cb_once(null, status, msg);
-
-            //send resource test script
-            conn.exec('whoami', function(err, stream) {
-                if (err) {
-                    conn.end();
-                    nexted = true;
-                    return cb(err);
-                }
-                var ret_username = "";
-                stream.on('close', function(code, signal) {
-                    nexted = true;
-                    if(ret_username.trim() == resource.config.username) {
-                        check_sftp(resource, conn, function(err, status, msg) {
-                            conn.end();
-                            if(err) return cb(err);
-                            cb(null, status, msg);
-                        });
-                    } else {
-                        conn.end();
-                        //I need to fail if user is outputing something on the terminal (right now, it kills ssh2/sftp)
-                        cb(null, "failed", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username+" Please make sure your .bashrc is not outputting any content for non-interactive session."); 
-                    }
-                }).on('data', function(data) {
-                    ret_username += data;
-                }).stderr.on('data', function(data) {
-                    //I get \n stuff occasionally
-                    logger.debug('whoami error: ');
-                });
-            })
-            
-        });
-        */
-
-        /*
-        //make sure correct user id is returned from whoami
-        conn.exec('whoami', function(err, stream) {
-            if (err) {
-                conn.end();
-                nexted = true;
-                return cb(err);
-            }
-            var ret_username = "";
-            stream.on('close', function(code, signal) {
-                nexted = true;
-                if(ret_username.trim() == resource.config.username) {
-                    check_sftp(resource, conn, function(err, status, msg) {
-                        conn.end();
-                        if(err) return cb(err);
-                        cb(null, status, msg);
-                    });
-                } else {
-                    conn.end();
-                    //I need to fail if user is outputing something on the terminal (right now, it kills ssh2/sftp)
-                    cb(null, "failed", "ssh connection good but whoami reports:"+ret_username+" which is different from "+resource.config.username+" Please make sure your .bashrc is not outputting any content for non-interactive session."); 
-                }
-            }).on('data', function(data) {
-                ret_username += data;
-            }).stderr.on('data', function(data) {
-                //I get \n stuff occasionally
-                logger.debug('whoami error: ');
-            });
-        })
-        */
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended");
@@ -475,15 +386,6 @@ exports.stat = function(resource, cb) {
             if(err) return cb(err);
             cb(null, { find, counts: task_status_counts, services });
         });
-
-        /*
-        //count distinct service requested
-        //TODO is there a better way?
-        db.Taskevent.find(find).distinct('service').exec(function(err, services) {
-            if(err) return cb(err);
-            cb(null, { find, task_status_counts, services });
-        });
-        */
     });
 }
 

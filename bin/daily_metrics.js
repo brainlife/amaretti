@@ -11,7 +11,7 @@ const redis = require('redis');
 
 const config = require('../config');
 config.logger.winston.transports[0].level = 'error';
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 
 const graphite_prefix = process.argv[2]||config.sensu.prefix;

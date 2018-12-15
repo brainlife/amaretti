@@ -3,7 +3,7 @@ const redis = require('redis');
 const winston = require('winston');
 
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 const transfer = require('./transfer'); //for health

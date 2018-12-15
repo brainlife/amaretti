@@ -12,7 +12,7 @@ const mime = require('mime');
 
 //mine
 const config = require('../../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
 
@@ -538,7 +538,6 @@ function mkdirp(conn, dir, cb) {
  * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
  * @apiParam {String[]} [deps]  task IDs that this service depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
- * @apiParam {Object} [envs]    Dictionary of ENV parameter to set.
  * @apiParam {String[]} [resource_deps]
  *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
  *                              to allow access to the specified resource
@@ -553,6 +552,9 @@ function mkdirp(conn, dir, cb) {
  *                              
  */
 router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+    if(!req.body.instance_id) return next("please specify instance_id");
+    if(!req.body.service) return next("please specify service");
+
     const instance_id = req.body.instance_id;
     const service = req.body.service;
 
@@ -560,61 +562,80 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
     db.Instance.findById(instance_id, function(err, instance) {
         if(!instance) return next("no such instance:"+instance_id);
         
-        //check instance access
-        //TODO is this safe if gids happens to contain undefined?
-        const gids = req.user.gids||[];
-        if( instance.user_id != req.user.sub && 
-            !~gids.indexOf(instance.group_id)) return res.status(404).end("don't have access to specified instance");
-
         const task = new db.Task();
+
+        /*
+        if(req.user.scopes.amaretti && req.user.scopes.amaretti.inclues("admin")) {
+            task.admin = true;
+        } else {
+            task.admin = false;
+        }
+        */
 
         //TODO validate?
         task.name = req.body.name;
         task.desc = req.body.desc;
         task.service = req.body.service;
         task.service_branch = req.body.service_branch;
-        task.instance_id = req.body.instance_id;
+        task.instance_id = instance_id;
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
         task.max_runtime = req.body.max_runtime;
-        task.envs = req.body.envs;
+        //task.envs = req.body.envs; //this is rarely set by task submitter and it's a security risk
         task.retry = req.body.retry;
         if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
 
         if(task.name) task.name = task.name.trim();
 
-        //checked later
         if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null
         task.preferred_resource_id = req.body.preferred_resource_id;
         task.resource_deps = req.body.resource_deps;
 
         //others set by the API 
-        task.user_id = req.user.sub;
         task._group_id = instance.group_id; //copy
         task.progress_key = common.create_progress_key(instance_id, task._id);
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by task handler";
 
+        task.user_id = req.user.sub;
+        task.gids = req.user.gids;
+
         task.resource_ids = [];
         
-        //check for various resource parameters.. make sure user has access to them
+        //check access
         async.series([
-            function(next_check) {
+            next_check=>{
+                //check service access
+                //I am going to skip checking for service access as it will be checked when the task is submitted
+                next_check();
+            },
+
+            next_check=>{
+                //check instance access
+                //TODO is this safe if gids happens to contain undefined?
+                const gids = task.gids||[];
+                if(instance.user_id != task.user_id && !~gids.indexOf(instance.group_id)) {
+                    return next_check("don't have access to specified instance");
+                }
+                next_check();//ok
+            },
+
+            next_check=>{
                 if(!task.preferred_resource_id) return next_check();
-                console.log("preferreed_resource_id is set");
-                db.Resource.findById(task.preferred_resource_id, function(err, resource) {
+                //console.log("preferreed_resource_id is set");
+                db.Resource.findById(task.preferred_resource_id, (err, resource)=>{
                     if(err) return next_check(err);
                     if(!resource) return next_check("can't find preferred_resource_id:"+task.preferred_resource_id);
                     if(!common.check_access(req.user, resource)) return next_check("can't access preferred_resource_id:"+task.preferred_resource_id);
                     next_check();//ok
                 });
             },
-            function(next_check) {
+            next_check=>{
                 if(!task.resource_deps) return next_check();
                 //make sure user can access all resource_deps
-                async.eachSeries(task.resource_deps, function(resource_id, next_resource) {
-                    db.Resource.findById(resource_id, function(err, resource) {
+                async.eachSeries(task.resource_deps, (resource_id, next_resource)=>{
+                    db.Resource.findById(resource_id, (err, resource)=>{
                         if(err) return next_resource(err);
                         if(!resource) return next_check("can't find resource_id:"+resource_id);
                         if(!common.check_access(req.user, resource)) return next_resource("can't access resource_dep:"+resource_id);
@@ -622,34 +643,31 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                     });
                 }, next_check);
             },
-            function(next_check) {
+            next_check=>{
                 if(task.deps) return next_check();
                 //make sure user owns the task
-                async.eachSeries(task.deps, function(taskid, next_task) {
-                    db.Task.findById(taskid, function(err, dep) {
+                async.eachSeries(task.deps, (taskid, next_task)=>{
+                    db.Task.findById(taskid, (err, dep)=>{
                         if(err) return next_task(err);
                         if(!dep) return next_task("can't find dep task:"+taskid);
-                        if(dep.user_id != req.user.sub) return next_task("user doesn't own the dep task:"+taskid);
+                        if(dep.user_id != task.user_id) return next_task("user doesn't own the dep task:"+taskid);
                         if(!~gids.indexOf(dep._group_id)) return next_task("user doesn't have access to the shared instance for dep task:", taskid);
                         next_task();
                     });
                 }, next_check);
             }
-        ], function(err) {
+        ], err=>{
             if(err) return next(err);
+            
             //all good - now register!
-            task.save(function(err, _task) {
+            task.save((err, _task)=>{
                 if(err) return next(err);
                 //TODO - I should just return _task - to be consistent with other API
                 res.json({message: "Task successfully registered", task: _task});
-
                 common.update_instance_status(instance_id, err=>{
                     if(err) logger.error(err);
                 });
             });
-           
-            //also send the first progress update
-            //common.progress(task.progress_key, {name: task.name||service, status: 'waiting', msg: service+' service requested'});
         });
     });
 });
@@ -802,12 +820,16 @@ router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(
 });
 
 /**
- * @api {put} /task/:taskid     Update Task
+ * @api {put} /task/:taskid     Update Task (deprecated)
  * @apiGroup Task
  * @apiDescription              This API allows you to update task detail. Normally, you don't really
  *                              want to update task detail after it's submitted. Doing so might cause task to become
  *                              inconsistent with the actual state. 
  *                              To remove a field, set the field to null (not undefined - since it's not valid JSON)
+ *
+ *                              I am going to deprecate this.. for one thing, we can now submit app-archive/app-stage
+ *                              which needs to be carefully garded against config tampering once it's submitted
+ *                              Another thing is that, there shouldn't be any reason to update task now.
  *
  * @apiParam {String} [service] Name of the service to run
  * @apiParam {String} [service_branch]   
@@ -834,6 +856,7 @@ router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
  */
+/*
 router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const id = req.params.taskid;
     const gids = req.user.gids||[];
@@ -850,9 +873,11 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
             //don't let some fields updated
             if(key == "_id") continue;
             if(key == "user_id") continue;
+            if(key == "gids") continue; //TODO reload from req.user.gids?
             if(key == "instance_id") continue; 
             if(key == "_group_id") continue; 
             if(key == "nice") continue;  //TODO I think I should allow user to change it as long as it positive value??
+            //if(key == "admin") continue;
 
             //TODO if status set to "requested", I need to reset handled_date so that task service will pick it up immediately.
             //and I should do other things as well..
@@ -870,6 +895,37 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         task.save(function(err) {
             if(err) return next(err);
             //TODO - should I update progress?
+            res.json(task);
+        });
+    });
+});
+*/
+
+/**
+ * @api {put} /task/:taskid     Update Task
+ * @apiGroup Task
+ * @apiDescription              Update a few fields in task that doesn't affect provenance
+ *
+ * @apiParam {String} [name]    Name for this task
+ * @apiParam {String} [desc]    Description for this task
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ */
+router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+    const id = req.params.taskid;
+    const gids = req.user.gids||[];
+
+    db.Task.findById(id, function(err, task) {
+        if(!task) return next("no such task:"+id);
+        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+
+        if(req.body.name) task.name = req.body.name;
+        if(req.body.desc) task.desc = req.body.desc;
+
+        task.update_date = new Date();
+        task.save(function(err) {
+            if(err) return next(err);
             res.json(task);
         });
     });

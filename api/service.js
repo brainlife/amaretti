@@ -7,7 +7,7 @@ var request = require('request');
 
 //mine
 var config = require('../config');
-var logger = new winston.Logger(config.logger.winston);
+var logger = winston.createLogger(config.logger.winston);
 var db = require('./models');
 var common = require('./common');
 

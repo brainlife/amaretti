@@ -1,9 +1,8 @@
 const winston = require('winston');
-const timeout = require('callback-timeout');
 const async = require('async');
 
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');
 

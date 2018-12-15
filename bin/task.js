@@ -15,7 +15,7 @@ const Client = require('ssh2').Client;
 
 //mine
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');
 const _resource_select = require('../api/resource').select;
@@ -170,6 +170,7 @@ function handle_housekeeping(task, cb) {
             }
 
             var missing_resource_ids = [];
+            
             //handling all resources in parallel - in a hope to speed things a bit.
             async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
@@ -189,7 +190,6 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check taskdir
-                    //logger.debug("getting ssh connection for house keeping");
                     logger.debug("getting ssh connection for house keeping", resource_id);
                     common.get_ssh_connection(resource, function(err, conn) {
                         logger.debug("got err/conn");
@@ -273,7 +273,7 @@ function handle_housekeeping(task, cb) {
             //find any tasks that depends on me.. 
             db.Task.findOne({ 
                 deps: task._id, 
-                status: {$in: [ "requested", "running", "running_syc" ]} 
+                status: {$in: [ "requested", "running", "running_sync" ]} 
             }).count((err, count)=>{
                 if(err) next(err);
                 if(count > 0) {
@@ -409,6 +409,7 @@ function handle_requested(task, next) {
         return next();
     }
 
+    /*
     //need to lookup user's gids to find all resources that user has access to
     common.get_gids(task.user_id, (err, gids)=>{
         if(err) return next(err);
@@ -416,61 +417,65 @@ function handle_requested(task, next) {
             sub: task.user_id,
             gids,
         }
-        _resource_select(user, task, function(err, resource, score, considered) {
-            if(err) return next(err);
-            if(!resource || resource.status == "removed") {
-                task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                //check again in N minutes where N is determined by the number of tasks the project is running
-                //this should make sure that no project will consume all available slots simply because the project
-                //submits tons of tasks..
-                db.Task.count({status: "running",  _group_id: task._group_id}, (err, counts)=>{
-                    logger.debug("group",task._group_id, "running", counts);
-                    task.next_date = new Date(Date.now()+1000*60*(1+counts));
-                    next();
-                });
-                return;
-            }
+    */
+    let user = {
+        sub: task.user_id,
+        gids: task.gids,
+    }
+    _resource_select(user, task, function(err, resource, score, considered) {
+        if(err) return next(err);
+        if(!resource || resource.status == "removed") {
+            task.status_msg = "No resource currently available to run this task.. waiting.. ";
+            //check again in N minutes where N is determined by the number of tasks the project is running
+            //this should make sure that no project will consume all available slots simply because the project
+            //submits tons of tasks..
+            db.Task.count({status: "running",  _group_id: task._group_id}, (err, counts)=>{
+                logger.debug("group",task._group_id, "running", counts);
+                task.next_date = new Date(Date.now()+1000*60*(1+counts));
+                next();
+            });
+            return;
+        }
+        
+        task.status_msg = "Starting task";
+        task.start_date = new Date();
+        task._considered = considered;
+        task.resource_id = resource._id;
+        if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
+            logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
+            task.resource_ids.push(resource._id);
+        }
+
+        var called = false;
+        start_task(task, resource, err=>{
             
-            task.status_msg = "Starting task";
-            task.start_date = new Date();
-            task._considered = considered;
-            task.resource_id = resource._id;
-            if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-                logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
-                task.resource_ids.push(resource._id);
-            }
+            //detect multiple cb calling.. (this hasn't happened lately.. maybe I've finally cured it?)
+            if(called) throw new Error("callback called again for start_task");
+            called = true;
 
-            var called = false;
-            start_task(task, resource, err=>{
-                
-                //detect multiple cb calling.. (this hasn't happened lately.. maybe I've finally cured it?)
-                if(called) throw new Error("callback called again for start_task");
-                called = true;
+            if(err) {
+                //failed to start (or running_sync failed).. mark the task as failed
+                //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                logger.error(task._id.toString(), err);
+                task.status = "failed";
+                task.status_msg = err;
+                task.fail_date = new Date();
+            } 
+            //next();
 
-                if(err) {
-                    //failed to start (or running_sync failed).. mark the task as failed
-                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                    logger.error(task._id.toString(), err);
-                    task.status = "failed";
-                    task.status_msg = err;
-                    task.fail_date = new Date();
-                } 
-                //next();
-
-                //now that we run start_task asynchrously, I need to take care of updating things
-                task.save(err=>{
+            //now that we run start_task asynchrously, I need to take care of updating things
+            task.save(err=>{
+                if(err) logger.error(err);
+                common.update_instance_status(task.instance_id, err=>{
                     if(err) logger.error(err);
-                    common.update_instance_status(task.instance_id, err=>{
-                        if(err) logger.error(err);
-                    });
                 });
             });
-
-            //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
-            //start_task is designed to be able to run concurrently..
-            //(used to) looks like we have callback braching somewhere.. we might need to handle one task at a time..
-            next();
         });
+
+        //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
+        //start_task is designed to be able to run concurrently..
+        //(used to) looks like we have callback braching somewhere.. we might need to handle one task at a time..
+        next();
     });
 }
 
@@ -745,10 +750,12 @@ function start_task(task, resource, cb) {
             if(resource.envs) for(var key in resource.envs) {
                 envs[key] = resource.envs[key];
             }
-            //override with any task envs specified by submitter
+            /*
+            //override with any task envs specified by submitter (that a security risk!)
             if(task.envs) for(var key in task.envs) {
                 envs[key] = task.envs[key];
             }
+            */
 
             logger.debug("starting task on "+resource.name);
             async.series([
@@ -981,7 +988,8 @@ function start_task(task, resource, cb) {
                 },
 
                 //TODO - I think I should deprecate this in the future, but it's still used by 
-                //          * soichih/sca-service-noop
+                //          * soichih/sca-service-noop (deprecated by brainlife/app-noop)
+                //          * brainlife/app-noop
                 //          * brain-life/validator-neuro-track
                 //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
                 //status.sh checking for its output (or just assume that it worked)
@@ -1171,7 +1179,7 @@ function run_noop() {
                     status: "requested",
                     request_date: new Date(),
                     config: { "test": 123 },
-                    service: "soichih/sca-service-noop",  
+                    service: "brainlife/app-noop",  
                 });
                 task.save();
                 return;

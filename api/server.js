@@ -12,7 +12,7 @@ const cors = require('cors');
 
 //mine
 const config = require('../config');
-const logger = new winston.Logger(config.logger.winston);
+const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 
 //init express
@@ -52,7 +52,7 @@ app.use(function(err, req, res, next) {
 
 process.on('uncaughtException', function (err) {
     //TODO report this to somewhere!
-    logger.error((new Date).toUTCString() + ' uncaughtException:', err.message)
+    logger.error((new Date).toUTCString() + ' uncaughtException:'+ err.message)
     logger.error(err.stack)
 });
 

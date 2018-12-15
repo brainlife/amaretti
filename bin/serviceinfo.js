@@ -59,7 +59,7 @@ db.init(function(err) {
             let hist_start = new Date(Date.now() - 3600*24*hist_days*1000);
             db.Taskevent.aggregate([
                 {$match: {
-                    service: { $nin: ["soichih/sca-service-noop", /*"soichih/sca-product-raw"*/] },
+                    service: { $nin: ["soichih/sca-service-noop", "brainlife/app-noop"] },
                     date: {$gt: hist_start},
                 }}, 
                 {$project: { date: {$substr: ["$date", 0, 10]}, status: "$status", service: "$service"}},
