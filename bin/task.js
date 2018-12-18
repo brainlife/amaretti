@@ -621,6 +621,7 @@ function handle_running(task, next) {
                         case 0: //still running
                             logger.debug("still running");
                             if(out.length > 300) out = "... "+out.substring(out.length - 300); //grab the last N chars if it's too long
+                            if(out.length == 0) out = "(no log output)";
                             task.status_msg = out;
                             next();
                             break;
