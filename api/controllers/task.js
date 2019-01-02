@@ -114,6 +114,8 @@ router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req,
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
         if(!task) return next("no such task id");
+        //
+        //now that we use app-stage, we can deprecate this
         //hide config from sensitive apps..
         if(task.service == "soichih/sca-product-raw") {
             for(let key in task.config.masked) {
