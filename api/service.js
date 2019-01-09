@@ -12,7 +12,7 @@ var db = require('./models');
 var common = require('./common');
 
 var _details_cache = {};
-exports.loaddetail_cached = function(service_name, branch, cb) {
+exports.loaddetail = function(service_name, branch, cb) {
     var cache = _details_cache[service_name];
     var now = new Date();
     if(cache) {
@@ -27,14 +27,15 @@ exports.loaddetail_cached = function(service_name, branch, cb) {
             return cb(null, cache.detail);
         }
     }
-    exports.loaddetail(service_name, branch, cb);
+    do_loaddetail(service_name, branch, cb);
 }
 
-exports.loaddetail = function(service_name, branch, cb) {
+function do_loaddetail(service_name, branch, cb) {
     if(!config.github) return cb("no github config");
     if(!branch) branch = "master";
     
     //first load git info
+    logger.debug("loading github repo detail");
     var repourl = 'https://api.github.com/repos/'+service_name;
     logger.debug("loading repo detail", repourl);
     repourl += "?client_id="+config.github.client_id;
@@ -46,7 +47,7 @@ exports.loaddetail = function(service_name, branch, cb) {
             logger.error(_res.body);
             return cb("failed to query requested repo. code:"+_res.statusCode);
         }
-        logger.debug(_res.headers);
+        logger.info(_res.headers);
 
         //then load package.json
         var pac_url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';

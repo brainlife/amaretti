@@ -125,17 +125,16 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
             next=>{
                 //cleanup broken symlinks on source resource
-                //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is somewhat an ugly 
+                //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
                 //workaround for rsync not being forgivng..
-                //TODO - set timeout similar to bin/task's?
                 logger.debug("finding and removing broken symlink on source resource before rsync");
                 var hostname = source_resource.config.hostname || source_resource_detail.hostname;
-                conn.exec("timeout 30 ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                //conn.exec("timeout 30 ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                conn.exec("timeout 30 ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
-                    //common.set_conn_timeout(conn, stream, 1000*30);
                     stream.on('close', function(code, signal) {
                         if(code === undefined) return next("timedout while removing broken symlinks");
-                        else if(code) return next("Failed to cleanup broken symlinks on source: code:"+code);
+                        else if(code) return next("Failed to cleanup broken symlinks on source (or source is removed) code:"+code);
                         next();
                     })
                     .on('data', function(data) {

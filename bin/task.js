@@ -72,7 +72,7 @@ function set_nextdate(task) {
         task.next_date = new Date(Date.now()+1000*3600); 
         break;
     default:
-        logger.warn("don't know how to calculate next_date for status",task.status," -- setting to 1hour");
+        logger.warn(["don't know how to calculate next_date for status",task.status," -- setting to 1hour"]);
         task.next_date = new Date(Date.now()+1000*3600); 
     }
 }
@@ -190,7 +190,7 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check taskdir
-                    logger.debug("getting ssh connection for house keeping", resource_id);
+                    logger.debug("getting ssh connection for house keeping:"+resource_id);
                     common.get_ssh_connection(resource, function(err, conn) {
                         logger.debug("got err/conn");
                         if(err) {
@@ -207,7 +207,7 @@ function handle_housekeeping(task, cb) {
                             //common.set_conn_timeout(conn, stream, 1000*10);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) {
-                                    logger.error("timed out while trying to ls", taskdir, "assuming it still exists");
+                                    logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
                                 } else if(code == 2) { //ls couldn't find the directory
                                     //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
                                     logger.debug("taskdir:"+taskdir+" is missing");
@@ -287,7 +287,7 @@ function handle_housekeeping(task, cb) {
                 async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
                     db.Resource.findById(resource_id, function(err, resource) {
                         if(err) {
-                            logger.error("failed to find resource_id:"+resource_id+" for removal.. db issue?", err);
+                            logger.error(["failed to find resource_id:"+resource_id+" for removal.. db issue?", err]);
                             return next_resource();
                         }
                         if(!resource || resource.status == "removed") {
@@ -430,7 +430,7 @@ function handle_requested(task, next) {
             //this should make sure that no project will consume all available slots simply because the project
             //submits tons of tasks..
             db.Task.count({status: "running",  _group_id: task._group_id}, (err, counts)=>{
-                logger.debug("group",task._group_id, "running", counts);
+                logger.debug(["group",task._group_id, "running", counts]);
                 task.next_date = new Date(Date.now()+1000*60*(1+counts));
                 next();
             });
@@ -442,7 +442,7 @@ function handle_requested(task, next) {
         task._considered = considered;
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-            logger.debug("adding resource id", task.service, task._id.toString(), resource._id.toString());
+            logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
             task.resource_ids.push(resource._id);
         }
 
@@ -456,7 +456,7 @@ function handle_requested(task, next) {
             if(err) {
                 //failed to start (or running_sync failed).. mark the task as failed
                 //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                logger.error(task._id.toString(), err);
+                logger.error([task._id.toString(), err]);
                 task.status = "failed";
                 task.status_msg = err;
                 task.fail_date = new Date();
@@ -480,7 +480,7 @@ function handle_requested(task, next) {
 }
 
 function handle_stop(task, next) {
-    logger.info("handling stop request",task._id.toString());
+    logger.info("handling stop request "+task._id.toString());
 
     //if not yet submitted to any resource, then it's easy
     if(!task.resource_id) {
@@ -511,7 +511,7 @@ function handle_stop(task, next) {
             return next();
         }
 
-        _service.loaddetail(task.service, task.service_branch, function(err, service_detail) {
+        _service.loaddetail(task.service, task.service_branch, (err, service_detail)=>{
             if(err) return next(err);
 
             common.get_ssh_connection(resource, function(err, conn) {
@@ -556,7 +556,7 @@ function handle_running(task, next) {
     var now = new Date();
     var runtime = now - task.start_date;
     if(task.max_runtime !== undefined && task.max_runtime < runtime) {
-        logger.warn("task running too long.. stopping", runtime);
+        logger.warn("task running too long.. stopping "+runtime);
         task.status = "stop_requested";
         task.status_msg = "Runtime exceeded stop date. Stopping";
         task.next_date = undefined;
@@ -584,8 +584,7 @@ function handle_running(task, next) {
             task.status_msg = "Resource status is not ok .. will check later";
             return next();
         }
-
-        _service.loaddetail_cached(task.service, task.service_branch, function(err, service_detail) {
+        _service.loaddetail(task.service, task.service_branch, (err, service_detail)=>{
             if(err) {
                 logger.error("Couldn't load package detail for service:"+task.service);
                 return next(err); 
@@ -601,7 +600,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                logger.debug("running", service_detail.status, task._id.toString(), taskdir)
+                logger.debug(["running", service_detail.status, task._id.toString(), taskdir])
                 conn.exec("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
@@ -690,7 +689,7 @@ function handle_running(task, next) {
 function rerun_child(task, cb) {
     //find all child tasks
     db.Task.find({deps: task._id}, function(err, tasks) {
-        if(tasks.length) logger.debug("rerunning child tasks", tasks.length);
+        if(tasks.length) logger.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{
             common.rerun_task(_task, null, next_task);
@@ -708,9 +707,7 @@ function start_task(task, resource, cb) {
         }
         var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
         if(service == null) return cb(new Error("service not set.."));
-
-        logger.debug("loading service detail");
-        _service.loaddetail(service, task.service_branch, function(err, service_detail) {
+        _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
 
@@ -763,7 +760,7 @@ function start_task(task, resource, cb) {
                    
                 //create task dir by git shallow cloning the requested service
                 next=>{
-                    logger.debug("git cloning taskdir", task._id.toString());
+                    logger.debug("git cloning taskdir "+task._id.toString());
                     //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                     var repo_owner = service.split("/")[0];
                     var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
@@ -828,7 +825,7 @@ function start_task(task, resource, cb) {
                         return next();
                     }
 
-                    logger.debug("installing config.json", task._id.toString());
+                    logger.debug("installing config.json "+task._id.toString());
                     conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -849,7 +846,7 @@ function start_task(task, resource, cb) {
 
                 //write _.env.sh
                 next=>{
-                    logger.debug("writing _env.sh", task._id.toString());
+                    logger.debug("writing _env.sh "+task._id.toString());
                     conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -914,7 +911,7 @@ function start_task(task, resource, cb) {
 
                         db.Resource.findById(dep.resource_id, function(err, source_resource) {
                             if(err) return next_dep(err);
-                            logger.debug("syncing", source_resource.name);
+                            logger.debug("syncing "+source_resource.name);
                             let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                             let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                             let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
@@ -929,7 +926,7 @@ function start_task(task, resource, cb) {
                                     if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
 
                                     if(err) {
-                                        logger.error("failed rsyncing.........", err, dep._id.toString());
+                                        logger.error(["failed rsyncing.........", err, task._id, dep._id.toString()]);
                                         
                                         //need to release this so that resource.select will calculate resource availability correctly
                                         task.start_date = undefined; 
@@ -938,9 +935,9 @@ function start_task(task, resource, cb) {
                                         //I want to retry if rsyncing fails by leaving the task status to be requested
                                         cb(); 
                                     } else {
-                                        logger.debug("succeeded rsyncing.........", dep._id.toString());
+                                        logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
                                         //need to add dest resource to source dep
-                                        logger.debug("adding new resource_id", resource._id);
+                                        logger.debug(["adding new resource_id", resource._id]);
                                         dep.resource_ids.push(resource._id.toString());
                                         dep.save(next_dep);
                                     }
@@ -1186,7 +1183,7 @@ function run_noop() {
                 return;
             }
 
-            logger.debug("health: noop status:", task.status, task._id.toString(), task.next_date);
+            logger.debug(["health: noop status:", task.status, task._id.toString(), task.next_date]);
             if(task.status == "failed") {
                 logger.error("noop failed");
                 logger.error(console.dir(JSON.stringify(task, null, 4)));

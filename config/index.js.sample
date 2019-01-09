@@ -43,7 +43,7 @@ exports.sca = exports.amaretti; //deprecated (use amaretti)
 
 //used to use github api (like service.js)
 exports.github = {
-    client_id: "6a581b698021c7f38c52",
+    client_id: "10212f2d18a491068ac4",
     client_secret: fs.readFileSync(__dirname+"/github.client.secret"),
 }
 
