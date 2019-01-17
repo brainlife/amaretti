@@ -128,8 +128,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
                 //workaround for rsync not being forgivng..
                 logger.debug("finding and removing broken symlink on source resource before rsync");
-                var hostname = source_resource.config.hostname || source_resource_detail.hostname;
-                //conn.exec("timeout 30 ssh -o LogLevel=quiet -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
+                var hostname = source_resource.config.hostname || source_resource_detail.hostname; 
                 conn.exec("timeout 30 ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=> {
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
@@ -146,12 +145,15 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             },  
 
             next=>{
-                //run rsync (pull from source)
+                //run rsync (pull from source - use io_hostname if available)
                 var source_resource_detail = config.resources[source_resource.resource_id];
-                var hostname = source_resource.config.hostname || source_resource_detail.hostname;
+                var hostname = source_resource.config.io_hostname || source_resource.config.hostname || source_resource_detail.hostname;
+                
                 //TODO need to investigate why I need these -o options on q6>karst transfer
                 var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey";
+
                 var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
+                
                 //-v writes output to stderr.. even though it's not error..
                 //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
                 //-e opts is for ssh

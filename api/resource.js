@@ -221,24 +221,56 @@ function score_resource(user, resource, task, cb) {
 }
 
 //run appropriate tests based on resource type
+//TODO maybe I should move this to common?
 exports.check = function(resource, cb) {
     var detail = config.resources[resource.resource_id];
     if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
-    check_ssh(resource, (err, status, msg)=> {
-        if(err) return cb(err);
-        logger.info("resource_id: "+resource._id+" status:"+status+" msg:"+msg);
-        resource.status = status;
-        resource.status_update = new Date();
-        if(status == "ok") {
-            resource.lastok_date = new Date();
-            resource.status_msg = "test ok";
-        } else {
-            resource.status_msg = "test failed";
-        }
-        resource.save(function(err) {
-            cb(err, {status, message: msg});
-        });
+
+    let status; //ok, failed, etc..
+    let msg; //detail
+
+    async.series([
+
+        //check for ssh host
+        next=>{
+            check_ssh(resource, (err, _status, _msg)=>{
+                if(err) return next(err);
+                status = _status;
+                msg = _msg;
+                logger.info("ssh check / resource_id: "+resource._id+" status:"+status+" msg:"+msg);
+                next();
+            });
+        },
+
+        //check for io host
+        next=>{
+            if(status != "ok") return next(); //no point of checking..
+            if(!resource.config.io_hostname) return next();
+            check_iohost(resource, (err, _status, _msg)=>{
+                if(err) return next(err);
+                status = _status;
+                msg = _msg;
+                logger.info("iohost check / resource_id: "+resource._id+" status:"+status+" msg:"+msg);
+                next();
+            });
+        },
+
+        //update resource record
+        next=>{
+            resource.status_update = new Date(); //why doesn't this happen automatically?
+            resource.status = status;
+            if(status == "ok") {
+                resource.lastok_date = new Date();
+                resource.status_msg = "test ok";
+            } else {
+                resource.status_msg = "test failed";
+            }
+            resource.save(next);
+        },
+    ], err=>{
+        cb(err, {status, message: msg});
     });
+
 }
 
 //TODO this is too similar to common.js:ssh_command... can we refactor?
@@ -332,25 +364,73 @@ function check_ssh(resource, cb) {
     }
 }
 
-//make sure I can open sftp connection and access workdir
-//TODO - I should also check to make sure that I can write to workdir
-function check_sftp(resource, conn, cb) {
-    var workdir = common.getworkdir(null, resource);
-    conn.sftp(function(err, sftp) {
-        if(err) return cb(err);
-        logger.debug("reading dir "+workdir);
-        var to = setTimeout(()=>{
-            logger.error("readdir timeout"); 
-            cb(null, "failed", "readdir timeout - filesytem is offline?");
-        }, 3*1000); 
-        
-        sftp.opendir(workdir, function(err, stat) {
-            clearTimeout(to);
-            if(err) return cb(null, "failed", "can't access workdir");
-            cb(null, "ok", "workdir is accessible");
-            //TODO - I should probably check to see if I can write to it
+
+//TODO this is too similar to common.js:ssh_command... can we refactor?
+function check_iohost(resource, cb) {
+    var conn = new Client();
+    var ready = false;
+
+    function cb_once(err, status, message) {
+        if(cb) {
+            cb(err, status, message);
+            cb = null;
+        } else {
+            logger.error("cb already called", err, status, message);
+        }
+
+        conn.end();
+    }
+    
+    //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
+    conn.on('ready', function() {
+        ready = true;
+
+        var workdir = common.getworkdir(null, resource);
+        conn.sftp(function(err, sftp) {
+            if(err) return cb(err);
+            logger.debug("reading dir "+workdir);
+            var to = setTimeout(()=>{
+                logger.error("readdir timeout"); 
+                cb(null, "failed", "readdir timeout - filesytem is offline?");
+            }, 3*1000); 
+            
+            sftp.opendir(workdir, function(err, stat) {
+                clearTimeout(to);
+                if(err) return cb(null, "failed", "can't access workdir");
+                cb(null, "ok", "workdir is accessible");
+                //TODO - I should probably check to see if I can write to it
+            });
         });
+
     });
+
+    conn.on('end', function() {
+        logger.debug("ssh connection ended");
+    });
+
+    conn.on('close', function() {
+        logger.debug("ssh connection closed");
+        if(!ready && cb) {
+            cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
+            cb = null;
+        }
+    });
+    conn.on('error', function(err) {
+        if(cb) cb(null, "failed", err.toString());
+        cb = null;
+    });
+
+    var decrypted_resource = JSON.parse(JSON.stringify(resource));
+    common.decrypt_resource(decrypted_resource);
+    try {
+        conn.connect({
+            host: resource.config.io_hostname,
+            username: resource.config.username,
+            privateKey: decrypted_resource.config.enc_ssh_private,
+        });
+    } catch (err) {
+        cb(null, "failed", err.toString());
+    }
 }
 
 //pull some statistics about this resource using taskevent table (should we create another table to store this?)

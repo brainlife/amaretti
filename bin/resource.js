@@ -34,13 +34,11 @@ function check_resources() {
         var counts = {};
         async.eachSeries(resources, function(resource, next_resource) {
             if(resource.status == "removed") return next_resource();
-
             logger.debug("checking",resource._id, resource.name);
 
             //TODO - should I add timeout?
             resource_lib.check(resource, function(err) {
                 //I don't care if someone's resource status is failing or not
-                //if(err) logger.info(err); 
                 
                 //count status for health reporting.. (not sure what I will be using this for yet)
                 if(!counts[resource.status]) counts[resource.status] = 0;
@@ -52,7 +50,6 @@ function check_resources() {
                 if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
                     logger.info("deactivating resource since it's never been active for long time");
                     resource.active = false;
-                    //resource.status_msg = "never been active since registered";
                     return resource.save(next_resource);
                 }
                 //deactivate resource that's been down for a month or has never been active
@@ -61,7 +58,6 @@ function check_resources() {
                 if(resource.lastok_date && resource.lastok_date < monthold && resource.status != "ok") {
                     logger.info("deactivating resource which has been non-ok for more than 30 days");
                     resource.active = false;
-                    //resource.status_msg = "non-ok for more than 30 days";
                     return resource.save(next_resource);
                 }
 
@@ -106,3 +102,5 @@ function health_check(resources, counts) {
 
     rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }
+
+

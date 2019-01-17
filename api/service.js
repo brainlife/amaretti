@@ -18,7 +18,7 @@ exports.loaddetail = function(service_name, branch, cb) {
     if(cache) {
         //check for date
         var age = new Date() - cache.date;
-        if(age > 1000*60*10) {
+        if(age > 1000*60*10) { //10 minutes
             //expired
             delete _details_cache[service_name];
         } else {

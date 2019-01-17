@@ -210,11 +210,11 @@ router.put('/test/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req
 });
 
 /**
- * @api {put} /resource/:id     Update resource configuration
+ * @api {put} /resource/:id       Update resource configuration
  * @apiName UpdateResource
  * @apiGroup Resource
  *
- * @apiParam {String} id        Resource Instance ID to update
+ * @apiParam {String} id          Resource Instance ID to update
  *
  * @apiParam {Object} [config]    Resource Configuration to update
  * @apiParam {Object} [envs]      Resource environment parameters to update
@@ -236,9 +236,7 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        //if(resource.user_id != req.user.sub) return res.status(401).end();
         if(!canedit(req.user, resource)) return res.status(401).end();
-        //only admin can update gids
         if(!is_admin(req.user)) delete resource.gids;
 
         //need to decrypt first so that I can preserve previous values

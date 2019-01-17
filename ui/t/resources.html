@@ -162,8 +162,13 @@
             <textarea class="form-control" ng-model="inst.config.desc"></textarea>
         </div>
         <div class="form-group">
-            <label>Hostname (override)</label>
+            <label>Hostname</label>
             <input type="text" class="form-control" ng-model="inst.config.hostname" placeholder="{{resource.hostname}}"></textarea>
+        </div>
+        <div class="form-group">
+            <label>I/O Hostname (optional)</label>
+            <input type="text" class="form-control" ng-model="inst.config.io_hostname" placeholder="{{inst.config.hostname}}"></textarea>
+            <p class="help-block">Hostname used to transfer data to/from this resource</p>
         </div>
         <div class="form-group">
             <label>Username *</label>
