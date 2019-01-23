@@ -4,7 +4,6 @@
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
-const sshagent = require('sshpk-agent');
 const sshpk = require('sshpk');
 const ConnectionQueuer = require('ssh2-multiplexer');
 
@@ -14,16 +13,8 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('../api/common');
 
-logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
-var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
-
-exports.sshagent_list_keys = function(cb) {
-    //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
-    sshagent_client.listKeys(cb);
-}
-
+/*
 //very similar to the one in api/common, but I don't want to mix it with non-agennt enabled one for security reason
-var ssh_conns = {};
 function get_ssh_connection_with_agent(resource, cb) {
     logger.debug("transfer: opening ssh connection to", resource._id.toString());
     var conn = new Client();
@@ -61,6 +52,7 @@ function get_ssh_connection_with_agent(resource, cb) {
         agentForward: true,
     });
 }
+*/
 
 /*
 3|task     | 0> Sun Mar 25 2018 11:53:14 GMT+0000 (UTC) - error: failed rsyncing......... { Error: (SSH) Channel open failure: open failed
@@ -84,9 +76,15 @@ function get_ssh_connection_with_agent(resource, cb) {
 
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, progress_cb, cb) {
     //logger.debug("rsync_resource", source_resource._id, dest_resource._id, source_path, dest_path);
-    get_ssh_connection_with_agent(dest_resource, function(err, conn) {
+    common.get_ssh_connection(dest_resource, {
+        agent: process.env.SSH_AUTH_SOCK,
+        agentForward: true,
+    }, function(err, conn) {
         if(err) return cb(err); 
         logger.debug("got ssh conn");
+
+        let rsync_conn;
+
         async.series([
             next=>{
                 //forward source's ssh key to dest
@@ -101,7 +99,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 //    [rsync]
                 //    Permission denied (publickey).
                 //    sync: connection unexpectedly closed (0 bytes received so far) [receiver]
-                sshagent_client.addKey(privkey, {expires: 60}, next); 
+                common.sshagent_add_key(privkey, {expires: 60}, next); 
             },
 
             next=>{
@@ -144,6 +142,25 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 });
             },  
 
+            //open ssh connection on io_hostname so that we can run rsync from it
+            next=>{
+                if(!dest_resource.config.io_hostname) {
+                    rsync_conn = conn;
+                    return next();
+                }
+                common.get_ssh_connection(dest_resource, {
+                    hostname: dest_resource.config.io_hostname,
+                    agent: process.env.SSH_AUTH_SOCK,
+                    agentForward: true,
+                }, function(err, io_conn) {
+                    if(err) return cb(err); 
+                    logger.debug("created io connection with %s", dest_resource.config.io_hostname);
+                    rsync_conn = io_conn;
+                    next();
+                });
+            },
+
+            //run rsync!
             next=>{
                 //run rsync (pull from source - use io_hostname if available)
                 var source_resource_detail = config.resources[source_resource.resource_id];
@@ -168,7 +185,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 logger.debug("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
 
                 //--info-progress2 is only available for newer rsync..
-                conn.exec("timeout 600 rsync --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
+                //can't use timeout command as this might get executed on io only node
+                rsync_conn.exec("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, function(err, stream) {
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*60*5); //5 minutes 
                     let errors = "";
@@ -198,9 +216,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     });
                 });
             },
+
         ], err=>{
-            //logger.debug("closing ssh");
-            conn.end();
+            //conn.end();
             cb(err);
         });
     });

@@ -9,6 +9,12 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
+which git-lfs >/dev/null
+if [ ! $? -eq 0 ]; then
+    echo "git-lfs not installed on PATH"
+    exit 1
+fi
+
 which jq >/dev/null
 if [ ! $? -eq 0 ]; then
     echo "jq not installed on PATH"

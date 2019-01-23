@@ -82,16 +82,21 @@ exports.logger = {
     winston: {
         //hide headers which may contain jwt
         level: "debug",
-        requestWhitelist: ['url', /*'headers',*/ 'method', 'httpVersion', 'originalUrl', 'query'],
         format: combine(
-            //label({ label: 'right meow!' }),
+            label({ label: 'amaretti' }),
             timestamp(),
             format.colorize(),
-            //prettyPrint(),
-            //format.splat(),
-            format.simple()
-            //format.json()
+            format.splat(),
+            format.printf(info=>{
+                return `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`;
+            }),
         ),
+
+        requestWhitelist: ['url', /*'headers',*/ 'method', 'httpVersion', 'originalUrl', 'query'],
+        exceptionHandlers: [
+            new transports.Console(),
+        ],
+
         transports: [
             //display all logs to console
             new transports.Console({

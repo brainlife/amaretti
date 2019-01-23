@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
+const sshagent = require('sshpk-agent');
 const ConnectionQueuer = require('ssh2-multiplexer');
 const redis = require('redis');
 const request = require('request');
@@ -12,6 +13,9 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const hpss = require('hpss');
+
+logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
+var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
 
 //http://locutus.io/php/strings/addslashes/
 String.prototype.addSlashes = function() {
@@ -29,6 +33,14 @@ String.prototype.addSlashes = function() {
   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
 
+//used by various health checker
+exports.sshagent_list_keys = function(cb) {
+    //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
+    sshagent_client.listKeys(cb);
+}
+exports.sshagent_add_key = function(key, opt, cb) {
+    sshagent_client.addKey(key, opt, cb);
+}
 //connect to redis - used to store various shared caches
 //TODO who use this now?
 exports.redis = redis.createClient(config.redis.port, config.redis.server);
@@ -90,23 +102,31 @@ exports.decrypt_resource = function(resource) {
     resource.decrypted = true;
 }
 
+//open ssh connection and wrap it with ConnectionQueuer
 var ssh_conns = {};
-exports.get_ssh_connection = function(resource, cb) {
+exports.get_ssh_connection = function(resource, opts, cb) {
+    if(typeof opts == "function") {
+        cb = opts;
+        opts = {};
+    }
+
+    //need to create a unique key for resource and any options used
+    let id = JSON.stringify({id: resource._id, opts});
+    
     //see if we already have an active ssh session
-    let old = ssh_conns[resource._id];
+    let old = ssh_conns[id];
     if(old) {
         if(old.connecting) {
             logger.debug("still connecting.. postponing");
             return setTimeout(()=>{
-                exports.get_ssh_connection(resource, cb);
+                exports.get_ssh_connection(resource, opts, cb);
             }, 1000);
         }
-
-        logger.debug("reusing ssh(cqueue) connection for", resource._id.toString());
-        logger.debug("queue len:", old.queue.length, "remaining channels:", old.counter);
+        logger.debug("reusing ssh(cqueue) connection for %s", id);
+        logger.debug("queue len: %d remaining channels: %d", old.queue.length, old.counter);
         return cb(null, old);
     }
-    ssh_conns[resource._id] = {connecting: new Date()};
+    ssh_conns[id] = {connecting: new Date()};
 
     //open new connection
     logger.debug("opening new ssh connection for resource:", resource._id.toString());
@@ -115,21 +135,21 @@ exports.get_ssh_connection = function(resource, cb) {
     conn.on('ready', function() {
         logger.debug("ssh connection ready for resource:", resource._id.toString());
         var connq = new ConnectionQueuer(conn);
-        ssh_conns[resource._id] = connq;
+        ssh_conns[id] = connq;
         if(cb) cb(null, connq); //ready!
         cb = null;
     });
     conn.on('end', function() {
         logger.debug("ssh connection ended .. resource:", resource._id.toString());
-        delete ssh_conns[resource._id];
+        delete ssh_conns[id];
     });
     conn.on('close', function() {
         logger.debug("ssh connection closed .. resource:", resource._id.toString());
-        delete ssh_conns[resource._id];
+        delete ssh_conns[id];
     });
     conn.on('error', function(err) {
         logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
-        delete ssh_conns[resource._id];
+        delete ssh_conns[id];
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
         if(cb) cb(err);
@@ -138,7 +158,7 @@ exports.get_ssh_connection = function(resource, cb) {
 
     exports.decrypt_resource(resource);
     //https://github.com/mscdex/ssh2#client-methods
-    conn.connect({
+    conn.connect(Object.assign({
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
@@ -148,7 +168,7 @@ exports.get_ssh_connection = function(resource, cb) {
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?
         //readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142)
-    });
+    }, opts));
 }
 
 function sftp_ref(sftp) {

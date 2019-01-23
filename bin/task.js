@@ -305,7 +305,6 @@ function handle_housekeeping(task, cb) {
                             return next_resource();
                         }
 
-                        //logger.debug("getting ssh connection to remove work/task dir");
                         common.get_ssh_connection(resource, function(err, conn) {
                             if(err) return next_resource(err);
                             var workdir = common.getworkdir(task.instance_id, resource);
@@ -513,7 +512,6 @@ function handle_stop(task, next) {
 
         _service.loaddetail(task.service, task.service_branch, (err, service_detail)=>{
             if(err) return next(err);
-
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -699,7 +697,6 @@ function rerun_child(task, cb) {
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
-    //logger.debug("getting ssh connection to start task");
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) {
             logger.error(err);
@@ -788,15 +785,15 @@ function start_task(task, resource, cb) {
                 //update service
                 next=>{
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git log -1\"", (err, stream)=>{
+                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*45);
                         let out = "";
                         stream.on('close', function(code, signal) {
                             if(code === undefined) {
-                                return next("timeout while git pull");
+                                return next("timeout while git pull / lfs fetch");
                             } else if(code) {
-                                return next("Failed to git pull "+task._id.toString());
+                                return next("Failed to git pull/lfs fetch "+task._id.toString());
                             } else {
                                 let lines = out.split("\n");
                                 let commit_id = null;
@@ -1128,8 +1125,7 @@ function health_check() {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
 
-    //check sshagent
-    _transfer.sshagent_list_keys((err, keys)=>{
+    common.sshagent_list_keys((err, keys)=>{
         if(err) {
             report.status = 'failed';
             report.messages.push(err);

@@ -6,7 +6,6 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
-const transfer = require('./transfer'); //for health
 
 var redis_client = redis.createClient(config.redis.port, config.redis.server);
 redis_client.on('error', err=>{throw err});
@@ -33,7 +32,7 @@ exports.health_check = function() {
     
     try {
         //check sshagent
-        transfer.sshagent_list_keys((err, keys)=>{
+        common.sshagent_list_keys((err, keys)=>{
             if(err) {
                 report.status = 'failed';
                 report.messages.push(err);
