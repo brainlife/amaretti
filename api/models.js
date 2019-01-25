@@ -28,6 +28,7 @@ exports.init = function(cb) {
 }
 
 exports.disconnect = function(cb) {
+    logger.info("disconnecting mongo/event");
     mongoose.disconnect(err=>{
         events.disconnect(cb);
     });

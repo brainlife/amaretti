@@ -364,7 +364,6 @@ function check_ssh(resource, cb) {
     }
 }
 
-
 //TODO this is too similar to common.js:ssh_command... can we refactor?
 function check_iohost(resource, cb) {
     var conn = new Client();

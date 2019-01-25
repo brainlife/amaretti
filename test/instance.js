@@ -21,7 +21,7 @@ console.log("##"+config.sca.jwt.toString()+"##");
 //config.sca.jwt is admin token.. if I want to test as normal user, I need to use userjwt
 var userjwt = fs.readFileSync(__dirname+'/config/user.jwt');
 
-describe('/instance', function() {
+describe.skip('/instance', function() {
     var instance = null;
     it('should create instance 1', function(done) {
         request(app)

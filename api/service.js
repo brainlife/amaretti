@@ -1,15 +1,20 @@
 'use strict';
 
 //contrib
-var winston = require('winston');
-var async = require('async');
-var request = require('request');
+const winston = require('winston');
+const async = require('async');
+const request = require('request');
 
 //mine
-var config = require('../config');
-var logger = winston.createLogger(config.logger.winston);
-var db = require('./models');
-var common = require('./common');
+const config = require('../config');
+const logger = winston.createLogger(config.logger.winston);
+const db = require('./models');
+const common = require('./common');
+
+const github_qs = {
+    client_id: config.github.client_id,
+    client_secret: config.github.client_secret,
+}
 
 var _details_cache = {};
 exports.loaddetail = function(service_name, branch, cb) {
@@ -31,60 +36,83 @@ exports.loaddetail = function(service_name, branch, cb) {
 }
 
 function do_loaddetail(service_name, branch, cb) {
-    if(!config.github) return cb("no github config");
     if(!branch) branch = "master";
-    
-    //first load git info
-    logger.debug("loading github repo detail");
-    var repourl = 'https://api.github.com/repos/'+service_name;
-    logger.debug("loading repo detail", repourl);
-    repourl += "?client_id="+config.github.client_id;
-    repourl += "&client_secret="+config.github.client_secret;
-    request(repourl, { json: true, headers: {'User-Agent': 'brain-life/amaretti'} }, function(err, _res, git) {
+    var detail = {
+        name: service_name,
+        
+        //these script should be in the $PATH on the resource that the app is executed on
+        start: "start",
+        status: "status",
+        stop: "stop",
+    }
+
+    logger.debug("loading service details");
+    async.series([
+
+        //load github repo detail
+        next=>{
+            let url = 'https://api.github.com/repos/'+service_name;
+            request.get({ url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, git) {
+                if(err) return next(err);
+                if(_res.statusCode != 200) {
+                    logger.error(_res.body);
+                    return next("failed to query requested repo. code:"+_res.statusCode);
+                }
+                logger.info(_res.headers);
+                detail.git = git;
+                next(); 
+            });
+        },
+
+        /* ref should be loaded at runtime
+        next=>{
+            let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
+            request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, body) {
+                if(err) return next(err);
+                if(_res.statusCode != 200) return next(body);
+                detail.ref = body.object;
+                next();
+            });
+        },
+        */
+
+        //load package.json (optional)
+        next=>{
+            //then load package.json (don't need api key?)
+            var url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';
+            request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'}}, function(err, _res, pkg) {
+                if(err) return next(err);
+                if(_res.statusCode == 200) {
+                    //override start/stop/status hooks
+                    Object.assign(detail, pkg.scripts, pkg.abcd); //pkg.scripts should be deprecated in favor of pkg.abcd
+                    detail._pkg = pkg; //also store the entire package.json content under detail.. (TODO who uses it?)
+                }
+                next();
+            });
+        },
+
+    ], err=>{
         if(err) return cb(err);
-        if(_res.statusCode != 200) {
-            logger.error(repourl);//could contain github key... but
-            logger.error(_res.body);
-            return cb("failed to query requested repo. code:"+_res.statusCode);
-        }
-        logger.info(_res.headers);
+        
+        //cache the detail
+        _details_cache[service_name] = {
+            date: new Date(),
+            detail
+        };
+        //console.log(JSON.stringify(detail, null, 4));
 
-        //then load package.json
-        var pac_url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';
-        logger.debug('loading '+pac_url);
-        request(pac_url, {
-            json: true, headers: {'User-Agent': 'IU/SciApt/SCA'}, //required by github
-        }, function(err, _res, pkg) {
-            if(err) return cb(err);
-
-            //default detail
-            var detail = {
-                name: service_name,
-                git,
-
-                //these script should be in the $PATH on the resource that the app is executed on
-                start: "start",
-                status: "status",
-                stop: "stop",
-            }
-
-            if(_res.statusCode == 200) {
-                //override
-                Object.assign(detail, pkg.scripts, pkg.abcd); //pkg.scripts should be deprecated in favor of pkg.abcd
-                detail._pkg = pkg; //also store the entire package.json content under detail..
-            } else {
-                //logger.info("couldn't load package.json - using default");
-            }
-
-            //cache the detail
-            _details_cache[service_name] = {
-                date: new Date(),
-                detail
-            };
-
-            cb(null, detail);
-        });
+        //all done
+        cb(null, detail);
     });
 }
 
+exports.get_sha = function(service_name, branch, cb) {
+    if(!branch) branch = "master";
+    let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
+    request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, body) {
+        if(err) return cb(err);
+        if(_res.statusCode != 200) return cb(body);
+        cb(null, body.object);
+    });
+}
 

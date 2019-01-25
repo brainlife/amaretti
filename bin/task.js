@@ -1,7 +1,4 @@
 #!/usr/bin/node
-'use strict';
-
-//only this service initiate write access to remote resource
 
 //node
 const fs = require('fs');
@@ -708,7 +705,7 @@ function start_task(task, resource, cb) {
             if(err) return cb(err);
             if(!service_detail) return cb("Couldn't find such service:"+service);
 
-            var workdir = common.getworkdir(task.instance_id, resource);
+            //var workdir = common.getworkdir(task.instance_id, resource);
             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
             var envs = {
@@ -754,7 +751,46 @@ function start_task(task, resource, cb) {
 
             logger.debug("starting task on "+resource.name);
             async.series([
-                   
+                
+                //query current github commit id
+                next=>{
+                    _service.get_sha(service, task.service_branch, (err, ref)=>{
+                        if(err) return next(err);
+                        console.log(ref.sha);
+                        task.commit_id = ref.sha;
+                        next();
+                    });
+                },
+
+                /*
+                //setup taskdir using app cache
+                next=>{
+                    let workdir = common.getworkdir(null, resource);
+                    cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
+                        if(err) return next(err);
+                        if(!app_cache) cb(); //cache already inprogress.. retry later..
+                        
+                        //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
+                        //TODO - should I use rsync instead?
+                        conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
+                            if(err) return next(err);
+                            stream.on('close', (code, signal)=>{
+                                if(code === undefined) return next("timeout while creating taskdir");
+                                if(code != 0) return next("failed to create taskdir")
+                                logger.debug("taskdir created");
+                                next();
+                            })
+                            .on('data', function(data) {
+                                logger.info(data.toString());
+                            });
+                        });
+
+                    });
+                },
+                */
+                
+                /* (old way) git clone on remote resource directly.. this requires remote resource to have git installed
+                 * and also can --egress from the login node*/
                 //create task dir by git shallow cloning the requested service
                 next=>{
                     logger.debug("git cloning taskdir "+task._id.toString());
@@ -764,6 +800,7 @@ function start_task(task, resource, cb) {
                     cmd += "git clone -q --depth 1 ";
                     if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
                     cmd += service_detail.git.clone_url+" "+taskdir;
+                    logger.debug("running %s", cmd);
                     conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
@@ -785,30 +822,19 @@ function start_task(task, resource, cb) {
                 //update service
                 next=>{
                     //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
+                    //conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
+                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull\"", (err, stream)=>{
                         if(err) return next(err);
-                        //common.set_conn_timeout(conn, stream, 1000*45);
-                        let out = "";
                         stream.on('close', function(code, signal) {
                             if(code === undefined) {
-                                return next("timeout while git pull / lfs fetch");
+                                return next("timeout while git pull");
                             } else if(code) {
-                                return next("Failed to git pull/lfs fetch "+task._id.toString());
-                            } else {
-                                let lines = out.split("\n");
-                                let commit_id = null;
-                                lines.forEach(line=>{
-                                    if(line.indexOf("commit ") == 0) {
-                                        commit_id = line.substring(7);
-                                    }
-                                });
-                                task.commit_id = commit_id;
-                                next();
-                            }
+                                return next("Failed to git pull code:"+code);
+                            } 
+                            next();
                         })
                         .on('data', function(data) {
                             logger.info(data.toString());
-                            out+=data.toString();
                         }).stderr.on('data', function(data) {
                             logger.info(data.toString());
                         });
@@ -876,7 +902,7 @@ function start_task(task, resource, cb) {
                                 logger.warn("skipping non string value:"+v+" for key:"+k);
                                 continue;
                             }
-                            var vs = v.replace(/\"/g,'\\"')
+                            var vs = v.replace(/\"/g,'\\"'); //TODO - is this safe enough?
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }
 
@@ -948,7 +974,6 @@ function start_task(task, resource, cb) {
                 next=>{
                     if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
                     logger.debug("starting service: "+taskdir+"/"+service_detail.start);
-                    //common.progress(task.progress_key, {status: 'running', msg: 'Starting Service'});
 
                     //save status since it might take a while to start
                     task.status_msg = "Starting service";
@@ -1034,11 +1059,89 @@ function start_task(task, resource, cb) {
                         });
                     });
                 },
-
-                //end of all steps
-
+                //done with all steps!
             ], cb);
         });
+    });
+}
+
+//TODO - this works, but we don't really need it yet.. if github cloning becomes a problem, we can switch to this?
+//returns (err, app_cache) app_cache will be set to false if other jobs seems to be staging the same cache
+function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
+    let app_cache = workdir+"/"+service.split("/")[1]+"-"+commit_id;
+
+    async.series([
+        //cache the app on the remote resource
+        next=>{
+            logger.debug("checking app_cache %s", app_cache);
+            conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
+                if(err) return next(err);
+                stream.on('close', (code, signal)=>{
+                    if(code === undefined) return next("timeout while checking app_cache");
+                    else if(code == 0) {
+                        logger.debug("app cache exists");
+                        return cb(null, app_cache);
+                    } else logger.debug("no app cache");
+                    next();
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                });
+            });
+        },
+
+        //check to see if other process is already downloading a cache
+        next=>{
+            conn.exec("timeout 30 stat --printf=\"%Y\" "+app_cache+".zip", (err, stream)=>{
+                if(err) return next(err);
+                let mod_s = "";
+                stream.on('close', (code, signal)=>{
+                    if(code === undefined) return next("timeout while checking app cache .zip");
+                    else if(code == 0) {
+                        let age = new Date().getTime()/1000 - mod_s;
+                        logger.warn("app cache .zip exists.. I will wait.. mod time: %s age:%d(secs)", mod_s, age);
+                        if(age < 60) return cb(null, false); //retry later.. maybe it's still getting downloaded
+                        next(); //proceed and overwrite..
+                    } else {
+                        logger.debug("no app_cache .zip. proceed with download");
+                        //TODO - it could happen that other download has just began.. might need to do flock?
+                        next();
+                    }
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                    mod_s += data.toString();
+                });
+            });
+        },
+
+        //cache app and unzip, and unwind
+        next=>{
+            logger.info("caching app %s", app_cache+".zip");
+            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -d "+app_cache+".unzip "+app_cache+".zip && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
+                if(err) return next(err);
+                stream.on('close', function(code, signal) {
+                    if(code === undefined) return next("timedout while caching app");
+                    else if(code) return next("Failed to cache app");
+                    else {
+                        logger.debug("successfully cached app");
+                        next();
+                    }
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                }).stderr.on('data', function(data) {
+                    logger.error(data.toString());
+                });
+                
+                //download from github
+                request.get({
+                    url: "https://github.com/"+service+"/archive/"+commit_id+".zip", headers: {"User-Agent": "brainlife/amaretti"}, 
+                }).pipe(stream); 
+            });
+        },
+    ], err=>{
+        cb(err, app_cache);
     });
 }
 

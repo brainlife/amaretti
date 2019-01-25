@@ -111,8 +111,8 @@ db.init(function(err) {
                 {$group: {_id: {service: "$_id.service"}, distinct: {$sum: 1}}}, 
             ]).exec((err, users)=>{
                 if(err) return next(err);
-                console.log("got user count"); 
-                console.log(JSON.stringify(users, null, 4));
+                //console.log("got user count"); 
+                //console.log(JSON.stringify(users, null, 4));
                 users.forEach(user=>{
                     if(user._id.service == null) return; //TODO why does this happen?
                     service_info[user._id.service].users = user.distinct;

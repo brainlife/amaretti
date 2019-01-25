@@ -13,7 +13,7 @@ var app = require('../api/server').app;
 //config.sca.jwt is admin token.. if I want to test as normal user, I need to use userjwt
 var userjwt = fs.readFileSync(__dirname+'/config/user.jwt');
 
-describe('/task', function() {
+describe.skip('/task', function() {
     var instance = null;
     var task = null;
     var task2 = null;
