@@ -50,48 +50,13 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     .sort(req.query.sort || '_id')
     .exec(function(err, tasks) {
         if(err) return next(err);
-        db.Task.count(find).exec(function(err, count) {
+        db.Task.estimatedDocumentCount(find).exec(function(err, count) {
             if(err) return next(err);
             res.json({tasks: tasks, count: count});
         });
         //res.json(tasks);
     });
 });
-
-//TODO TO-BE-DEPRECATED bin/serviceinfo will do something similar asynchrnously with more information (like average runtime per service)
-//returns various event / stats for given service
-//the API shouldn't be hosted under /task (maybe /event, or just /?)
-//current clients: 
-//   * warehouse UI app stats
-/*
-router.get('/stats', function(req, res, next) {
-    var find = {};
-    if(req.query.service) find.service = req.query.service;
-    if(req.query.service_branch) find.service_branch = req.query.service_branch;
-
-    //group by status and count
-    db.Taskevent.aggregate([
-        {$match: find},
-        {$group: {_id: '$status', count: {$sum: 1}}},
-    ]).exec(function(err, statuses) {
-        if(err) return next(err);
-        var counts = {};
-        statuses.forEach(status=>{
-            counts[status._id] = status.count;
-        });
-
-        //count distinct users requested 
-        //TODO is there a better way?
-        db.Taskevent.find(find).distinct('user_id').exec(function(err, users) {
-            if(err) return next(err);
-            res.json({
-                counts: counts, 
-                users: users.length,
-            });
-        });
-    });
-});
-*/
 
 //(admin only) return list of services currently running and number of them
 router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {

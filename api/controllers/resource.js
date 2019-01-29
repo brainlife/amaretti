@@ -126,7 +126,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
             resource.salts = undefined;
             resource._canedit = canedit(req.user, resource)
         });
-        db.Resource.count(find).exec(function(err, count) {
+        db.Resource.estimatedDocumentCount(find).exec(function(err, count) {
             if(err) return next(err);
             res.json({resources: resources, count: count});
         });

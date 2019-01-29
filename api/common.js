@@ -111,44 +111,51 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     }
 
     //need to create a unique key for resource and any options used
-    let id = JSON.stringify({id: resource._id, opts});
+    const id = JSON.stringify({id: resource._id, opts});
     
     //see if we already have an active ssh session
-    let old = ssh_conns[id];
+    const old = ssh_conns[id];
     if(old) {
         if(old.connecting) {
-            logger.debug("still connecting.. postponing");
+            logger.info("still connecting.. waiting .. %s", id);
             return setTimeout(()=>{
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000);
         }
-        logger.debug("reusing ssh(cqueue) connection for %s", id);
-        logger.debug("queue len: %d remaining channels: %d", old.queue.length, old.counter);
-        return cb(null, old);
+
+        //if connection is too old, close it and open new one
+        if(old.queue.length == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
+            logger.info("connection is old.. opening newone");
+            old.end();
+        } else {
+            logger.info("reusing ssh(cqueue) connection for %s (queue size:%d) (connected:%s)", id, old.queue.length, old.connected);
+            return cb(null, old);
+        }
     }
-    ssh_conns[id] = {connecting: new Date()};
+    ssh_conns[id] = {connecting: true};
 
     //open new connection
-    logger.debug("opening new ssh connection for resource:", resource._id.toString());
-    var detail = config.resources[resource.resource_id];
-    var conn = new Client();
-    conn.on('ready', function() {
-        logger.debug("ssh connection ready for resource:", resource._id.toString());
-        var connq = new ConnectionQueuer(conn);
-        ssh_conns[id] = connq;
+    logger.debug("opening new ssh connection .. %s", id);
+    const detail = config.resources[resource.resource_id];
+    const conn = new Client();
+    conn.on('ready', ()=>{
+        logger.info("ssh connection ready .. %s", id);
+        const connq = new ConnectionQueuer(conn);
+        ssh_conns[id] = connq; //cache
+        connq.connected = new Date();
         if(cb) cb(null, connq); //ready!
         cb = null;
     });
-    conn.on('end', function() {
-        logger.debug("ssh connection ended .. resource:", resource._id.toString());
+    conn.on('end', ()=>{
+        logger.info("ssh connection ended .. %s", id);
         delete ssh_conns[id];
     });
-    conn.on('close', function() {
-        logger.debug("ssh connection closed .. resource:", resource._id.toString());
+    conn.on('close', ()=>{
+        logger.info("ssh connection closed .. %s", id);
         delete ssh_conns[id];
     });
-    conn.on('error', function(err) {
-        logger.error("ssh connectionn error .. resource:", err, resource._id.toString());
+    conn.on('error', err=>{
+        logger.error("ssh connectionn error(%s) .. %s", err, id);
         delete ssh_conns[id];
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!

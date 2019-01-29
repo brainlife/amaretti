@@ -271,10 +271,10 @@ function handle_housekeeping(task, cb) {
             db.Task.findOne({ 
                 deps: task._id, 
                 status: {$in: [ "requested", "running", "running_sync" ]} 
-            }).count((err, count)=>{
+            }, (err, depend)=>{
                 if(err) next(err);
-                if(count > 0) {
-                    task.status_msg = "Waiting for active deps("+count+") before removing.. ";
+                if(depend) {
+                    task.status_msg = "Waiting for active deps before removing.. ";
                     return next(); //veto!
                 }
 
@@ -425,7 +425,7 @@ function handle_requested(task, next) {
             //check again in N minutes where N is determined by the number of tasks the project is running
             //this should make sure that no project will consume all available slots simply because the project
             //submits tons of tasks..
-            db.Task.count({status: "running",  _group_id: task._group_id}, (err, counts)=>{
+            db.Task.estimatedDocumentCount({status: "running",  _group_id: task._group_id}, (err, counts)=>{
                 logger.debug(["group",task._group_id, "running", counts]);
                 task.next_date = new Date(Date.now()+1000*60*(1+counts));
                 next();
@@ -1066,6 +1066,7 @@ function start_task(task, resource, cb) {
 }
 
 //TODO - this works, but we don't really need it yet.. if github cloning becomes a problem, we can switch to this?
+//TODO - I am not sure zip download from github includes lfs content?
 //returns (err, app_cache) app_cache will be set to false if other jobs seems to be staging the same cache
 function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
     let app_cache = workdir+"/"+service.split("/")[1]+"-"+commit_id;

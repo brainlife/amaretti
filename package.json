@@ -25,22 +25,22 @@
     "hpss": "0.0.20",
     "jsonwebtoken": "^8.4.0",
     "mime": "^2.4.0",
-    "mongoose": "^5.4.1",
+    "mongoose": "^5.4.7",
     "multiparty": "^4.2.1",
     "redis": "^2.8.0",
     "request": "^2.88.0",
     "simple-statistics": "^6.1.1",
-    "ssh2": "^0.6.2",
+    "ssh2": "^0.8.2",
     "ssh2-multiplexer": "0.0.8",
-    "sshpk": "^1.16.0",
+    "sshpk": "^1.16.1",
     "sshpk-agent": "^1.7.0",
-    "winston": "^3.1.0"
+    "winston": "^3.2.0"
   },
   "devDependencies": {
     "coveralls": "^3.0.2",
     "istanbul": "^0.4.4",
     "mocha": "^5.0.5",
-    "supertest": "^3.3.0"
+    "supertest": "^3.4.2"
   },
   "license": "MIT"
 }
