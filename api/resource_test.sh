@@ -9,9 +9,17 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
-which git-lfs >/dev/null
+#I am not sure about this one yet..
+#which git-lfs >/dev/null
+#if [ ! $? -eq 0 ]; then
+#    echo "git-lfs not installed on PATH"
+#    exit 1
+#fi
+
+which singularity >/dev/null
 if [ ! $? -eq 0 ]; then
-    echo "git-lfs not installed on PATH"
+    echo "singularity not installed on PATH"
+    #TODO _ should I check the version / configuration?
     exit 1
 fi
 

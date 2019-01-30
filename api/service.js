@@ -56,7 +56,7 @@ function do_loaddetail(service_name, branch, cb) {
                 if(err) return next(err);
                 if(_res.statusCode != 200) {
                     logger.error(_res.body);
-                    return next("failed to query requested repo. code:"+_res.statusCode);
+                    return next("failed to query requested repo. "+url+" code:"+_res.statusCode);
                 }
                 logger.info(_res.headers);
                 detail.git = git;

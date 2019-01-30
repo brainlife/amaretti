@@ -50,7 +50,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     .sort(req.query.sort || '_id')
     .exec(function(err, tasks) {
         if(err) return next(err);
-        db.Task.estimatedDocumentCount(find).exec(function(err, count) {
+        db.Task.countDocuments(find).exec(function(err, count) {
             if(err) return next(err);
             res.json({tasks: tasks, count: count});
         });

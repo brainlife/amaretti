@@ -425,7 +425,7 @@ function handle_requested(task, next) {
             //check again in N minutes where N is determined by the number of tasks the project is running
             //this should make sure that no project will consume all available slots simply because the project
             //submits tons of tasks..
-            db.Task.estimatedDocumentCount({status: "running",  _group_id: task._group_id}, (err, counts)=>{
+            db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, counts)=>{
                 logger.debug(["group",task._group_id, "running", counts]);
                 task.next_date = new Date(Date.now()+1000*60*(1+counts));
                 next();
