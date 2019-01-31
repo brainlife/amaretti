@@ -76,18 +76,18 @@ function get_ssh_connection_with_agent(resource, cb) {
 
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, progress_cb, cb) {
     logger.info("rsync_resource.. get_ssh_connection");
-    common.get_ssh_connection(dest_resource, {
-        agent: process.env.SSH_AUTH_SOCK,
-        agentForward: true,
-    }, function(err, conn) {
+    const ssh_opts = {
+        agent: process.env.SSH_AUTH_SOCK, 
+        agentForward: true
+    }
+    common.get_ssh_connection(dest_resource, ssh_opts, (err, conn)=>{
         if(err) return cb(err); 
         logger.debug("got ssh conn");
-
         let rsync_conn;
-
         async.series([
+            
+            //forward source's ssh key to dest
             next=>{
-                //forward source's ssh key to dest
                 //var privkey = sshpk.parsePrivateKey(fs.readFileSync("/home/hayashis/.ssh/id_rsa"), 'pem');
                 common.decrypt_resource(source_resource);
                 var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
@@ -102,47 +102,53 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 common.sshagent_add_key(privkey, {expires: 60}, next); 
             },
 
+            //make sure dest dir exists
             next=>{
-                //make sure dest dir exists
-                //TODO - set timeout similar to bin/task's?
-                logger.info("rsync_resource.. 1");
-                conn.exec("timeout 20 mkdir -p "+dest_path, (err, stream)=>{
-                    if(err) return next(err);
-                    stream.on('close', (code, signal)=>{
-                        if(code === undefined) return next("timedout while mkdir -p "+dest_path);
-                        else if(code) return next("Failed to mkdir -p "+dest_path);
-                        next();
-                    })
-                    .on('data', data=>{
-                        logger.info(data.toString());
-                    }).stderr.on('data', data=>{
-                        logger.error(data.toString());
+                common.get_ssh_connection(dest_resource, ssh_opts, (err, conn)=>{
+                    if(err) return cb(err); 
+                    conn.exec("timeout 20 mkdir -p "+dest_path, (err, stream)=>{
+                        if(err) return next(err);
+                        stream.on('close', (code, signal)=>{
+                            if(code === undefined) return next("timedout while mkdir -p "+dest_path);
+                            else if(code) return next("Failed to mkdir -p "+dest_path);
+                            next();
+                        })
+                        .on('data', data=>{
+                            logger.info(data.toString());
+                        }).stderr.on('data', data=>{
+                            logger.error(data.toString());
+                        });
                     });
                 });
             },  
 
+            //cleanup broken symlinks on source resource
             next=>{
-                //cleanup broken symlinks on source resource
                 //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
                 //workaround for rsync not being forgivng..
                 //TODO - why not directly access the source?
                 logger.info("finding and removing broken symlink on source resource before rsync");
-                var hostname = source_resource.config.hostname || source_resource_detail.hostname; 
-                conn.exec("timeout 30 ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=>{
-                    if(err) return next(err);
-                    stream.on('close', (code, signal)=>{
-                        if(code === undefined) return next("timedout while removing broken symlinks");
-                        else if(code) return next("Failed to cleanup broken symlinks on source (or source is removed) code:"+code);
-                        next();
-                    })
-                    .on('data', data=>{
-                        logger.info(data.toString());
-                    }).stderr.on('data', data=>{
-                        logger.warn(data.toString());
+                common.get_ssh_connection(dest_resource, ssh_opts, (err, conn)=>{
+                    if(err) return cb(err); 
+                    var hostname = source_resource.config.hostname || source_resource_detail.hostname; 
+                    logger.debug("timeout 30 ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete");
+                    conn.exec("timeout 30 ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey "+source_resource.config.username+"@"+hostname+" find -L "+source_path+" -type l -delete", (err, stream)=>{
+                        if(err) return next(err);
+                        stream.on('close', (code, signal)=>{
+                            if(code === undefined) return next("timedout while removing broken symlinks");
+                            else if(code) return next("Failed to cleanup broken symlinks on source (or source is removed) code:"+code);
+                            next();
+                        })
+                        .on('data', data=>{
+                            logger.info(data.toString());
+                        }).stderr.on('data', data=>{
+                            logger.warn(data.toString());
+                        });
                     });
                 });
             },  
 
+            /*
             //open ssh connection on io_hostname so that we can run rsync from it
             next=>{
                 if(!dest_resource.config.io_hostname) {
@@ -161,6 +167,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     next();
                 });
             },
+            */
 
             //run rsync!
             next=>{
@@ -188,35 +195,45 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
                 //--info-progress2 is only available for newer rsync..
                 //can't use timeout command as this might get executed on io only node
-                rsync_conn.exec("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
-                    if(err) return next(err);
-                    let errors = "";
-                    let progress_date = new Date();
-                    stream.on('close', (code, signal)=>{
-                        if(code === undefined) return next("timedout while rsyncing");
-                        else if(code) { 
-                            logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" code:"+code);
-                            logger.error(errors);
-                            next(errors);
-                        } else {
-                            logger.info("done!");
-                            next();
-                        }
-                    }).on('data', data=>{
-                        let str = data.toString().trim();
-                        if(str == "") return;
-                        
-                        //send progress report every few seconds 
-                        let now = new Date();
-                        let delta = now.getTime() - progress_date.getTime();
-                        if(delta > 1000*5) {
-                            progress_cb(str);
-                            progress_date = now;
-                            logger.debug(str);
-                        } 
-                    }).stderr.on('data', data=>{
-                        //logger.error(data.toString());
-                        errors += data.toString();
+
+                //we need to use dest_resource's io_hostname if available
+                var dest_resource_detail = config.resources[dest_resource.resource_id];
+                common.get_ssh_connection(dest_resource, {
+                    hostname: dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname,
+                    agent: process.env.SSH_AUTH_SOCK,
+                    agentForward: true,
+                }, (err, conn)=>{
+                    if(err) return cb(err); 
+                    conn.exec("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
+                        if(err) return next(err);
+                        let errors = "";
+                        let progress_date = new Date();
+                        stream.on('close', (code, signal)=>{
+                            if(code === undefined) return next("timedout while rsyncing");
+                            else if(code) { 
+                                logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" code:"+code);
+                                logger.error(errors);
+                                next(errors);
+                            } else {
+                                logger.info("done!");
+                                next();
+                            }
+                        }).on('data', data=>{
+                            let str = data.toString().trim();
+                            if(str == "") return;
+                            
+                            //send progress report every few seconds 
+                            let now = new Date();
+                            let delta = now.getTime() - progress_date.getTime();
+                            if(delta > 1000*5) {
+                                progress_cb(str);
+                                progress_date = now;
+                                logger.debug(str);
+                            } 
+                        }).stderr.on('data', data=>{
+                            //logger.error(data.toString());
+                            errors += data.toString();
+                        });
                     });
                 });
             },

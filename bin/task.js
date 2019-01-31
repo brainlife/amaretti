@@ -96,7 +96,7 @@ function check(cb) {
 
         set_nextdate(task);
         _counts.tasks++;
-        logger.debug("task id:"+task._id.toString()+" user:"+task.user_id+" "+task.service+"("+task.name+")"+" "+task.status);
+        logger.info("----- task:%s %s(%s) %s user:%s -----", task._id.toString(), task.service, task.name, task.status, task.user_id);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -307,6 +307,8 @@ function handle_housekeeping(task, cb) {
                             var workdir = common.getworkdir(task.instance_id, resource);
                             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                             if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                            //TODO - instead of physically removing task dir, maybe I can mark it, or move it trash/ and let 
+                            //each resource take care of the actual removal
                             logger.info("removing "+taskdir+" and workdir if empty");
                             conn.exec("timeout 60 bash -c \"rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")\"", function(err, stream) {
                                 if(err) return next_resource(err);
@@ -422,13 +424,19 @@ function handle_requested(task, next) {
         if(err) return next(err);
         if(!resource || resource.status == "removed") {
             task.status_msg = "No resource currently available to run this task.. waiting.. ";
-            //check again in N minutes where N is determined by the number of tasks the project is running
+            //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
             //this should make sure that no project will consume all available slots simply because the project
             //submits tons of tasks..
-            db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, counts)=>{
-                logger.debug(["group",task._group_id, "running", counts]);
-                task.next_date = new Date(Date.now()+1000*60*(1+counts));
-                next();
+            //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
+            db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
+                if(err) return next(err);
+                db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_counts)=>{
+                    if(err) return next(err);
+                    let secs = (60*running_counts)+Math.min(requested_counts, 600);
+                    logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
+                    task.next_date = new Date(Date.now()+1000*secs);
+                    next();
+                });
             });
             return;
         }
@@ -694,113 +702,117 @@ function rerun_child(task, cb) {
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
+    /*
     common.get_ssh_connection(resource, function(err, conn) {
         if(err) {
             logger.error(err);
             return cb(); //retry later..
         }
-        var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
-        if(service == null) return cb(new Error("service not set.."));
-        _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
-            if(err) return cb(err);
-            if(!service_detail) return cb("Couldn't find such service:"+service);
+    */
+    var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
+    if(service == null) return cb(new Error("service not set.."));
+    _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
+        if(err) return cb(err);
+        if(!service_detail) return cb("Couldn't find such service:"+service);
 
-            //var workdir = common.getworkdir(task.instance_id, resource);
-            var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+        //var workdir = common.getworkdir(task.instance_id, resource);
+        var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
-            var envs = {
-                SERVICE_DIR: ".", //deprecate! (there are some apps still using this..)
-                
-                //useful to construct job name?
-                TASK_ID: task._id.toString(),
-                USER_ID: task.user_id,
-                SERVICE: task.service,
+        var envs = {
+            SERVICE_DIR: ".", //deprecate! (there are some apps still using this..)
+            
+            //useful to construct job name?
+            TASK_ID: task._id.toString(),
+            USER_ID: task.user_id,
+            SERVICE: task.service,
 
-                //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key, //deprecated
-            };
-            task._envs = envs;
+            //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key, //deprecated
+        };
+        task._envs = envs;
 
-            if(task.service_branch) envs.SERVICE_BRANCH = task.service_branch;
+        if(task.service_branch) envs.SERVICE_BRANCH = task.service_branch;
 
-            //TODO - I am not sure if this is the right precendence ordering..
-            //start with any envs from dependent resources
-            if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
-                let resource_detail = config.resources[resource_dep.resource_id];
-                if(resource_detail.envs) for(var key in resource_detail.envs) {
-                    envs[key] = resource_detail.envs[key];
-                }
-                if(resource_dep.envs) for(var key in resource_dep.envs) {
-                    envs[key] = resource_dep.envs[key];
-                }
-            });
-            //override with resource base envs
-            let resource_detail = config.resources[resource.resource_id];
+        //TODO - I am not sure if this is the right precendence ordering..
+        //start with any envs from dependent resources
+        if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
+            let resource_detail = config.resources[resource_dep.resource_id];
             if(resource_detail.envs) for(var key in resource_detail.envs) {
                 envs[key] = resource_detail.envs[key];
             }
-            //override with any resource instance envs
-            if(resource.envs) for(var key in resource.envs) {
-                envs[key] = resource.envs[key];
+            if(resource_dep.envs) for(var key in resource_dep.envs) {
+                envs[key] = resource_dep.envs[key];
             }
+        });
+        //override with resource base envs
+        let resource_detail = config.resources[resource.resource_id];
+        if(resource_detail.envs) for(var key in resource_detail.envs) {
+            envs[key] = resource_detail.envs[key];
+        }
+        //override with any resource instance envs
+        if(resource.envs) for(var key in resource.envs) {
+            envs[key] = resource.envs[key];
+        }
+        /*
+        //override with any task envs specified by submitter (that a security risk!)
+        if(task.envs) for(var key in task.envs) {
+            envs[key] = task.envs[key];
+        }
+        */
+
+        logger.debug("starting task on "+resource.name);
+        async.series([
+            
+            //query current github commit id
+            next=>{
+                _service.get_sha(service, task.service_branch, (err, ref)=>{
+                    if(err) return next(err);
+                    console.log(ref.sha);
+                    task.commit_id = ref.sha;
+                    next();
+                });
+            },
+
             /*
-            //override with any task envs specified by submitter (that a security risk!)
-            if(task.envs) for(var key in task.envs) {
-                envs[key] = task.envs[key];
-            }
-            */
-
-            logger.debug("starting task on "+resource.name);
-            async.series([
-                
-                //query current github commit id
-                next=>{
-                    _service.get_sha(service, task.service_branch, (err, ref)=>{
+            //setup taskdir using app cache
+            next=>{
+                let workdir = common.getworkdir(null, resource);
+                cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
+                    if(err) return next(err);
+                    if(!app_cache) cb(); //cache already inprogress.. retry later..
+                    
+                    //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
+                    //TODO - should I use rsync instead?
+                    conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
                         if(err) return next(err);
-                        console.log(ref.sha);
-                        task.commit_id = ref.sha;
-                        next();
-                    });
-                },
-
-                /*
-                //setup taskdir using app cache
-                next=>{
-                    let workdir = common.getworkdir(null, resource);
-                    cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
-                        if(err) return next(err);
-                        if(!app_cache) cb(); //cache already inprogress.. retry later..
-                        
-                        //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
-                        //TODO - should I use rsync instead?
-                        conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
-                            if(err) return next(err);
-                            stream.on('close', (code, signal)=>{
-                                if(code === undefined) return next("timeout while creating taskdir");
-                                if(code != 0) return next("failed to create taskdir")
-                                logger.debug("taskdir created");
-                                next();
-                            })
-                            .on('data', function(data) {
-                                logger.info(data.toString());
-                            });
+                        stream.on('close', (code, signal)=>{
+                            if(code === undefined) return next("timeout while creating taskdir");
+                            if(code != 0) return next("failed to create taskdir")
+                            logger.debug("taskdir created");
+                            next();
+                        })
+                        .on('data', function(data) {
+                            logger.info(data.toString());
                         });
-
                     });
-                },
-                */
-                
-                /* (old way) git clone on remote resource directly.. this requires remote resource to have git installed
-                 * and also can --egress from the login node*/
-                //create task dir by git shallow cloning the requested service
-                next=>{
-                    logger.debug("git cloning taskdir "+task._id.toString());
-                    //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
-                    var repo_owner = service.split("/")[0];
-                    var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
-                    cmd += "git clone -q --depth 1 ";
-                    if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
-                    cmd += service_detail.git.clone_url+" "+taskdir;
-                    logger.debug("running %s", cmd);
+
+                });
+            },
+            */
+            
+            /* (old way) git clone on remote resource directly.. this requires remote resource to have git installed
+             * and also can --egress from the login node*/
+            //create task dir by git shallow cloning the requested service
+            next=>{
+                logger.debug("git cloning taskdir "+task._id.toString());
+                //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
+                var repo_owner = service.split("/")[0];
+                var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
+                cmd += "git clone -q --depth 1 ";
+                if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
+                cmd += service_detail.git.clone_url+" "+taskdir;
+                logger.debug("running %s", cmd);
+                common.get_ssh_connection(resource, (err, conn)=>{
+                    if(err) return next(err);
                     conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
@@ -817,12 +829,15 @@ function start_task(task, resource, cb) {
                             last_error = data.toString();
                         });
                     });
-                },
-                
-                //update service
-                next=>{
-                    //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                    //conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
+                });
+            },
+            
+            //update service
+            next=>{
+                //logger.debug("making sure requested service is up-to-date", task._id.toString());
+                //conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
+                common.get_ssh_connection(resource, (err, conn)=>{
+                    if(err) return next(err);
                     conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull\"", (err, stream)=>{
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
@@ -839,16 +854,19 @@ function start_task(task, resource, cb) {
                             logger.info(data.toString());
                         });
                     });
-                },                
+                });
+            },                
 
-                //install config.json in the taskdir
-                next=>{
-                    if(!task.config) {
-                        logger.info("no config object stored in task.. skipping writing config.json");
-                        return next();
-                    }
+            //install config.json in the taskdir
+            next=>{
+                if(!task.config) {
+                    logger.info("no config object stored in task.. skipping writing config.json");
+                    return next();
+                }
 
-                    logger.debug("installing config.json "+task._id.toString());
+                logger.debug("installing config.json "+task._id.toString());
+                common.get_ssh_connection(resource, (err, conn)=>{
+                    if(err) return next(err);
                     conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -865,11 +883,14 @@ function start_task(task, resource, cb) {
                         stream.write(JSON.stringify(task.config, null, 4));
                         stream.end();
                     });
-                },
+                });
+            },
 
-                //write _.env.sh
-                next=>{
-                    logger.debug("writing _env.sh "+task._id.toString());
+            //write _.env.sh
+            next=>{
+                logger.debug("writing _env.sh "+task._id.toString());
+                common.get_ssh_connection(resource, (err, conn)=>{
+                    if(err) return next(err);
                     conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -922,65 +943,67 @@ function start_task(task, resource, cb) {
                         stream.write("\n");
                         stream.end();
                     });
-                },
+                });
+            },
 
-                //make sure dep task dirs are synced
-                next=>{
-                    if(!task.deps) return next(); //no deps then skip
-                    async.eachSeries(task.deps, function(dep, next_dep) {
-                        
-                        //if resource is the same, don't need to sync
-                        if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
+            //make sure dep task dirs are synced
+            next=>{
+                if(!task.deps) return next(); //no deps then skip
+                async.eachSeries(task.deps, function(dep, next_dep) {
+                    
+                    //if resource is the same, don't need to sync
+                    if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
 
-                        db.Resource.findById(dep.resource_id, function(err, source_resource) {
-                            if(err) return next_dep(err);
-                            logger.debug("syncing "+source_resource.name);
-                            let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
-                            let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
-                            task.status_msg = msg_prefix;
-                            task.save(err=>{
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
-                                    task.status_msg = msg_prefix+" "+progress;
-                                    task.save(); 
-                                }, err=>{
+                    db.Resource.findById(dep.resource_id, function(err, source_resource) {
+                        if(err) return next_dep(err);
+                        logger.debug("syncing "+source_resource.name);
+                        let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
+                        let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
+                        let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                        task.status_msg = msg_prefix;
+                        task.save(err=>{
+                            _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
+                                task.status_msg = msg_prefix+" "+progress;
+                                task.save(); 
+                            }, err=>{
 
-                                    //if its already synced, rsyncing is optional, so I don't really care about errors
-                                    if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
+                                //if its already synced, rsyncing is optional, so I don't really care about errors
+                                if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
 
-                                    if(err) {
-                                        logger.error(["failed rsyncing.........", err, task._id, dep._id.toString()]);
-                                        
-                                        //need to release this so that resource.select will calculate resource availability correctly
-                                        task.start_date = undefined; 
-                                        task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
-                                        
-                                        //I want to retry if rsyncing fails by leaving the task status to be requested
-                                        cb(); 
-                                    } else {
-                                        logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
-                                        //need to add dest resource to source dep
-                                        logger.debug(["adding new resource_id", resource._id]);
-                                        dep.resource_ids.push(resource._id.toString());
-                                        dep.save(next_dep);
-                                    }
-                                });
+                                if(err) {
+                                    logger.error(["failed rsyncing.........", err, task._id, dep._id.toString()]);
+                                    
+                                    //need to release this so that resource.select will calculate resource availability correctly
+                                    task.start_date = undefined; 
+                                    task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
+                                    
+                                    //I want to retry if rsyncing fails by leaving the task status to be requested
+                                    cb(); 
+                                } else {
+                                    logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
+                                    //need to add dest resource to source dep
+                                    logger.debug(["adding new resource_id", resource._id]);
+                                    dep.resource_ids.push(resource._id.toString());
+                                    dep.save(next_dep);
+                                }
                             });
                         });
-                    }, next);
-                },
+                    });
+                }, next);
+            },
 
-                //finally, run the service!
-                next=>{
-                    if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
-                    logger.debug("starting service: "+taskdir+"/"+service_detail.start);
+            //finally, run the service!
+            next=>{
+                if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
+                logger.debug("starting service: "+taskdir+"/"+service_detail.start);
 
-                    //save status since it might take a while to start
-                    task.status_msg = "Starting service";
-                    task.save(function(err) {
+                //save status since it might take a while to start
+                task.status_msg = "Starting service";
+                task.save(function(err) {
+                    if(err) return next(err);
+                    //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
+                    common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
-                    
-                        //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
                         conn.exec("timeout 20 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
@@ -1005,28 +1028,31 @@ function start_task(task, resource, cb) {
                             });
                         });
                     });
-                },
+                });
+            },
 
-                //TODO - I think I should deprecate this in the future, but it's still used by 
-                //          * soichih/sca-service-noop (deprecated by brainlife/app-noop)
-                //          * brainlife/app-noop
-                //          * brain-life/validator-neuro-track
-                //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
-                //status.sh checking for its output (or just assume that it worked)
-                next=>{
-                    if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
+            //TODO - I think I should deprecate this in the future, but it's still used by 
+            //          * soichih/sca-service-noop (deprecated by brainlife/app-noop)
+            //          * brainlife/app-noop
+            //          * brain-life/validator-neuro-track
+            //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
+            //status.sh checking for its output (or just assume that it worked)
+            next=>{
+                if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
-                    logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
-                    //common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
+                logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
+                //common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
-                    //need to save now for running_sync (TODO - I should call update instance?
-                    task.run++;
-                    task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
-                    task.status_msg = "Synchronously running service";
-                    task.save(function(err) {
+                //need to save now for running_sync (TODO - I should call update instance?
+                task.run++;
+                task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
+                task.status_msg = "Synchronously running service";
+                task.save(function(err) {
+                    if(err) return next(err);
+                    //not updating instance status - because run should only take very short time
+                    //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
+                    common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
-                        //not updating instance status - because run should only take very short time
-                        //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
                         conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             
@@ -1058,10 +1084,10 @@ function start_task(task, resource, cb) {
                             });
                         });
                     });
-                },
-                //done with all steps!
-            ], cb);
-        });
+                });
+            },
+            //done with all steps!
+        ], cb);
     });
 }
 
@@ -1195,6 +1221,7 @@ let _counts = {
 let low_check = 0;
 
 function health_check() {
+
     var ssh = common.report_ssh();
     var report = {
         status: "ok",
@@ -1205,41 +1232,85 @@ function health_check() {
         maxage: 1000*240,
     }
 
-    if(_counts.tasks == 0) { //should have at least 1 from noop check
-        report.status = "failed";
-        report.messages.push("low tasks count");
-    }
-    if(_counts.checks == 0) {
-        report.status = "failed";
-        report.messages.push("low check count");
-        low_check++;
-        if(low_check > 10) {
-            logger.error("task check loop seems to be dead.. suiciding");
-            process.exit(1);
-        }
-    } else low_check = 0;
+    async.series([
+        
+        //check counters
+        next=>{
+            if(_counts.tasks == 0) { //should have at least 1 from noop check
+                report.status = "failed";
+                report.messages.push("low tasks count");
+            }
+            if(_counts.checks == 0) {
+                report.status = "failed";
+                report.messages.push("low check count");
+                low_check++;
+                if(low_check > 10) {
+                    logger.error("task check loop seems to be dead.. suiciding");
+                    process.exit(1);
+                }
+            } else low_check = 0;
 
-    //similar code exists in /api/health.js
-    if(ssh.max_channels > 5) {
-        report.status = "failed";
-        report.messages.push("high ssh channels "+ssh.max_channels);
-    }
-    if(ssh.ssh_cons > 20) {
-        report.status = "failed";
-        report.messages.push("high ssh connections "+ssh.ssh_cons);
-    }
+            //similar code exists in /api/health.js
+            /*
+            if(ssh.max_channels > 5) {
+                report.status = "failed";
+                report.messages.push("high ssh channels "+ssh.max_channels);
+            }
+            */
+            if(ssh.ssh_cons > 60) {
+                report.status = "failed";
+                report.messages.push("high ssh connections "+ssh.ssh_cons);
+            }
+            if(ssh.sftp_cons > 20) {
+                report.status = "failed";
+                report.messages.push("high sftp connections "+ssh.sftp_cons);
+            }
 
-    common.sshagent_list_keys((err, keys)=>{
-        if(err) {
-            report.status = 'failed';
-            report.messages.push(err);
-        }
-        report.agent_keys = keys.length;
+            next();
+        },
+        
+        //checking ssh agent
+        next=>{
+            common.sshagent_list_keys((err, keys)=>{
+                if(err) {
+                    report.status = 'failed';
+                    report.messages.push(err);
+                }
+                report.agent_keys = keys.length;
+                next();
+            });
+        },
+
+        //check task handling queue
+        next=>{
+            db.Task.count({
+                status: {$ne: "removed"}, //ignore removed tasks
+                $or: [
+                    {next_date: {$exists: false}},
+                    {next_date: {$lt: new Date()}}
+                ]
+            }).exec((err, count)=>{
+                if(err) return next(err);
+                report.queue_size = count;
+                if(count > 1000) {
+                    report.status = "failed";
+                    report.messages.push("high task queue count"+count);
+                }
+                next();
+            });
+        },
+
+    ], err=>{
+        if(err) return logger.error(err);
+        logger.debug(JSON.stringify(report, null, 4));
+
+        //send report
         rcon.set("health.amaretti.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 
         //reset counter
         _counts.checks = 0;
         _counts.tasks = 0;
+        
     });
 }
 
@@ -1249,6 +1320,8 @@ rcon.on('ready', ()=>{
     logger.info("connected to redis");
     setInterval(health_check, 1000*120);
 });
+
+health_check(); //initial check (I shouldn't do this anymore?)
 
 //run noop periodically to keep task loop occupied
 function run_noop() {

@@ -197,7 +197,7 @@ router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(r
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
 
-            ls_resource(resource, fullpath, function(err, files) {
+            ls_resource(resource, fullpath, (err, files)=>{
                 if(err) return next(err);
                 res.json({files});
             });

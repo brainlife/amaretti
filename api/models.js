@@ -92,6 +92,7 @@ var resourceSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
+//resourceSchema.index({active: 1, status: 1, user_id: 1, gids: 1}); //for resource select
 exports.Resource = mongoose.model('Resource', resourceSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +211,6 @@ var taskSchema = mongoose.Schema({
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)
     request_count: {type: Number, default: 0 },
-    
 });
 
 taskSchema.post('save', events.task);
@@ -220,6 +220,7 @@ taskSchema.post('remove', events.task);
 
 taskSchema.index({name: 'text', desc: 'text'});
 taskSchema.index({nice: 1, status: 1, next_date: 1}); 
+taskSchema.index({status: 1, _group_id: 1});  //counting number of tasks per group
 
 exports.Task = mongoose.model('Task', taskSchema);
 
