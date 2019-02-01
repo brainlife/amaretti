@@ -28,7 +28,7 @@ exports.loaddetail = function(service_name, branch, cb) {
             delete _details_cache[service_name];
         } else {
             //cache is good!
-            logger.debug("using service cache", service_name);
+            //logger.debug("using service cache", service_name);
             return cb(null, cache.detail);
         }
     }
@@ -46,7 +46,7 @@ function do_loaddetail(service_name, branch, cb) {
         stop: "stop",
     }
 
-    logger.debug("loading service details");
+    //logger.debug("loading service details");
     async.series([
 
         //load github repo detail
@@ -58,7 +58,7 @@ function do_loaddetail(service_name, branch, cb) {
                     logger.error(_res.body);
                     return next("failed to query requested repo. "+url+" code:"+_res.statusCode);
                 }
-                logger.info(_res.headers);
+                //logger.info(_res.headers);
                 detail.git = git;
                 next(); 
             });

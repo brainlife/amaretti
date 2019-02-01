@@ -186,10 +186,10 @@ function handle_housekeeping(task, cb) {
                         return next_resource("can't check taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. will try later");
                     }
 
-                    //all good.. now check taskdir
+                    //all good.. now check to see if taskdir still exists (not purged by resource)
+                    /*
                     logger.debug("getting ssh connection for house keeping:"+resource_id);
                     common.get_ssh_connection(resource, function(err, conn) {
-                        logger.debug("got err/conn");
                         if(err) {
                             logger.error(err);
                             return next_resource(); //maybe a temp. resource error?
@@ -197,12 +197,14 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
-                        logger.debug("querying ls");
-                        conn.exec("timeout 10 ls "+taskdir, function(err, stream) {
-                            logger.debug("querying ls -err/stream");
+                        console.time(taskdir);
+                        logger.debug("querying ls %s", taskdir);
+                        //conn.exec("timeout 10 ls "+taskdir, function(err, stream) {
+                        conn.exec("timeout 10 [ -d "+taskdir+" ]", function(err, stream) {
                             if(err) return next_resource(err);
-                            //common.set_conn_timeout(conn, stream, 1000*10);
                             stream.on('close', function(code, signal) {
+                                console.log("end--");
+                                console.timeEnd(taskdir);
                                 if(code === undefined) {
                                     logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
                                 } else if(code == 2) { //ls couldn't find the directory
@@ -210,6 +212,7 @@ function handle_housekeeping(task, cb) {
                                     logger.debug("taskdir:"+taskdir+" is missing");
                                     missing_resource_ids.push(resource_id);
                                 }
+                                logger.debug("exists %s", taskdir);
                                 next_resource();
                             })
                             .on('data', function(data) {
@@ -217,6 +220,41 @@ function handle_housekeeping(task, cb) {
                             }).stderr.on('data', function(data) {
                                 logger.debug(data.toString());
                             });
+                        });
+                    });
+                    */
+                    logger.debug("getting sftp connection for taskdir check:"+resource_id);
+                    common.get_sftp_connection(resource, function(err, sftp) {
+                        if(err) {
+                            logger.error(err);
+                            return next_resource(); //maybe a temp. resource error?
+                        }
+                        var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                        if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
+                        //TODO is it better to use sftp?
+                        console.time(taskdir);
+                        logger.debug("querying ls %s", taskdir);
+                        //conn.exec("timeout 10 [ -d "+taskdir+" ]", function(err, stream) {
+                        var t = setTimeout(function() {
+                            cb("Timed out while reading directory: "+_path);
+                            t = null;
+                        }, 5000); //sometimes it times out with 5 sec.. but I am not sure if increasing timeout is the right solution
+                        sftp.readdir(taskdir, function(err, files) {
+                            console.timeEnd(taskdir);
+                            if(!t) {
+                                logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
+                            } else {
+                                clearTimeout(t);
+                                if(err) {
+                                    //TODO - let's assume directory is missing.. we need to parse the err to see why it failes.
+                                    logger.debug(err);
+                                    missing_resource_ids.push(resource_id);
+                                } else {
+                                    //TODO - can I do something useful with files?
+                                    logger.debug("taskdir has %d files", files.length);
+                                }
+                                next_resource();
+                            }
                         });
                     });
                 });
@@ -430,9 +468,9 @@ function handle_requested(task, next) {
             //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
             db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
                 if(err) return next(err);
-                db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_counts)=>{
+                db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
                     if(err) return next(err);
-                    let secs = (60*running_counts)+Math.min(requested_counts, 600);
+                    let secs = (60*running_count)+Math.min(requested_count, 600);
                     logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
                     next();
@@ -807,6 +845,8 @@ function start_task(task, resource, cb) {
                 //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
                 var repo_owner = service.split("/")[0];
                 var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
+                //TODO --recurse-submodules can be added here.. but I think people do that just to compile in some libs..
+                //so until developers actually need them there, let's leave it
                 cmd += "git clone -q --depth 1 ";
                 if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
                 cmd += service_detail.git.clone_url+" "+taskdir;
@@ -971,11 +1011,11 @@ function start_task(task, resource, cb) {
                                 if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
 
                                 if(err) {
-                                    logger.error(["failed rsyncing.........", err, task._id, dep._id.toString()]);
-                                    
                                     //need to release this so that resource.select will calculate resource availability correctly
                                     task.start_date = undefined; 
+
                                     task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
+                                    logger.warn("task:%s dep:%s .. %s", task._id, dep._id.toString(), task.status_msg);
                                     
                                     //I want to retry if rsyncing fails by leaving the task status to be requested
                                     cb(); 
