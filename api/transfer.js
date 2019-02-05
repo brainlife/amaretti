@@ -116,7 +116,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         .on('data', data=>{
                             logger.info(data.toString());
                         }).stderr.on('data', data=>{
-                            logger.error(data.toString());
+                            logger.warn(data.toString());
                         });
                     });
                 });
@@ -231,7 +231,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                                 logger.debug(str);
                             } 
                         }).stderr.on('data', data=>{
-                            //logger.error(data.toString());
                             errors += data.toString();
                         });
                     });

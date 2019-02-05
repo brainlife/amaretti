@@ -12,6 +12,7 @@ let conn = null;
 let connected = false;
 let task_ex = null;
 let instance_ex = null;
+let resource_ex = null;
 
 exports.init = function(cb) {
 
@@ -32,6 +33,10 @@ exports.init = function(cb) {
         conn.exchange(config.events.exchange+".instance", 
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             instance_ex = ex;
+        });
+        conn.exchange(config.events.exchange+".resource", 
+            {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
+            resource_ex = ex;
         });
 
         //I am not sure if ready event fires everytime it reconnects.. (find out!) 
@@ -113,6 +118,21 @@ exports.instance = function(instance) {
     //to normalize the field type, let's load the record from database
     db.Instance.findById(instance._id, (err, _instance)=>{
         publish_or_log(instance_ex, key, _instance);
+    });
+}
+
+//right now nobody receives resource update event as far as I know
+exports.resource = function(resource) {
+    let key = resource._id;
+    publish_or_log(resource_ex, key, {
+        _id: resource._id,
+        active: resource.active,
+        name: resource.name,
+        desc: resource.desc,
+
+        status: resource.status,
+        status_msg: resource.status_msg,
+        status_update: resource.status_update,
     });
 }
 

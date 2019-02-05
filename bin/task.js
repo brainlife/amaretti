@@ -90,13 +90,13 @@ function check(cb) {
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
-            logger.debug("no task to handle.. sleeping..");
+            logger.debug("nothing to do.. sleeping..");
             return setTimeout(check, 1000); 
         }
 
         set_nextdate(task);
         _counts.tasks++;
-        logger.info("----- task:%s %s(%s) %s user:%s -----", task._id.toString(), task.service, task.name, task.status, task.user_id);
+        logger.info("------- %s %s %s(%s) %s user:%s", task.status, task._id.toString(), task.service, task.name, task.user_id);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -232,15 +232,9 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
-                        console.time(taskdir);
                         logger.debug("querying ls %s", taskdir);
-                        //conn.exec("timeout 10 [ -d "+taskdir+" ]", function(err, stream) {
-                        var t = setTimeout(function() {
-                            cb("Timed out while reading directory: "+_path);
-                            t = null;
-                        }, 5000); //sometimes it times out with 5 sec.. but I am not sure if increasing timeout is the right solution
+                        var t = setTimeout(function() { t = null; }, 5000); 
                         sftp.readdir(taskdir, function(err, files) {
-                            console.timeEnd(taskdir);
                             if(!t) {
                                 logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
                             } else {
@@ -253,8 +247,8 @@ function handle_housekeeping(task, cb) {
                                     //TODO - can I do something useful with files?
                                     logger.debug("taskdir has %d files", files.length);
                                 }
-                                next_resource();
                             }
+                            next_resource();
                         });
                     });
                 });
@@ -1198,7 +1192,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 .on('data', function(data) {
                     logger.info(data.toString());
                 }).stderr.on('data', function(data) {
-                    logger.error(data.toString());
+                    logger.info(data.toString());
                 });
                 
                 //download from github

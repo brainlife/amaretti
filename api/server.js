@@ -35,6 +35,7 @@ app.use('/', require('./controllers'));
 app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
     if(typeof err == "string") err = {message: err};
+    if(err instanceof Error) err = {message: err.toString()};
 
     //log this error
     logger.info(err);

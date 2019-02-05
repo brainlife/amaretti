@@ -92,6 +92,10 @@ var resourceSchema = mongoose.Schema({
     create_date: {type: Date, default: Date.now },
     update_date: {type: Date, default: Date.now },
 });
+resourceSchema.post('save', events.resource);
+resourceSchema.post('findOneAndUpdate', events.resource);
+resourceSchema.post('findOneAndRemove', events.resource);
+resourceSchema.post('remove', events.resource);
 //resourceSchema.index({active: 1, status: 1, user_id: 1, gids: 1}); //for resource select
 exports.Resource = mongoose.model('Resource', resourceSchema);
 

@@ -14,7 +14,7 @@ config.logger.winston.transports[0].level = 'error';
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 
-const graphite_prefix = process.argv[2]||config.sensu.prefix;
+const graphite_prefix = process.argv[2];
 if(!graphite_prefix) {
     console.error("usage: metrics.js <graphite_prefix>");
     process.exit(1);

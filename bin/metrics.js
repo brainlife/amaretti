@@ -11,7 +11,7 @@ const redis = require('redis');
 
 const config = require('../config');
 
-const graphite_prefix = process.argv[2]||config.sensu.prefix;
+const graphite_prefix = process.argv[2];
 if(!graphite_prefix) {
     console.error("usage: metrics.js <graphite_prefix>");
     process.exit(1);
@@ -32,14 +32,15 @@ function sensu_name(name) {
 request.get({
     url: "http://localhost:"+config.express.port+"/admin/services/running?duration=300", 
     json: true,
-    headers: { authorization: "Bearer "+config.wf.jwt },
+    headers: { authorization: "Bearer "+config.amaretti.jwt },
 }, function(err, res, list) {
     if(err) throw err;
+    if(res.statusCode != "200") throw res.body;
+    //
     //convert list of service/resouce_id keys into various statistics
     let services = [];
     let resources = [];
     let users = [];
-
     list.forEach(item=>{
         let service = item._id.service;
         let resource_id = item._id.resource_id;
@@ -68,11 +69,10 @@ request.get({
 
     let emits = {}; //key value to emit
 
-    //let's pull contact details
     async.parallel({
 
+        //pull resource detail
         resource_details: cb=>{
-            //let's pull resource detail
             request.get({
                 url: "http://localhost:"+config.express.port+"/resource", json: true,
                 qs: {
@@ -91,6 +91,7 @@ request.get({
             });
         },
 
+        //pull contact details
         contact_details: cb=>{
             request.get({
                 url: config.api.auth+"/profile", json: true,
@@ -128,6 +129,7 @@ request.get({
         //sensu keys that just popedup
         let newkeys = []; 
 
+        //output gathered data in sensu format
         const time = Math.round(new Date().getTime()/1000);
         for(let service in services) {
             let safe_name = sensu_name(service).replace("/", ".");

@@ -108,7 +108,6 @@ function ls_resource(resource, _path, cb) {
         sftp.readdir(_path, function(err, files) {
             if(!t) return; //timeout called already
             clearTimeout(t);
-
             if(err) return cb(err);
 
             //I need to stat each symlink files to find out if it's directory or not
