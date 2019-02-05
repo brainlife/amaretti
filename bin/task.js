@@ -32,7 +32,7 @@ db.init(function(err) {
     if(err) throw err;
     logger.debug("db-initialized");
     check(); //start check loop
-    setInterval(run_noop, 1000*30);
+    //setInterval(run_noop, 1000*30);
 });
 
 //https://github.com/soichih/workflow/issues/15
@@ -1357,6 +1357,7 @@ rcon.on('ready', ()=>{
 
 health_check(); //initial check (I shouldn't do this anymore?)
 
+/* task handling loop is pretty stable now.. so I don't need to do this anymore
 //run noop periodically to keep task loop occupied
 function run_noop() {
     if(_counts.tasks != 0) return; //only run if task loop is bored
@@ -1412,4 +1413,4 @@ function run_noop() {
         });
     });
 }
-
+*/

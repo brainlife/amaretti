@@ -14,6 +14,7 @@ const config = require('../../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
+const events = require('../events');
 
 /**
  * @apiGroup                    Instance
@@ -81,21 +82,27 @@ router.put('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
     delete req.body.group_id; //this could be changed if we updated all task._group_id as well (and revalidate group_id of course)?
 
     req.body.update_date = new Date();
-    db.Instance.findOneAndUpdate({
+    db.Instance.findOne({
         _id: id, 
-        //user_id: req.user.sub
         '$or': [
             {user_id: req.user.sub},
             {group_id: {$in: req.user.gids||[]}},
         ]
-    }, {$set: req.body},
-    function(err, instance) {
+    }).exec((err, instance)=>{
         if(err) return next(err);
-        res.json(instance);
+        if(!instance) return next("no such instance, or no access");
 
-        //also update name on instance progress
-        var progress_key = common.create_progress_key(id);
-        common.progress(progress_key, {name: instance.name||instance._id});
+        let status_changed = false;
+        if(instance.status != req.body.status) status_changed = true;
+
+        //update
+        for(let key in req.body) instance[key] = req.body[key];
+        instance.save((err, updated_instance)=>{
+            if(err) return next(err);
+            instance._status_changed = status_changed;
+            res.json(instance);
+            events.instance(instance);
+        });
     });
 });
 
@@ -129,11 +136,15 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
     instance.save(function(err) {
         if(err) return next(err);
-        res.json(instance);
+        let instance_o = instance.toObject();
+        instance_o._status_changed = true; //new object.. so.
+        res.json(instance_o);
+
+        events.instance(instance);
 
         //set the name for the instance grouping in case use wants to display instance level progress detail
-        var progress_key = common.create_progress_key(instance._id);
-        common.progress(progress_key, {name: instance.name||instance._id});
+        //var progress_key = common.create_progress_key(instance._id);
+        //common.progress(progress_key, {name: instance.name||instance._id});
     });
 });
 
@@ -185,6 +196,7 @@ router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(r
                 }}, function(err, instance) {
                     if(err) return next(err);
                     res.json({message: "Instance successfully scheduled -- tasks removed: "+tasks.length});
+                    events.instance(instance);
                 });
             });
         });

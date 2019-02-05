@@ -46,6 +46,7 @@ var instanceSchema = mongoose.Schema({
 
     //(optional) make this instance accessible from all members of this group
     //if this is updated, all task's group_id needs to be updated also
+    //TODO taskSchema uses _group_id.. which is inconsitent.. but maybe too late to change it?
     group_id: {type: Number, index: true}, 
 
     //store details mainly used by UI
@@ -57,10 +58,12 @@ var instanceSchema = mongoose.Schema({
     update_date: {type: Date, default: Date.now },
 });
 
+/* instance events hooks are handled manually so that I can do better control
 instanceSchema.post('save', events.instance);
 instanceSchema.post('findOneAndUpdate', events.instance);
 instanceSchema.post('findOneAndRemove', events.instance);
 instanceSchema.post('remove', events.instance);
+*/
 
 exports.Instance = mongoose.model('Instance', instanceSchema);
 

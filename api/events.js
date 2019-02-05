@@ -81,12 +81,14 @@ function publish_or_log(ex, key, msg) {
 }
 
 exports.task = function(task) {
-    //var key = task.user_id+"."+task.instance_id+"."+task._id;
     var key = task.instance_id+"."+task._id;
 
-    //store event updates if status changes
-    db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}, (err, lastevent)=>{
-        if(!lastevent || lastevent.status != task.status) {
+    //get previous task status to see if status changed
+    db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}).lean().exec((err, lastevent)=>{
+        if(err) return logger.error(err);
+        let status_changed = false;
+        if(!lastevent || lastevent.status != task.status) status_changed = true;
+        if(status_changed) {
             //status changed! store event
             var taskevent = new db.Taskevent({
                 task_id: task._id, 
@@ -99,13 +101,14 @@ exports.task = function(task) {
             });
             taskevent.save();
         }
-    });
-    
-    //some fields are populated (foreign keys are de-referenced)
-    //to normalize the field type, let's load the record from database
-    db.Task.findById(task._id, (err, _task)=>{
-        //logger.debug("event", task._id.toString());
-        publish_or_log(task_ex, key, _task);
+        
+        //some fields are populated (foreign keys are de-referenced)
+        //to normalize the field type, let's load the record from database
+        //TODO - can't I just test to see if _id exists for those field and replace them with it?
+        db.Task.findById(task._id).lean().exec((err, _task)=>{
+            _task._status_changed = status_changed;
+            publish_or_log(task_ex, key, _task);
+        });
     });
 }
 
@@ -113,12 +116,14 @@ exports.instance = function(instance) {
     //var key = instance.user_id+"."+instance._id;
     let group_id = instance.group_id||"na";
     let key = group_id+"."+instance._id;
-    
+    publish_or_log(instance_ex, key, instance);
+    /*
     //some fields maybe populated (foreign keys are de-referenced)
     //to normalize the field type, let's load the record from database
     db.Instance.findById(instance._id, (err, _instance)=>{
         publish_or_log(instance_ex, key, _instance);
     });
+    */
 }
 
 //right now nobody receives resource update event as far as I know

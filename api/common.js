@@ -12,7 +12,8 @@ const request = require('request');
 const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
-const hpss = require('hpss');
+//const hpss = require('hpss');
+const events = require('./events');
 
 logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
 var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
@@ -302,7 +303,9 @@ exports.report_ssh = function() {
     }
 }
 
+//deprecated 
 exports.progress = function(key, p, cb) {
+    logger.warn("common.progress is deprecated");
     request({
         method: 'POST',
         url: config.progress.api+'/status/'+key, 
@@ -428,6 +431,7 @@ exports.create_progress_key = function(instance_id, task_id) {
     return key;
 }
 
+/*
 //run hsi locally (where sca-wf is running) - used mainly to test the hpss account, and by resource/ls for hpss resource
 exports.ls_hpss = function(resource, _path, cb) {
     exports.decrypt_resource(resource);
@@ -442,6 +446,7 @@ exports.ls_hpss = function(resource, _path, cb) {
         cb(err, files); 
     });
 }
+*/
 
 exports.request_task_removal = function(task, cb) {
     //running jobs needs to be stopped first
@@ -501,7 +506,7 @@ exports.update_instance_status = function(instance_id, cb) {
                 counts[task.status]++;
             });
 
-            //decide instance status (TODO - I still need to adjust this, I feel)
+            //decide instance status
             let newstatus = "unknown";
             if(tasks.length == 0) newstatus = "empty";
             else if(counts.running > 0) newstatus = "running";
@@ -509,11 +514,16 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.failed > 0) newstatus = "failed";
             else if(counts.finished > 0) newstatus = "finished";
             else if(counts.removed > 0) newstatus = "removed";
+            else if(counts.stop_requested> 0) newstatus = "stop_requested";
+            else if(counts.stopped > 0) newstatus = "stopped";
 
             if(newstatus == "unknown") {
                 logger.error("can't figure out instance status", instance._id.toString());
-                logger.error(counts);
+                logger.error(JSON.stringify(counts, null, 4));
             }
+
+            let status_changed = false;
+            if(instance.status != newstatus) status_changed = true;
             
             //create task summary
             if(!instance.config) instance.config = {};
@@ -534,12 +544,14 @@ exports.update_instance_status = function(instance_id, cb) {
                     name: task.name, 
                 }); 
             });
-            instance.markModified("config");
-            //console.log("instance status----------------------------------------------------------------", newstatus);
-
+            instance.markModified("config"); //nested object aren't tracked by mongoose
             instance.status = newstatus;
             instance.update_date = new Date();
             instance.save(cb);
+
+            let instance_o = instance.toObject();
+            instance_o._status_changed = status_changed;
+            events.instance(instance_o);
         });
     });
 }
