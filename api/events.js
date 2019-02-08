@@ -60,8 +60,6 @@ exports.disconnect = function(cb) {
         return;
     }
 
-    //logger.debug("disconnecting from amqp");
-    
     //https://github.com/postwait/node-amqp/issues/462
     conn.setImplOptions({reconnect: false}); 
     conn.disconnect();
@@ -126,9 +124,9 @@ exports.instance = function(instance) {
     */
 }
 
-//right now nobody receives resource update event as far as I know
+//right now nobody receives resource update event as far as I know..
 exports.resource = function(resource) {
-    let key = resource._id;
+    let key = resource._id.toString();
     publish_or_log(resource_ex, key, {
         _id: resource._id,
         active: resource.active,

@@ -1,4 +1,4 @@
-tag=1.1.50
+tag=1.1.52
 
 docker pull node:8
 docker build -t brainlife/amaretti ..

@@ -53,6 +53,7 @@ db.init(function(err) {
             });
         },
 
+        //TODO - will be deprecated soon - now that we are moving to graphite to store this
         next=>{
             console.log("also generate last 180 days usage graph");
             let hist_days = 180;

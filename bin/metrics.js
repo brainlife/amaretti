@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+//runs every minute to post the current values
+
 //node
 const fs = require('fs');
 const path = require('path');
@@ -20,10 +22,11 @@ if(!graphite_prefix) {
 //connect to redis - used to store previously non-0 data
 const re = redis.createClient(config.redis.port, config.redis.server);
 
+//TODO - this has to match up between amaretti/bin/metrics and warehouse/api/controller querying for graphite daa
 function sensu_name(name) {
     name = name.toLowerCase();
     name = name.replace(/[_.@$#\/]/g, "-");
-    name = name.replace(/ /g, "");
+    name = name.replace(/[ ()]/g, "");
     return name;
 }
 
@@ -36,7 +39,8 @@ request.get({
 }, function(err, res, list) {
     if(err) throw err;
     if(res.statusCode != "200") throw res.body;
-    //
+
+    //console.log(JSON.stringify(list, null, 4));
     //convert list of service/resouce_id keys into various statistics
     let services = [];
     let resources = [];
@@ -46,14 +50,6 @@ request.get({
         let resource_id = item._id.resource_id;
         let user_id = item._id.user_id;
         let count = item.count;
-
-        /*
-        //make service sensu safe name
-        let service_org = sensu_safe(service.split("/")[0]);
-        let service_name = sensu_Safe(service.split("/")[1]);
-        console.log(service_org);
-        console.log(service_name);
-        */
 
         if(!services[service]) services[service] = 0;
         services[service] += count;
@@ -131,8 +127,10 @@ request.get({
 
         //output gathered data in sensu format
         const time = Math.round(new Date().getTime()/1000);
+
+        //for .. "dev.amaretti.service.brain-life-app-life 0 1549643698"
         for(let service in services) {
-            let safe_name = sensu_name(service).replace("/", ".");
+            let safe_name = sensu_name(service);
             let sensu_key = graphite_prefix+".service."+safe_name;
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
@@ -140,6 +138,9 @@ request.get({
             if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
             emits[sensu_key] = services[service];
         }
+
+        //for .. "test.resource.azure-slurm1shared 1 1549643698"
+        //this is mainly for admin/grafana view - to quickly see which resource is which.. use resource-id for pragramatic
         for(let resource_id in resources) {
             let detail = results.resource_details[resource_id];
             if(!detail) {
@@ -148,17 +149,31 @@ request.get({
                 let sensu_key = graphite_prefix+".resource."+sensu_name(detail.name);
                 re.set('amaretti.metric.'+sensu_key, 1);
                 re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
-                //console.log(sensu_key+" "+resources[resource_id]+" "+time); //emit
                 if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                 emits[sensu_key] = resources[resource_id];
             }
         }
+      
+        //for .. "test.resource.123456787 1 1549643698"
+        for(let resource_id in resources) {
+            let detail = results.resource_details[resource_id];
+            if(!detail) {
+                console.error("no detail for", resource_id);
+            } else {
+                let sensu_key = graphite_prefix+".resource-id."+resource_id
+                re.set('amaretti.metric.'+sensu_key, 1);
+                re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
+                if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
+                emits[sensu_key] = resources[resource_id];
+            }
+        }
+
+        //for "test.users.hayashis 1 1549643698"
         for(let user_id in users) {
             let user = results.contact_details[user_id];
             let sensu_key = graphite_prefix+".users."+user.username;
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
-            //console.log(sensu_key+" "+users[user_id]+" "+time); //emit
             if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
             emits[sensu_key] = users[user_id];
         }
