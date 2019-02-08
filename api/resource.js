@@ -15,7 +15,7 @@ const common = require('./common');
 //task needs to have populated deps
 exports.select = function(user, task, cb) {
     //select all resource available for the user and active
-    logger.debug("finding resource to run .select task_id:",task._id,"service:",task.service,"branch:",task.service_branch,"user:",user.sub,"deps:");
+    logger.debug("finding resource to run .select task_id:%s service:%s branch:%s user:%s",task._id,task.service,task.service_branch,user.sub);
 
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
@@ -191,10 +191,17 @@ function score_resource(user, resource, task, cb) {
         //override with resource specific maxtask
         if(resource.config && resource.config.maxtask) detail.maxtask = resource.config.maxtask; 
         
+        /*
         //if no maxtask set .. limitless!
         if(detail.maxtask === null || detail.maxtask === undefined) {
             detail.msg += "This resource has no max task";
             return cb(null, score, detail); 
+        }
+        */
+        //if no maxtask set.. assume 1
+        if(detail.maxtask === null || detail.maxtask === undefined) {
+            detail.msg += "This resource has no max task. assuming it to be 1";
+            detail.maxtask = 1;
         }
 
         db.Task.find({

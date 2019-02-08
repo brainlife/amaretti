@@ -493,7 +493,10 @@ exports.update_instance_status = function(instance_id, cb) {
 
         //find all tasks under this instance
         //db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
-        db.Task.find({instance_id: instance._id})
+        db.Task.find({
+            instance_id: instance._id, 
+            "config._tid": {$exists: 1}, //let's only count UI tasks
+        })
         .sort({create_date: 1})
         .select('status status_msg service name user_id config._tid')
         .exec((err, tasks)=>{

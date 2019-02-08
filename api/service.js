@@ -111,7 +111,11 @@ exports.get_sha = function(service_name, branch, cb) {
     let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
     request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, body) {
         if(err) return cb(err);
-        if(_res.statusCode != 200) return cb(body);
+        if(_res.statusCode != 200) {
+            logger.error(body);
+            logger.debug(url);
+            return cb(body);
+        }
         cb(null, body.object);
     });
 }

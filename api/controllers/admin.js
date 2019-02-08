@@ -33,13 +33,15 @@ router.get('/services/running', jwt({secret: config.amaretti.auth_pubkey}), func
         {$match: {
             $or: [
                 {status: "running"},
-                {status: "requested", start_date: {$exists: true}}, //starting..
+
+                //also include requests that are currently getting started - so that we don't undercount tasks
+                //while deciding how many are commited to run on various resources
+                {status: "requested", start_date: {$exists: true}}, 
             ]
         }},
         {$group: {_id: {service: '$service', resource_id: '$resource_id', user_id: '$user_id'}, count: {$sum: 1}}},
     ]).exec(function(err, services) {
         if(err) return next(err);
-        
         res.json(services);
     });
 });

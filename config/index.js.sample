@@ -85,7 +85,7 @@ exports.logger = {
         //hide headers which may contain jwt
         level: "debug",
         format: combine(
-            label({ label: 'amaretti' }),
+            label({ label: 'amaretti-dev' }),
             timestamp(),
             format.colorize(),
             format.splat(),
@@ -102,6 +102,7 @@ exports.logger = {
         transports: [
             //display all logs to console
             new transports.Console({
+                stderrLevels: ["error"], //error is sent to stdout by default..
                 /*
                 timestamp: function() {
                     var d = new Date();

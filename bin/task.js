@@ -96,7 +96,7 @@ function check(cb) {
 
         set_nextdate(task);
         _counts.tasks++;
-        logger.info("------- %s %s %s(%s) %s user:%s", task.status, task._id.toString(), task.service, task.name, task.user_id);
+        logger.info("------- %s %s by %s id:%s %s", task.status, task.service, task.user_id, task._id.toString(), task.name);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -510,7 +510,6 @@ function handle_requested(task, next) {
 
         //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
         //start_task is designed to be able to run concurrently..
-        //(used to) looks like we have callback braching somewhere.. we might need to handle one task at a time..
         next();
     });
 }
@@ -797,8 +796,12 @@ function start_task(task, resource, cb) {
             //query current github commit id
             next=>{
                 _service.get_sha(service, task.service_branch, (err, ref)=>{
-                    if(err) return next(err);
-                    console.log(ref.sha);
+                    if(err) {
+                        logger.error("failed to obtain commit id from github.. maybe service/branch no longer exists?");
+                        //return next(err); //can't convert to string?
+                        return next("failed to get commit id from github");
+                    }
+                    //console.log(ref.sha);
                     task.commit_id = ref.sha;
                     next();
                 });
@@ -1270,6 +1273,8 @@ function health_check() {
         
         //check counters
         next=>{
+            //I haven't had a case where this wasn't a false alarm yet..
+            /*
             if(_counts.tasks == 0) { //should have at least 1 from noop check
                 report.status = "failed";
                 report.messages.push("low tasks count");
@@ -1283,6 +1288,7 @@ function health_check() {
                     process.exit(1);
                 }
             } else low_check = 0;
+            */
 
             //similar code exists in /api/health.js
             /*
@@ -1295,7 +1301,7 @@ function health_check() {
                 report.status = "failed";
                 report.messages.push("high ssh connections "+ssh.ssh_cons);
             }
-            if(ssh.sftp_cons > 20) {
+            if(ssh.sftp_cons > 30) {
                 report.status = "failed";
                 report.messages.push("high sftp connections "+ssh.sftp_cons);
             }

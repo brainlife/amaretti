@@ -50,6 +50,22 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
+#make sure batch scheduler is alive
+if hash qstat 2>/dev/null; then
+    qstat -q
+    if [ ! $? -eq 0 ]; then
+        echo "qstat seems to be not working.. maybe something wrong with the scheduler?"
+        exit 1
+    fi
+fi
+if hash squeue 2>/dev/null; then
+    squeue
+    if [ ! $? -eq 0 ]; then
+        echo "squeue seems to be not working.. maybe something wrong with the scheduler?"
+        exit 1
+    fi
+fi
+
 #check for access right
 mkdir _resource_check && rmdir _resource_check
 if [ ! $? -eq 0 ]; then
