@@ -186,21 +186,20 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //various HPC clusters with shared file system
             //-K prevents destination symlink (if already existing) to be replaced by directory. 
             //this is needed for same-filesystem data transfer that has symlink
-            logger.info("running rsync -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
-
             //--info-progress2 is only available for newer rsync..
             //can't use timeout command as this might get executed on io only node
-
             //we need to use dest_resource's io_hostname if available
             var dest_resource_detail = config.resources[dest_resource.resource_id];
+            var hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
+            logger.debug("ssh to %s", hostname);
             common.get_ssh_connection(dest_resource, {
-                hostname: dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname,
+                hostname,
                 agent: process.env.SSH_AUTH_SOCK,
                 agentForward: true,
             }, (err, conn)=>{
                 if(err) return cb(err); 
-                logger.debug("rsync -v --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
-                conn.exec("rsync -v --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
+                logger.debug("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
+                conn.exec("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
                     if(err) return next(err);
                     let errors = "";
                     let progress_date = new Date();
@@ -211,7 +210,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             logger.error(errors);
                             next(errors);
                         } else {
-                            logger.info("done!");
+                            logger.info("done! %d:%d", code, signal);
                             next();
                         }
                     }).on('data', data=>{
@@ -226,7 +225,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             progress_date = now;
                             logger.debug(str);
                         } 
-                        logger.debug(data.toString());
+                        //logger.debug(data.toString());
                     }).stderr.on('data', data=>{
                         errors += data.toString();
                         logger.debug(data.toString());

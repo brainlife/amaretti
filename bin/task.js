@@ -1003,25 +1003,27 @@ function start_task(task, resource, cb) {
                                 task.status_msg = msg_prefix+" "+progress;
                                 task.save(); 
                             }, err=>{
-
-                                //if its already synced, rsyncing is optional, so I don't really care about errors
-                                if(~common.indexOfObjectId(dep.resource_ids, resource._id)) return next_dep();
-
                                 if(err) {
+                                    //if its already synced, rsyncing is optional, so I don't really care about errors
+                                    if(~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                        logger.warn("syncing failed, but we were able to sync it before.. processding with out syncing");
+                                        return next_dep();
+                                    }
+                                    
                                     //need to release this so that resource.select will calculate resource availability correctly
                                     task.start_date = undefined; 
-
                                     task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
                                     logger.warn("task:%s dep:%s .. %s", task._id, dep._id.toString(), task.status_msg);
-                                    
-                                    //I want to retry if rsyncing fails by leaving the task status to be requested
-                                    cb(); 
+                                    cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
                                 } else {
                                     logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
-                                    //need to add dest resource to source dep
-                                    logger.debug(["adding new resource_id", resource._id]);
-                                    dep.resource_ids.push(resource._id.toString());
-                                    dep.save(next_dep);
+
+                                    if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                                        //need to add dest resource to source dep
+                                        logger.debug("adding new resource_id:%s", resource._id.toString());
+                                        dep.resource_ids.push(resource._id.toString());
+                                        dep.save(next_dep);
+                                    } else next_dep();
                                 }
                             });
                         });

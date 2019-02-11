@@ -115,7 +115,10 @@ function ls_resource(resource, _path, cb) {
                 if(file.attrs.mode_string[0]=='l') {
                     file.link = true;
                     sftp.stat(_path+"/"+file.filename, (err, stat)=>{
-                        if(err) return next_file(err);
+                        if(err) {
+                            logger.error("broken symlink: %s", file.filename);
+                            return next_file();
+                        }
                         file.directory = stat.isDirectory();
                         next_file();
                     });
