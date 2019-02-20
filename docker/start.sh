@@ -3,8 +3,8 @@
 #This script is used inside the docker container to start api and ui(via http-server)
 
 #dockerfile copies everything including the ssh-agent.sock file.. so I need to remove it before I start it
-rm /app/ssh-agent.sock
-ssh-agent -a /app/ssh-agent.sock
+#rm /app/ssh-agent.sock
+#ssh-agent -a /app/ssh-agent.sock
 
 #pm2 start -i 2 /app/api/wf.js
 pm2 start /app/api/wf.js

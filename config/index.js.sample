@@ -4,7 +4,7 @@ const fs = require('fs');
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, prettyPrint } = format;
 
-process.env.SSH_AUTH_SOCK = "/home/hayashis/docker/ssh-agent/ssh-agent.sock";
+//process.env.SSH_AUTH_SOCK = "/home/hayashis/docker/ssh-agent/ssh-agent.sock";
 
 exports.instances = process.env.instances||1;
 exports.instance_id = process.env.NODE_APP_INSTANCE||0;

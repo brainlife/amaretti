@@ -27,6 +27,7 @@
     "mime": "^2.4.0",
     "mongoose": "^5.4.7",
     "multiparty": "^4.2.1",
+    "ps-node": "^0.1.6",
     "redis": "^2.8.0",
     "request": "^2.88.0",
     "simple-statistics": "^6.1.1",

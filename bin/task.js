@@ -1312,6 +1312,7 @@ function health_check() {
         },
         
         //checking ssh agent
+        /*
         next=>{
             common.sshagent_list_keys((err, keys)=>{
                 if(err) {
@@ -1322,6 +1323,7 @@ function health_check() {
                 next();
             });
         },
+        */
 
         //check task handling queue
         next=>{

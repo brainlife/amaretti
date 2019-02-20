@@ -31,6 +31,7 @@ exports.health_check = function() {
     }
     
     try {
+        /*
         //check sshagent
         common.sshagent_list_keys((err, keys)=>{
             if(err) {
@@ -38,27 +39,28 @@ exports.health_check = function() {
                 report.messages.push(err);
             }
             report.agent_keys = keys.length;
+        */
 
-            //check db connectivity
-            db.Instance.findOne().exec(function(err, record) {
-                if(err) {
-                    report.status = 'failed';
-                    report.messages.push(err);
-                }
-                if(record) {
-                    report.db_connection = "ok";
-                } else {
-                    report.status = 'failed';
-                    report.messages.push('no instance from db');
-                }
+        //check db connectivity
+        db.Instance.findOne().exec(function(err, record) {
+            if(err) {
+                report.status = 'failed';
+                report.messages.push(err);
+            }
+            if(record) {
+                report.db_connection = "ok";
+            } else {
+                report.status = 'failed';
+                report.messages.push('no instance from db');
+            }
 
-                if(report.status != "ok") logger.error(report);
-                
-                //report to redis
-                //logger.debug("reporting to redis--------------------------------------------------");
-                redis_client.set("health.amaretti.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
-            });
+            if(report.status != "ok") logger.error(report);
+            
+            //report to redis
+            //logger.debug("reporting to redis--------------------------------------------------");
+            redis_client.set("health.amaretti.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
         });
+        //});
     } catch(err) {
         logger.error("caught exception - probably from ssh_agent issue");
         logger.error(err);

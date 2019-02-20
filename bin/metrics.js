@@ -33,7 +33,7 @@ function sensu_name(name) {
 //I can just load this directly from mongo.. but to be consistent 
 //with what user sees (via API) let's pull it from API..
 request.get({
-    url: "http://localhost:"+config.express.port+"/admin/services/running?duration=300", 
+    url: "http://localhost:"+config.express.port+"/admin/services/running",
     json: true,
     headers: { authorization: "Bearer "+config.amaretti.jwt },
 }, function(err, res, list) {

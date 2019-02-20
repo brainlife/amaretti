@@ -8,40 +8,87 @@ const sshagent = require('sshpk-agent');
 const ConnectionQueuer = require('ssh2-multiplexer');
 const redis = require('redis');
 const request = require('request');
+const child_process = require('child_process');
+const ps = require('ps-node');
 
 const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
-//const hpss = require('hpss');
 const events = require('./events');
 
-logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
-var sshagent_client = new sshagent.Client(); //uses SSH_AUTH_SOCK by default
-
 //http://locutus.io/php/strings/addslashes/
+//http://locutus.io/php/addslashes/
 String.prototype.addSlashes = function() {
-  //  discuss at: http://locutus.io/php/addslashes/
-  // original by: Kevin van Zonneveld (http://kvz.io)
-  // improved by: Ates Goral (http://magnetiq.com)
-  // improved by: marrtins
-  // improved by: Nate
-  // improved by: Onno Marsman (https://twitter.com/onnomarsman)
-  // improved by: Brett Zamir (http://brett-zamir.me)
-  // improved by: Oskar Larsson Högfeldt (http://oskar-lh.name/)
-  //    input by: Denny Wardhana
-  //   example 1: addslashes("kevin's birthday")
-  //   returns 1: "kevin\\'s birthday"
   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
 
 //used by various health checker
-exports.sshagent_list_keys = function(cb) {
+/*
+exports.sshagent_list_keys = function(resource_id, cb) {
     //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
+    //logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
+    process.env.SSH_AUTH_SOCK = "/tmp/"+resource._id.toString()+".ssh-agent.sock";
     sshagent_client.listKeys(cb);
 }
-exports.sshagent_add_key = function(key, opt, cb) {
-    sshagent_client.addKey(key, opt, cb);
+*/
+
+//find all orphaned ssh-agent processes and kill them.
+ps.lookup({
+    command: 'ssh-agent',
+}, (err, list)=>{
+    if(err) throw err;
+    list.forEach(p=>{
+        if(p.ppid == "1") {
+            logger.info("killing orphaned ssh-agent");
+            console.dir(p);
+            process.kill(p.pid);
+        }
+    });
+});
+
+/* doesn't work
+process.on('exit', ()=>{
+    console.log("exit--------------------------------");
+    for(let id in sshagents) {
+        if(sshagents[id]) {
+            console.log("terminating ssh-agent %s", id);
+            sshagents[id].agent.kill();
+        }
+    }
+});
+*/
+
+exports.create_sshagent = function(key, cb) {
+    let auth_sock = "/tmp/"+parseInt(Math.random()*10000).toString()+".ssh-agent.sock";
+    logger.debug("spawning(-D).. ssh-agent for %s", auth_sock);
+    let agent = child_process.spawn("ssh-agent", ["-D", "-a", auth_sock]);
+    agent.stdout.on('data', data=>{
+        logger.debug(data);
+    });
+    agent.stderr.on('data', data=>{
+        logger.error(data);
+    });
+    agent.on('exit', code=>{
+        logger.info("ssh-agent died %d %s", code, auth_sock);
+    });
+
+    //I need to give a bit of time for sshagent to start 
+    setTimeout(()=>{
+        //this throws if ssh agent isn't running, but try/catch won't catch.. 
+        //https://github.com/joyent/node-sshpk-agent/issues/11
+        //"expires" in seconds (10 seconds seems to be too short..)
+        //TODO - I am not sure if 60 seconds is enough, or that extending it would fix the problem.
+        //    [rsync]
+        //    Permission denied (publickey).
+        //    sync: connection unexpectedly closed (0 bytes received so far) [receiver]
+        //common.sshagent_add_key(privkey, {expires: 60}, next);  
+        let client = new sshagent.Client({socketPath: auth_sock});
+        client.addKey(key, err=>{
+            cb(err, agent, auth_sock);
+        });
+    }, 1000);
 }
+
 //connect to redis - used to store various shared caches
 //TODO who use this now?
 exports.redis = redis.createClient(config.redis.port, config.redis.server);
