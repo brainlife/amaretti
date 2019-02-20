@@ -108,15 +108,21 @@ function do_loaddetail(service_name, branch, cb) {
 
 exports.get_sha = function(service_name, branch, cb) {
     if(!branch) branch = "master";
-    let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
-    request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, body) {
+    //let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
+    let url = 'https://api.github.com/repos/'+service_name+"/git/refs";
+    logger.debug(url);
+    request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, (err, _res, body)=>{
         if(err) return cb(err);
         if(_res.statusCode != 200) {
             logger.error(body);
             logger.debug(url);
             return cb(body);
         }
-        cb(null, body.object);
+        let refs = body;
+        let ref = refs.find(ref=>ref.ref.endsWith("/"+branch));
+        if(!ref) return cb("no such branch/tag:"+branch);
+        logger.debug(ref.object);
+        cb(null, ref.object);
     });
 }
 

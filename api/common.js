@@ -59,7 +59,7 @@ process.on('exit', ()=>{
 */
 
 exports.create_sshagent = function(key, cb) {
-    let auth_sock = "/tmp/"+parseInt(Math.random()*10000).toString()+".ssh-agent.sock";
+    let auth_sock = "/tmp/"+Math.random()+"."+Math.random()+"."+Math.random()+".ssh-agent.sock";
     logger.debug("spawning(-D).. ssh-agent for %s", auth_sock);
     let agent = child_process.spawn("ssh-agent", ["-D", "-a", auth_sock]);
     agent.stdout.on('data', data=>{
