@@ -367,7 +367,8 @@ function check_ssh(resource, cb) {
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
         });
     } catch (err) {
-        cb(null, "failed", err.toString());
+        if(cb) cb(null, "failed", err.toString());
+        cb = null;
     }
 }
 
@@ -376,6 +377,7 @@ function check_iohost(resource, cb) {
     var conn = new Client();
     var ready = false;
 
+    /*
     function cb_once(err, status, message) {
         if(cb) {
             cb(err, status, message);
@@ -386,6 +388,7 @@ function check_iohost(resource, cb) {
 
         conn.end();
     }
+    */
     
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.on('ready', function() {
@@ -435,7 +438,8 @@ function check_iohost(resource, cb) {
             privateKey: decrypted_resource.config.enc_ssh_private,
         });
     } catch (err) {
-        cb(null, "failed", err.toString());
+        if(cb) cb(null, "failed", err.toString());
+        cb = null;
     }
 }
 

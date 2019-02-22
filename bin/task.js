@@ -473,6 +473,7 @@ function handle_requested(task, next) {
             return;
         }
         
+        //set start date to *lock* this task
         task.status_msg = "Starting task";
         task.start_date = new Date();
         task._considered = considered;
@@ -481,36 +482,33 @@ function handle_requested(task, next) {
             logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
             task.resource_ids.push(resource._id);
         }
+        //need to save start_date to db so that other handler doesn't get called
+        task.save(err=>{
+            start_task(task, resource, err=>{
+                if(err) {
+                    //failed to start (or running_sync failed).. mark the task as failed
+                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                    logger.error([task._id.toString(), err]);
+                    task.status = "failed";
+                    task.status_msg = err;
+                    task.fail_date = new Date();
+                } 
+                //next();
 
-        var called = false;
-        start_task(task, resource, err=>{
-            
-            //detect multiple cb calling.. (this hasn't happened lately.. maybe I've finally cured it?)
-            if(called) throw new Error("callback called again for start_task");
-            called = true;
-
-            if(err) {
-                //failed to start (or running_sync failed).. mark the task as failed
-                //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
-                logger.error([task._id.toString(), err]);
-                task.status = "failed";
-                task.status_msg = err;
-                task.fail_date = new Date();
-            } 
-            //next();
-
-            //now that we run start_task asynchrously, I need to take care of updating things
-            task.save(err=>{
-                if(err) logger.error(err);
-                common.update_instance_status(task.instance_id, err=>{
+                //now that we run start_task asynchrously, I need to take care of updating things
+                task.save(err=>{
                     if(err) logger.error(err);
+                    common.update_instance_status(task.instance_id, err=>{
+                        if(err) logger.error(err);
+                    });
                 });
             });
+
+            //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
+            //start_task is designed to be able to run concurrently..
+            next();
         });
 
-        //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
-        //start_task is designed to be able to run concurrently..
-        next();
     });
 }
 
