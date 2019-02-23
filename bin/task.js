@@ -499,22 +499,26 @@ function handle_requested(task, next) {
         task.save(err=>{
             start_task(task, resource, err=>{
                 if(err) {
-                    //failed to start (or running_sync failed).. mark the task as failed
-                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
+                    //permanently failed to start (or running_sync failed).. mark the task as failed
                     logger.error([task._id.toString(), err]);
                     task.status = "failed";
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-                //next();
 
-                //now that we run start_task asynchrously, I need to take care of updating things
-                task.save(err=>{
-                    if(err) logger.error(err);
-                    common.update_instance_status(task.instance_id, err=>{
+                if(task.status == "requested") {
+                    //if it didn't start, reset start_date so we can handle it later again
+                    task.start_date = undefined;
+                    task.save();
+                } else {
+                    //either startup failed, or success
+                    task.save(err=>{
                         if(err) logger.error(err);
+                        common.update_instance_status(task.instance_id, err=>{
+                            if(err) logger.error(err);
+                        });
                     });
-                });
+                }
             });
 
             //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
@@ -861,12 +865,16 @@ function start_task(task, resource, cb) {
                 logger.debug("running %s", cmd);
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
-                    conn.exec("timeout 90 bash -c \""+cmd+"\"", function(err, stream) {
+                    conn.exec("timeout 60 bash -c \""+cmd+"\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
                         let last_error = "";
                         stream.on('close', function(code, signal) {
-                            if(code === undefined) return next("timeout while git cloning");
+                            if(code === undefined) {
+                                logger.warn("timeout while git clonning "+cmd);
+                                task.status_msg = "timeout while git cloning.. will retry later";
+                                return cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
+                            }
                             else if(code) return next("Failed to git clone. code:"+code+" signal:"+signal+" "+last_error);
                             else next();
                         })
@@ -1022,7 +1030,6 @@ function start_task(task, resource, cb) {
                                     }
                                     
                                     //need to release this so that resource.select will calculate resource availability correctly
-                                    task.start_date = undefined; 
                                     task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
                                     logger.warn("task:%s dep:%s .. %s", task._id, dep._id.toString(), task.status_msg);
                                     cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
