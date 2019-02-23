@@ -110,7 +110,6 @@ function check(cb) {
         case "running": 
             handler = handle_running; 
             break;
-t
         /*
         case "finished":
         case "failed":
@@ -223,6 +222,7 @@ function handle_housekeeping(task, cb) {
                         });
                     });
                     */
+
                     logger.debug("getting sftp connection for taskdir check:"+resource_id);
                     common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) {
@@ -393,6 +393,20 @@ function handle_housekeeping(task, cb) {
 
 function handle_requested(task, next) {
 
+    let now = new Date();
+
+    //requested jobs are handled asynchrnously.. (start_date will be set while being handled)
+    //if some api reset next_date, it could get reprocessed while it's starting up
+    //so we need to bail if this is the cause
+    if(task.start_date) {
+        let starting_for = now - task.start_date;
+        if(starting_for < 1000*3600) {
+            logger.info("job seems to be starting.. "+starting_for);
+            return next();
+        }
+        logger.error("start_ date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
+    }
+
     //make sure dependent tasks has all finished
     var deps_all_done = true;
     var failed_deps = [];
@@ -423,7 +437,6 @@ function handle_requested(task, next) {
     }
      
     //fail if requested for too long
-    var now = new Date();
     var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
     if(reqtime > 1000 * 3600*24*20) {
         task.status_msg = "Task has been stuck in requested state for >20 days.. failing";

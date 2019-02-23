@@ -818,5 +818,13 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
     });
 });
 
+//bulk action
+
+/*
+ * stop all and remove
+ * db.getCollection('tasks').update({_group_id: 307, status: "requested"}, {$set: {status: "stopped", remove_date: new Date()}, $unset: {next_date: 1}}, {multi: true})
+*/
+
+
 module.exports = router;
 
