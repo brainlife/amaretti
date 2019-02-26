@@ -259,7 +259,7 @@ function get_fullpath(task, resource, p, cb) {
 //Another way to mitigate this is to issue a temporary jwt token used to do file download (or permanent token that's tied to the URL?)
 /**
  * @apiGroup Task
- * @api {get} /task/download/:taskid    
+ * @api {get} /task/download/:taskid/*
  *                              Download file/dir from task
  * @apiDescription              Download file/dir from task. If directory path is specified, it will stream tar gz-ed content
  *
@@ -270,7 +270,7 @@ function get_fullpath(task, resource, p, cb) {
  * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
  */
-router.get('/download/:taskid', jwt({
+router.get('/download/:taskid/*', jwt({
     secret: config.amaretti.auth_pubkey,
     getToken: function(req) {
         //load token from req.headers as well as query.at
@@ -282,7 +282,9 @@ router.get('/download/:taskid', jwt({
         return null;
     }
 }), function(req, res, next) {
-    logger.debug("/task/download/"+req.params.taskid);
+
+    let p = req.query.p || req.params[0];
+    logger.debug("/task/download/"+req.params.taskid+" "+p);
     
     //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
     //only thrown if client terminates request (including no change?)
@@ -295,7 +297,7 @@ router.get('/download/:taskid', jwt({
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
 
-        get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
+        get_fullpath(task, resource, p, (err, fullpath)=>{
             if(err) return next(err);
 
             logger.debug("gettingn sftp connection");
@@ -327,7 +329,7 @@ router.get('/download/:taskid', jwt({
 
                             //compose a good unique name
                             let name = task.instance_id+"."+task._id;
-                            if(req.query.p) name +="."+req.query.p.replace(/\//g, '.');
+                            if(p) name +="."+p.replace(/\//g, '.');
                             name += '.tar.gz';
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);

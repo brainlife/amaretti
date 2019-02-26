@@ -798,12 +798,6 @@ function start_task(task, resource, cb) {
         if(resource.envs) for(var key in resource.envs) {
             envs[key] = resource.envs[key];
         }
-        /*
-        //override with any task envs specified by submitter (that a security risk!)
-        if(task.envs) for(var key in task.envs) {
-            envs[key] = task.envs[key];
-        }
-        */
 
         logger.debug("starting task on "+resource.name);
         async.series([
