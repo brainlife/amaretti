@@ -64,7 +64,6 @@ request.get({
     });
 
     let emits = {}; //key value to emit
-
     async.parallel({
 
         //pull resource detail

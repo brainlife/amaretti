@@ -68,7 +68,7 @@ router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         if(err) return next(err);
         res.json(services);
     });
- });
+});
 
 //get task detail
 //unauthenticated user sometimes need to get task detail (like app used, etc..)
@@ -270,6 +270,15 @@ function get_fullpath(task, resource, p, cb) {
  * @apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
  *
  */
+
+/*
+//backward compatibility until I migrate all UIs
+router.get('/download/:taskid', (req,res,next)=>{
+    logger.warn("p= based download is deprecated. use url path");
+    res.redirect(req.params.taskid+"/"+req.query.p+"?at="+req.query.at);
+});
+*/
+
 router.get('/download/:taskid/*', jwt({
     secret: config.amaretti.auth_pubkey,
     getToken: function(req) {
@@ -693,6 +702,7 @@ router.put('/poke/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         task.next_date = undefined;
+        task.start_date = undefined; //for jobs that are stuck
         task.save(err=>{
             if(err) return next(err);
             res.json({message: "Task poked", task: task});

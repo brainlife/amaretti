@@ -391,7 +391,7 @@ function check_iohost(resource, cb) {
     */
     
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
-    conn.on('ready', function() {
+    conn.once('ready', function() {
         ready = true;
 
         var workdir = common.getworkdir(null, resource);
