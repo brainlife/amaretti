@@ -203,6 +203,25 @@ router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(r
     });
 });
 
+//(admin only) count number of instances
+router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
+
+    var find = {};
+    //if(req.query.limit) req.query.limit = parseInt(req.query.limit);
+    //if(req.query.skip) req.query.skip = parseInt(req.query.skip);
+    if(req.query.find) find = JSON.parse(req.query.find);
+    
+    //group by status and count
+    db.Instance.aggregate([
+        {$match: find},
+        {$group: {_id: '$status', count: {$sum: 1}}},
+    ]).exec(function(err, counts) {
+        if(err) return next(err);
+        res.json(counts);
+    });
+});
+
 /*
 //(admin only) return list of instances currently running 
 router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {

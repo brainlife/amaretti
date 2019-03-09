@@ -88,11 +88,12 @@ request.get({
 
         //pull contact details
         contact_details: cb=>{
+            if(users.length == 0) return cb(null, {});
             request.get({
                 url: config.api.auth+"/profile", json: true,
                 qs: {
                     where: JSON.stringify({
-                        id: {$in: Object.keys(users)},
+                        id: {$in: users},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },

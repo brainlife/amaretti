@@ -1006,6 +1006,7 @@ function start_task(task, resource, cb) {
 
                     db.Resource.findById(dep.resource_id, function(err, source_resource) {
                         if(err) return next_dep(err);
+                        if(!source_resource.active) return cb(); //let's retry later.. //TODO - maybe I should look for other resources that has this task?
                         logger.debug("syncing "+source_resource.name);
                         let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                         let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
@@ -1379,60 +1380,4 @@ rcon.on('ready', ()=>{
 
 health_check(); //initial check (I shouldn't do this anymore?)
 
-/* task handling loop is pretty stable now.. so I don't need to do this anymore
-//run noop periodically to keep task loop occupied
-function run_noop() {
-    if(_counts.tasks != 0) return; //only run if task loop is bored
 
-    //find instance to run
-    db.Instance.findOne({name: "_health"}, (err, instance)=>{
-        if(err) return logger.error(err);
-        if(!instance) {
-            logger.info("need to submit _health instance");
-            instance = new db.Instance({
-                name: "_health",
-            });
-            instance.save();
-        }
-
-        //find noop task
-        db.Task.findOne({name: "noop", instance_id: instance._id}, (err, task)=>{
-            if(err) return logger.error(err);
-            if(!task) {
-                logger.info("need to submit noop task");
-                task = new db.Task({
-                    name: "noop",
-                    user_id: "1", //picking random user here..
-                    instance_id: instance._id,
-                    status: "requested",
-                    request_date: new Date(),
-                    config: { "test": 123 },
-                    service: "brainlife/app-noop",  
-                });
-                task.save();
-                return;
-            }
-
-            logger.debug(["health: noop status:", task.status, task._id.toString(), task.next_date]);
-            if(task.status == "failed") {
-                logger.error("noop failed");
-                logger.error(console.dir(JSON.stringify(task, null, 4)));
-                //continue
-            }
-            if(task.status == "requested") {
-                return;
-            }
-            if(task.status != "running") {
-                //if not running, run it again 
-                //logger.debug("health/rerunning noop");
-                task.status = "requested";
-                task.next_date = undefined;
-                task.start_date = undefined;
-                task.request_date = new Date();
-                task.request_count = 0;
-                task.save();
-            }
-        });
-    });
-}
-*/
