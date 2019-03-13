@@ -193,7 +193,7 @@ router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(r
                 //set config.removing to true to inform UI that this instance is currently being removed
                 db.Instance.findOneAndUpdate({_id: instid}, {$set: {
                     'config.removing': true,
-                }}, function(err, instance) {
+                }}, {new: true}, function(err, instance) {
                     if(err) return next(err);
                     res.json({message: "Instance successfully scheduled -- tasks removed: "+tasks.length});
                     events.instance(instance);
