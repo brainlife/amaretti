@@ -35,11 +35,13 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
-    //only return task that user has submitted or belongs to the _group_id(project for warehouse) that user is member of
-    find['$or'] = [
-        {user_id: req.user.sub},
-        {_group_id: {$in: req.user.gids||[]}},
-    ];
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+        //only return task that user has submitted or belongs to the _group_id(project for warehouse) that user is member of
+        find['$or'] = [
+            {user_id: req.user.sub},
+            {_group_id: {$in: req.user.gids||[]}},
+        ];
+    }
 
     db.Task.find(find)
     .select(req.query.select)
