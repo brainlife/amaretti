@@ -42,9 +42,9 @@ request.get({
 
     //console.log(JSON.stringify(list, null, 4));
     //convert list of service/resouce_id keys into various statistics
-    let services = [];
-    let resources = [];
-    let users = [];
+    let services = {};
+    let resources = {};
+    let users = {};
     list.forEach(item=>{
         let service = item._id.service;
         let resource_id = item._id.resource_id;
@@ -88,12 +88,12 @@ request.get({
 
         //pull contact details
         contact_details: cb=>{
-            if(users.length == 0) return cb(null, {});
+            if(Object.keys(users).length == 0) return cb(null, {});
             request.get({
                 url: config.api.auth+"/profile", json: true,
                 qs: {
                     where: JSON.stringify({
-                        id: {$in: users},
+                        id: {$in: Object.keys(users)},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },

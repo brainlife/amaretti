@@ -12,4 +12,7 @@ pm2 start bin/task.js --name amaretti-task --watch --ignore-watch="*.log test *.
 pm2 delete amaretti-resource
 pm2 start bin/resource.js --name amaretti-resource --watch --ignore-watch="*.log test *.sh ui example .git"
 
+pm2 delete amaretti-remove-workdir
+pm2 start bin/remove_workdirs.js --name amaretti-remove-workdir --watch --ignore-watch="*.log test *.sh ui example .git"
+
 pm2 save

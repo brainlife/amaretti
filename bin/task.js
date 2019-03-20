@@ -32,7 +32,6 @@ db.init(function(err) {
     if(err) throw err;
     logger.debug("db-initialized");
     check(); //start check loop
-    //setInterval(run_noop, 1000*30);
 });
 
 //https://github.com/soichih/workflow/issues/15
@@ -165,8 +164,6 @@ function handle_housekeeping(task, cb) {
                 return next();
             }
 
-            var missing_resource_ids = [];
-            
             //handling all resources in parallel - in a hope to speed things a bit.
             async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
@@ -177,7 +174,7 @@ function handle_housekeeping(task, cb) {
                     if(!resource || resource.status == 'removed') {
                         logger.info("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" is removed.. assuming task dir to be gone");
                         
-                        missing_resource_ids.push(resource_id);
+                        task.resource_ids.pull(resource_id);
                         return next_resource();
                     }
                     if(!resource.active) return next_resource("resource is inactive.. will try later");
@@ -186,43 +183,6 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check to see if taskdir still exists (not purged by resource)
-                    /*
-                    logger.debug("getting ssh connection for house keeping:"+resource_id);
-                    common.get_ssh_connection(resource, function(err, conn) {
-                        if(err) {
-                            logger.error(err);
-                            return next_resource(); //maybe a temp. resource error?
-                        }
-                        var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                        if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        //TODO is it better to use sftp?
-                        console.time(taskdir);
-                        logger.debug("querying ls %s", taskdir);
-                        //conn.exec("timeout 10 ls "+taskdir, function(err, stream) {
-                        conn.exec("timeout 10 [ -d "+taskdir+" ]", function(err, stream) {
-                            if(err) return next_resource(err);
-                            stream.on('close', function(code, signal) {
-                                console.log("end--");
-                                console.timeEnd(taskdir);
-                                if(code === undefined) {
-                                    logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
-                                } else if(code == 2) { //ls couldn't find the directory
-                                    //CAUTION - I am not entire suer if code 2 means directory is indeed removed, or temporarly went missing (which happens a lot with dc2)
-                                    logger.debug("taskdir:"+taskdir+" is missing");
-                                    missing_resource_ids.push(resource_id);
-                                }
-                                logger.debug("exists %s", taskdir);
-                                next_resource();
-                            })
-                            .on('data', function(data) {
-                                //logger.debug(data.toString());
-                            }).stderr.on('data', function(data) {
-                                logger.debug(data.toString());
-                            });
-                        });
-                    });
-                    */
-
                     logger.debug("getting sftp connection for taskdir check:"+resource_id);
                     common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) {
@@ -242,7 +202,7 @@ function handle_housekeeping(task, cb) {
                                 if(err) {
                                     //TODO - let's assume directory is missing.. we need to parse the err to see why it failes.
                                     logger.debug(err);
-                                    missing_resource_ids.push(resource_id);
+                                    task.resource_ids.pull(resource_id);
                                 } else {
                                     //TODO - can I do something useful with files?
                                     logger.debug("taskdir has %d files", files.length);
@@ -261,17 +221,10 @@ function handle_housekeeping(task, cb) {
                     //is defined as "resouce id used" (not where it's at currently)
                     //task.resource_id = undefined;
 
-                    //remove missing_resource_ids from resource_ids
-                    var resource_ids = [];
-                    task.resource_ids.forEach(function(id) {
-                        if(!~common.indexOfObjectId(missing_resource_ids, id)) resource_ids.push(id);
-                    });
-                    task.resource_ids = resource_ids;
-
-                    //now.. if we *know* that there are no resource that has this task, consider it removed
-                    if(resource_ids.length == 0) {
+                    //now.. if we *know* that there are no more resource that has this task, consider it removed
+                    if(task.resource_ids.length == 0) {
                         task.status = "removed"; //most likely removed by cluster
-                        task.status_msg = "Output from this task seems to have been removed";
+                        task.status_msg = "Output from this task seems to have been all removed";
                     }
                     next();
                 }
@@ -310,7 +263,14 @@ function handle_housekeeping(task, cb) {
                     return next(); //veto!
                 }
 
+                //ok.. it can be removed! (let removed task handler do the cleanup)
+                task.status_msg = "workdirs waiting to be removed";
+                task.status = "removed";
+                //task.next_date = undefined; //remove workdir immediately
+                next();
+
                 //start removing!
+                /*
                 logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
                 let removed_resource_ids = [];
                 async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
@@ -339,8 +299,6 @@ function handle_housekeeping(task, cb) {
                             var workdir = common.getworkdir(task.instance_id, resource);
                             var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                             if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                            //TODO - instead of physically removing task dir, maybe I can mark it, or move it trash/ and let 
-                            //each resource take care of the actual removal
                             logger.info("removing "+taskdir+" and workdir if empty");
                             conn.exec("timeout 60 bash -c \"rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")\"", function(err, stream) {
                                 if(err) return next_resource(err);
@@ -382,6 +340,7 @@ function handle_housekeeping(task, cb) {
                         next();
                     }
                 });
+                */
 
             });
         },
@@ -715,12 +674,12 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 3: //status temporarly unknown
-                            logger.error("couldn't determine the job state. could be an issue with status script");
+                            logger.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name);
                             next();
                             break;
                         default:
                             //TODO - should I mark it as failed? or.. 3 strikes and out rule?
-                            logger.error("unknown return code:"+code+" returned from _status.sh");
+                            logger.error("unknown return code:"+code+" returned from _status.sh on resource:%s", resource.name);
                             next();
                         }
                     })
