@@ -119,7 +119,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
                             if(code === undefined) return next("timedout while rsyncing");
                             else if(code) { 
-                                logger.error("Failed to rsync content from remote resource:"+source+" to local path:"+dest_path+" code:"+code);
+                                logger.error("On resource:"+hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
                                 logger.error(errors);
                                 next(errors);
                             } else {

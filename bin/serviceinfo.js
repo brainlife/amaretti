@@ -53,6 +53,7 @@ db.init(function(err) {
             });
         },
 
+        /*
         //TODO - will be deprecated soon - now that we are moving to graphite to store this
         next=>{
             console.log("also generate last 180 days usage graph");
@@ -101,6 +102,7 @@ db.init(function(err) {
                 next();
             });
         },
+        */
 
         next=>{
             console.log("group by service and user count");

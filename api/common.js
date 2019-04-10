@@ -521,7 +521,8 @@ exports.request_task_removal = function(task, cb) {
         break;
     */
     case "running_sync":
-        //we don't have a way to stop running_rsync.. I think.. just wait for it to be stopped
+        //we don't have a way to stop running_rsync.. I think.. just wait for it to finish 
+        //(then let housekeeper take care of the removal)
         break;
     default:
         task.status_msg = "Task scheduled to be removed soon";

@@ -647,6 +647,7 @@ function handle_running(task, next) {
                                     logger.info("loaded product.json");
                                     //common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                                     task.finish_date = new Date();
+                                    if(!task.start_date) task.start_date = task.create_date; //shoudn't happen, but it does sometimes.
                                     let runtime = task.finish_date.getTime() - task.start_date.getTime();
                                     task.status = "finished";
                                     task.status_msg = "Successfully completed in "+(runtime/(1000*60)).toFixed(2)+" mins on "+resource.name;
