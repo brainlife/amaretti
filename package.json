@@ -15,17 +15,17 @@
   "author": "Soichi Hayashi <hayashis@iu.edu>",
   "dependencies": {
     "amqp": "^0.2.7",
-    "async": "^2.6.1",
+    "async": "^2.6.2",
     "body-parser": "^1.18.3",
-    "compression": "^1.7.3",
+    "compression": "^1.7.4",
     "cors": "^2.8.5",
     "express": "^4.16.4",
     "express-jwt": "^5.3.1",
-    "express-winston": "^3.0.1",
+    "express-winston": "^3.1.0",
     "hpss": "0.0.20",
-    "jsonwebtoken": "^8.4.0",
-    "mime": "^2.4.0",
-    "mongoose": "^5.4.7",
+    "jsonwebtoken": "^8.5.1",
+    "mime": "^2.4.2",
+    "mongoose": "^5.5.1",
     "multiparty": "^4.2.1",
     "ps-node": "^0.1.6",
     "redis": "^2.8.0",
@@ -35,10 +35,10 @@
     "ssh2-multiplexer": "0.0.8",
     "sshpk": "^1.16.1",
     "sshpk-agent": "^1.7.0",
-    "winston": "^3.2.0"
+    "winston": "^3.2.1"
   },
   "devDependencies": {
-    "coveralls": "^3.0.2",
+    "coveralls": "^3.0.3",
     "istanbul": "^0.4.4",
     "mocha": "^5.0.5",
     "supertest": "^3.4.2"

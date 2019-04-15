@@ -20,7 +20,7 @@ exports.init = function(cb) {
             useNewUrlParser: true,
 
             //TODO - isn't auto_reconnect set by default?
-            server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
+            //server: { auto_reconnect: true, reconnectTries: Number.MAX_VALUE}
         }, function(err) {
             if(err) return cb(err);
             //logger.info("connected to mongo");

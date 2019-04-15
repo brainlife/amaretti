@@ -49,6 +49,18 @@ exports.github = {
     client_secret: fs.readFileSync(__dirname+"/github.client.secret", "ascii").trim(),
 }
 
+/*
+exports.metrics = {
+    task: {
+            path: "/graphite/graphite.5min/amaretti.task",
+            //prefix: "prod.warehouse",
+            prefix: "dev.warehouse", 
+    },
+
+    api: "http://10.0.0.10",
+}
+*/
+
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://amaretti:gobrain@localhost:5672/brainlife"},

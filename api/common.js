@@ -69,7 +69,7 @@ exports.create_sshagent = function(key, cb) {
         logger.error(data);
     });
     agent.on('exit', code=>{
-        logger.info("ssh-agent died %d %s", code, auth_sock);
+        logger.debug("ssh-agent exited %d %s (as it should)", code, auth_sock);
     });
 
     //I need to give a bit of time for sshagent to start 

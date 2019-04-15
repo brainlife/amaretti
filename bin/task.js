@@ -41,7 +41,6 @@ function set_nextdate(task) {
     case "finished":
     case "stopped":
         task.next_date = new Date(Date.now()+1000*3600*24);
-            
         //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
         //if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
@@ -966,8 +965,12 @@ function start_task(task, resource, cb) {
 
                     db.Resource.findById(dep.resource_id, function(err, source_resource) {
                         if(err) return next_dep(err);
-                        if(!source_resource.active) return cb(); //let's retry later.. //TODO - maybe I should look for other resources that has this task?
-                        logger.debug("syncing "+source_resource.name);
+                        if(!source_resource.active) {
+                            task.status_msg = "resource("+source_resource.name+") which contains the input data is not active. will try later.";
+                            //let's retry later.. //TODO - maybe I should look for other resources that has this task?
+                            return cb(); 
+                        }
+                        //logger.debug("syncing "+source_resource.name);
                         let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                         let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                         let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
@@ -980,7 +983,7 @@ function start_task(task, resource, cb) {
                                 if(err) {
                                     //if its already synced, rsyncing is optional, so I don't really care about errors
                                     if(~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                        logger.warn("syncing failed, but we were able to sync it before.. processding with out syncing");
+                                        logger.warn("syncing failed, but we were able to sync it before.. processding without syncing");
                                         return next_dep();
                                     }
                                     

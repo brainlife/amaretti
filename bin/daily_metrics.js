@@ -20,9 +20,16 @@ if(!graphite_prefix) {
     process.exit(1);
 }
 
+
+let ignored_service = [
+    "soichih/sca-product-raw",
+    "brainlife/app-stage",
+    "brainlife/app-archive",
+];
+
 function count_tasks(d) {
     return new Promise((resolve, reject)=>{
-        db.Task.countDocuments({create_date: {$lt: d}, service: {$nin: ["soichih/sca-product-raw"]}}, (err, count)=>{
+        db.Task.countDocuments({create_date: {$lt: d}, service: {$nin: ignored_service}}, (err, count)=>{
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".task.count "+count+" "+time);
@@ -33,7 +40,7 @@ function count_tasks(d) {
 
 function count_active_user(d) {
     return new Promise((resolve, reject)=>{
-        db.Task.distinct('user_id', {create_date: {$lt: d}, service: {$nin: ["soichih/sca-product-raw"]}}, (err, users)=>{
+        db.Task.distinct('user_id', {create_date: {$lt: d}, service: {$nin: ignored_service}}, (err, users)=>{
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".user.active "+users.length+" "+time);
@@ -44,15 +51,6 @@ function count_active_user(d) {
 db.init(async function(err) {
     if(err) throw err;
     let today = new Date();
-    /*
-    let d = new Date("2017-01-01");
-    while(d.getTime() < today.getTime()) {
-        //await count_tasks(d); 
-        await count_active_user(d); 
-        d.setDate(d.getDate()+7);
-    }
-    */
-
     await count_tasks(today); 
     await count_active_user(today); 
     db.disconnect();
