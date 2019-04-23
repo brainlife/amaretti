@@ -106,7 +106,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 }, (err, conn)=>{
                     if(err) return next(err); 
                     logger.debug("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
-                    conn.exec("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
+                    conn.exec("rsync --timeout 600 --exclude \".*\" --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
                         let progress_date = new Date();

@@ -211,7 +211,7 @@ function handle_housekeeping(task, cb) {
                         });
                     });
                 });
-            }, function(err) {
+            }, err=>{
                 if(err) {
                     logger.info(err); //continue
                     next();
@@ -451,6 +451,7 @@ function handle_requested(task, next) {
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
             logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
+            //TODO - this could cause concurrency issue sometimes (I should try $addToSet?)
             task.resource_ids.push(resource._id);
         }
         //need to save start_date to db so that other handler doesn't get called
@@ -707,13 +708,6 @@ function rerun_child(task, cb) {
 
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
-    /*
-    common.get_ssh_connection(resource, function(err, conn) {
-        if(err) {
-            logger.error(err);
-            return cb(); //retry later..
-        }
-    */
     var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
     if(service == null) return cb(new Error("service not set.."));
     _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
@@ -994,12 +988,23 @@ function start_task(task, resource, cb) {
                                 } else {
                                     logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
 
+                                    //tryint $addToSet to see if this could prevent the following issue
+                                    //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
+                                    logger.debug("adding new resource_id:%s", resource._id.toString());
+                                    db.Task.findOneAndUpdate({_id: dep._id}, {
+                                        $addToSet: {
+                                            resource_ids: resource._id.toString(),
+                                        }
+                                    }, next_dep);
+
+                                    /* this could cause concurrency issue sometimes
                                     if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
                                         //need to add dest resource to source dep
                                         logger.debug("adding new resource_id:%s", resource._id.toString());
                                         dep.resource_ids.push(resource._id.toString());
                                         dep.save(next_dep);
                                     } else next_dep();
+                                    */
                                 }
                             });
                         });

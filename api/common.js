@@ -173,7 +173,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
 
         //if connection is too old, close it and open new one
         if(old.queue.length == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
-            logger.info("connection is old.. opening newone");
+            logger.info("connection is old.. opening new one");
             old.end();
         } else {
             logger.info("reusing ssh(cqueue) connection for %s (queue size:%d) (connected:%s)", id, old.queue.length, old.connected);
@@ -228,15 +228,31 @@ exports.get_ssh_connection = function(resource, opts, cb) {
 
 function sftp_ref(sftp) {
     sftp._count = 0;
+
     function stat(path, cb) {
-        sftp.stat(path, cb);
+        sftp._count++;
+        sftp.stat(path, (err, stat)=>{
+            sftp._count--;
+            cb(err, stat);
+        });
     }
+
     function readdir(path, cb) {
-        sftp.readdir(path, cb);
+        sftp._count++;
+        sftp.readdir(path, (err, files)=>{
+            sftp._count--;
+            cb(err, files);
+        });
     }
+
     function realpath(path, cb) {
-        sftp.realpath(path, cb);
+        sftp._count++;
+        sftp.realpath(path, (err, path)=>{
+            sftp._count--;
+            cb(err, path);
+        });
     }
+
     function createReadStream(path, cb) {
         //prevent more than 5 concurrent connection (most places only allows up to 8)
         if(sftp._count > 4) {
@@ -297,14 +313,29 @@ exports.get_sftp_connection = function(resource, cb) {
     //see if we already have an active sftp session
     var old = sftp_conns[resource._id];
     if(old) {
-        logger.debug("reusing sftp for resource:"+resource._id);
-        return cb(null, old);
+        if(old.connecting) {
+            logger.info("waiting for connecting sftp .. %s", resource._id.toString());
+            return setTimeout(()=>{
+                exports.get_sftp_connection(resource, cb);
+            }, 1000);
+        }
+
+        //if connection is too old, close it and open new one
+        if(old._count == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
+            logger.info("sftp connection is old.. opening new one %s", resource._id.toString());
+            old.end();
+        } else {
+            logger.debug("reusing sftp for resource %s", resource._id.toString());
+            return cb(null, old);
+        }
     }
-    logger.debug("open new sftp connection");
-    var detail = config.resources[resource.resource_id];
-    var conn = new Client();
+    sftp_conns[resource._id] = {connecting: true};
+
+    logger.debug("opening new sftp connection");
+    const detail = config.resources[resource.resource_id];
+    const conn = new Client();
     conn.on('ready', function() {
-        logger.debug("new sftp connection ready", resource._id.toString());
+        logger.debug("new ssh for sftp connection ready.. opening sftp %s", resource._id.toString());
         conn.sftp((err, sftp)=>{
             if(err) return cb(err);
             sftp = sftp_ref(sftp);
@@ -315,11 +346,11 @@ exports.get_sftp_connection = function(resource, cb) {
         });
     });
     conn.on('end', function() {
-        logger.debug("sftp connection ended", resource._id.toString());
+        logger.debug("sftp connection ended %s", resource._id.toString());
         delete sftp_conns[resource._id];
     });
     conn.on('close', function() {
-        logger.debug("sftp connection closed", resource._id.toString());
+        logger.debug("sftp connection closed %s", resource._id.toString());
         delete sftp_conns[resource._id];
     });
     conn.on('error', function(err) {
