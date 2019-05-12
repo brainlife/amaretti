@@ -217,8 +217,10 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         host: resource.config.hostname || detail.hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
-        keepaliveInterval: 10*1000, //default 0 (disabled)
-        //keepaliveCountMax: 30, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+
+        //setting it longer for csiu
+        keepaliveInterval: 15*1000, //default 0 (disabled)
+        keepaliveCountMax: 10, //default 3 (https://github.com/mscdex/ssh2/issues/367)
 
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?
@@ -337,7 +339,12 @@ exports.get_sftp_connection = function(resource, cb) {
     conn.on('ready', function() {
         logger.debug("new ssh for sftp connection ready.. opening sftp %s", resource._id.toString());
         conn.sftp((err, sftp)=>{
-            if(err) return cb(err);
+            if(err) {
+                logger.error(err);
+                if(cb) cb(err);
+                cb = null;
+                return;
+            }
             sftp = sftp_ref(sftp);
             sftp._workdir = exports.getworkdir(null, resource); //to be used by tester
             sftp_conns[resource._id] = sftp;
@@ -647,6 +654,10 @@ exports.rerun_task = function(task, remove_date, cb) {
     case "stop_requested":
     //maybe shouldn't rerun if task is stopped?
     //case "stopped":
+        return cb();
+
+    case "removed":
+    //don't resurrect removed task
         return cb();
     }
 

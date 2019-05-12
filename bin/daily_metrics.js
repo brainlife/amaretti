@@ -40,7 +40,9 @@ function count_tasks(d) {
 
 function count_active_user(d) {
     return new Promise((resolve, reject)=>{
-        db.Task.distinct('user_id', {create_date: {$lt: d}, service: {$nin: ignored_service}}, (err, users)=>{
+        let d30 = new Date();
+        d30.setDate(d.getDate()-30);
+        db.Task.distinct('user_id', {create_date: {$lt: d, $gt: d30}, service: {$nin: ignored_service}}, (err, users)=>{
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".user.active "+users.length+" "+time);

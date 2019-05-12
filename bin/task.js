@@ -192,21 +192,24 @@ function handle_housekeeping(task, cb) {
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
                         logger.debug("querying ls %s", taskdir);
-                        var t = setTimeout(function() { t = null; }, 5000); 
+                        var t = setTimeout(function() { 
+                            t = null; 
+                            logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
+                            next_resource();
+                        }, 5000); 
                         sftp.readdir(taskdir, function(err, files) {
-                            if(!t) {
-                                logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
+                            if(!t) return; //timeout already called
+
+                            clearTimeout(t);
+                            if(err) {
+                                logger.debug(err);
+                                logger.debug("let's assume directory is missing.. TODO - we need to parse the err to see why it failes.");
+                                task.resource_ids.pull(resource_id);
                             } else {
-                                clearTimeout(t);
-                                if(err) {
-                                    //TODO - let's assume directory is missing.. we need to parse the err to see why it failes.
-                                    logger.debug(err);
-                                    task.resource_ids.pull(resource_id);
-                                } else {
-                                    //TODO - can I do something useful with files?
-                                    logger.debug("taskdir has %d files", files.length);
-                                }
+                                //TODO - can I do something useful with files?
+                                logger.debug("taskdir has %d files", files.length);
                             }
+                            logger.debug("moving to the next resource");
                             next_resource();
                         });
                     });
@@ -258,7 +261,8 @@ function handle_housekeeping(task, cb) {
             }, (err, depend)=>{
                 if(err) next(err);
                 if(depend) {
-                    task.status_msg = "Waiting for active deps before removing.. ";
+                    task.status_msg = "Waiting for child tasks to finish before removing.. ";
+                    task.next_date = new Date(Date.now()+1000*300); //5 minutes
                     return next(); //veto!
                 }
 
@@ -809,7 +813,7 @@ function start_task(task, resource, cb) {
                 cmd += "git clone -q --depth 1 ";
                 if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
                 cmd += service_detail.git.clone_url+" "+taskdir;
-                logger.debug("running %s", cmd);
+                //logger.debug("running %s", cmd);
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     conn.exec("timeout 60 bash -c \""+cmd+"\"", function(err, stream) {
@@ -867,7 +871,7 @@ function start_task(task, resource, cb) {
                     return next();
                 }
 
-                logger.debug("installing config.json "+task._id.toString());
+                //logger.debug("installing config.json "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
@@ -891,7 +895,7 @@ function start_task(task, resource, cb) {
 
             //write _.env.sh
             next=>{
-                logger.debug("writing _env.sh "+task._id.toString());
+                //logger.debug("writing _env.sh "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
@@ -986,7 +990,7 @@ function start_task(task, resource, cb) {
                                     logger.warn("task:%s dep:%s .. %s", task._id, dep._id.toString(), task.status_msg);
                                     cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
                                 } else {
-                                    logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
+                                    //logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
 
                                     //tryint $addToSet to see if this could prevent the following issue
                                     //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
@@ -1024,12 +1028,12 @@ function start_task(task, resource, cb) {
                     //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
-                        conn.exec("timeout 20 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
+                        conn.exec("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
                                 if(code === undefined) return next("timedout while starting task");
-                                else if(code) return next(service_detail.start+" failed. code:"+code+"");
+                                else if(code) return next(service_detail.start+" failed. code:"+code+" (maybe start timeout?)");
                                 else {
                                     task.next_date = new Date(); //so that we check the status soon
                                     task.run++;
