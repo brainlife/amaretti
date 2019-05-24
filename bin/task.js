@@ -718,7 +718,6 @@ function start_task(task, resource, cb) {
         if(err) return cb(err);
         if(!service_detail) return cb("Couldn't find such service:"+service);
 
-        //var workdir = common.getworkdir(task.instance_id, resource);
         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 
         var envs = {
@@ -968,7 +967,6 @@ function start_task(task, resource, cb) {
                             //let's retry later.. //TODO - maybe I should look for other resources that has this task?
                             return cb(); 
                         }
-                        //logger.debug("syncing "+source_resource.name);
                         let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                         let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                         let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
@@ -1065,7 +1063,6 @@ function start_task(task, resource, cb) {
                 if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
                 logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
-                //common.progress(task.progress_key, {status: 'running', msg: 'Running Service'});
 
                 //need to save now for running_sync (TODO - I should call update instance?
                 task.run++;

@@ -302,9 +302,15 @@ function check_ssh(resource, cb) {
 
         //send test script
         var workdir = common.getworkdir(null, resource);
+        let t1 = setTimeout(()=>{
+            cb_once(null, "failed", "got ssh connection but not sftp");
+            t1 = null;
+        }, 3000);
         conn.sftp((err, sftp)=>{
-            if(err) return cb_once(err);
+            if(!t1) return; //timed out already
+            clearTimeout(t1);
 
+            if(err) return cb_once(err);
             var to = setTimeout(()=>{
                 cb_once(null, "failed", "send test script timeout - filesytem is offline?");
             }, 5*1000); 

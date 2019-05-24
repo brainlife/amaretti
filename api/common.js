@@ -338,7 +338,19 @@ exports.get_sftp_connection = function(resource, cb) {
     const conn = new Client();
     conn.on('ready', function() {
         logger.debug("new ssh for sftp connection ready.. opening sftp %s", resource._id.toString());
+        let t = setTimeout(()=>{
+            logger.error("got ssh connection but not sftp..");
+            delete sftp_conns[resource._id];
+            if(cb) cb(err);
+            cb = null;
+            t = null;
+        }, 3000);
         conn.sftp((err, sftp)=>{
+            if(!t) {
+                logger.error("it timed out while obtaining sftp connection.. should I close sftp connection?");
+                return; //timed out already
+            }
+            clearTimeout(t);
             if(err) {
                 logger.error(err);
                 if(cb) cb(err);
@@ -578,7 +590,6 @@ exports.update_instance_status = function(instance_id, cb) {
         if(!instance) return cb("couldn't find instance by id:"+instance_id);
 
         //find all tasks under this instance
-        //db.Task.find({instance_id: instance._id, status: {$ne: "removed"}})
         db.Task.find({
             instance_id: instance._id, 
             "config._tid": {$exists: 1}, //let's only count UI tasks
@@ -616,6 +627,7 @@ exports.update_instance_status = function(instance_id, cb) {
             
             //create task summary
             if(!instance.config) instance.config = {};
+            instance.config.counts = counts;
             instance.config.summary = [];
             tasks.forEach(task=>{
                 if(task.status == "removed") return; //hide removed tasks

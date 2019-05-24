@@ -203,7 +203,9 @@ router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(r
     });
 });
 
-//(admin only) count number of instances
+//(admin only) count number of instances 
+//clients ..
+//    warehouse/bin/event_handler/update_prov
 router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
@@ -212,10 +214,20 @@ router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, r
     //if(req.query.skip) req.query.skip = parseInt(req.query.skip);
     if(req.query.find) find = JSON.parse(req.query.find);
     
-    //group by status and count
+    //aggregate task counts
     db.Instance.aggregate([
         {$match: find},
-        {$group: {_id: '$status', count: {$sum: 1}}},
+        //{$group: {_id: '$status', count: {$sum: 1}}},
+
+        //sum task counts
+        {$group: {_id: '$group_id', 
+            requested: {$sum: "$config.counts.requested"},
+            running: {$sum: "$config.counts.running"},
+            failed: {$sum: "$config.counts.failed"},
+            finished: {$sum: "$config.counts.finished"},
+            stopped: {$sum: "$config.counts.stopped"},
+            removed: {$sum: "$config.counts.removed"},
+        }}
     ]).exec(function(err, counts) {
         if(err) return next(err);
         res.json(counts);

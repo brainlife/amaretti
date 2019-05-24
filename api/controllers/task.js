@@ -58,6 +58,25 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     });
 });
 
+/*
+//(admin only) aggregate task by count
+router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
+
+    var find = {};
+    if(req.query.find) find = JSON.parse(req.query.find);
+    
+    //group by status and count
+    db.Instance.aggregate([
+        {$match: find},
+        {$group: {_id: '$status', count: {$sum: 1}}},
+    ]).exec(function(err, counts) {
+        if(err) return next(err);
+        res.json(counts);
+    });
+});
+*/
+
 //(admin only) return list of services currently running and number of them
 router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");

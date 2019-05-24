@@ -66,7 +66,7 @@ if hash squeue 2>/dev/null; then
     fi
 fi
 if hash condor_q 2>/dev/null; then
-    timeout 5 condor_q
+    timeout 10 condor_q $USER
     if [ ! $? -eq 0 ]; then
         echo "condor_q seems to be not working.. maybe something wrong with the scheduler?"
         exit 1

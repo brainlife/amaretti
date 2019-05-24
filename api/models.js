@@ -54,6 +54,7 @@ var instanceSchema = mongoose.Schema({
     //store details mainly used by UI
     config: mongoose.Schema.Types.Mixed,
 
+    //deprecated... let's just focus on task status
     status: {type: String, default: "empty" }, //instance status (computed from tasks inside it)
 
     create_date: {type: Date, default: Date.now },
