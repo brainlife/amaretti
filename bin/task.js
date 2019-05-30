@@ -602,7 +602,7 @@ function handle_running(task, next) {
                 return next(err); 
             }
 
-            common.get_ssh_connection(resource, function(err, conn) {
+            common.get_ssh_connection(resource, (err, conn)=>{
                 if(err) {
                     //retry laster..
                     task.status_msg = err.toString();
@@ -617,7 +617,7 @@ function handle_running(task, next) {
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
-                    stream.on('close', function(code, signal) {
+                    stream.on('close', (code, signal)=>{
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
                         out = out.substring(pos+delimtoken.length).trim();
@@ -639,7 +639,7 @@ function handle_running(task, next) {
                         case 1: //finished
                             //I am not sure if I have enough usecases to warrent the automatical retrieval of product.json to task..
                             logger.debug("finished!");
-                            load_product(taskdir, resource, function(err, product) {
+                            load_product(taskdir, resource, (err, product)=>{
                                 if(err) {
                                     logger.info("failed to load product");
                                     //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
@@ -688,9 +688,9 @@ function handle_running(task, next) {
                             next();
                         }
                     })
-                    .on('data', function(data) {
+                    .on('data', data=>{
                         out += data.toString();
-                    }).stderr.on('data', function(data) {
+                    }).stderr.on('data', data=>{
                         out += data.toString();
                     });
                 });
@@ -701,7 +701,7 @@ function handle_running(task, next) {
 
 function rerun_child(task, cb) {
     //find all child tasks
-    db.Task.find({deps: task._id}, function(err, tasks) {
+    db.Task.find({deps: task._id}, (err, tasks)=>{
         if(tasks.length) logger.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{

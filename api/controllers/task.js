@@ -58,26 +58,43 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     });
 });
 
-/*
-//(admin only) aggregate task by count
-router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+//(admin only) aggregate task by service/resource_id
+//users:
+//  warehouse / common.update_project_stats (used by warehouse/bin/projectinfo)
+router.get('/resource_usage', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
     var find = {};
     if(req.query.find) find = JSON.parse(req.query.find);
     
     //group by status and count
-    db.Instance.aggregate([
+    db.Task.aggregate([
         {$match: find},
-        {$group: {_id: '$status', count: {$sum: 1}}},
+
+        {   
+            $project: {
+                _walltime: {$subtract: ["$finish_date", "$start_date"]},
+                service: 1,
+                resource_id: 1,
+            }
+        },
+
+        {
+            $group: {
+                _id: {"service": "$service", "resource_id": "$resource_id"}, 
+                count: {$sum: 1}, 
+                total_walltime: {$sum: "$_walltime"}
+            }
+        },
+
     ]).exec(function(err, counts) {
         if(err) return next(err);
         res.json(counts);
     });
 });
-*/
 
 //(admin only) return list of services currently running and number of them
+//who uses this? (can I deprecate this?)
 router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
     
@@ -425,14 +442,6 @@ router.get('/download/:taskid/*', jwt({
  */
 router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
-    /* connectionqueue leaking has never happened here (afaik..) so let's leave this for now
-    //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
-    let req_closed = false;
-    req.on('close', ()=>{
-        req_closed = true;
-    });
-    */
-
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
         if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
@@ -565,14 +574,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
         if(!instance) return next("no such instance:"+instance_id);
         
         const task = new db.Task();
-
-        /*
-        if(req.user.scopes.amaretti && req.user.scopes.amaretti.inclues("admin")) {
-            task.admin = true;
-        } else {
-            task.admin = false;
-        }
-        */
 
         //TODO validate?
         task.name = req.body.name;

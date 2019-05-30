@@ -627,7 +627,7 @@ exports.update_instance_status = function(instance_id, cb) {
             
             //create task summary
             if(!instance.config) instance.config = {};
-            instance.config.counts = counts;
+            instance.config.counts = counts; //TODO - counts can be deduced from summary.. but instance/count api uses this 
             instance.config.summary = [];
             tasks.forEach(task=>{
                 if(task.status == "removed") return; //hide removed tasks
