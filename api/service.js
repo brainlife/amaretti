@@ -86,8 +86,14 @@ function do_loaddetail(service_name, branch, cb) {
                     //override start/stop/status hooks
                     Object.assign(detail, pkg.scripts, pkg.abcd); //pkg.scripts should be deprecated in favor of pkg.abcd
                     detail._pkg = pkg; //also store the entire package.json content under detail.. (TODO who uses it?)
+                    next();
+                } else if(_res.statusCode == 404) {
+                    //no package.json.. let's use the default hooks
+                    next();
+                } else {
+                    //github api failed?
+                    next(_res.statusCode);
                 }
-                next();
             });
         },
 

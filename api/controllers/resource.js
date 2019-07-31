@@ -353,112 +353,67 @@ router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, 
     });
 });
 
-/**
- * @api {get} /resource/gensshkey Generate ssh key pair
- * @apiName GENSSHKEYResource
- * @apiGroup Resource
- *
- * @apiDescription
- *      Used by resource editor to setup new resource
- *      jwt is optional.. since it doesn't really store this anywhere (should I?)
- *      kdinstaller uses this to generate key (and scott's snapshot tool)
- *      In the future, this might be moved to a dedicated service (or deprecated)
- *
- * //@apiHeader {String} [authorization] A valid JWT token "Bearer: xxxxx"
- *
- * @apiSuccessExample {json} Success-Response:
- *     HTTP/1.1 200 OK
- *     { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',
- *       key: '-----BEGIN RSA PRIVATE KEY-----\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\n-----END RSA PRIVATE KEY-----' }
- *
-router.get('/gensshkey', jwt({secret: config.amaretti.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
-    common.ssh_keygen({
-        //ssh-keygen opts (https://github.com/ericvicenti/ssh-keygen)
-        destroy: true,
-        comment: req.query.comment,
-        password: req.query.password,
-    }, function(err, out) {
-        if(err) return next(err);
-        res.json(out);
+//(admin only) allow other service (warehouse) to directly access storage resource's data
+router.get('/archive/download/:resource_id/*', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+    logger.debug("requested");
+    if(!is_admin(req.user)) return next("admin only");
+    let path = req.params[0];
+
+    //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
+    //only thrown if client terminates request (including no change?)
+    let req_closed = false;
+    req.on('close', ()=>{
+        logger.debug("req/close");
+        req_closed = true;
     });
-});
-*/
 
-//intentionally left undocumented
-//TODO - I should limit access to certain IP range
-//currently only used by DAART
-/*
-router.post('/installsshkey', function(req, res, next) {
-    var username = req.body.username;
-    var password = req.body.password;
-    var host = req.body.hostname || req.body.host;
-    var pubkey = req.body.pubkey;
-    var comment = req.body.comment;
-
-    if(username === undefined) return next("missing username");
-    if(password === undefined) return next("missing password");
-    if(host === undefined) return next("missing hostname");
-    if(pubkey === undefined) return next("missing pubkey");
-    if(comment === undefined) return next("missing comment");
-
-    var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | PUBKEY=\"'+pubkey.addSlashes()+'\" COMMENT=\"'+comment.addSlashes()+'\" bash';
-    //var command = 'wget --no-check-certificate https://raw.githubusercontent.com/soichih/sca-wf/master/bin/install_pubkey.sh -O - | bash';
-    common.ssh_command(username, password, host, command, {
-        //karst sshd doesn't allow ssh client env
-        //env: {
-        //    PUBKEY: pubkey,
-        //    comment: comment,
-        //}
-    }, function(err) {
+    logger.debug("loading resource detail"+req.params.resource_id);
+    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
         if(err) return next(err);
-        res.json({message: 'ok'});
-    });
-});
-*/
-
-/*
-//intentionally left undocumented
-router.post('/setkeytab/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
-    var resource_id = req.params.resource_id;
-    var username = req.body.username;
-    var password = req.body.password;
-
-    if(username === undefined) return next("missing username");
-    if(password === undefined) return next("missing password");
-
-    db.Resource.findById(resource_id, function(err, resource) {
-        if(err) return next(err);
-        //console.dir(resource);
-        if(!resource) return res.status(404).json({message: "couldn't find the resource specified"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end();
-        if(resource.type != "hpss") return res.status(404).json({message: "not a hpss resource"});
-        if(resource.status != "ok") return res.status(500).json({message: resource.status_msg});
-
-        //need to decrypt first..
-        common.decrypt_resource(resource);
-
-        resource.config.auth_method = "keytab";
-        resource.config.username = username;
-
-        child_process.exec(__dirname+"/../../bin/gen_keytab.sh", {
-            env: {
-                USERNAME: username,
-                PASSWORD: password,
-            }
-        }, function(err, stdout, stderr) {
-            if(err) return next(err); //exit 1 will be handled here
-            resource.config.enc_keytab = stdout.trim();
-
-            //decrypt again and save
-            common.encrypt_resource(resource);
-            resource.save(function(err) {
+        if(!resource) return next("no such resource");
+        if(!resource.envs || !resource.envs.BRAINLIFE_ARCHIVE) return next("BRAINLIFE_ARCHIVE ENV param is not set");
+        logger.debug("opening sftp connection to resource");
+        if(req_closed) return next("request already closed.. bailing 1");
+        common.get_sftp_connection(resource, function(err, sftp) {
+            if(err) return next(err);
+            logger.debug("opening sftp connection to resource");
+            if(req_closed) return next("request already closed.. bailing 2");
+            const fullpath = resource.envs.BRAINLIFE_ARCHIVE+"/"+path;
+            logger.debug("using fullpath %s", fullpath);
+            sftp.createReadStream(fullpath, (err, stream)=>{
                 if(err) return next(err);
-                res.json({message: 'ok'});
+                //in case user terminates in the middle.. read stream doesn't raise any event!
+                if(req_closed) return stream.close();
+                req.on('close', ()=>{
+                    logger.info("request closed........ closing sftp stream also");
+                    stream.close();
+                });
+                stream.pipe(res);
             });
-        })
+        });
     });
 });
-*/
+
+//like.. https://dev1.soichi.us/api/amaretti/resource/594c4d88cec9aa163acb9264/metrics
+//experimental
+router.get('/:id/metrics', /*jwt({secret: config.express.pubkey, credentialsRequired: false}),*/ (req, res, next)=>{
+    let resource_id = req.params.id;
+    db.Resource.findById(resource_id).select('github').lean().exec((err, resource)=>{
+        if(err) return next(err);
+        if(!resource) return next("no such resource");
+        //if(!common.check_access(req.user, resource)) return res.status(401).end();
+        request.get({url: config.metrics.api+"/render", qs: {
+            target: config.metrics.resource_prefix+"."+resource_id,
+            format: "json",
+            noNullPoints: "true"
+        }, json: true }, (err, _res, json)=>{
+            if(err) return next(err);
+            if(json.length == 0) return res.json([]); //maybe not reported recently?
+            let points = json[0].datapoints;
+            res.json(points);
+        });
+    });
+});
 
 module.exports = router;
 

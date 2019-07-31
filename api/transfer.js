@@ -97,7 +97,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //setup sshagent with the source key
             common.decrypt_resource(source_resource);
             var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
-            common.create_sshagent(privkey, (err, agent, auth_sock)=>{
+            common.create_sshagent(privkey, (err, agent, client, auth_sock)=>{
                 if(err) next(err);
                 common.get_ssh_connection(dest_resource, {
                     hostname,
@@ -105,16 +105,18 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     agentForward: true,
                 }, (err, conn)=>{
                     if(err) return next(err); 
-                    logger.debug("rsync --timeout 600 --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path);
-                    conn.exec("rsync --timeout 600 --exclude=\".*\" --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path, (err, stream)=>{
+                    let cmd = "rsync --timeout 600 --exclude=\".*\" --progress -h -a -L -e \""+sshopts+"\" "+source+" "+dest_path;
+                    logger.debug(cmd);
+                    conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
                         let progress_date = new Date();
-                        stream.on('close', (code, signal)=>{
+                        let first = true;
 
-                            //TODO - instead of waiting for rsync to terminate, I think I can kill it as soon as transfer starts.
-                            //I don't know how to detect that though.. maybe look for a certain token in the log?
-                            agent.kill(); //no longer needed..
+                        stream.on('close', (code, signal)=>{
+                            logger.debug("stream closed.....................");
+
+                            agent.kill(); //I could call agnet.kill as soon as rsync starts, but agent doesn't die until rsync finishes..
                             conn.end(); //need to create new ssh connection each time.. 
 
                             if(code === undefined) return next("timedout while rsyncing");
@@ -127,9 +129,26 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                                 next();
                             }
                         }).on('data', data=>{
+                            if(first) {
+                                logger.debug("removing key");
+                                client.removeAllKeys({}, err=>{
+                                    if(err) logger.error(err);
+                                });
+                                first = false;
+                            }
+
+                            /*
+                            if(agent) {
+                                logger.debug("closing agent");
+                                agent.kill();
+                                agent = null;
+                            }
+                            */
+
+                            logger.debug(data.toString());
                             let str = data.toString().trim();
                             if(str == "") return;
-                            
+                             
                             //send progress report every few seconds 
                             let now = new Date();
                             let delta = now.getTime() - progress_date.getTime();

@@ -114,7 +114,7 @@ var taskSchema = mongoose.Schema({
     gids: [{type: Number}], //resource belongs to these set of group will be considered for resource selection (only admin can set it)
     
     //(deprecate) progress service key for this task
-    progress_key: {type: String, index: true}, 
+    //progress_key: {type: String, index: true}, 
 
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields that user can set during request

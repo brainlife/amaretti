@@ -34,7 +34,7 @@
     "ssh2": "^0.8.2",
     "ssh2-multiplexer": "0.0.8",
     "sshpk": "^1.16.1",
-    "sshpk-agent": "^1.7.0",
+    "sshpk-agent": "^1.8.1",
     "winston": "^3.2.1"
   },
   "devDependencies": {

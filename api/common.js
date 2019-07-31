@@ -83,8 +83,16 @@ exports.create_sshagent = function(key, cb) {
         //    sync: connection unexpectedly closed (0 bytes received so far) [receiver]
         //common.sshagent_add_key(privkey, {expires: 60}, next);  
         let client = new sshagent.Client({socketPath: auth_sock});
-        client.addKey(key, err=>{
-            cb(err, agent, auth_sock);
+
+        /* I get.. "SSH agent does not support RFC extension"
+        client.listExtensions((err, extensions)=>{
+            if(err) logger.error(err);
+            console.log("----------------listExtensions");
+            console.dir(extensions);
+        });
+        */
+        client.addKey(key, /*{expires: 0},*/ err=>{
+            cb(err, agent, client, auth_sock, key);
         });
     }, 1000);
 }
@@ -344,7 +352,7 @@ exports.get_sftp_connection = function(resource, cb) {
             if(cb) cb(err);
             cb = null;
             t = null;
-        }, 3000);
+        }, 10*1000); //6sec too short for osgconnect
         conn.sftp((err, sftp)=>{
             if(!t) {
                 logger.error("it timed out while obtaining sftp connection.. should I close sftp connection?");
@@ -522,11 +530,13 @@ exports.check_access = function(user, resource) {
     return false;
 }
 
+/*
 exports.create_progress_key = function(instance_id, task_id) {
     var key = "_sca."+instance_id;
     if(task_id) key += "."+task_id;
     return key;
 }
+*/
 
 /*
 //run hsi locally (where sca-wf is running) - used mainly to test the hpss account, and by resource/ls for hpss resource
@@ -602,6 +612,10 @@ exports.update_instance_status = function(instance_id, cb) {
             //count status
             let counts = {};
             tasks.forEach(function(task) {
+                //ignore staging tasks (to be more consistent with how UI counts task)
+                if(task.service == "brainlife/app-stage") return;
+                if(task.service == "brainlife/app-archive") return;
+
                 if(counts[task.status] === undefined) counts[task.status] = 0;
                 counts[task.status]++;
             });
@@ -649,6 +663,9 @@ exports.update_instance_status = function(instance_id, cb) {
             instance.status = newstatus;
             instance.update_date = new Date();
             instance.save(cb);
+
+            logger.debug("updating instance status");
+            logger.debug(JSON.stringify(instance.config, null, 4));
 
             let instance_o = instance.toObject();
             instance_o._status_changed = status_changed;
@@ -713,7 +730,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.request_date = new Date();
         task.start_date = undefined;
         task.finish_date = undefined;
-        task.products = undefined;
+        task.product = undefined;
         task.next_date = undefined; //reprocess asap
         task.run = 0;
         task.request_count = 0;

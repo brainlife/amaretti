@@ -139,12 +139,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
         let instance_o = instance.toObject();
         instance_o._status_changed = true; //new object.. so.
         res.json(instance_o);
-
         events.instance(instance);
-
-        //set the name for the instance grouping in case use wants to display instance level progress detail
-        //var progress_key = common.create_progress_key(instance._id);
-        //common.progress(progress_key, {name: instance.name||instance._id});
     });
 });
 
@@ -206,6 +201,7 @@ router.delete('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(r
 //(admin only) count number of instances 
 //clients ..
 //    warehouse/bin/event_handler/update_prov
+//    warehouse/bin/event_handler/update_project_stats
 router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
@@ -213,7 +209,7 @@ router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, r
     //if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     //if(req.query.skip) req.query.skip = parseInt(req.query.skip);
     if(req.query.find) find = JSON.parse(req.query.find);
-    
+
     //aggregate task counts
     db.Instance.aggregate([
         {$match: find},

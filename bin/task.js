@@ -267,7 +267,7 @@ function handle_housekeeping(task, cb) {
                 }
 
                 //ok.. it can be removed! (let removed task handler do the cleanup)
-                task.status_msg = "workdirs waiting to be removed";
+                task.status_msg = "waiting for workdirs to be removed";
                 task.status = "removed";
                 //task.next_date = undefined; //remove workdir immediately
                 next();

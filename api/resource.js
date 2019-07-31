@@ -305,7 +305,7 @@ function check_ssh(resource, cb) {
         let t1 = setTimeout(()=>{
             cb_once(null, "failed", "got ssh connection but not sftp");
             t1 = null;
-        }, 3000);
+        }, 10*1000); //6000 too short for osgconnect
         conn.sftp((err, sftp)=>{
             if(!t1) return; //timed out already
             clearTimeout(t1);

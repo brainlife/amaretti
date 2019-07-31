@@ -584,7 +584,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
         task.max_runtime = req.body.max_runtime;
-        //task.envs = req.body.envs; //this is rarely set by task submitter and it's a security risk
         task.retry = req.body.retry;
         if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
 
@@ -596,7 +595,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
         //others set by the API 
         task._group_id = instance.group_id; //copy
-        task.progress_key = common.create_progress_key(instance_id, task._id);
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by task handler";
@@ -626,7 +624,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
             next_check=>{
                 if(!task.preferred_resource_id) return next_check();
-                //console.log("preferreed_resource_id is set");
                 db.Resource.findById(task.preferred_resource_id, (err, resource)=>{
                     if(err) return next_check(err);
                     if(!resource) return next_check("can't find preferred_resource_id:"+task.preferred_resource_id);
