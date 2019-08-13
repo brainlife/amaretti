@@ -65,6 +65,8 @@ exports.metrics = {
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://amaretti:gobrain@localhost:5672/brainlife"},
+
+    //deprecated.. should always be "amaretti"
     exchange: "wf", //used as prefix for full exchange name (TODO - it should be "amaretti"!)
 }
 

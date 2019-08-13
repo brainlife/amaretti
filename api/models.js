@@ -47,8 +47,8 @@ var instanceSchema = mongoose.Schema({
     user_id: {type: String, index: true}, //user that this workflow instance belongs to
 
     //(optional) make this instance accessible from all members of this group
-    //if this is updated, all task's group_id needs to be updated also
-    //TODO taskSchema uses _group_id.. which is inconsitent.. but maybe too late to change it?
+    //TODO if this is updated, all task's _group_id needs to be updated also
+    //not set if this instance is only used for the specific user for uploading
     group_id: {type: Number, index: true}, 
 
     //store details mainly used by UI
@@ -124,6 +124,7 @@ var taskSchema = mongoose.Schema({
     
     //copy of group_id on instance record (should be the same as instance's group_id)
     //this exists to help with access control
+    //not set if instance.group_id is not set for user specific instance (like uploading)
     _group_id: {type: Number, index: true}, 
 
     //github repo

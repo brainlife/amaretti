@@ -12,6 +12,7 @@ const mime = require('mime');
 const config = require('../../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
+const events = require('../events');
 const common = require('../common');
 
 /**
@@ -115,16 +116,6 @@ router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req,
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
         if(!task) return next("no such task id");
-        /*
-        //now that we use app-stage, we can deprecate this
-        //hide config from sensitive apps..
-        if(task.service == "soichih/sca-product-raw") {
-            for(let key in task.config.masked) {
-                if(key[0] != "_") delete task.config.masked[key];
-            }
-            task.config.masked = true;
-        }
-        */
         res.json(task);
     });
 });
@@ -238,6 +229,12 @@ router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(r
 
             ls_resource(resource, fullpath, (err, files)=>{
                 if(err) return next(err);
+                console.log(JSON.stringify(task, null, 4));
+                events.publish("task.ls."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
+                    fullpath,
+                    resource_id: resource._id,
+                    resource_name: resource.name,
+                });
                 res.json({files});
             });
         });
@@ -311,14 +308,6 @@ function get_fullpath(task, resource, p, cb) {
  *
  */
 
-/*
-//backward compatibility until I migrate all UIs
-router.get('/download/:taskid', (req,res,next)=>{
-    logger.warn("p= based download is deprecated. use url path");
-    res.redirect(req.params.taskid+"/"+req.query.p+"?at="+req.query.at);
-});
-*/
-
 router.get('/download/:taskid/*', jwt({
     secret: config.amaretti.auth_pubkey,
     getToken: function(req) {
@@ -348,6 +337,12 @@ router.get('/download/:taskid/*', jwt({
 
         get_fullpath(task, resource, p, (err, fullpath)=>{
             if(err) return next(err);
+
+            events.publish("task.download."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
+                fullpath,
+                resource_id: resource._id,
+                resource_name: resource.name,
+            });
 
             logger.debug("gettingn sftp connection");
             if(req_closed) return next("request already closed.. bailing p1");
@@ -440,6 +435,8 @@ router.get('/download/:taskid/*', jwt({
  * @apiSuccessExample {json} Success-Response:
  *                              {file stats uploaded}
  */
+
+//TODO This is a very dangerous API, and probably only used to stage upload data. Can we get rid of it?
 router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
@@ -448,6 +445,12 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
         
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
+
+            events.publish("task.upload."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
+                fullpath,
+                resource_id: resource._id,
+                resource_name: resource.name,
+            });
 
             common.get_ssh_connection(resource, (err, conn_q)=>{
                 if(err) return next(err);
@@ -664,6 +667,10 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                 if(err) return next(err);
                 //TODO - I should just return _task - to be consistent with other API
                 res.json({message: "Task successfully registered", task: _task});
+                events.publish("task.create."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+_task._id, {
+                    service: task.service,
+                    service_branch: task.service_branch,
+                });
                 common.update_instance_status(instance_id, err=>{
                     if(err) logger.error(err);
                 });
@@ -697,8 +704,11 @@ router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functi
         if(err) return next(err);
         if(!task) return res.status(404).end();
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+
+        task.user_id = req.user.sub; //overwrite 
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
+            events.publish("task.rerun."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task successfully re-requested", task: task});
             common.update_instance_status(task.instance_id, err=>{
                 if(err) logger.error(err);
@@ -780,6 +790,7 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
                 res.json({message: "Task successfully requested to stop", task: task});
             });
             */
+            events.publish("task.stop."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task successfully requested to stop", task: task});
             common.update_instance_status(task.instance_id, err=>{
                 if(err) logger.error(err);
@@ -815,6 +826,7 @@ router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
+            events.publish("task.remove."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task requested for removal"});
         }); 
     });
@@ -840,8 +852,8 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         if(!task) return next("no such task:"+id);
         if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
 
-        if(req.body.name) task.name = req.body.name;
-        if(req.body.desc) task.desc = req.body.desc;
+        if(req.body.name !== undefined) task.name = req.body.name;
+        if(req.body.desc !== undefined) task.desc = req.body.desc;
 
         task.update_date = new Date();
         task.save(function(err) {
@@ -857,7 +869,6 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
  * stop all and remove
  * db.getCollection('tasks').update({_group_id: 307, status: "requested"}, {$set: {status: "stopped", remove_date: new Date()}, $unset: {next_date: 1}}, {multi: true})
 */
-
 
 module.exports = router;
 

@@ -167,7 +167,8 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     }
 
     //need to create a unique key for resource and any options used
-    const id = JSON.stringify({id: resource._id, opts});
+    const hostname = resource.config.hostname || detail.hostname;
+    const id = JSON.stringify({id: resource._id, hostname, opts});
     
     //see if we already have an active ssh session
     const old = ssh_conns[id];
@@ -222,7 +223,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     exports.decrypt_resource(resource);
     //https://github.com/mscdex/ssh2#client-methods
     conn.connect(Object.assign({
-        host: resource.config.hostname || detail.hostname,
+        host: hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
 
@@ -320,11 +321,15 @@ function sftp_ref(sftp) {
 //TODO - won't this run out of sftp channel for a resource if too many requests are made?
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
+
+    const hostname = resource.config.hostname || detail.hostname;
+    const id = JSON.stringify({id: resource._id, hostname});
+    
     //see if we already have an active sftp session
-    var old = sftp_conns[resource._id];
+    var old = sftp_conns[id];
     if(old) {
         if(old.connecting) {
-            logger.info("waiting for connecting sftp .. %s", resource._id.toString());
+            logger.info("waiting for connecting sftp .. %s", id);
             return setTimeout(()=>{
                 exports.get_sftp_connection(resource, cb);
             }, 1000);
@@ -332,23 +337,23 @@ exports.get_sftp_connection = function(resource, cb) {
 
         //if connection is too old, close it and open new one
         if(old._count == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
-            logger.info("sftp connection is old.. opening new one %s", resource._id.toString());
+            logger.info("sftp connection is old.. opening new one %s", id);
             old.end();
         } else {
-            logger.debug("reusing sftp for resource %s", resource._id.toString());
+            logger.debug("reusing sftp for resource %s", id);
             return cb(null, old);
         }
     }
-    sftp_conns[resource._id] = {connecting: true};
+    sftp_conns[id] = {connecting: true};
 
     logger.debug("opening new sftp connection");
     const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', function() {
-        logger.debug("new ssh for sftp connection ready.. opening sftp %s", resource._id.toString());
+        logger.debug("new ssh for sftp connection ready.. opening sftp %s", id);
         let t = setTimeout(()=>{
             logger.error("got ssh connection but not sftp..");
-            delete sftp_conns[resource._id];
+            delete sftp_conns[id];
             if(cb) cb(err);
             cb = null;
             t = null;
@@ -367,23 +372,23 @@ exports.get_sftp_connection = function(resource, cb) {
             }
             sftp = sftp_ref(sftp);
             sftp._workdir = exports.getworkdir(null, resource); //to be used by tester
-            sftp_conns[resource._id] = sftp;
+            sftp_conns[id] = sftp;
             if(cb) cb(null, sftp);
             cb = null;
         });
     });
     conn.on('end', function() {
-        logger.debug("sftp connection ended %s", resource._id.toString());
-        delete sftp_conns[resource._id];
+        logger.debug("sftp connection ended %s", id);
+        delete sftp_conns[id];
     });
     conn.on('close', function() {
-        logger.debug("sftp connection closed %s", resource._id.toString());
-        delete sftp_conns[resource._id];
+        logger.debug("sftp connection closed %s", id);
+        delete sftp_conns[id];
     });
     conn.on('error', function(err) {
-        logger.error("sftp connectionn error", err, resource._id.toString());
-        console.error(sftp_conns[resource._id]);
-        delete sftp_conns[resource._id];
+        logger.error("sftp connectionn error", err, id);
+        console.error(sftp_conns[id]);
+        delete sftp_conns[id];
 
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
@@ -392,7 +397,7 @@ exports.get_sftp_connection = function(resource, cb) {
     });
     exports.decrypt_resource(resource);
     conn.connect({
-        host: resource.config.hostname || detail.hostname,
+        host: hostname,
         username: resource.config.username,
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 10*1000, //default 0 (disabled)
@@ -622,7 +627,8 @@ exports.update_instance_status = function(instance_id, cb) {
 
             //decide instance status
             let newstatus = "unknown";
-            if(tasks.length == 0) newstatus = "empty";
+            //if(tasks.length == 0) newstatus = "empty";
+            if(Object.keys(counts).length == 0) newstatus = "empty";
             else if(counts.running > 0) newstatus = "running";
             else if(counts.requested > 0) newstatus = "requested";
             else if(counts.failed > 0) newstatus = "failed";
@@ -826,4 +832,5 @@ exports.set_conn_timeout = function(cqueue, stream, time) {
     });
 }
 */
+
 

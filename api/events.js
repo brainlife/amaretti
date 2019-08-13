@@ -8,11 +8,14 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 
-let conn = null;
+let conn;
 let connected = false;
-let task_ex = null;
-let instance_ex = null;
-let resource_ex = null;
+let amaretti_ex;
+
+//deprecate these for amaretti_ex
+let task_ex;
+let instance_ex;
+let resource_ex;
 
 exports.init = function(cb) {
 
@@ -26,6 +29,15 @@ exports.init = function(cb) {
     conn.on('ready', function() {
         connected = true;
         logger.info("amqp connection ready.. creating exchanges");
+
+        conn.exchange("amaretti",
+            {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
+            amaretti_ex = ex;
+        });
+
+        /////////////////////////////////////////////////////////////
+        //
+        //deprecated by amaretti_ex
         conn.exchange(config.events.exchange+".task", 
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             task_ex = ex;
@@ -38,6 +50,8 @@ exports.init = function(cb) {
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
             resource_ex = ex;
         });
+        //
+        /////////////////////////////////////////////////////////////
 
         //I am not sure if ready event fires everytime it reconnects.. (find out!) 
         //so let's clear cb() once I call it
@@ -67,16 +81,24 @@ exports.disconnect = function(cb) {
     if(cb) cb();
 }
 
-function publish_or_log(ex, key, msg) {
+function publish_or_log(ex, key, msg, cb) {
     if(!ex || !connected) {
         //if not connected, output to stdout..
         logger.info(key);
         logger.info(msg);
+        cb();
     } else {
         //logger.debug("publishing", key);
-        ex.publish(key, msg, {});
+        ex.publish(key, msg, {}, cb);
     }
 }
+
+/*
+exports.publish_task = function(ex, key, msg) {
+    message.timestamp = (new Date().getTime())/1000; //it's crazy that amqp doesn't set this?
+    publish_or_log(task_ex, message, {}, cb);
+}
+*/
 
 exports.task = function(task) {
     var key = task.instance_id+"."+task._id;
@@ -124,6 +146,7 @@ exports.instance = function(instance) {
     */
 }
 
+
 //right now nobody receives resource update event as far as I know..
 exports.resource = function(resource) {
     let key = resource._id.toString();
@@ -139,4 +162,7 @@ exports.resource = function(resource) {
     });
 }
 
-
+exports.publish = (key, message, cb)=>{
+    message.timestamp = (new Date().getTime())/1000; //it's crazy that amqp doesn't set this?
+    publish_or_log(amaretti_ex, key, message, cb);
+}
