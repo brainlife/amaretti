@@ -1,10 +1,8 @@
-tag=1.1.73
+tag=1.2.0
 
-docker pull node:8
+set -e
+set -x
+
 docker build -t brainlife/amaretti ..
-if [ ! $? -eq 0 ]; then
-    echo "failed to build"
-    exit
-fi
 docker tag brainlife/amaretti brainlife/amaretti:$tag
 docker push brainlife/amaretti:$tag

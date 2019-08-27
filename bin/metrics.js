@@ -72,7 +72,7 @@ request.get({
                 url: "http://localhost:"+config.express.port+"/resource", json: true,
                 qs: {
                     find: JSON.stringify({
-                        _id: {$in: Object.keys(resources)},
+                        sub: {$in: Object.keys(resources)},
                         user_id: null, //admin can do this to bypass user id filtering
                     }),
                 },
@@ -93,7 +93,7 @@ request.get({
                 url: config.api.auth+"/profile", json: true,
                 qs: {
                     where: JSON.stringify({
-                        id: {$in: Object.keys(users)},
+                        sub: {$in: Object.keys(users)},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },
@@ -102,7 +102,7 @@ request.get({
                 if(err) return cb(err);
                 let contact_details = {};
                 _contacts.profiles.forEach(contact=>{
-                    contact_details[contact.id] = contact;
+                    contact_details[contact.sub] = contact;
                 });
                 cb(null, contact_details);
             });

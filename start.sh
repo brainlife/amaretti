@@ -1,7 +1,5 @@
 
-#using docker container now
-#rm ssh-agent.sock
-#ssh-agent -a ssh-agent.sock
+#to run the stack locally
 
 pm2 delete amaretti
 pm2 start api/wf.js --name amaretti --watch --ignore-watch="*.log test *.sh ui bin example .git"

@@ -689,8 +689,10 @@ function handle_running(task, next) {
                         }
                     })
                     .on('data', data=>{
+                        if(out.length > 1024*5) return; //too long.. truncate the rest..
                         out += data.toString();
                     }).stderr.on('data', data=>{
+                        if(out.length > 1024*5) return; //too long.. truncate the rest
                         out += data.toString();
                     });
                 });
@@ -893,6 +895,7 @@ function start_task(task, resource, cb) {
             },
 
             //write _.env.sh
+            //TODO - tried to pass all envs as part of command line that I am passing to start.sh, but couldn't quite make it work
             next=>{
                 //logger.debug("writing _env.sh "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
@@ -1057,6 +1060,9 @@ function start_task(task, resource, cb) {
             //          * soichih/sca-service-noop (deprecated by brainlife/app-noop)
             //          * brainlife/app-noop
             //          * brain-life/validator-neuro-track
+            //          * brain-life/validator-neuro-anat
+            //          * brain-life/validator-neuro-func-task
+
             //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
             //status.sh checking for its output (or just assume that it worked)
             next=>{

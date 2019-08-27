@@ -59,7 +59,7 @@ if hash qstat 2>/dev/null; then
     fi
 fi
 if hash squeue 2>/dev/null; then
-    timeout 5 squeue
+    timeout 5 sinfo
     if [ ! $? -eq 0 ]; then
         echo "squeue seems to be not working.. maybe something wrong with the scheduler?"
         exit 1

@@ -128,7 +128,7 @@ function ls_resource(resource, _path, cb) {
     logger.debug("getting ssh connection");
     common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
-        logger.debug("reading directory:"+_path);
+        //logger.debug("reading directory:"+_path);
         var t = setTimeout(function() {
             cb("Timed out while reading directory: "+_path);
             t = null;
@@ -229,7 +229,7 @@ router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(r
 
             ls_resource(resource, fullpath, (err, files)=>{
                 if(err) return next(err);
-                console.log(JSON.stringify(task, null, 4));
+                //console.log(JSON.stringify(task, null, 4));
                 events.publish("task.ls."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
                     fullpath,
                     resource_id: resource._id,

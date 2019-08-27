@@ -670,8 +670,8 @@ exports.update_instance_status = function(instance_id, cb) {
             instance.update_date = new Date();
             instance.save(cb);
 
-            logger.debug("updating instance status");
-            logger.debug(JSON.stringify(instance.config, null, 4));
+            //logger.debug("updating instance status");
+            //logger.debug(JSON.stringify(instance.config, null, 4));
 
             let instance_o = instance.toObject();
             instance_o._status_changed = status_changed;
