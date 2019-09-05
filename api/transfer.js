@@ -48,7 +48,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             logger.info("finding and removing broken symlink on source resource before rsync");
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
-                conn.exec("timeout 30 find -L "+source_path+" -type l -delete", (err, stream)=>{
+                conn.exec("timeout 60 find -L "+source_path+" -type l -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while removing broken symlinks on source");
@@ -145,7 +145,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             }
                             */
 
-                            logger.debug(data.toString());
+                            //logger.debug(data.toString());
                             let str = data.toString().trim();
                             if(str == "") return;
                              
@@ -157,7 +157,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                                 progress_date = now;
                                 logger.debug(str);
                             } 
-                            //logger.debug(data.toString());
                         }).stderr.on('data', data=>{
                             errors += data.toString();
                             logger.debug(data.toString());

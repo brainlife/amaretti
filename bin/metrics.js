@@ -72,7 +72,7 @@ request.get({
                 url: "http://localhost:"+config.express.port+"/resource", json: true,
                 qs: {
                     find: JSON.stringify({
-                        sub: {$in: Object.keys(resources)},
+                        _id: {$in: Object.keys(resources)},
                         user_id: null, //admin can do this to bypass user id filtering
                     }),
                 },
