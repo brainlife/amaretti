@@ -59,6 +59,7 @@ router.get('/types', jwt({secret: config.amaretti.auth_pubkey}), function(req, r
     res.json(config.resources);
 });
 
+//TODO who uses this?
 router.get('/stats/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     //check access
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {

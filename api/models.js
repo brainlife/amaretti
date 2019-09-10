@@ -109,13 +109,13 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 
 var taskSchema = mongoose.Schema({
 
-    user_id: {type: String, index: true}, //sub of user submitted this request
+    //sub of user submitted this request
+    user_id: {type: String, index: true}, 
 
-    gids: [{type: Number}], //resource belongs to these set of group will be considered for resource selection (only admin can set it)
+    //copy of req.user.gids at the time of task request.
+    //resources that belong to these set of groups will be considered for resource selection
+    gids: [{type: Number}], 
     
-    //(deprecate) progress service key for this task
-    //progress_key: {type: String, index: true}, 
-
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields that user can set during request
 
@@ -124,7 +124,7 @@ var taskSchema = mongoose.Schema({
     
     //copy of group_id on instance record (should be the same as instance's group_id)
     //this exists to help with access control
-    //not set if instance.group_id is not set for user specific instance (like uploading)
+    //not set if instance.group_id is not set for user specific instance (like uploading) (is this still true?)
     _group_id: {type: Number, index: true}, 
 
     //github repo
@@ -271,6 +271,7 @@ var serviceinfoSchema = mongoose.Schema({
         removed: Number,
     }),
 
+    /* //deprecated by graphite proxy
     hist: new mongoose.Schema({
         failed: [Number],
         finished: [Number],
@@ -281,6 +282,7 @@ var serviceinfoSchema = mongoose.Schema({
         requested: [Number],
         removed: [Number],
     }),
+    */
 
     users: Number,
 

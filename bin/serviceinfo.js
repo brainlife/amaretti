@@ -12,7 +12,6 @@ const ss = require('simple-statistics');
 
 const config = require('../config');
 const db = require('../api/models');
-//const service = require('../api/service');
 
 db.init(function(err) {
     if(err) throw err;
@@ -53,57 +52,6 @@ db.init(function(err) {
             });
         },
 
-        /*
-        //TODO - will be deprecated soon - now that we are moving to graphite to store this
-        next=>{
-            console.log("also generate last 180 days usage graph");
-            let hist_days = 180;
-            let hist_start = new Date(Date.now() - 3600*24*hist_days*1000);
-            db.Taskevent.aggregate([
-                {$match: {
-                    service: { $nin: ["soichih/sca-service-noop", "brainlife/app-noop"] },
-                    date: {$gt: hist_start},
-                }}, 
-                {$project: { date: {$substr: ["$date", 0, 10]}, status: "$status", service: "$service"}},
-                {$group: {_id: { status: "$status", service: "$service", date: "$date" }, count: {$sum: 1}}},
-            ]).exec((err, events)=>{
-                if(err) return next(err);
-
-                let empty = [];
-                for(let d = -hist_days; d != 0;d++) empty.push(0);
-
-                for(let service in service_info) {
-                    //service_info[service].hist_start = hist_start;
-                    //service_info[service].hist_days = hist_days;
-                    service_info[service].hist = {
-                        failed: empty.slice(),
-                        finished: empty.slice(),
-                        removed: empty.slice(),
-                        requested: empty.slice(),
-                        running: empty.slice(),
-                        running_sync: empty.slice(),
-                        //stop_requested: empty.slice(),
-                        //stopped: empty.slice(),
-                    }
-                }
-
-                //populate from events
-                events.forEach(event=>{
-                    if(!event._id.date) {
-                        return;
-                    }
-                    let etime = new Date(event._id.date);
-                    let d = Math.floor((etime.getTime() - hist_start.getTime())/(3600*24*1000));
-                    if(service_info[event._id.service].hist[event._id.status]) {
-                        service_info[event._id.service].hist[event._id.status][d] = event.count;
-                    }
-                    //console.dir(service_info[event._id.service]);
-                });
-                next();
-            });
-        },
-        */
-
         next=>{
             console.log("group by service and user count");
             db.Taskevent.aggregate([
@@ -142,10 +90,10 @@ db.init(function(err) {
         },
 
         next=>{
-            console.log("computing average runtime");
             async.eachOfSeries(service_info, (v, k, next_service)=>{
-                console.log("find the most recent N finishes for...", k);
-                db.Taskevent.find({service: k, status: "finished"}).sort('-date').limit(10).exec((err, finish_events)=>{
+                console.log("analying average runtime from the most recent 100 finishes for...", k);
+                db.Taskevent.find({service: k, status: "finished"})
+                .sort('-date').select('date task_id').limit(100).exec((err, finish_events)=>{
                     if(err) return next_service(err);
                     if(finish_events.length == 0) {
                         console.log("never finished..");
@@ -153,10 +101,15 @@ db.init(function(err) {
                     }
 
                     let runtimes = [];
-                    console.log("analyzing finish_event", finish_events);
+                    //console.log("analyzing finish_event", finish_events);
                     async.eachSeries(finish_events, (finish_event, next_finish_event)=>{
                         //find when it started running for tha task
-                        db.Taskevent.findOne({service: k, status: {$in: ["running", "running_sync"]}, task_id: finish_event.task_id, date: {$lt: finish_event.date}}).sort('-date').exec((err, start_event)=>{
+                        db.Taskevent.findOne({
+                            service: k, 
+                            status: {$in: ["running", "running_sync"]}, 
+                            task_id: finish_event.task_id, 
+                            date: {$lt: finish_event.date}
+                        }).select('date').sort('-date').exec((err, start_event)=>{
                             if(err) return next_finish_event(err);
                             if(!start_event) {
                                 console.log("no running/running_sync event.. odd?");
@@ -175,7 +128,7 @@ db.init(function(err) {
                         */
                         service_info[k].runtime_mean = ss.mean(runtimes);
                         service_info[k].runtime_std = ss.standardDeviation(runtimes);
-                        //console.dir(service_info[k]);
+                        console.dir(service_info[k]);
                         next_service();
                     });
                 });
@@ -198,9 +151,6 @@ db.init(function(err) {
                 } else {
                     console.log("updating", k);
                     for(var key in info) s[key] = info[key];
-                    //s.counts = info.counts;
-                    //s.users = info.users;
-                    //s.runtime = info.runtime; //TODO - should I average?
                     s.save(next_service);
                 }
             });

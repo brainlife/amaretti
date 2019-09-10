@@ -55,7 +55,6 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
             if(err) return next(err);
             res.json({tasks: tasks, count: count});
         });
-        //res.json(tasks);
     });
 });
 
@@ -229,7 +228,6 @@ router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(r
 
             ls_resource(resource, fullpath, (err, files)=>{
                 if(err) return next(err);
-                //console.log(JSON.stringify(task, null, 4));
                 events.publish("task.ls."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
                     fullpath,
                     resource_id: resource._id,
@@ -247,8 +245,8 @@ function find_resource(req, taskid, cb) {
     const gids = req.user.gids||[];
     db.Task.findById(req.params.taskid, (err, task)=>{
         if(err) return cb(err);
-        if(!task) return cb("no such task or you don't have access to the task");
-        //logger.debug(gids, task._group_id);
+        if(!task) return cb("no such task");
+        //make sure user owns this or member of the group
         if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
         }
@@ -263,10 +261,6 @@ function find_resource(req, taskid, cb) {
             if(!resource.active) return cb("resource not active");
             if(resource.status != "ok") return cb(resource.status_msg);
 
-            //going to allow access to the resource as long as user can access the task
-            //apply access control if necessary based on use case.
-            //if(!common.check_access(req.user, resource)) return cb("Not authorized to access this resource");
-
             cb(null, task, resource);
         });
     });
@@ -280,7 +274,7 @@ function get_fullpath(task, resource, p, cb) {
     //make sure path doesn't lead out of task dir
     //WARNING - this doesn't prevent symlinked files to point outside of the task dir.. and expose those files
     //this is to make sure our *API user* from escaping out of the task dir. App developer can symlink, copy , etc.. 
-    //any files that they have access to and make it part of the workdir which we can't realy do anything about.
+    //any files that they have access to and make it part of the workdir which we can't really do anything about.
     let fullpath = common.getworkdir(path, resource);
     let safepath = common.getworkdir(basepath, resource);
     if(fullpath.indexOf(safepath) !== 0) return cb("you can't access outside of taskdir", fullpath, safepath);
@@ -359,18 +353,6 @@ router.get('/download/:taskid/*', jwt({
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
 
-                            /*
-                            //TODO - I am not sure if there is more elegant way of handling this..
-                            //if there are no more channels available, abort..
-                            if(conn_q.counter == 0) {
-                                let after = new Date();
-                                after.setHours(after.getHours()+1); //ask to retry in an hour..
-                                res.set("Retry-After", after.toISOString());
-                                res.status(503).json({message: "connection busy. please try later"});
-                                return;
-                            }
-                            */  
-
                             //compose a good unique name
                             let name = task.instance_id+"."+task._id;
                             if(p) name +="."+p.replace(/\//g, '.');
@@ -437,6 +419,7 @@ router.get('/download/:taskid/*', jwt({
  */
 
 //TODO This is a very dangerous API, and probably only used to stage upload data. Can we get rid of it?
+//(we need to validate query.p more in get_fullpath?)
 router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
