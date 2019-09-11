@@ -228,6 +228,7 @@ taskSchema.index({nice: 1, status: 1, next_date: 1});
 taskSchema.index({status: 1, _group_id: 1});  //counting number of tasks per group
 taskSchema.index({user_id: 1, _group_id: 1});  //for rule hanler to find task that belongs to a user
 taskSchema.index({'config.datasets.id': 1});  //to look for app-stage that staged specific dataset (dataset.vue)
+taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count running / requested tasks for each resource
 
 exports.Task = mongoose.model('Task', taskSchema);
 

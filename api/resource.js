@@ -38,6 +38,7 @@ exports.select = function(user, task, cb) {
         status: {$ne: "removed"},
         active: true,
     })
+    .lean()
     .sort('create_date')
     .exec((err, resources)=>{
         if(err) return cb(err);
@@ -204,18 +205,20 @@ function score_resource(user, resource, task, cb) {
             detail.maxtask = 1;
         }
 
-        db.Task.find({
+        //logger.debug("counting running / requested tasks for resource:"+resource._id);
+        db.Task.countDocuments({
             resource_id: resource._id, 
             $or: [
                 {status: "running"},
                 {status: "requested", start_date: {$exists: true}}, //starting..
             ],
             _id: {$ne: task._id}, //don't count myself waiting
-        }, (err, tasks)=>{
+        }, (err, running)=>{
             if(err) logger.error(err);
-            detail.running = tasks.length;
-            detail.msg+="tasks running:"+tasks.length+" maxtask:"+detail.maxtask+"\n";
-            detail.fullness = detail.running / detail.maxtask;
+            detail.running = running;
+            //logger.debug("tasks running "+running);
+            detail.msg+="tasks running:"+running+" maxtask:"+detail.maxtask+"\n";
+            detail.fullness = running / detail.maxtask;
             if(detail.fullness >= 1) {
                 detail.msg += "resource is busy\n";
                 cb(null, 0, detail); 

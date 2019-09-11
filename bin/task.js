@@ -439,7 +439,11 @@ function handle_requested(task, next) {
                 if(err) return next(err);
                 db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
                     if(err) return next(err);
+
+                    //penalize projects that are running a lot of jobs already
+                    //add up to 600 seconds for projects that has a lot of jobs requested
                     let secs = (60*running_count)+Math.min(requested_count, 600);
+
                     logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
                     next();
