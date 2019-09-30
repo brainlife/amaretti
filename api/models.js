@@ -110,7 +110,8 @@ exports.Resource = mongoose.model('Resource', resourceSchema);
 var taskSchema = mongoose.Schema({
 
     //sub of user submitted this request
-    user_id: {type: String, index: true}, 
+    //user_id: {type: String, index: true},  //indexStats shows it's not used
+    user_id: String,
 
     //copy of req.user.gids at the time of task request.
     //resources that belong to these set of groups will be considered for resource selection
@@ -175,7 +176,8 @@ var taskSchema = mongoose.Schema({
     status_msg: String,
 
     //resource where the task is currently running (or was)
-    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true},
+    //resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true}, //accesses.ops is 0
+    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource' },
 
     //resources where task dir exits (where it ran, or synced)
     resource_ids: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
@@ -191,7 +193,8 @@ var taskSchema = mongoose.Schema({
     product: mongoose.Schema.Types.Mixed,
  
     //next time sca-task should check this task again (unset to check immediately)
-    next_date: {type: Date, index: true},
+    //next_date: {type: Date, index: true}, //indexStats shows it's not used
+    next_date: Date,
     
     //time when this task was originally created
     create_date: {type: Date, default: Date.now },
@@ -223,11 +226,11 @@ taskSchema.post('findOneAndUpdate', events.task);
 taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 
-taskSchema.index({name: 'text', desc: 'text'});
-taskSchema.index({nice: 1, status: 1, next_date: 1}); 
+//taskSchema.index({name: 'text', desc: 'text'}); //accesses.ops is 0
+//taskSchema.index({nice: 1, status: 1, next_date: 1});  //accesses.ops is 0
 taskSchema.index({status: 1, _group_id: 1});  //counting number of tasks per group
 taskSchema.index({user_id: 1, _group_id: 1});  //for rule hanler to find task that belongs to a user
-taskSchema.index({'config.datasets.id': 1});  //to look for app-stage that staged specific dataset (dataset.vue)
+//taskSchema.index({'config.datasets.id': 1});  //to look for app-stage that staged specific dataset (dataset.vue) //accesses.ops is low
 taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count running / requested tasks for each resource
 
 exports.Task = mongoose.model('Task', taskSchema);
@@ -238,9 +241,9 @@ exports.Task = mongoose.model('Task', taskSchema);
 //
 var taskeventSchema = mongoose.Schema({
     task_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true},
-    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true},
+    resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
 
-    user_id: {type: String, index: true}, 
+    user_id: String,
     service: String,
     service_branch: String,
 
