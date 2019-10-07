@@ -760,7 +760,7 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
             //TODO - kill the process?
             break;
         case "requested":
-            if(task.start_date) break; //don't stop task that's currently started
+            if(task.start_date) break; //don't stop task that's currently starting
         default:
             task.status = "stopped";
             task.status_msg = "Stopped by user";

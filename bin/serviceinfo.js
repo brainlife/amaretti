@@ -128,7 +128,7 @@ db.init(function(err) {
                         */
                         service_info[k].runtime_mean = ss.mean(runtimes);
                         service_info[k].runtime_std = ss.standardDeviation(runtimes);
-                        console.dir(service_info[k]);
+                        //console.dir(service_info[k]);
                         next_service();
                     });
                 });

@@ -88,9 +88,9 @@ exports.select = function(user, task, cb) {
                 }
                
                 //for niced tasks, make sure resource score is at least greater than nide. 
-                //this make niced tasks to not submit on low score resources to allow for non-nice 
-                //jobs. For example, rule submitted jobs won't be using brainlife's UI staging resource to stage
-                //input datasets there.
+                //this make niced tasks to not submit on low score resources to allow for non-nice jobs
+                //TODO - this was mainly used to prevent pieline rules from using UI staging slots
+                //how that we have dedicated app-stage/archive server (wrangler) this shouldn't be an issue.
                 if(task.nice) {
                     if(consider.score < task.nice) {
                         consider.detail.msg+="score lower than "+task.nice+". not running here\n";

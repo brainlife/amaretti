@@ -738,6 +738,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.finish_date = undefined;
         task.product = undefined;
         task.next_date = undefined; //reprocess asap
+        task.resource_id = undefined;
         task.run = 0;
         task.request_count = 0;
 

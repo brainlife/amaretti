@@ -73,12 +73,35 @@ exports.Instance = mongoose.model('Instance', instanceSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 var resourceSchema = mongoose.Schema({
-    ////////////////////////////////////////////////
-    //key
     user_id: {type: String, index: true}, 
     active: {type: Boolean, default: true},
     name: String, 
-    desc: String, 
+    //desc: String, //desc is stored under config.desc for some reason
+
+    /*
+    @misc{https://doi.org/10.25663/bl.p.3,
+      doi = {10.25663/BL.P.3},
+      url = {https://brainlife.io/pub/5a0f0fad2c214c9ba8624376},
+      author = {Hayashi, Soichi and Avesani, Paolo and Pestilli, Franco},
+      keywords = {Neuroimaging, Connectomics, White matter, Network science, Tractography Matching, Machine learning, Web services, open science, reproducibility},
+      title = {Open Diffusion Data Derivatives},
+      publisher = {brainlife.io},
+      year = {2017}
+    }
+
+    @misc{http://dx.doi.org/10.1145/2792745.2792774
+      doi = {10.1145/2792745.2792774},
+      author = {Stewart, C.A., Cockerill, T.M., Foster, I., Hancock, D., Merchant, N., Skidmore, E., Stanzione, D., Taylor, J., Tuecke, S., Turner, G., Vaughn, M., and Gaffney, N.I.},
+      title = {Jetstream: a self-provisioned, scalable science and engineering cloud environment},
+      publisher = {In Proceedings of the 2015 XSEDE Conference: Scientific Advancements Enabled by Enhanced Cyberinfrastructure. St. Louis, Missouri.  ACM: 2792774},
+      year = {2015},
+      pages = {1--8}
+    }  
+
+    */
+    //https://kb.iu.edu/d/anwt
+    //https://jetstream-cloud.org/research/citing-jetstream.php
+    citation: String, //bibtex citation string to cite this resource 
     
     type: String, //DEPRECATED... use resource config via resource_id and use the type specified there
 
@@ -175,7 +198,7 @@ var taskSchema = mongoose.Schema({
 
     status_msg: String,
 
-    //resource where the task is currently running (or was)
+    //resource where the task is currently running (or was). It gets cleared if rerun
     //resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true}, //accesses.ops is 0
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource' },
 

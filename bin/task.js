@@ -271,80 +271,6 @@ function handle_housekeeping(task, cb) {
                 task.status = "removed";
                 //task.next_date = undefined; //remove workdir immediately
                 next();
-
-                //start removing!
-                /*
-                logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
-                let removed_resource_ids = [];
-                async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
-                    db.Resource.findById(resource_id, function(err, resource) {
-                        if(err) {
-                            logger.error(["failed to find resource_id:"+resource_id+" for removal.. db issue?", err]);
-                            return next_resource();
-                        }
-                        if(!resource || resource.status == "removed") {
-                            //user sometimes removes resource.. but that's ok..
-                            logger.info("can't clean taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id+" no longer exists in db..");
-                            //removed_resource_ids.push(resource_id);
-                            return next_resource(); 
-                        }
-                        if(!resource.active) {
-                            logger.info("resource("+resource._id.toString()+") is inactive.. can't remove from this resource");
-                            return next_resource();
-                        }
-                        if(!resource.status || resource.status != "ok") {
-                            logger.info("can't clean taskdir on resource_id:"+resource._id.toString()+" because resource status is not ok.. can't remove from this resource");
-                            return next_resource();
-                        }
-
-                        common.get_ssh_connection(resource, function(err, conn) {
-                            if(err) return next_resource(err);
-                            var workdir = common.getworkdir(task.instance_id, resource);
-                            var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
-                            if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                            logger.info("removing "+taskdir+" and workdir if empty");
-                            conn.exec("timeout 60 bash -c \"rm -rf "+taskdir+" && ([ ! -d "+workdir+" ] || rmdir --ignore-fail-on-non-empty "+workdir+")\"", function(err, stream) {
-                                if(err) return next_resource(err);
-                                //common.set_conn_timeout(conn, stream, 1000*60);
-                                stream.on('close', function(code, signal) {
-                                    if(code === undefined) {
-                                        logger.error("timeout while removing taskdir");
-                                    } else if(code) {
-                                        logger.error("Failed to remove taskdir "+taskdir+" code:"+code+" (filesystem issue?)");
-                                    } else {
-                                        logger.debug("successfully removed!");
-                                        removed_resource_ids.push(resource_id);
-                                    }
-                                    next_resource();
-                                })
-                                .on('data', function(data) {
-                                    logger.info(data.toString());
-                                }).stderr.on('data', function(data) {
-                                    logger.info(data.toString());
-                                });
-                            });
-                        });
-                    });
-                }, function(err) {
-                    if(err) {
-                        logger.error(err); //continue with other task..
-                        next();
-                    } else {
-                        task.status_msg = "removed "+removed_resource_ids.length+" out of "+task.resource_ids.length+" resources";
-                        task.status = "removed";
-
-                        //remove removed resource_ids
-                        var resource_ids = [];
-                        task.resource_ids.forEach(function(id) {
-                            if(!~common.indexOfObjectId(removed_resource_ids, id)) resource_ids.push(id);
-                        });
-                        task.resource_ids = resource_ids;
-
-                        next();
-                    }
-                });
-                */
-
             });
         },
 
@@ -414,15 +340,6 @@ function handle_requested(task, next) {
         return next();
     }
 
-    /*
-    //need to lookup user's gids to find all resources that user has access to
-    common.get_gids(task.user_id, (err, gids)=>{
-        if(err) return next(err);
-        var user = {
-            sub: task.user_id,
-            gids,
-        }
-    */
     let user = {
         sub: task.user_id,
         gids: task.gids,
@@ -778,35 +695,45 @@ function start_task(task, resource, cb) {
                 });
             },
 
-            /*
             //setup taskdir using app cache
             next=>{
-                let workdir = common.getworkdir(null, resource);
-                cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
-                    if(err) return next(err);
-                    if(!app_cache) cb(); //cache already inprogress.. retry later..
-                    
-                    //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
-                    //TODO - should I use rsync instead?
-                    conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
-                        if(err) return next(err);
-                        stream.on('close', (code, signal)=>{
-                            if(code === undefined) return next("timeout while creating taskdir");
-                            if(code != 0) return next("failed to create taskdir")
-                            logger.debug("taskdir created");
-                            next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        });
-                    });
+                common.get_ssh_connection(resource, (err, conn)=>{
 
+                    let workdir = common.getworkdir(null, resource);
+                    cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
+                        if(err) return next(err);
+                        if(!app_cache) {
+
+                            //TODO - not working?
+                            task.next_date = new Date(Date.now()+1000*600);
+                            task.status_msg = "Waiting for the App to be installed";
+
+                            return cb(); //cache already inprogress.. retry later..
+                        }
+                        
+                        //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
+                        //conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
+                        conn.exec("mkdir -p "+taskdir+" && rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
+                            if(err) return next(err);
+                            stream.on('close', (code, signal)=>{
+                                if(code === undefined) return next("timeout while creating taskdir");
+                                if(code != 0) return next("failed to create taskdir")
+                                logger.debug("taskdir created");
+                                next();
+                            })
+                            .on('data', function(data) {
+                                console.log(data.toString());
+                            }).stderr.on('data', function(data) {
+                                console.error(data.toString());
+                            });
+                        });
+
+                    });
                 });
             },
-            */
-            
             /* (old way) git clone on remote resource directly.. this requires remote resource to have git installed
              * and also can --egress from the login node*/
+            /*
             //create task dir by git shallow cloning the requested service
             next=>{
                 logger.debug("git cloning taskdir "+task._id.toString());
@@ -868,6 +795,7 @@ function start_task(task, resource, cb) {
                     });
                 });
             },                
+            */
 
             //install config.json in the taskdir
             next=>{
@@ -1122,16 +1050,50 @@ function start_task(task, resource, cb) {
     });
 }
 
-//TODO - this works, but we don't really need it yet.. if github cloning becomes a problem, we can switch to this?
 //TODO - I am not sure zip download from github includes lfs content?
 //returns (err, app_cache) app_cache will be set to false if other jobs seems to be staging the same cache
 function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
-    let app_cache = workdir+"/"+service.split("/")[1]+"-"+commit_id;
+    let app_cache = workdir+"/appcache/"+service.split("/")[1]+"-"+commit_id;
 
     async.series([
-        //cache the app on the remote resource
+
+        //make sure appcache parent directory exists
         next=>{
-            logger.debug("checking app_cache %s", app_cache);
+            let app_cache_dir = path.dirname(app_cache);
+            conn.exec("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
+                if(err) return next(err);
+                stream.on('close', (code, signal)=>{
+                    if(code === undefined) return next("timeout while creating appcache directory");
+                    else if(code == 0) {
+                        return next();
+                    } else next("failed to create appcache directory");
+                })
+                .on('data', function(data) {
+                    logger.info(data.toString());
+                });
+            });
+        },
+        
+        //see if app cache directory is not empty (purged?)
+        next=>{
+            conn.exec("timeout 30 rmdir "+app_cache, (err, stream)=>{
+                if(err) return next(err);
+                stream.on('close', (code, signal)=>{
+                    if(code === undefined) return next("timeout while trying to remove empty app cache directory");
+                    if(code == 1) return next(); //directory not empty.. proceed
+                    if(code != 0) return next("failed to (try)rmdir");
+                    logger.debug("rmdir of app cache successfull.. which means it was empty");
+                    next(); 
+                })
+                .on('data', data=>{
+                    logger.info(data.toString());
+                });
+            });
+        },
+        
+        //see if app is cached already
+        next=>{
+            //logger.debug("checking app_cache %s", app_cache);
             conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
@@ -1150,7 +1112,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 
         //check to see if other process is already downloading a cache
         next=>{
-            conn.exec("timeout 30 stat --printf=\"%Y\" "+app_cache+".zip", (err, stream)=>{
+            conn.exec("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
@@ -1158,10 +1120,14 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
                         logger.warn("app cache .zip exists.. I will wait.. mod time: %s age:%d(secs)", mod_s, age);
-                        if(age < 60) return cb(null, false); //retry later.. maybe it's still getting downloaded
+                        if(age < 60) {
+                            //task.next_date = new Date(Date.now()+1000*600);
+                            //task.status = "Waiting for App to be installed";
+                            return cb(null, false); //retry later.. maybe it's still getting downloaded
+                        }
                         next(); //proceed and overwrite..
                     } else {
-                        logger.debug("no app_cache .zip. proceed with download");
+                        logger.debug("no app_cache .. proceed with download. code:"+code);
                         //TODO - it could happen that other download has just began.. might need to do flock?
                         next();
                     }
@@ -1169,6 +1135,8 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 .on('data', function(data) {
                     logger.info(data.toString());
                     mod_s += data.toString();
+                }).stderr.on('data', function(data) {
+                    console.error(data.toString());
                 });
             });
         },
@@ -1176,20 +1144,21 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //cache app and unzip, and unwind
         next=>{
             logger.info("caching app %s", app_cache+".zip");
-            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -d "+app_cache+".unzip "+app_cache+".zip && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
+            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
+                    //TODO - should I remove the partially downloaded zip?
                     if(code === undefined) return next("timedout while caching app");
-                    else if(code) return next("Failed to cache app");
+                    else if(code) return next("failed to cache app .. code:"+code);
                     else {
                         logger.debug("successfully cached app");
                         next();
                     }
                 })
                 .on('data', function(data) {
-                    logger.info(data.toString());
+                    console.log(data.toString());
                 }).stderr.on('data', function(data) {
-                    logger.info(data.toString());
+                    console.error(data.toString());
                 });
                 
                 //download from github
