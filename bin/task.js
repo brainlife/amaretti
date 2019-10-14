@@ -40,7 +40,7 @@ function set_nextdate(task) {
     case "failed":
     case "finished":
     case "stopped":
-        task.next_date = new Date(Date.now()+1000*3600*24);
+        task.next_date = new Date(Date.now()+1000*3600*36);
         //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
         //if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
@@ -156,7 +156,7 @@ function handle_housekeeping(task, cb) {
         next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
-            minage.setDate(minage.getDate() - 25); 
+            minage.setDate(minage.getDate() - 21); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
                 logger.info("skipping missing task dir check - as this task is too fresh");

@@ -192,10 +192,20 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     ssh_conns[id] = {connecting: true};
 
     //open new connection
-    logger.debug("opening new ssh connection .. %s", id);
+    logger.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
+    let connection_timeout = setTimeout(()=>{
+        connection_timeout = null;
+        console.log("ssh connection timeout...");
+        if(cb) cb("ssh connection timeout");
+        cb = null;
+    }, 1000*30);
+
     const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', ()=>{
+        if(!connection_timeout) return; //already timed out
+        clearTimeout(connection_timeout);
+
         logger.info("ssh connection ready .. %s", id);
         const connq = new ConnectionQueuer(conn);
         ssh_conns[id] = connq; //cache
@@ -212,6 +222,9 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         delete ssh_conns[id];
     });
     conn.on('error', err=>{
+        if(!connection_timeout) return; //already timed out
+        clearTimeout(connection_timeout);
+
         logger.error("ssh connectionn error(%s) .. %s", err, id);
         delete ssh_conns[id];
         //we want to return connection error to caller, but error could fire after ready event is called. 
@@ -293,6 +306,7 @@ function sftp_ref(sftp) {
         });
         cb(null, stream);
     }
+
     function createWriteStream(path, cb) {
         logger.debug("createWriteStream", sftp._count);
         if(sftp._count > 4) {
@@ -347,9 +361,19 @@ exports.get_sftp_connection = function(resource, cb) {
     sftp_conns[id] = {connecting: true};
 
     logger.debug("opening new sftp connection");
+    let connection_timeout = setTimeout(()=>{
+        connection_timeout = null;
+        console.log("ssh connection timeout...");
+        if(cb) cb("ssh connection timeout");
+        cb = null;
+    }, 1000*30);
+
     const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', function() {
+        if(!connection_timeout) return; //already timed out
+        clearTimeout(connection_timeout);
+
         logger.debug("new ssh for sftp connection ready.. opening sftp %s", id);
         let t = setTimeout(()=>{
             logger.error("got ssh connection but not sftp..");
@@ -386,8 +410,11 @@ exports.get_sftp_connection = function(resource, cb) {
         delete sftp_conns[id];
     });
     conn.on('error', function(err) {
-        logger.error("sftp connectionn error", err, id);
-        console.error(sftp_conns[id]);
+        if(!connection_timeout) return; //already timed out
+        clearTimeout(connection_timeout);
+
+        logger.error("sftp connectionn error(%s) .. %s", err, id);
+        //console.error(sftp_conns[id]);
         delete sftp_conns[id];
 
         //we want to return connection error to caller, but error could fire after ready event is called. 
@@ -413,7 +440,7 @@ exports.report_ssh = function() {
     }
 }
 
-//deprecated 
+/* //deprecated 
 exports.progress = function(key, p, cb) {
     logger.warn("common.progress is deprecated");
     request({
@@ -430,12 +457,15 @@ exports.progress = function(key, p, cb) {
         if(cb) cb(err, body);
     });
 }
+*/
 
+//*
 //TODO should I deprecate this?
 //ssh to host using username/password
 //currently only used by sshkey installer
+/*
 exports.ssh_command = function(username, password, host, command, opts, cb) {
-    var conn = new Client({/*readyTimeout:1000*60*/});
+    var conn = new Client();
     var out = "";
     var ready = false;
     var nexted = false;
@@ -487,7 +517,10 @@ exports.ssh_command = function(username, password, host, command, opts, cb) {
         tryKeyboard: true, //in case password auth is disabled
     });
 }
+*/
 
+//TODO who uses this?
+/*
 exports.ssh_stat = function(conn, path, cb) {
     //console.log("-----------statting--------------------");
     conn.exec("stat --format='%s %F' "+path, (err, stream)=>{
@@ -513,6 +546,7 @@ exports.ssh_stat = function(conn, path, cb) {
 		});
     });
 }
+*/
 
 exports.get_user_gids = function(user) {
     var gids = user.gids||[];

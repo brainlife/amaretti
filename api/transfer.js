@@ -44,7 +44,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
-            //TODO - why not directly access the source?
             logger.info("finding and removing broken symlink on source resource before rsync");
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
