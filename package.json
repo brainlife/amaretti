@@ -7,7 +7,8 @@
     "apidoc": "apidoc -i api/ -o docs/apidoc/",
     "docs": "cd docs && bundle exec jekyll serve",
     "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js",
-    "deploy": "ssh -t test.brainlife.io sudo \"sudo /root/docker/amaretti/update.sh\""
+    "deploy": "ssh -t test.brainlife.io sudo \"sudo /root/docker/amaretti/update.sh\"",
+    "deploy-prod": "ssh -t brainlife.io sudo \"sudo /root/docker/amaretti/update.sh\""
   },
   "repository": {
     "type": "git",
