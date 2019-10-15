@@ -20,11 +20,15 @@ if(!graphite_prefix) {
     process.exit(1);
 }
 
-
 let ignored_service = [
+
+    //old services..
     "soichih/sca-product-raw",
+    "soichih/abcd-novnc",
+
     "brainlife/app-stage",
     "brainlife/app-archive",
+    "brainlife/abcd-novnc",
 ];
 
 function count_tasks(d) {
@@ -50,10 +54,24 @@ function count_active_user(d) {
         });
     });
 }
+
+//number of users who's run something in the past
+function count_user(d) {
+    return new Promise((resolve, reject)=>{
+        db.Task.distinct('user_id', {}, (err, users)=>{
+            if(err) return reject(err);
+            const time = Math.round(d.getTime()/1000);
+            console.log(graphite_prefix+".user.total "+users.length+" "+time);
+            resolve();
+        });
+    });
+}
+
 db.init(async function(err) {
     if(err) throw err;
     let today = new Date();
     await count_tasks(today); 
+    await count_user(today); 
     await count_active_user(today); 
     db.disconnect();
 });
