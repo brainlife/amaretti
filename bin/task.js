@@ -717,7 +717,7 @@ function start_task(task, resource, cb) {
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
-                                if(code != 0) return next("failed to create taskdir")
+                                if(code != 0) return next("failed to create taskdir.. code:"+code)
                                 logger.debug("taskdir created");
                                 next();
                             })

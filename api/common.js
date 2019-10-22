@@ -22,16 +22,6 @@ String.prototype.addSlashes = function() {
   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
 
-//used by various health checker
-/*
-exports.sshagent_list_keys = function(resource_id, cb) {
-    //TODO sshagent-client throws (https://github.com/joyent/node-sshpk-agent/issues/11)
-    //logger.debug("using ssh_agent", process.env.SSH_AUTH_SOCK);
-    process.env.SSH_AUTH_SOCK = "/tmp/"+resource._id.toString()+".ssh-agent.sock";
-    sshagent_client.listKeys(cb);
-}
-*/
-
 //find all orphaned ssh-agent processes and kill them.
 ps.lookup({
     command: 'ssh-agent',
@@ -103,8 +93,8 @@ exports.redis = redis.createClient(config.redis.port, config.redis.server);
 exports.redis.on('error', err=>{throw err});
 
 exports.getworkdir = function(workflow_id, resource) {
-    var detail = config.resources[resource.resource_id];
-    var workdir = resource.config.workdir || detail.workdir;
+    //var detail = config.resources[resource.resource_id];
+    var workdir = resource.config.workdir;// || detail.workdir;
     if(!workdir) return null;
     var template = workdir;
     var fullpath = template.replace("__username__", resource.config.username);
@@ -167,7 +157,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     }
 
     //need to create a unique key for resource and any options used
-    const hostname = resource.config.hostname || detail.hostname;
+    const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname, opts});
     
     //see if we already have an active ssh session
@@ -200,7 +190,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         cb = null;
     }, 1000*30);
 
-    const detail = config.resources[resource.resource_id];
+    //const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', ()=>{
         if(!connection_timeout) return; //already timed out
@@ -336,7 +326,7 @@ function sftp_ref(sftp) {
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
 
-    const hostname = resource.config.hostname || detail.hostname;
+    const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname});
     
     //see if we already have an active sftp session
@@ -368,7 +358,7 @@ exports.get_sftp_connection = function(resource, cb) {
         cb = null;
     }, 1000*30);
 
-    const detail = config.resources[resource.resource_id];
+    //const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', function() {
         if(!connection_timeout) return; //already timed out

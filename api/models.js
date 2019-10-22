@@ -103,9 +103,9 @@ var resourceSchema = mongoose.Schema({
     //https://jetstream-cloud.org/research/citing-jetstream.php
     citation: String, //bibtex citation string to cite this resource 
     
-    type: String, //DEPRECATED... use resource config via resource_id and use the type specified there
-
-    resource_id: String, //like sda, bigred2 (resource base id..)
+    //DEPRECATED.. all resources are now just ssh
+    //type: String, //DEPRECATED... use resource config via resource_id and use the type specified there
+    //resource_id: String, //like sda, bigred2 (resource base id..)
 
     config: mongoose.Schema.Types.Mixed,
     envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)

@@ -55,11 +55,11 @@ function canedit(user, resource) {
  *
  * @apiSuccess {Object}         List of resources types (in key/value where key is resource type ID, and value is resource detail)
  */
+/*
 router.get('/types', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     res.json(config.resources);
 });
 
-//TODO who uses this?
 router.get('/stats/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     //check access
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
@@ -73,6 +73,7 @@ router.get('/stats/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), fu
         });
     });
 });
+*/
 
 /**
  * @apiGroup Resource
@@ -122,8 +123,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
 
         //add / remove a few more things
         resources.forEach(function(resource) {
-            //resource.detail = config.resources[resource.resource_id]; //TODO deprecate this
-            resource._detail = config.resources[resource.resource_id];
+            //resource._detail = config.resources[resource.resource_id];
             resource.salts = undefined;
             resource._canedit = canedit(req.user, resource)
         });
@@ -162,13 +162,13 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
     resource_lib.select(req.user, query, (err, resource, score, considered)=>{
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true, considered});
-        var resource_detail = config.resources[resource.resource_id];
+        //var resource_detail = config.resources[resource.resource_id];
         res.json({
             score,
             resource: mask_enc(resource),
             considered,
-            detail: resource_detail, //TODO deprecate this
-            _detail: resource_detail,
+            //detail: resource_detail, //TODO deprecate this
+            //_detail: resource_detail,
             workdir: common.getworkdir(null, resource),
             _canedit: canedit(req.user, resource),
         });
@@ -272,8 +272,6 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
  * @apiName NewResource
  * @apiGroup Resource
  *
- * @apiParam {String} type      "hpss", or "ssh" for now
- * @apiParam {String} resource_id ID of this resource instance ("karst", "mason", etc..)
  * @apiParam {Object} config    Configuration for resource
  * @apiParam {Object} [envs]    Key values to be inserted for service execution
  * @apiParam {String} [name]    Name of this resource instance (like "soichi's karst account")
@@ -305,19 +303,31 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
  *
  */
 router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
-    var resource = new db.Resource(req.body);
 
-    //only admin can update gids
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("resource.create")) 
+        return next("you are not authorized to register new resource. please contact admin");
+
+    var resource = new db.Resource(req.body);
+    resource.user_id = req.user.sub;
+    delete resource._id; //sometimes client sets this to null.. it shouldn't, but let's be nice
+
+    //only admin can update gids (to share resources)
     if(!is_admin(req.user)) delete resource.gids;
 
-    resource.user_id = req.user.sub;
-    common.encrypt_resource(resource);
-    resource.save(function(err, _resource) {
-        if(err) return next(err);
-        var _resource = JSON.parse(JSON.stringify(_resource));
-        _resource._canedit = canedit(req.user, resource);
-        res.json(mask_enc(_resource));
-    });
+    //first save..
+    resource.save().then(_resource=>{
+        //I have to save twice because we can't encrypt enc_ fields without _id set
+        console.log("dumping _id");
+        console.log(_resource._id);
+        common.encrypt_resource(_resource);
+        _resource.markModified('config');
+        console.log("saving twice");
+        return _resource.save();
+    }).then(_final_resource=>{
+        var resource = _final_resource.toObject();
+        resource._canedit = canedit(req.user, resource);
+        res.json(mask_enc(resource));
+    }).catch(next);
 });
 
 /**
@@ -355,7 +365,7 @@ router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, 
 });
 
 //(admin only) allow other service (warehouse) to directly access storage resource's data
-router.get('/archive/download/:resource_id/*', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     logger.debug("requested");
     if(!is_admin(req.user)) return next("admin only");
     let path = req.params[0];
@@ -368,8 +378,8 @@ router.get('/archive/download/:resource_id/*', jwt({secret: config.amaretti.auth
         req_closed = true;
     });
 
-    logger.debug("loading resource detail"+req.params.resource_id);
-    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
+    logger.debug("loading resource detail"+req.params.id);
+    db.Resource.findOne({_id: req.params.id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return next("no such resource");
         if(!resource.envs || !resource.envs.BRAINLIFE_ARCHIVE) return next("BRAINLIFE_ARCHIVE ENV param is not set");
@@ -398,13 +408,13 @@ router.get('/archive/download/:resource_id/*', jwt({secret: config.amaretti.auth
 //like.. https://dev1.soichi.us/api/amaretti/resource/594c4d88cec9aa163acb9264/metrics
 //experimental
 router.get('/:id/metrics', /*jwt({secret: config.express.pubkey, credentialsRequired: false}),*/ (req, res, next)=>{
-    let resource_id = req.params.id;
-    db.Resource.findById(resource_id).select('github').lean().exec((err, resource)=>{
+    let id = req.params.id;
+    db.Resource.findById(id).select('github').lean().exec((err, resource)=>{
         if(err) return next(err);
         if(!resource) return next("no such resource");
         //if(!common.check_access(req.user, resource)) return res.status(401).end();
         request.get({url: config.metrics.api+"/render", qs: {
-            target: config.metrics.resource_prefix+"."+resource_id,
+            target: config.metrics.resource_prefix+"."+id,
             format: "json",
             noNullPoints: "true"
         }, json: true }, (err, _res, json)=>{

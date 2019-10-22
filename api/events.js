@@ -149,6 +149,7 @@ exports.instance = function(instance) {
 
 //right now nobody receives resource update event as far as I know..
 exports.resource = function(resource) {
+    if(!resource._id) return; //can't post event if _id isn't set (for new document save"?)
     let key = resource._id.toString();
     publish_or_log(resource_ex, key, {
         _id: resource._id,

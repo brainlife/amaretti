@@ -56,25 +56,33 @@ exports.select = function(user, task, cb) {
                     return next_resource();         
                 }
 
-                let resource_detail = config.resources[resource.resource_id];
+                //let resource_detail = config.resources[resource.resource_id];
                 let consider = {
-                    id: resource._id, 
+                    _id: resource._id, 
+                    id: resource._id,  //deprecated.. use _id
                     gids: resource.gids,
                     name: resource.name, 
-                    desc: resource.desc, 
+                    config: {
+                        desc: resource.config.desc,
+                    },
                     status: resource.status, 
                     status_msg: resource.status_msg, 
-                    score: score, 
+                    active: resource.active,
+
+                    score,
+                    detail, //score details
+
                     owner: resource.user_id,
-                    detail, //{msg: .., maxtask: 10, running: 5}
+                            
+                    /*
                     info: {
                         desc: resource_detail.desc,
                         name: resource_detail.name,
                         maxtask: resource_detail.maxtask,
                     },
+                    */
                 };
                 considered.push(consider);
-
 
                 if(resource.status != 'ok') {
                     consider.detail.msg += "resource status is not ok";
@@ -159,84 +167,92 @@ exports.select = function(user, task, cb) {
 
 function score_resource(user, resource, task, cb) {
     //see if this resource supports requested service
-    var resource_detail = config.resources[resource.resource_id];
+    //var resource_detail = config.resources[resource.resource_id];
     //TODO other things we could do..
     //1... handle task.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
+    /*
     if(!resource_detail) {
         logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
         return cb(null, 0, {msg: "no resource_detail"});
     } else {
-        var score = null;
-        var detail = {msg: ""};
+    */
+    var score = null;
+    var detail = {msg: "", maxtask: 1};
+
+    //first, pull score from resource_detail
+    /*
+    if(resource_detail.services && resource_detail.services[task.service]) {
+        score = parseInt(resource_detail.services[task.service].score);
+        detail.msg += "resource_detail score:"+score+"\n";
+    }
+    */
     
-        //first, pull score from resource_detail
-        if(resource_detail.services && resource_detail.services[task.service]) {
-            score = parseInt(resource_detail.services[task.service].score);
-            detail.msg += "resource_detail score:"+score+"\n";
-        }
-        
-        //override it with instance specific score
-        if( resource.config && 
-            resource.config.services) {
-            resource.config.services.forEach(function(service) {
-                if(service.name == task.service) {
-                    score = parseInt(service.score);
-                    detail.msg += "resource.config score:"+score+"\n";
-                }
-            });
-        }
-
-        if(score === null) return cb(null, null); //this resource doesn't know about this service..
-
-        //check number of tasks currently running on this resource and compare it with maxtask if set
-        detail.maxtask = resource_detail.maxtask;
-        //override with resource specific maxtask
-        if(resource.config && resource.config.maxtask) detail.maxtask = resource.config.maxtask; 
-        
-        /*
-        //if no maxtask set .. limitless!
-        if(detail.maxtask === null || detail.maxtask === undefined) {
-            detail.msg += "This resource has no max task";
-            return cb(null, score, detail); 
-        }
-        */
-        //if no maxtask set.. assume 1
-        if(detail.maxtask === null || detail.maxtask === undefined) {
-            detail.msg += "This resource has no max task. assuming it to be 1";
-            detail.maxtask = 1;
-        }
-
-        //logger.debug("counting running / requested tasks for resource:"+resource._id);
-        db.Task.countDocuments({
-            resource_id: resource._id, 
-            $or: [
-                {status: "running"},
-                {status: "requested", start_date: {$exists: true}}, //starting..
-            ],
-            _id: {$ne: task._id}, //don't count myself waiting
-        }, (err, running)=>{
-            if(err) logger.error(err);
-            detail.running = running;
-            //logger.debug("tasks running "+running);
-            detail.msg+="tasks running:"+running+" maxtask:"+detail.maxtask+"\n";
-            detail.fullness = running / detail.maxtask;
-            if(detail.fullness >= 1) {
-                detail.msg += "resource is busy\n";
-                cb(null, 0, detail); 
-            } else {
-                detail.msg += "resource is "+Math.round(detail.fullness*100)+"% occupied\n";
-                cb(null, score, detail);
+    //override it with instance specific score
+    if( resource.config && 
+        resource.config.services) {
+        resource.config.services.forEach(function(service) {
+            if(service.name == task.service) {
+                score = parseInt(service.score);
+                detail.msg += "resource.config score:"+score+"\n";
             }
         });
     }
+
+    if(score === null) return cb(null, null); //this resource doesn't know about this service..
+
+    //check number of tasks currently running on this resource and compare it with maxtask if set
+    //detail.maxtask = resource_detail.maxtask;
+    //override with resource specific maxtask
+
+    if(!resource.config.maxtask) resource.config.maxtask = 1; //for backward compatibility
+
+    detail.maxtask = resource.config.maxtask; 
+    
+    /*
+    //if no maxtask set .. limitless!
+    if(detail.maxtask === null || detail.maxtask === undefined) {
+        detail.msg += "This resource has no max task";
+        return cb(null, score, detail); 
+    }
+    */
+    //if no maxtask set.. assume 1
+    /*
+    if(detail.maxtask === null || detail.maxtask === undefined) {
+        detail.msg += "This resource has no max task. assuming it to be 1";
+        detail.maxtask = 1;
+    }
+    */
+
+    //logger.debug("counting running / requested tasks for resource:"+resource._id);
+    db.Task.countDocuments({
+        resource_id: resource._id, 
+        $or: [
+            {status: "running"},
+            {status: "requested", start_date: {$exists: true}}, //starting..
+        ],
+        _id: {$ne: task._id}, //don't count myself waiting
+    }, (err, running)=>{
+        if(err) logger.error(err);
+        detail.running = running;
+        //logger.debug("tasks running "+running);
+        detail.msg+="tasks running:"+running+" maxtask:"+detail.maxtask+"\n";
+        detail.fullness = running / detail.maxtask;
+        if(detail.fullness >= 1) {
+            detail.msg += "resource is busy\n";
+            cb(null, 0, detail); 
+        } else {
+            detail.msg += "resource is "+Math.round(detail.fullness*100)+"% occupied\n";
+            cb(null, score, detail);
+        }
+    });
 }
 
 //run appropriate tests based on resource type
 //TODO maybe I should move this to common?
 exports.check = function(resource, cb) {
-    var detail = config.resources[resource.resource_id];
-    if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
+    //var detail = config.resources[resource.resource_id];
+    //if(detail === undefined) return cb("unknown resource_id:"+resource.resource_id);
 
     let status; //ok, failed, etc..
     let msg; //detail
@@ -273,9 +289,9 @@ exports.check = function(resource, cb) {
             resource.status = status;
             if(status == "ok") {
                 resource.lastok_date = new Date();
-                resource.status_msg = "test ok";
+                resource.status_msg = "Resource tested successfully";
             } else {
-                resource.status_msg = "test failed";
+                resource.status_msg = msg || "test failed";
             }
             resource.save(next);
         },
@@ -369,10 +385,10 @@ function check_ssh(resource, cb) {
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
     common.decrypt_resource(decrypted_resource);
     logger.debug("check_ssh / decrypted");
-    var detail = config.resources[resource.resource_id];
+    //var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
-            host: resource.config.hostname || detail.hostname,
+            host: resource.config.hostname,// || detail.hostname,
             username: resource.config.username,
             privateKey: decrypted_resource.config.enc_ssh_private,
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
