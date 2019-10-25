@@ -4,8 +4,6 @@ const fs = require('fs');
 const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, prettyPrint } = format;
 
-//process.env.SSH_AUTH_SOCK = "/home/hayashis/docker/ssh-agent/ssh-agent.sock";
-
 exports.instances = process.env.instances||1;
 exports.instance_id = process.env.NODE_APP_INSTANCE||0;
 
@@ -13,15 +11,7 @@ exports.instance_id = process.env.NODE_APP_INSTANCE||0;
 //also to store various time sensitive cache data
 exports.redis = {
     server: "localhost", 
-    //port: 6379,
 }
-
-/*
-//deprecated - provide prefix via command line
-exports.sensu = {
-    prefix: "dev.amaretti.stat"
-}
-*/
 
 exports.amaretti = {
     auth_pubkey: fs.readFileSync('/home/hayashis/git/auth/api/config/auth.pub'),
@@ -50,15 +40,7 @@ exports.github = {
 }
 
 exports.metrics = {
-/*
-    task: {
-            path: "/graphite/graphite.5min/amaretti.task",
-            //prefix: "prod.warehouse",
-            prefix: "dev.warehouse", 
-    },
-*/
     resource_prefix: "dev.amaretti.resource-id",
-
     api: "http://10.0.0.10",
 }
 

@@ -660,19 +660,23 @@ function start_task(task, resource, cb) {
         //TODO - I am not sure if this is the right precendence ordering..
         //start with any envs from dependent resources
         if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
+            /*
             let resource_detail = config.resources[resource_dep.resource_id];
             if(resource_detail.envs) for(var key in resource_detail.envs) {
                 envs[key] = resource_detail.envs[key];
             }
+            */
             if(resource_dep.envs) for(var key in resource_dep.envs) {
                 envs[key] = resource_dep.envs[key];
             }
         });
         //override with resource base envs
+        /*
         let resource_detail = config.resources[resource.resource_id];
         if(resource_detail.envs) for(var key in resource_detail.envs) {
             envs[key] = resource_detail.envs[key];
         }
+        */
         //override with any resource instance envs
         if(resource.envs) for(var key in resource.envs) {
             envs[key] = resource.envs[key];
@@ -849,10 +853,10 @@ function start_task(task, resource, cb) {
 
                         //write some debugging info
                         stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+" of "+(task.retry+1)+")\n");
-                        var username = (resource.config.username||resource_detail.username);
-                        var hostname = (resource.config.hostname||resource_detail.hostname);
-                        stream.write("# resource       : "+resource_detail.name+" / "+resource.name+"\n");
-                        stream.write("# resource       : "+resource.name+" ("+resource_detail.name+")\n");
+                        var username = resource.config.username;//||resource_detail.username);
+                        var hostname = resource.config.hostname;//||resource_detail.hostname);
+                        //stream.write("# resource       : "+resource_detail.name+" / "+resource.name+"\n");
+                        stream.write("# resource       : "+resource.name+"\n"); //+" ("+resource_detail.name+")\n");
                         stream.write("#                : "+username+"@"+hostname+"\n");
                         stream.write("# task dir       : "+taskdir+"\n");
                         if(task.remove_date) stream.write("# remove_date    : "+task.remove_date+"\n");

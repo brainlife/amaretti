@@ -24,57 +24,110 @@ db.init(function(err) {
     rcon.on('error', err=>{throw err});
     rcon.on('ready', ()=>{
         logger.info("connected to redis");
-        check_resources();
+        run();
     });
 });
 
 //go through all registered resources and check for connectivity & smoke test
-function check_resources() {
-    db.Resource.find({active: true}, function(err, resources) {
+function run() {
+    db.Resource.find({
+        active: true, 
+        status: {$ne: "removed"},
+        _id: "59ea931df82bb308c0197c3d",
+    }, function(err, resources) {
+
         var counts = {};
         async.eachSeries(resources, function(resource, next_resource) {
-            if(resource.status == "removed") return next_resource();
-            logger.debug("checking",resource._id, resource.name);
+            async.series([
 
-            //TODO - should I add timeout?
-            resource_lib.check(resource, function(err) {
-                //I don't care if someone's resource status is failing or not
-                
-                //count status for health reporting.. (not sure what I will be using this for yet)
-                if(!counts[resource.status]) counts[resource.status] = 0;
-                counts[resource.status]++;
-                
-                //deactivate resource if it's never been ok-ed for a week
-                var weekold = new Date();
-                weekold.setDate(weekold.getDate() - 7);
-                if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
-                    logger.info("deactivating resource since it's never been active for long time");
-                    resource.active = false;
-                    return resource.save(next_resource);
-                }
-                //deactivate resource that's been down for a month or has never been active
-                var monthold = new Date();
-                monthold.setDate(monthold.getDate() - 7);
-                if(resource.lastok_date && resource.lastok_date < monthold && resource.status != "ok") {
-                    logger.info("deactivating resource which has been non-ok for more than 30 days");
-                    resource.active = false;
-                    return resource.save(next_resource);
-                }
+                //check resource status
+                next=>{
+                    //TODO - should I add timeout?
+                    logger.debug("checking",resource._id, resource.name);
+                    resource_lib.check(resource, function(err) {
+                        //I don't care if someone's resource status is failing or not
+                        
+                        //count status for health reporting.. (not sure what I will be using this for yet)
+                        if(!counts[resource.status]) counts[resource.status] = 0;
+                        counts[resource.status]++;
+                        
+                        //deactivate resource if it's never been ok-ed for a week
+                        var weekold = new Date();
+                        weekold.setDate(weekold.getDate() - 7);
+                        if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
+                            logger.info("deactivating resource since it's never been active for long time");
+                            resource.active = false;
+                            return resource.save(next_resource);
+                        }
 
-                return next_resource();
-            });
-        }, function(err) {
+                        //deactivate resource that's been down for a month or has never been active
+                        var monthold = new Date();
+                        monthold.setDate(monthold.getDate() - 7);
+                        if(resource.lastok_date && resource.lastok_date < monthold && resource.status != "ok") {
+                            logger.info("deactivating resource which has been non-ok for more than 30 days");
+                            resource.active = false;
+                            return resource.save(next_resource);
+                        }
+
+                        return next();
+                    });
+                },
+
+                //store recent usage history
+                //https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
+                //curl "http://10.0.0.10/render?target=dev.amaretti.resource-id.59ea931df82bb308c0197c3d&format=json&from=-1day&noNullPoints=true" | jq -r
+                next=>{
+                    console.dir(config.metrics.api+"/render?target="+config.metrics.resource_prefix+"."+resource._id);
+                    request.get({url: config.metrics.api+"/render", qs: {
+                        target: config.metrics.resource_prefix+"."+resource._id,
+                        from: "-1day",
+                        format: "json",
+                        noNullPoints: "true"
+                    }, json: true, debug: true }, (err, _res, json)=>{
+                        if(err) return next(err);
+                        let data;
+                        if(json.length == 0) data = []; //maybe never run?
+                        else data = json[0].datapoints;
+
+                        //find max for each hour.
+                        let start = new Date();
+                        let max = parseInt(start.getTime()/1000);
+                        start.setDate(start.getDate()-1);
+                        let min = parseInt(start.getTime()/1000);
+
+                        let recent_job_counts = [];
+                        for(let d = min;d < max;d+=3600) {
+                            let max_value = 0;
+                            data.forEach(point=>{
+                                //if(d[1] > d && d[1] < d+3600 && d[0] > max_value) max_value = d[1];
+                                if(point[1] > d && point[1] < d+3600 && point[0] > max_value) max_value = point[0];
+                            });
+                            recent_job_counts.push([d, max_value]); 
+                        }
+                        console.dir(recent_job_counts);
+                        resource.stats.recent_job_counts = recent_job_counts;
+                        resource.save(next);
+                    });
+                },
+                
+                //store current task execution status
+                next=>{
+                    next();
+                },
+                 
+            ], next_resource);
+        }, err=>{
             if(err) logger.error(err); //continue
             else logger.debug("checked "+resources.length+" resources");
-            health_check(resources, counts);
+            report(resources, counts);
 
-            logger.debug("waiting before running another check_resource");
-            setTimeout(check_resources, 1000*60*30); //wait 30 minutes each check
+            logger.debug("waiting for 30mins before running another check_resource");
+            setTimeout(run, 1000*60*30); //wait 30 minutes each check
         });
     });
 }
 
-function health_check(resources, counts) {
+function report(resources, counts) {
     var ssh = common.report_ssh();
     var report = {
         status: "ok",
@@ -102,5 +155,4 @@ function health_check(resources, counts) {
 
     rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }
-
 

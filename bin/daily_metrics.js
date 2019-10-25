@@ -21,7 +21,6 @@ if(!graphite_prefix) {
 }
 
 let ignored_service = [
-
     //old services..
     "soichih/sca-product-raw",
     "soichih/abcd-novnc",

@@ -111,8 +111,13 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
         delete find.user_id;
     }
 
+    let select = null; //select all by default
+    if(req.query.select) {
+        select = req.query.select+" user_id";
+    }
+
     db.Resource.find(find)
-    .select(req.query.select)
+    .select(select)
     .limit(req.query.limit || 100)
     .skip(req.query.skip || 0)
     .sort(req.query.sort || '_id')
@@ -407,12 +412,15 @@ router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey})
 
 //like.. https://dev1.soichi.us/api/amaretti/resource/594c4d88cec9aa163acb9264/metrics
 //experimental
-router.get('/:id/metrics', /*jwt({secret: config.express.pubkey, credentialsRequired: false}),*/ (req, res, next)=>{
+/*
+router.get('/:id/metrics', (req, res, next)=>{
     let id = req.params.id;
     db.Resource.findById(id).select('github').lean().exec((err, resource)=>{
         if(err) return next(err);
         if(!resource) return next("no such resource");
         //if(!common.check_access(req.user, resource)) return res.status(401).end();
+        
+        //doc > https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
         request.get({url: config.metrics.api+"/render", qs: {
             target: config.metrics.resource_prefix+"."+id,
             format: "json",
@@ -425,6 +433,7 @@ router.get('/:id/metrics', /*jwt({secret: config.express.pubkey, credentialsRequ
         });
     });
 });
+*/
 
 module.exports = router;
 
