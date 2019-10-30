@@ -113,6 +113,8 @@ exports.task = function(task) {
             var taskevent = new db.Taskevent({
                 task_id: task._id, 
                 resource_id: task.resource_id,
+                _group_id: task._group_id,
+
                 user_id: task.user_id, 
                 status: task.status, 
                 status_msg: task.status_msg, 

@@ -33,7 +33,7 @@ function run() {
     db.Resource.find({
         active: true, 
         status: {$ne: "removed"},
-        _id: "59ea931df82bb308c0197c3d",
+        //_id: "59ea931df82bb308c0197c3d", //debug
     }, function(err, resources) {
 
         var counts = {};
@@ -104,16 +104,41 @@ function run() {
                             });
                             recent_job_counts.push([d, max_value]); 
                         }
-                        console.dir(recent_job_counts);
                         resource.stats.recent_job_counts = recent_job_counts;
-                        resource.save(next);
+                        next();
                     });
                 },
-                
-                //store current task execution status
+
+                /*
+                //store past usage stats (just the total - not service info - which can be queried via api)
                 next=>{
-                    next();
+                    resource_lib.stat(resource, (err, stats)=>{
+                        if(err) return next(err);
+                        resource.stats.total = stats.total;
+                        //resource.stats.services = stats.services;
+                        next();
+                    });
                 },
+                */
+                
+                //TODO.. query list of jobs currently running on this resource
+                /*
+                async next=>{
+                    let tasks = await db.Task.find({
+                        resource_id: resource._id,
+                        status: {$in: ["requested", "running", "running_sync"]},
+                    }).lean().select('_id user_id _group_id service service_branch status status_msg').exec()
+
+                    console.dir(tasks);
+                    //TODO..
+                },
+                */
+
+                //lastly.. save everything
+                next=>{
+                    console.dir(resource.stats);
+                    resource.save(next);
+                }
                  
             ], next_resource);
         }, err=>{
@@ -121,8 +146,8 @@ function run() {
             else logger.debug("checked "+resources.length+" resources");
             report(resources, counts);
 
-            logger.debug("waiting for 30mins before running another check_resource");
-            setTimeout(run, 1000*60*30); //wait 30 minutes each check
+            logger.debug("waiting for 10mins before running another check_resource");
+            setTimeout(run, 1000*60*10); //wait 10 minutes each check
         });
     });
 }

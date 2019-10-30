@@ -119,7 +119,9 @@ var resourceSchema = mongoose.Schema({
     lastok_date: Date, //date which status was last ok... used to auto-deactivate if status remains non-ok for long period of time
 
     stats: {
-        recent_job_counts: [],
+        recent_job_counts: [], //histogram of job counts
+        total: mongoose.Schema.Types.Mixed, //task status counts keyed by status name
+        //services: mongoose.Schema.Types.Mixed, //task status counts keyed by service name, then status name
     },
 
     create_date: {type: Date, default: Date.now },
@@ -269,6 +271,7 @@ exports.Task = mongoose.model('Task', taskSchema);
 var taskeventSchema = mongoose.Schema({
     task_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true},
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
+    _group_id: String, //aka project (recently added)
 
     user_id: String,
     service: String,

@@ -64,7 +64,9 @@ exports.select = function(user, task, cb) {
                     name: resource.name, 
                     config: {
                         desc: resource.config.desc,
+                        maxtask: resource.config.maxtask,
                     },
+                    stats: resource.stats,
                     status: resource.status, 
                     status_msg: resource.status_msg, 
                     active: resource.active,
@@ -335,7 +337,7 @@ function check_ssh(resource, cb) {
             var to = setTimeout(()=>{
                 cb_once(null, "failed", "send test script timeout - filesytem is offline?");
             }, 5*1000); 
-            
+
             let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
             let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
             writestream.on('close', ()=>{
@@ -364,6 +366,23 @@ function check_ssh(resource, cb) {
                 logger.debug("resource_test.sh write stream ended - running");
             });
             readstream.pipe(writestream);
+
+
+            /*
+            conn.exec('resource_test', (err, stream)=>{
+                if (err) return cb_once(err);
+                var out = "";
+                stream.on('close', function(code, signal) {
+                    logger.debug(out);
+                    if(code == 0) cb_once(null, "ok", out);
+                    else cb_once(null, "failed", out);
+                }).on('data', function(data) {
+                    out += data;
+                }).stderr.on('data', function(data) {
+                    out += data;
+                });
+            })
+            */
         });
     });
     conn.on('end', function() {
@@ -470,39 +489,83 @@ function check_iohost(resource, cb) {
     }
 }
 
-//pull some statistics about this resource using taskevent table (should we create another table to store this?)
-exports.stat = function(resource, cb) {
-    var find = {resource_id: resource._id};
+//pull some statistics about a resource
+//used by bin/resource.js
+exports.stat = async function(resource, cb) {
 
-    //group by status and count
-    db.Taskevent.aggregate([
-        {$match: find},
-        {$group: {_id: '$status', count: {$sum: 1}}},
-    ]).exec(function(err, statuses) {
-        if(err) return cb(err);
+    /*
+    try {
 
-        var task_status_counts = {};
-        statuses.forEach(status=>{
-            task_status_counts[status._id] = status.count;
-        });
-        
-        //group by service and count
-        db.Taskevent.aggregate([
-            {
-                $match: { 
-                    resource_id: resource._id,
-                    //status: "requested",
-                }
-            },
-            {$group: {_id: {
+        //pull service centric counts
+        let data = await db.Task.aggregate().match({resource_id: resource._id}).group({_id: {
                 service: '$service',
                 status: '$status',
-                /*, service_branch: '$service_branch'*/
-            }, count: {$sum: 1}}},
-        ]).exec(function(err, services) {
-            if(err) return cb(err);
-            cb(null, { find, counts: task_status_counts, services });
+        }, count: {$sum: 1} }).exec();
+
+        //parse out counts
+        let total = {};
+        let services = {};
+
+        data.forEach(rec=>{
+            //rec... { _id: { service: 'soichih/abcd-novnc', status: 'stopped' }, count: 14 },
+            let service = rec._id.service;
+            let status = rec._id.status;
+            let count = rec.count;
+            if(!total[status]) total[status] = 0;
+            if(!services[service]) services[service] = {};
+            if(!services[service][status]) services[service][status] = 0;
+            total[status] += count;
+            services[service][status] += count;
         });
-    });
+
+        //pull project centric counts
+        data = await db.Task.aggregate().match({resource_id: resource._id}).group({_id: {
+                _group_id: '$_group_id',
+                status: '$status',
+        }, count: {$sum: 1} }).exec();
+
+        //parse out counts
+        let groups = {};
+
+        data.forEach(rec=>{
+            //rec... { _id: { service: 'soichih/abcd-novnc', status: 'stopped' }, count: 14 },
+            let group = rec._id._group_id;
+            let status = rec._id.status;
+            let count = rec.count;
+            if(!groups[group]) groups[group] = {};
+            if(!groups[group][status]) groups[group][status] = 0;
+            groups[group][status] += count;
+        });
+
+        cb(null, {total, services, groups});
+
+    } catch(err) {
+        cb(err);
+    }
+    */
+
+    try {
+        //get execution history counts for each service 
+        let data = await db.Taskevent.aggregate()
+            .match({resource_id: resource._id})
+            .group({_id: {service: '$service', status: '$status'}, count: {$sum: 1}}).exec()
+        let total = {};
+        let services = {};
+        data.forEach(rec=>{
+            let service = rec._id.service;
+            let status = rec._id.status;
+            let count = rec.count;
+
+            if(!total[status]) total[status] = 0;
+            if(!services[service]) services[service] = {};
+            if(!services[service][status]) services[service][status] = 0;
+            total[status] += count;
+            services[service][status] += count;
+        });
+
+        cb(null, {total, services});
+    } catch (err) {
+        cb(err);
+    }
 }
 

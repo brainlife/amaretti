@@ -180,6 +180,16 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
     });
 });
 
+//return a list of currently running tasks (experimental)
+router.get('/tasks/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+    //pull currently running tasks
+    let tasks = await db.Task.find({
+        resource_id: req.params.id,
+        status: {$in: ["requested", "running", "running_sync"]},
+    }).lean().select('_id user_id _group_id service service_branch status status_msg').exec()
+    res.json(tasks);
+});
+
 /**
  * @api {put} /resource/test/:resource_id Test resource
  * @apiName TestResource
