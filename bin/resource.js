@@ -109,17 +109,15 @@ function run() {
                     });
                 },
 
-                /*
                 //store past usage stats (just the total - not service info - which can be queried via api)
                 next=>{
                     resource_lib.stat(resource, (err, stats)=>{
                         if(err) return next(err);
                         resource.stats.total = stats.total;
-                        //resource.stats.services = stats.services;
+                        resource.stats.services = stats.services;
                         next();
                     });
                 },
-                */
                 
                 //TODO.. query list of jobs currently running on this resource
                 /*

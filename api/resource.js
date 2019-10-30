@@ -547,7 +547,7 @@ exports.stat = async function(resource, cb) {
     try {
         //get execution history counts for each service 
         let data = await db.Taskevent.aggregate()
-            .match({resource_id: resource._id})
+            .match({resource_id: resource._id, status: {$in: ["requested", "finished", "failed"]}})
             .group({_id: {service: '$service', status: '$status'}, count: {$sum: 1}}).exec()
         let total = {};
         let services = {};

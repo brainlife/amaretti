@@ -118,10 +118,11 @@ var resourceSchema = mongoose.Schema({
     status_update: Date, //update_date is for updating the resource config.. status_update is the date of last status check
     lastok_date: Date, //date which status was last ok... used to auto-deactivate if status remains non-ok for long period of time
 
+    //taskevent stats
     stats: {
         recent_job_counts: [], //histogram of job counts
         total: mongoose.Schema.Types.Mixed, //task status counts keyed by status name
-        //services: mongoose.Schema.Types.Mixed, //task status counts keyed by service name, then status name
+        services: mongoose.Schema.Types.Mixed, //task status counts keyed by service name, then status name
     },
 
     create_date: {type: Date, default: Date.now },
