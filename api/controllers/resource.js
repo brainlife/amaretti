@@ -186,7 +186,7 @@ router.get('/tasks/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req,
     let tasks = await db.Task.find({
         resource_id: req.params.id,
         status: {$in: ["requested", "running", "running_sync"]},
-    }).lean().select('_id user_id _group_id service service_branch status status_msg').exec()
+    }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
     res.json(tasks);
 });
 
