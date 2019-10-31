@@ -219,10 +219,6 @@ function handle_housekeeping(task, cb) {
                     logger.info(err); //continue
                     next();
                 } else {
-                    //why I don't clear this? because current task.resource_id
-                    //is defined as "resouce id used" (not where it's at currently)
-                    //task.resource_id = undefined;
-
                     //now.. if we *know* that there are no more resource that has this task, consider it removed
                     if(task.resource_ids.length == 0) {
                         task.status = "removed"; //most likely removed by cluster

@@ -562,7 +562,6 @@ exports.stat = async function(resource, cb) {
             total[status] += count;
             services[service][status] += count;
         });
-
         cb(null, {total, services});
     } catch (err) {
         cb(err);

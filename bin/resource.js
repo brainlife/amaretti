@@ -134,7 +134,7 @@ function run() {
 
                 //lastly.. save everything
                 next=>{
-                    console.dir(resource.stats);
+                    console.log(JSON.stringify(resource.stats, null, 4));
                     resource.save(next);
                 }
                  
