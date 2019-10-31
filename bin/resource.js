@@ -43,7 +43,7 @@ function run() {
                 //check resource status
                 next=>{
                     //TODO - should I add timeout?
-                    logger.debug("checking",resource._id, resource.name);
+                    console.log("checking "+resource._id+" "+resource.name);
                     resource_lib.check(resource, function(err) {
                         //I don't care if someone's resource status is failing or not
                         
