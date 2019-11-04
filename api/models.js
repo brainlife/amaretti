@@ -9,9 +9,7 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 
-//use native promise for mongoose
-//without this, I will get Mongoose: mpromise (mongoose's default promise library) is deprecated
-//mongoose.Promise = global.Promise; 
+if(config.amaretti.debug) mongoose.set("debug", true);
 
 exports.init = function(cb) {
     events.init(err=>{
@@ -123,6 +121,7 @@ var resourceSchema = mongoose.Schema({
         recent_job_counts: [], //histogram of job counts
         total: mongoose.Schema.Types.Mixed, //task status counts keyed by status name
         services: mongoose.Schema.Types.Mixed, //task status counts keyed by service name, then status name
+        projects: mongoose.Schema.Types.Mixed, //task sound and total walltime grouped by _group_id (project id)
     },
 
     create_date: {type: Date, default: Date.now },

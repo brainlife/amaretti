@@ -22,6 +22,7 @@ const db = require('../models');
 const common = require('../common');
 const resource_lib = require('../resource');
 const transfer = require('../transfer');
+const mongoose = require('mongoose');
 
 function mask_enc(resource) {
     //mask all config parameters that starts with enc_
@@ -45,35 +46,6 @@ function canedit(user, resource) {
     if(is_admin(user)) return true;
     return false;
 }
-
-/**
- * @apiGroup Resource
- * @api {get} /resource/types   Get all resource types
- * @apiDescription              Returns all resource types configured on the server
- *
- * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
- *
- * @apiSuccess {Object}         List of resources types (in key/value where key is resource type ID, and value is resource detail)
- */
-/*
-router.get('/types', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
-    res.json(config.resources);
-});
-
-router.get('/stats/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
-    //check access
-    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
-        if(err) return next(err);
-        if(!resource) return res.status(404).end();
-        if(!resource.active) return res.status(401).json({message: "resource not active"});
-        if(!common.check_access(req.user, resource)) return res.status(401).end();
-        resource_lib.stat(resource, function(err, stats) {
-            if(err) return next(err);
-            res.json(stats);
-        });
-    });
-});
-*/
 
 /**
  * @apiGroup Resource
@@ -189,6 +161,28 @@ router.get('/tasks/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req,
     }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
     res.json(tasks);
 });
+
+/*
+//(admin only) generate report material for each resource for admin
+router.get('/report/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+    if(!is_admin(req.user)) return next("admin only");
+
+    let groups = await db.Task.aggregate()
+    .match({ resource_id: mongoose.ObjectId(req.params.id) })
+    .project({
+        _walltime: {$subtract: ["$finish_date", "$start_date"]},
+        _group_id: '$_group_id',
+    })
+    .group({_id: "$_group_id", count: {$sum: 1}, total_walltime: {$sum: "$_walltime"} })
+    .exec();
+
+    let report = {groups};
+
+    console.log("report dump");
+    console.dir(report);
+    res.json(report);
+});
+*/
 
 /**
  * @api {put} /resource/test/:resource_id Test resource
@@ -369,13 +363,6 @@ router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, 
             if(err) return next(err);
             res.json({status: 'ok'});
         });
-        /*
-        resource.remove(function(err) {
-            if(err) return next(err);
-            console.log("done removing");
-            res.json({status: 'ok'});
-        });
-        */
     });
 });
 
@@ -419,31 +406,6 @@ router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey})
         });
     });
 });
-
-//like.. https://dev1.soichi.us/api/amaretti/resource/594c4d88cec9aa163acb9264/metrics
-//experimental
-/*
-router.get('/:id/metrics', (req, res, next)=>{
-    let id = req.params.id;
-    db.Resource.findById(id).select('github').lean().exec((err, resource)=>{
-        if(err) return next(err);
-        if(!resource) return next("no such resource");
-        //if(!common.check_access(req.user, resource)) return res.status(401).end();
-        
-        //doc > https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
-        request.get({url: config.metrics.api+"/render", qs: {
-            target: config.metrics.resource_prefix+"."+id,
-            format: "json",
-            noNullPoints: "true"
-        }, json: true }, (err, _res, json)=>{
-            if(err) return next(err);
-            if(json.length == 0) return res.json([]); //maybe not reported recently?
-            let points = json[0].datapoints;
-            res.json(points);
-        });
-    });
-});
-*/
 
 module.exports = router;
 

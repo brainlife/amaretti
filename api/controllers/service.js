@@ -33,13 +33,25 @@ router.get('/info', jwt({secret: config.amaretti.auth_pubkey, credentialsRequire
 
     //TODO - should I hide info for private service if user is not member of the project?
 
-    //logger.debug("service info querying", find);
     db.Serviceinfo.findOne(find)
     .exec(function(err, info) {
         if(err) return next(err);
         res.json(info);
     });
 });
+
+/*
+//(experimental) 
+//return a list of currently running tasks for each task
+//ussed by appinfo
+router.get('/tasks', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+    let tasks = await db.Task.find({
+        service: req.query.service,
+        status: {$in: ["requested", "running", "running_sync"]},
+    }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
+    res.json(tasks);
+});
+*/
 
 module.exports = router;
 

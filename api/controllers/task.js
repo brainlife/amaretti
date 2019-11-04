@@ -81,7 +81,7 @@ router.get('/resource_usage', jwt({secret: config.amaretti.auth_pubkey}), functi
 
         {
             $group: {
-                _id: {"service": "$service", "resource_id": "$resource_id"}, 
+                _id: {service: "$service", resource_id: "$resource_id"}, 
                 count: {$sum: 1}, 
                 total_walltime: {$sum: "$_walltime"}
             }

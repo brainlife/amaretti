@@ -118,6 +118,22 @@ function run() {
                         next();
                     });
                 },
+
+                //list _group_ids for each services
+                next=>{
+                    db.Task.aggregate()
+                    .match({ resource_id: resource._id })
+                    .project({
+                        _walltime: {$subtract: ["$finish_date", "$start_date"]},
+                        _group_id: '$_group_id',
+                    })
+                    .group({_id: "$_group_id", count: {$sum: 1}, total_walltime: {$sum: "$_walltime"} })
+                    .exec((err, projects)=>{
+                        if(err) return next(err);
+                        resource.stats.projects = projects;
+                        next();
+                    });
+                },
                 
                 //TODO.. query list of jobs currently running on this resource
                 /*
