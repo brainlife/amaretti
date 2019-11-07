@@ -351,8 +351,10 @@ function check_ssh(resource, cb) {
                         if(code == 0) cb_once(null, "ok", out);
                         else cb_once(null, "failed", out);
                     }).on('data', function(data) {
+                        console.log("data");
                         out += data;
                     }).stderr.on('data', function(data) {
+                        console.log("stderr:"+data);
                         out += data;
                     });
                 })

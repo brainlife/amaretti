@@ -80,7 +80,7 @@ function run() {
                     console.dir(config.metrics.api+"/render?target="+config.metrics.resource_prefix+"."+resource._id);
                     request.get({url: config.metrics.api+"/render", qs: {
                         target: config.metrics.resource_prefix+"."+resource._id,
-                        from: "-1day",
+                        from: "-3day",
                         format: "json",
                         noNullPoints: "true"
                     }, json: true, debug: true }, (err, _res, json)=>{
