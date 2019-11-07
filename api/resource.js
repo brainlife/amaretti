@@ -75,14 +75,6 @@ exports.select = function(user, task, cb) {
                     detail, //score details
 
                     owner: resource.user_id,
-                            
-                    /*
-                    info: {
-                        desc: resource_detail.desc,
-                        name: resource_detail.name,
-                        maxtask: resource_detail.maxtask,
-                    },
-                    */
                 };
                 considered.push(consider);
 
@@ -207,24 +199,9 @@ function score_resource(user, resource, task, cb) {
     //detail.maxtask = resource_detail.maxtask;
     //override with resource specific maxtask
 
-    if(!resource.config.maxtask) resource.config.maxtask = 1; //for backward compatibility
+    if(resource.config.maxtask === undefined) resource.config.maxtask = 1; //for backward compatibility
 
     detail.maxtask = resource.config.maxtask; 
-    
-    /*
-    //if no maxtask set .. limitless!
-    if(detail.maxtask === null || detail.maxtask === undefined) {
-        detail.msg += "This resource has no max task";
-        return cb(null, score, detail); 
-    }
-    */
-    //if no maxtask set.. assume 1
-    /*
-    if(detail.maxtask === null || detail.maxtask === undefined) {
-        detail.msg += "This resource has no max task. assuming it to be 1";
-        detail.maxtask = 1;
-    }
-    */
 
     //logger.debug("counting running / requested tasks for resource:"+resource._id);
     db.Task.countDocuments({
