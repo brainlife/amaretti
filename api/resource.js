@@ -165,43 +165,22 @@ function score_resource(user, resource, task, cb) {
     //TODO other things we could do..
     //1... handle task.other_service_ids and give higher score to resource that provides more of those services
     //2... benchmark performance from service test and give higher score on resource that performs better at real time
-    /*
-    if(!resource_detail) {
-        logger.error("  resource detail no longer exists for resource_id:"+resource.resource_id);
-        return cb(null, 0, {msg: "no resource_detail"});
-    } else {
-    */
-    var score = null;
-    var detail = {msg: "", maxtask: 1};
-
-    //first, pull score from resource_detail
-    /*
-    if(resource_detail.services && resource_detail.services[task.service]) {
-        score = parseInt(resource_detail.services[task.service].score);
-        detail.msg += "resource_detail score:"+score+"\n";
-    }
-    */
     
     //override it with instance specific score
+    let score = null;
     if( resource.config && 
         resource.config.services) {
         resource.config.services.forEach(function(service) {
             if(service.name == task.service) {
                 score = parseInt(service.score);
-                detail.msg += "resource.config score:"+score+"\n";
             }
         });
     }
-
     if(score === null) return cb(null, null); //this resource doesn't know about this service..
 
-    //check number of tasks currently running on this resource and compare it with maxtask if set
-    //detail.maxtask = resource_detail.maxtask;
-    //override with resource specific maxtask
-
-    if(resource.config.maxtask === undefined) resource.config.maxtask = 1; //for backward compatibility
-
-    detail.maxtask = resource.config.maxtask; 
+    let maxtask = resource.config.maxtask;
+    if(maxtask === undefined) maxtask = 1; //backwas compatiblity
+    if(maxtask == 0) return cb(null, null); //can't run here
 
     //logger.debug("counting running / requested tasks for resource:"+resource._id);
     db.Task.countDocuments({
@@ -213,17 +192,18 @@ function score_resource(user, resource, task, cb) {
         _id: {$ne: task._id}, //don't count myself waiting
     }, (err, running)=>{
         if(err) logger.error(err);
-        detail.running = running;
-        //logger.debug("tasks running "+running);
-        detail.msg+="tasks running:"+running+" maxtask:"+detail.maxtask+"\n";
-        detail.fullness = running / detail.maxtask;
-        if(detail.fullness >= 1) {
-            detail.msg += "resource is busy\n";
-            cb(null, 0, detail); 
-        } else {
-            detail.msg += "resource is "+Math.round(detail.fullness*100)+"% occupied\n";
-            cb(null, score, detail);
+
+        let msg = "resource.config score:"+score+"\n";
+        msg+="tasks running:"+running+" maxtask:"+maxtask+"\n";
+
+        let fullness = running / maxtask;
+        if(fullness >= 1) {
+            score = 0;
+            msg += "resource is busy\n";
         }
+
+        msg += "resource is "+Math.round(fullness*100)+"% occupied\n";
+        cb(null, score, {running, msg, fullness});
     });
 }
 
