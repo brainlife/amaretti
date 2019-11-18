@@ -89,7 +89,7 @@ function run() {
                         if(json.length == 0) data = []; //maybe never run?
                         else data = json[0].datapoints;
 
-                        //find max for each hour.
+                        //aggregate graph into each hours
                         let start = new Date();
                         let max = parseInt(start.getTime()/1000);
                         start.setDate(start.getDate()-1);

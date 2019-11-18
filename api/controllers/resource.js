@@ -153,6 +153,7 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
 });
 
 //return a list of currently running tasks (experimental)
+//used by warehouse/resource.vue?
 router.get('/tasks/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
     //pull currently running tasks
     let tasks = await db.Task.find({
@@ -403,6 +404,59 @@ router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey})
                 });
                 stream.pipe(res);
             });
+        });
+    });
+});
+
+/**
+ * @api {get} /resource/usage/:id Load resource usage graph
+ * @apiName ResourceUsage
+ * @apiGroup Resource
+ *
+ * @apiParam {String} id          Resource Instance ID to update
+ *
+ * @apiDescription  Download resource usage grraph
+ *
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ * @apiSuccess {Object} Resource Object
+ *
+ */
+router.get('/usage/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)=>{
+    //check access
+    db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
+        if(err) return next(err);
+        if(!resource) return res.status(404).end();
+        if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
+
+        //load usage graph
+        let days = 30;
+        request.get({url: config.metrics.api+"/render", qs: {
+            target: config.metrics.resource_prefix+"."+req.params.resource_id,
+            from: "-"+days+"day",
+            format: "json",
+            noNullPoints: "true"
+        }, json: true, debug: true }, (err, _res, json)=>{
+            if(err) return next(err);
+            let data;
+            if(json.length == 0) data = []; //maybe never run?
+            else data = json[0].datapoints;
+            
+            //aggregate graph into every 6 hours
+            let start = new Date();
+            let max = parseInt(start.getTime()/1000);
+            start.setDate(start.getDate()-days);
+            let min = parseInt(start.getTime()/1000);
+            let recent_job_counts = [];
+            for(let d = min;d < max;d+=3600*6) {
+                let max_value = 0;
+                data.forEach(point=>{
+                    //if(d[1] > d && d[1] < d+3600 && d[0] > max_value) max_value = d[1];
+                    if(point[1] > d && point[1] < d+(3600*6) && point[0] > max_value) max_value = point[0];
+                });
+                recent_job_counts.push([d, max_value]); 
+            }
+
+            res.json(recent_job_counts);
         });
     });
 });

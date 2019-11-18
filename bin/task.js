@@ -1163,7 +1163,11 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 
                 //download from github
                 request.get({
-                    url: "https://github.com/"+service+"/archive/"+commit_id+".zip", headers: {"User-Agent": "brainlife/amaretti"}, 
+                    url: "https://github.com/"+service+"/archive/"+commit_id+".zip", 
+                    headers: {
+                        "User-Agent": "brainlife/amaretti",
+                        "Authorization": "token "+config.github.client_secret, //for private repo
+                    }, 
                 }).pipe(stream); 
             });
         },

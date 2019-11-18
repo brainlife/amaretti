@@ -714,11 +714,9 @@ exports.rerun_task = function(task, remove_date, cb) {
     //maybe shouldn't rerun if task is stopped?
     //case "stopped":
         return cb();
-
-    case "removed":
-    //don't resurrect removed task
-        return cb();
+    //"removed" job needs to be rerun for novnc.. but it was filtered out.. why didn't do that? git commit doesn't say much
     }
+
 
     //don't rerun if task is already starting
     if(task.start_date && task.status == "requested") {
