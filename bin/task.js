@@ -897,11 +897,17 @@ function start_task(task, resource, cb) {
 
                     db.Resource.findById(dep.resource_id, function(err, source_resource) {
                         if(err) return next_dep(err);
+
+                        let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
+                        if(source_resource.lastok_date < daysago) {
+                            return cb("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. failing this task");
+                        }
                         if(!source_resource.active) {
                             task.status_msg = "resource("+source_resource.name+") which contains the input data is not active. will try later.";
                             //let's retry later.. //TODO - maybe I should look for other resources that has this task?
                             return cb(); 
                         }
+
                         let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
                         let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
                         let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
