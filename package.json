@@ -32,6 +32,7 @@
     "ps-node": "^0.1.6",
     "redis": "^2.8.0",
     "request": "^2.88.0",
+    "request-promise-native": "^1.0.8",
     "simple-statistics": "^6.1.1",
     "ssh2": "^0.8.5",
     "ssh2-multiplexer": "0.0.8",

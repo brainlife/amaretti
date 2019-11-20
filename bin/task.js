@@ -1166,7 +1166,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     url: "https://github.com/"+service+"/archive/"+commit_id+".zip", 
                     headers: {
                         "User-Agent": "brainlife/amaretti",
-                        "Authorization": "token "+config.github.client_secret, //for private repo
+                        "Authorization": "token "+config.github.access_token, //for private repo
                     }, 
                 }).pipe(stream); 
             });

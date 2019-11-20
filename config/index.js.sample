@@ -35,8 +35,9 @@ exports.sca = exports.amaretti; //deprecated (use amaretti)
 
 //used to use github api (like service.js)
 exports.github = {
-    client_id: "10212f2d18a491068ac4",
-    client_secret: fs.readFileSync(__dirname+"/github.client.secret", "ascii").trim(), //https://github.com/settings/applications/487163
+    //client_id: "10212f2d18a491068ac4",
+    //client_secret: fs.readFileSync(__dirname+"/github.client.secret", "ascii").trim(), //https://github.com/settings/applications/487163
+    access_token: fs.readFileSync(__dirname+"/github.access_token", "ascii").trim(), //https://github.com/settings/applications/487163
 }
 
 exports.metrics = {

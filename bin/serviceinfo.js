@@ -75,8 +75,10 @@ db.init(function(err) {
         next=>{
             console.log("loading README.md");
             async.eachOfSeries(service_info, (v, k, next_service)=>{
+                //github doesn't support ?token= access with githubusercontent.. https://github.com/rgrove/rawgit/issues/44#issuecomment-60269961
                 let url = "https://raw.githubusercontent.com/"+k+"/master/README.md";
-                request(url, (err, res)=>{
+                request(url, {
+                }, (err, res)=>{
                     let status = "ok";
                     if(err) status = err.toString();
                     else if(res.statusCode != 200) status = "no README.md";

@@ -11,10 +11,12 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
+/*
 const github_qs = {
     client_id: config.github.client_id,
     client_secret: config.github.client_secret,
 }
+*/
 
 var _details_cache = {};
 exports.loaddetail = function(service_name, branch, cb) {
@@ -52,7 +54,10 @@ function do_loaddetail(service_name, branch, cb) {
         //load github repo detail
         next=>{
             let url = 'https://api.github.com/repos/'+service_name;
-            request.get({ url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, git) {
+            request.get({ url, json: true, headers: {
+                'Authorization': 'token '+config.github.access_token,
+                'User-Agent': 'brainlife/amaretti'
+            } }, function(err, _res, git) {
                 if(err) return next(err);
                 if(_res.statusCode != 200) {
                     logger.error(_res.body);
@@ -80,7 +85,10 @@ function do_loaddetail(service_name, branch, cb) {
         next=>{
             //then load package.json (don't need api key?)
             var url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';
-            request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'}}, function(err, _res, pkg) {
+            request.get({url, json: true, headers: {
+                'User-Agent': 'brainlife/amaretti',
+                'Authorization': 'token '+config.github.access_token,
+            }}, function(err, _res, pkg) {
                 if(err) return next(err);
                 if(_res.statusCode == 200) {
                     //override start/stop/status hooks
@@ -117,7 +125,10 @@ exports.get_sha = function(service_name, branch, cb) {
     //let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
     let url = 'https://api.github.com/repos/'+service_name+"/git/refs";
     logger.debug(url);
-    request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, (err, _res, body)=>{
+    request.get({url, json: true, headers: {
+        'User-Agent': 'brainlife/amaretti',
+        'Authorization': 'token '+config.github.access_token,
+    } }, (err, _res, body)=>{
         if(err) return cb(err);
         if(_res.statusCode != 200) {
             logger.error(body);
