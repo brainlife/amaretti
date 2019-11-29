@@ -252,17 +252,22 @@ function find_resource(req, taskid, cb) {
         }
 
         //find resource that we can use to load file list
-        //TODO - if resource is not active(or down), then try other resources (task.resource_ids)
-        db.Resource.findById(task.resource_id, (err, resource)=>{
-            if(err) return cb(err);
-            if(!resource) return cb("couldn't find the resource");
-            if(resource.status == "removed") return cb("resource is removed");
+        let resource_ids = [task.resource_id, ...task.resource_ids];
+        async.eachSeries(resource_ids, (resource_id, next_resource)=>{
+            db.Resource.findById(resource_id, (err, resource)=>{
+                if(err) return next_resource(err);
+                if(!resource) return next_resource("couldn't find the resource:"+resource_id); //broken?
 
-            if(!resource.active) return cb("resource not active");
-            if(resource.status != "ok") return cb(resource.status_msg);
+                if(!resource.active) return next_resource();
+                if(resource.status != "ok") return next_resource();
+                //if(resource.status == "removed") return next_resource();
 
-            cb(null, task, resource);
-        });
+                cb(null, task, resource);
+            });
+        }, err=>{
+            cb(err||"no resource currently available to download this task:"+req.params.taskid);
+        })
+
     });
 }
 

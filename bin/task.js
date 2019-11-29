@@ -446,6 +446,7 @@ function handle_stop(task, next) {
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
+                console.log("running stop");
                 conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
@@ -529,7 +530,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                logger.debug(["running", service_detail.status, task._id.toString(), taskdir])
+                console.debug("running status");
                 conn.exec("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
@@ -697,6 +698,7 @@ function start_task(task, resource, cb) {
 
             //setup taskdir using app cache
             next=>{
+                console.log("get_ssh_connection to setup taskdir");
                 common.get_ssh_connection(resource, (err, conn)=>{
 
                     let workdir = common.getworkdir(null, resource);
@@ -713,6 +715,7 @@ function start_task(task, resource, cb) {
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
                         //conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
+                        console.debug("mkdir/rsync appcache, etc..");
                         conn.exec("mkdir -p "+taskdir+" && rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
@@ -804,9 +807,9 @@ function start_task(task, resource, cb) {
                     return next();
                 }
 
-                //logger.debug("installing config.json "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
+                    console.log("installing config.json");
                     conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -832,6 +835,7 @@ function start_task(task, resource, cb) {
                 //logger.debug("writing _env.sh "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
+                    console.log("writing _env.sh");
                     conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
@@ -967,6 +971,7 @@ function start_task(task, resource, cb) {
                     //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
+                        console.log("writing _env.sh(run)");
                         conn.exec("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
@@ -1018,6 +1023,7 @@ function start_task(task, resource, cb) {
                     //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
+                        console.log("writing _env.sh(run-sync)");
                         conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             

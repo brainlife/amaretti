@@ -327,11 +327,11 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
     //first save..
     resource.save().then(_resource=>{
         //I have to save twice because we can't encrypt enc_ fields without _id set
-        console.log("dumping _id");
-        console.log(_resource._id);
+        //console.log("dumping _id");
+        //console.log(_resource._id);
         common.encrypt_resource(_resource);
         _resource.markModified('config');
-        console.log("saving twice");
+        //console.log("saving twice");
         return _resource.save();
     }).then(_final_resource=>{
         var resource = _final_resource.toObject();
@@ -441,19 +441,26 @@ router.get('/usage/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), (r
             if(json.length == 0) data = []; //maybe never run?
             else data = json[0].datapoints;
             
-            //aggregate graph into every 6 hours
+            //aggregate graph into every few hours
+            let window = 3600*3;
             let start = new Date();
             let max = parseInt(start.getTime()/1000);
             start.setDate(start.getDate()-days);
             let min = parseInt(start.getTime()/1000);
             let recent_job_counts = [];
-            for(let d = min;d < max;d+=3600*6) {
-                let max_value = 0;
+            for(let d = min;d < max;d+=window) {
+                let sum = 0;
+                let count = 0;
                 data.forEach(point=>{
-                    //if(d[1] > d && d[1] < d+3600 && d[0] > max_value) max_value = d[1];
-                    if(point[1] > d && point[1] < d+(3600*6) && point[0] > max_value) max_value = point[0];
+                    //if(point[1] > d && point[1] < d+window && point[0] > max_value) max_value = point[0];
+                    if(point[1] > d && point[1] < d+window) {
+                        sum+=point[0];
+                        count++;
+                    }
                 });
-                recent_job_counts.push([d, max_value]); 
+                let avg = 0;
+                if(count > 0) avg = sum/count;
+                recent_job_counts.push([d, avg]); 
             }
 
             res.json(recent_job_counts);

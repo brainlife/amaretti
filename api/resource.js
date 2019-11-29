@@ -35,6 +35,8 @@ exports.select = function(user, task, cb) {
             {user_id: user.sub},
             {gids: {"$in": gids}},
         ],
+        'config.services.name': task.service,
+
         status: {$ne: "removed"},
         active: true,
     })
@@ -44,15 +46,22 @@ exports.select = function(user, task, cb) {
         if(err) return cb(err);
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
+        /*
+        resources.forEach(resource=>{
+            console.log(resource.name);
+        });
+        */
+
         //select the best resource based on the task
         var best = null;
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
+            //console.log("scoring "+resource.name);
             score_resource(user, resource, task, (err, score, detail)=>{
-
                 if(score === null) {
                     //not configured to run on this resource.. ignore
+                    //console.log("no score produced for "+resource.name);
                     return next_resource();         
                 }
 
@@ -66,7 +75,7 @@ exports.select = function(user, task, cb) {
                         desc: resource.config.desc,
                         maxtask: resource.config.maxtask,
                     },
-                    stats: resource.stats,
+                    //stats: resource.stats, //too big..
                     status: resource.status, 
                     status_msg: resource.status_msg, 
                     active: resource.active,
@@ -176,7 +185,8 @@ function score_resource(user, resource, task, cb) {
             }
         });
     }
-    if(score === null) return cb(null, null); //this resource doesn't know about this service..
+    if(score === null)  return cb(null, null); //this resource doesn't know about this service..
+    //console.log("scoring", resource.name);
 
     let maxtask = resource.config.maxtask;
     if(maxtask === undefined) maxtask = 1; //backwas compatiblity
@@ -308,7 +318,7 @@ function check_ssh(resource, cb) {
                         if(code == 0) cb_once(null, "ok", out);
                         else cb_once(null, "failed", out);
                     }).on('data', function(data) {
-                        console.log("data");
+                        //console.log("data");
                         out += data;
                     }).stderr.on('data', function(data) {
                         console.log("stderr:"+data);
