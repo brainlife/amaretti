@@ -44,10 +44,11 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
-            logger.info("finding and removing broken symlink on source resource before rsync");
+            logger.info("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
-                conn.exec("timeout 60 find -L "+source_path+" -type l -delete", (err, stream)=>{
+                logger.debug("timeout 90 find -L "+source_path+" -type l -delete");
+                conn.exec("timeout 90 find -L "+source_path+" -type l -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while removing broken symlinks on source");

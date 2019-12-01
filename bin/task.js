@@ -539,7 +539,7 @@ function handle_running(task, next) {
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
                         out = out.substring(pos+delimtoken.length).trim();
-                        logger.debug(out);
+                        //logger.debug(out);
 
                         switch(code) {
                         case undefined:
