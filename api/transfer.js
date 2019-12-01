@@ -49,7 +49,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 if(err) return next(err); 
                 //conn.exec("timeout 60 find -L "+source_path+" -type l -delete", (err, stream)=>{
                 //https://unix.stackexchange.com/questions/34248/how-can-i-find-broken-symlinks
-                conn.exec("find "+source_path+" -type l ! -exec test -e {} \; -delete", (err, stream)=>{
+                conn.exec("timeout 30 find "+source_path+" -type l ! -exec test -e {} \\; -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while removing broken symlinks on source");
