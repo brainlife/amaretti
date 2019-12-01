@@ -47,8 +47,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             logger.info("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
-                logger.debug("timeout 90 find -L "+source_path+" -type l -delete");
-                conn.exec("timeout 90 find -L "+source_path+" -type l -delete", (err, stream)=>{
+                //conn.exec("timeout 60 find -L "+source_path+" -type l -delete", (err, stream)=>{
+                //https://unix.stackexchange.com/questions/34248/how-can-i-find-broken-symlinks
+                conn.exec("find "+source_path+" -type l ! -exec test -e {} \; -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while removing broken symlinks on source");
