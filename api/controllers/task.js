@@ -252,7 +252,8 @@ function find_resource(req, taskid, cb) {
         }
 
         //find resource that we can use to load file list
-        let resource_ids = [task.resource_id, ...task.resource_ids];
+        //let resource_ids = [task.resource_id, ...task.resource_ids];
+        let resource_ids = task.resource_ids;
         async.eachSeries(resource_ids, (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{
                 if(err) return next_resource(err);
