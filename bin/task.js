@@ -182,7 +182,7 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check to see if taskdir still exists (not purged by resource)
-                    logger.debug("getting sftp connection for taskdir check:"+resource_id);
+                    //logger.debug("getting sftp connection for taskdir check:"+resource_id);
                     common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) {
                             logger.error(err);
@@ -630,6 +630,32 @@ function rerun_child(task, cb) {
     });
 }
 
+/*
+function find_available_resource(resource_ids) {
+    return new Promise((resolve, reject)=>{
+        async.eachSeries(source_resource_ids, (source_resource_id, next_source)=>{
+
+            //see if we can use this resource..
+            db.Resource.findById(dep.resource_id, function(err, source_resource) {
+                if(err) return next_dep(err);
+
+                let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
+                if(source_resource.lastok_date < daysago) {
+                    return cb("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. failing this task");
+                }
+                if(!source_resource.active) {
+                    task.status_msg = "resource("+source_resource.name+") which contains the input data is not active. will try later.";
+                    //let's retry later.. //TODO - maybe I should look for other resources that has this task?
+                    return cb(); 
+                }
+            });
+        }, err=>{
+
+        });
+    });
+}
+*/
+
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
     var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
@@ -899,63 +925,66 @@ function start_task(task, resource, cb) {
                     //if resource is the same, don't need to sync
                     if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
 
-                    db.Resource.findById(dep.resource_id, function(err, source_resource) {
-                        if(err) return next_dep(err);
+                    //go through all resource_id that this task might be stored at
+                    async.eachSeries(dep.resource_ids, (source_resource_id, next_source)=>{
 
-                        let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
-                        if(source_resource.lastok_date < daysago) {
-                            return cb("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. failing this task");
-                        }
-                        if(!source_resource.active) {
-                            task.status_msg = "resource("+source_resource.name+") which contains the input data is not active. will try later.";
-                            //let's retry later.. //TODO - maybe I should look for other resources that has this task?
-                            return cb(); 
-                        }
+                        //see if we can use this resource..
+                        db.Resource.findById(source_resource_id, function(err, source_resource) {
+                            if(err) return next_source(err); //db error?
 
-                        let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
-                        let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                        let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
-                        task.status_msg = msg_prefix;
-                        task.save(err=>{
-                            _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
-                                task.status_msg = msg_prefix+" "+progress;
-                                task.save(); 
-                            }, err=>{
-                                if(err) {
-                                    //if its already synced, rsyncing is optional, so I don't really care about errors
-                                    if(~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                        logger.warn("syncing failed, but we were able to sync it before.. processding without syncing");
-                                        return next_dep();
+                            /* TODO - I need to find the *latest* lastok_date and fail task not what we go through all resource_ids
+                            let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
+                            if(source_resource.lastok_date < daysago) {
+                                console.debug("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. trying next resource");
+                                return next_source();
+                            }
+                            */
+
+                            if(!source_resource.active) {
+                                task.status_msg = "resource("+source_resource.name+") which contains the input data is not active.. try next source.";
+                                return next_source(); 
+                            }
+
+                            let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
+                            let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
+                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                            task.status_msg = msg_prefix;
+                            task.save(err=>{
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
+                                    task.status_msg = msg_prefix+" "+progress;
+                                    task.save(); 
+                                }, err=>{
+                                    if(err) {
+                                        task.status_msg = "Failed to synchronize dependent task directories.. "+err.toString();
+                                        next_source(); 
+                                    } else {
+                                        //success! let's records new resource_ids and proceed to the next dep
+                                        
+                                        //tryint $addToSet to see if this could prevent the following issue
+                                        //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
+                                        logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
+                                        db.Task.findOneAndUpdate({_id: dep._id}, {
+                                            $addToSet: {
+                                                resource_ids: resource._id.toString(),
+                                            }
+                                        }, next_dep);
                                     }
-                                    
-                                    //need to release this so that resource.select will calculate resource availability correctly
-                                    task.status_msg = "Failed to synchronize dependent task directories.. will retry later -- "+err.toString();
-                                    logger.warn("task:%s dep:%s .. %s", task._id, dep._id.toString(), task.status_msg);
-                                    cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
-                                } else {
-                                    //logger.debug(["succeeded rsyncing.........", dep._id.toString()]);
-
-                                    //tryint $addToSet to see if this could prevent the following issue
-                                    //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
-                                    logger.debug("adding new resource_id:%s", resource._id.toString());
-                                    db.Task.findOneAndUpdate({_id: dep._id}, {
-                                        $addToSet: {
-                                            resource_ids: resource._id.toString(),
-                                        }
-                                    }, next_dep);
-
-                                    /* this could cause concurrency issue sometimes
-                                    if(!~common.indexOfObjectId(dep.resource_ids, resource._id)) {
-                                        //need to add dest resource to source dep
-                                        logger.debug("adding new resource_id:%s", resource._id.toString());
-                                        dep.resource_ids.push(resource._id.toString());
-                                        dep.save(next_dep);
-                                    } else next_dep();
-                                    */
-                                }
+                                });
                             });
                         });
+                    }, err=>{
+                        if(err) return next_dep(err);
+
+                        //if its already synced, rsyncing is optional, so I don't really care about errors
+                        if(~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                            logger.warn("syncing failed.. but we were able to sync before.. proceeding to next dep");
+                            return next_dep();
+                        }
+
+                        task.status_msg = "Couldn't sync any resources.. will try later";
+                        cb(); 
                     });
+
                 }, next);
             },
 

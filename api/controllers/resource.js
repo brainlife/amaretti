@@ -230,7 +230,7 @@ router.put('/test/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req
  * @apiParam {Object} [config]    Resource Configuration to update
  * @apiParam {Object} [envs]      Resource environment parameters to update
  * @apiParam {String} [name]      Name of this resource instance
- * @apiParam {String} [desc]      Description for this resource instance
+ * @apiParam {String} [avatar]    Avatar URL path
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
  * @apiParam {Number[]} [gids]    List of groups that can use this resource (only amaretti admin can update)
@@ -285,7 +285,7 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
  * @apiParam {Object} config    Configuration for resource
  * @apiParam {Object} [envs]    Key values to be inserted for service execution
  * @apiParam {String} [name]    Name of this resource instance (like "soichi's karst account")
- * @apiParam {String} [desc]    Description for this resource instance
+ * @apiParam {String} [avatar]  Avatar URL
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
  * @apiParam {Number[]} [gids]  List of groups that can use this resource (only amaretti admin can enter this)

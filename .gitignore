@@ -15,6 +15,7 @@ config/*.jwt
 config/wf.pub
 config/wf.key
 config/*.secret
+config/github.access_token
 docker/config
 docs/_site
 docs/Gemfile.lock

@@ -28,7 +28,7 @@ function list_users(cb) {
     .distinct('user_id', (err, user_ids)=>{
 		if(err) throw err;
         request.get({
-            url: config.api.auth+"/profile", json: true,
+            url: config.api.auth+"/profile/list", json: true,
             qs: {
                 find: JSON.stringify({
                     sub: {$in: user_ids},
@@ -40,7 +40,7 @@ function list_users(cb) {
             console.log("users-----------------------------------------------");
             _contacts.profiles.forEach(contact=>{
                 if(!contact.active) return;
-                if(!~user_ids.indexOf(contact.id.toString())) return;
+                if(!~user_ids.indexOf(contact.sub.toString())) return;
                 let name = contact.fullname.split(" ");
                 console.log("\""+name[0]+"\",\""+name[1]+"\", \""+contact.email+"\"");
             });

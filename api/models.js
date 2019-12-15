@@ -75,6 +75,7 @@ var resourceSchema = mongoose.Schema({
     active: {type: Boolean, default: true},
     name: String, 
     //desc: String, //desc is stored under config.desc for some reason
+    avatar: String,
 
     /*
     @misc{https://doi.org/10.25663/bl.p.3,

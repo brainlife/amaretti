@@ -90,7 +90,7 @@ request.get({
         contact_details: cb=>{
             if(Object.keys(users).length == 0) return cb(null, {});
             request.get({
-                url: config.api.auth+"/profile", json: true,
+                url: config.api.auth+"/profile/list", json: true,
                 qs: {
                     where: JSON.stringify({
                         sub: {$in: Object.keys(users)},
