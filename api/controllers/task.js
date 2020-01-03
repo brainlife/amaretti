@@ -539,9 +539,12 @@ function mkdirp(conn, dir, cb) {
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
  * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
- * @apiParam {String[]} [deps]  task IDs that this service depends on. This task will be executed as soon as
+ * @apiParam {String[]} [deps]  (deprecated by deps_config) task IDs that this service depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
- * @apiParam {String[]} [resource_deps]
+ * @apiParam {Object[]} [deps_config]  
+ *                              task IDs that this service depends on. This task will be executed as soon as
+ *                              all dependency tasks are completed.
+ * @apiParam {String[]} [resource_deps] (deprecated?)
  *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
  *                              to allow access to the specified resource
  *
@@ -581,7 +584,19 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
         if(task.name) task.name = task.name.trim();
 
-        if(req.body.deps) task.deps = req.body.deps.filter(dep=>dep);//remove null
+        //deps is deprecated, but might be used by old cli / existing tasks
+        if(req.body.deps) {
+            logger.warn("req.body.deps set.. which is deprecated by deps_config");
+            let deps = req.body.deps.filter(dep=>dep);//remove null
+
+            //migrate to deps_config
+            req.body.deps_config = [];
+            deps.forEach(dep=>{
+                deps.push({task: dep});
+            });
+        }
+
+        task.deps_config = req.body.deps_config;
         task.preferred_resource_id = req.body.preferred_resource_id;
         task.resource_deps = req.body.resource_deps;
 
@@ -595,7 +610,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
         task.gids = req.user.gids;
 
         task.resource_ids = [];
-        
+
         //check access
         async.series([
             next_check=>{
@@ -623,6 +638,8 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                     next_check();//ok
                 });
             },
+
+            /*
             next_check=>{
                 if(!task.resource_deps) return next_check();
                 //make sure user can access all resource_deps
@@ -635,6 +652,8 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                     });
                 }, next_check);
             },
+            */
+
             next_check=>{
                 if(task.deps) return next_check();
                 //make sure user owns the task

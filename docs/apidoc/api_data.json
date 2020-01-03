@@ -1,5 +1,42 @@
 [
   {
+    "group": "Admin",
+    "type": "get",
+    "url": "/services/running",
+    "title": "Running/requested task count",
+    "description": "<p>Returns list of counts of running/requested tasks grouped by service/resource/user</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "Authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "List",
+            "description": "<p>of count groups</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/admin.js",
+    "groupTitle": "Admin",
+    "name": "GetServicesRunning"
+  },
+  {
     "type": "delete",
     "url": "/instance/:instid",
     "title": "Remove the instance",
@@ -129,9 +166,9 @@
           {
             "group": "Parameter",
             "type": "Number",
-            "optional": false,
+            "optional": true,
             "field": "group_id",
-            "description": "<p>(optional) Group ID where you want to share this process with</p>"
+            "description": "<p>Group ID where you want to share this process with (don't set if it's private)</p>"
           },
           {
             "group": "Parameter",
@@ -233,26 +270,6 @@
     "name": "PutInstanceInstid"
   },
   {
-    "type": "get",
-    "url": "/resource/gensshkey",
-    "title": "Generate ssh key pair",
-    "name": "GENSSHKEYResource",
-    "group": "Resource",
-    "description": "<p>Used by resource editor to setup new resource jwt is optional.. since it doesn't really store this anywhere (should I?) kdinstaller uses this to generate key (and scott's snapshot tool) In the future, this might be moved to a dedicated service (or deprecated)</p> <p>//@apiHeader {String} [authorization] A valid JWT token &quot;Bearer: xxxxx&quot;</p>",
-    "success": {
-      "examples": [
-        {
-          "title": "Success-Response:",
-          "content": "    HTTP/1.1 200 OK\n    { pubkey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDxtMlosV+/5CutlW3YIO4ZomH6S0+3VmDlAAYvBXHD+ut4faGAZ4XuumfJyg6EAu8TbUo+Qj6+pLuYLcjqxl2fzI6om2SFh9UeXkm1P0flmgHrmXnUJNnsnyen/knJtWltwDAZZOLj0VcfkPaJX7sOSp9l/8W1+7Qb05jl+lzNKucpe4qInh+gBymcgZtMudtmurEuqt2eVV7W067xJ7P30PAZhZa7OwXcQrqcbVlA1V7yk1V92O7Qt8QTlLCbszE/xx0cTEBiSkmkvEG2ztQQl2Uqi+lAIEm389quVPJqjDEzaMipZ1X5xgfnyDtBq0t/SUGZ8d0Ki1H0jmU7H//',\n      key: '-----BEGIN RSA PRIVATE KEY-----\\nMIIEogIBAAKCAQEAw8 ... CeSZ6sKiQmE46Yh4/zyRD4JgW4CY=\\n-----END RSA PRIVATE KEY-----' }\n\nrouter.get('/gensshkey', jwt({secret: config.sca.auth_pubkey, credentialsRequired: false}), function(req, res, next) {\n    common.ssh_keygen({\n        //ssh-keygen opts (https://github.com/ericvicenti/ssh-keygen)\n        destroy: true,\n        comment: req.query.comment,\n        password: req.query.password,\n    }, function(err, out) {\n        if(err) return next(err);\n        res.json(out);\n    });\n});",
-          "type": "json"
-        }
-      ]
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/resource.js",
-    "groupTitle": "Resource"
-  },
-  {
     "group": "Resource",
     "type": "get",
     "url": "/resource",
@@ -301,7 +318,7 @@
             "type": "String",
             "optional": true,
             "field": "user_id",
-            "description": "<p>(Only for sca:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
+            "description": "<p>(Only for amaretti:admin) Override user_id to search (default to sub in jwt). Set it to null if you want to query all users.</p>"
           }
         ]
       }
@@ -384,173 +401,6 @@
     "name": "GetResourceBest"
   },
   {
-    "type": "get",
-    "url": "/resource/download",
-    "title": "Download File from resource",
-    "parameter": {
-      "fields": {
-        "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "r",
-            "description": "<p>Resource ID</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "p",
-            "description": "<p>File/directory path to download (relative to resource work directory - parent of all instance dir - so you need instance_id as root) Use encodeURIComponent() so escape non URL characters</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "at",
-            "description": "<p>JWT token - if user can't provide it via authentication header</p>"
-          }
-        ]
-      }
-    },
-    "description": "<p>Download file from resource. If directory path is specified, it will stream tar gz-ed content</p>",
-    "group": "Resource",
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": true,
-            "field": "authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/resource.js",
-    "groupTitle": "Resource",
-    "name": "GetResourceDownload"
-  },
-  {
-    "type": "get",
-    "url": "/resource/ls/:resource_id/:instance_id?",
-    "title": "List directory",
-    "group": "Resource",
-    "description": "<p>Get directory listing on a resource on specified path. For HPSS resource, it will query HPSS directory under specified path. Use &quot;./&quot; to query home directory, since path is a required parameter.</p>",
-    "parameter": {
-      "fields": {
-        "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "path",
-            "description": "<p>Path to load directory (relative to workdir)</p>"
-          }
-        ]
-      }
-    },
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": false,
-            "field": "Authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "success": {
-      "examples": [
-        {
-          "title": "Success-Response:",
-          "content": "{\"files\":[\n    {\n        \"filename\":\"config.json\",\n        \"directory\":false,\n        \"attrs\": {\n            \"mode\":33188,\n            \"mode_string\":\"-rw-r--r--\",\n            \"uid\":1170473,\n            \"owner\": \"hayashis\",\n            \"gid\":4160,\n            \"group\": \"hpss\",\n            \"size\":117,\n            \"atime\":1466517617,\n            \"mtime\":1466517617\n        },\n        \"_raw\":\"-rw-r--r--    1 odidev   odi           117 Jun 21 10:00 config.json\"\n    }\n]}",
-          "type": "json"
-        }
-      ]
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/resource.js",
-    "groupTitle": "Resource",
-    "name": "GetResourceLsResource_idInstance_id"
-  },
-  {
-    "group": "Resource",
-    "type": "get",
-    "url": "/resource/types",
-    "title": "Get all resource types",
-    "description": "<p>Returns all resource types configured on the server</p>",
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": false,
-            "field": "authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "success": {
-      "fields": {
-        "Success 200": [
-          {
-            "group": "Success 200",
-            "type": "Object",
-            "optional": false,
-            "field": "List",
-            "description": "<p>of resources types (in key/value where key is resource type ID, and value is resource detail)</p>"
-          }
-        ]
-      }
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/resource.js",
-    "groupTitle": "Resource",
-    "name": "GetResourceTypes"
-  },
-  {
-    "group": "Resource",
-    "type": "get",
-    "url": "/resource/upload/:resourceid/:base64path",
-    "title": "Upload File",
-    "description": "<p>Upload a file to specified resource on a specified path (needs to be inside a workdir)</p>",
-    "header": {
-      "fields": {
-        "Header": [
-          {
-            "group": "Header",
-            "type": "String",
-            "optional": false,
-            "field": "authorization",
-            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
-          }
-        ]
-      }
-    },
-    "success": {
-      "examples": [
-        {
-          "title": "Success-Response:",
-          "content": "{file stats uploaded}",
-          "type": "json"
-        }
-      ]
-    },
-    "version": "0.0.0",
-    "filename": "api/controllers/resource.js",
-    "groupTitle": "Resource",
-    "name": "GetResourceUploadResourceidBase64path"
-  },
-  {
     "type": "post",
     "url": "/resource",
     "title": "Register new resource configuration",
@@ -559,20 +409,6 @@
     "parameter": {
       "fields": {
         "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "type",
-            "description": "<p>&quot;hpss&quot;, or &quot;ssh&quot; for now</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": false,
-            "field": "resource_id",
-            "description": "<p>ID of this resource instance (&quot;karst&quot;, &quot;mason&quot;, etc..)</p>"
-          },
           {
             "group": "Parameter",
             "type": "Object",
@@ -598,6 +434,13 @@
             "group": "Parameter",
             "type": "String",
             "optional": true,
+            "field": "avatar",
+            "description": "<p>Avatar URL</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
             "field": "hostname",
             "description": "<p>Hostname to override the resource base hostname</p>"
           },
@@ -613,7 +456,7 @@
             "type": "Number[]",
             "optional": true,
             "field": "gids",
-            "description": "<p>List of groups that can use this resource (only sca admin can enter this)</p>"
+            "description": "<p>List of groups that can use this resource (only amaretti admin can enter this)</p>"
           },
           {
             "group": "Parameter",
@@ -671,7 +514,7 @@
         ]
       }
     },
-    "description": "<p>Remove resource instance</p>",
+    "description": "<p>Remove resource by setting its status to &quot;removed&quot;</p>",
     "header": {
       "fields": {
         "Header": [
@@ -694,6 +537,56 @@
             "optional": false,
             "field": "ok",
             "description": ""
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/resource.js",
+    "groupTitle": "Resource"
+  },
+  {
+    "type": "get",
+    "url": "/resource/usage/:id",
+    "title": "Load resource usage graph",
+    "name": "ResourceUsage",
+    "group": "Resource",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "id",
+            "description": "<p>Resource Instance ID to update</p>"
+          }
+        ]
+      }
+    },
+    "description": "<p>Download resource usage grraph</p>",
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "Resource",
+            "description": "<p>Object</p>"
           }
         ]
       }
@@ -785,6 +678,13 @@
             "group": "Parameter",
             "type": "String",
             "optional": true,
+            "field": "avatar",
+            "description": "<p>Avatar URL path</p>"
+          },
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": true,
             "field": "hostname",
             "description": "<p>Hostname to override the resource base hostname</p>"
           },
@@ -800,7 +700,7 @@
             "type": "Number[]",
             "optional": true,
             "field": "gids",
-            "description": "<p>List of groups that can use this resource (only sca admin can update)</p>"
+            "description": "<p>List of groups that can use this resource (only amaretti admin can update)</p>"
           },
           {
             "group": "Parameter",
@@ -903,6 +803,56 @@
   {
     "group": "Task",
     "type": "get",
+    "url": "/service/info",
+    "title": "Query service info",
+    "description": "<p>Returns service info</p>",
+    "parameter": {
+      "fields": {
+        "Parameter": [
+          {
+            "group": "Parameter",
+            "type": "String",
+            "optional": false,
+            "field": "service",
+            "description": "<p>Service Name</p>"
+          }
+        ]
+      }
+    },
+    "header": {
+      "fields": {
+        "Header": [
+          {
+            "group": "Header",
+            "type": "String",
+            "optional": false,
+            "field": "authorization",
+            "description": "<p>A valid JWT token &quot;Bearer: xxxxx&quot;</p>"
+          }
+        ]
+      }
+    },
+    "success": {
+      "fields": {
+        "Success 200": [
+          {
+            "group": "Success 200",
+            "type": "Object",
+            "optional": false,
+            "field": "List",
+            "description": "<p>of tasks (maybe limited / skipped) and total number of tasks</p>"
+          }
+        ]
+      }
+    },
+    "version": "0.0.0",
+    "filename": "api/controllers/service.js",
+    "groupTitle": "Task",
+    "name": "GetServiceInfo"
+  },
+  {
+    "group": "Task",
+    "type": "get",
     "url": "/task",
     "title": "Query Tasks",
     "description": "<p>Returns all tasks that belongs to a user (for admin returns all) or shared via instance.group_id</p>",
@@ -981,7 +931,7 @@
   {
     "group": "Task",
     "type": "get",
-    "url": "/task/download/:taskid",
+    "url": "/task/download/:taskid/*",
     "title": "Download file/dir from task",
     "description": "<p>Download file/dir from task. If directory path is specified, it will stream tar gz-ed content</p>",
     "parameter": {
@@ -1198,21 +1148,21 @@
             "type": "String[]",
             "optional": true,
             "field": "deps",
-            "description": "<p>task IDs that this service depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
+            "description": "<p>(deprecated by deps_config) task IDs that this service depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
           },
           {
             "group": "Parameter",
-            "type": "Object",
+            "type": "Object[]",
             "optional": true,
-            "field": "envs",
-            "description": "<p>Dictionary of ENV parameter to set.</p>"
+            "field": "deps_config",
+            "description": "<p>task IDs that this service depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
           },
           {
             "group": "Parameter",
             "type": "String[]",
             "optional": true,
             "field": "resource_deps",
-            "description": "<p>List of resource_ids where the access credential to be installed on ~/.sca/keys to allow access to the specified resource</p>"
+            "description": "<p>(deprecated?) List of resource_ids where the access credential to be installed on ~/.sca/keys to allow access to the specified resource</p>"
           }
         ]
       }
@@ -1352,24 +1302,10 @@
     "url": "/task/:taskid",
     "title": "Update Task",
     "group": "Task",
-    "description": "<p>(Admin only) This API allows you to update task detail. Normally, you don't really want to update task detail after it's submitted. Doing so might cause task to become inconsistent with the actual state. To remove a field, set the field to null (not undefined - since it's not valid JSON)</p>",
+    "description": "<p>Update a few fields in task that doesn't affect provenance</p>",
     "parameter": {
       "fields": {
         "Parameter": [
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "service",
-            "description": "<p>Name of the service to run</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "service_branch",
-            "description": "<p>Branch to use for the service (master by default)</p>"
-          },
           {
             "group": "Parameter",
             "type": "String",
@@ -1383,76 +1319,6 @@
             "optional": true,
             "field": "desc",
             "description": "<p>Description for this task</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "remove_date",
-            "description": "<p>Date (in ISO format) when you want the task dir to be removed (won't override resource' max TTL)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "max_runtime",
-            "description": "<p>Maximum runtime of job (in msec)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Number",
-            "optional": true,
-            "field": "retry",
-            "description": "<p>Number of time this task should be retried (0 by default)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "preferred_resource_id",
-            "description": "<p>resource that user prefers to run this service on (may or may not be chosen)</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Object",
-            "optional": true,
-            "field": "config",
-            "description": "<p>Configuration for task</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String[]",
-            "optional": true,
-            "field": "deps",
-            "description": "<p>task IDs that this serivce depends on. This task will be executed as soon as all dependency tasks are completed.</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String[]",
-            "optional": true,
-            "field": "resource_deps",
-            "description": "<p>List of resource_ids where the access credential to be installed on ~/.sca/keys to allow access to the specified resource</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "Object",
-            "optional": true,
-            "field": "products",
-            "description": "<p>Products generated by this task</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "status",
-            "description": "<p>Status of the task</p>"
-          },
-          {
-            "group": "Parameter",
-            "type": "String",
-            "optional": true,
-            "field": "status_msg",
-            "description": "<p>Status message</p>"
           }
         ]
       }

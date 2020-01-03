@@ -83,13 +83,19 @@ function check(cb) {
         ]
     })
     .sort('nice next_date') //handle nice ones later, then sort by next_date
-    .populate('deps')
-    .populate('resource_deps')
+    .populate('deps') //deprecated
+    .populate('deps_config.task')
+    //.populate('resource_deps')
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
             logger.debug("nothing to do.. sleeping..");
             return setTimeout(check, 1000); 
+        }
+
+        //migrate old task deps to new deps_config
+        if(task.deps && !task.deps_config) {
+            task.deps_config = task.deps.map(dep=>{task: dep});
         }
 
         set_nextdate(task);
@@ -265,7 +271,6 @@ function handle_housekeeping(task, cb) {
                 //ok.. it can be removed! (let removed task handler do the cleanup)
                 task.status_msg = "waiting for workdirs to be removed";
                 task.status = "removed";
-                //task.next_date = undefined; //remove workdir immediately
                 next();
             });
         },
@@ -295,10 +300,10 @@ function handle_requested(task, next) {
     var deps_all_done = true;
     var failed_deps = [];
     var removed_deps = [];
-    task.deps.forEach(function(dep) {
-        if(dep.status != "finished") deps_all_done = false;
-        if(dep.status == "failed") failed_deps.push(dep);
-        if(dep.status == "removed") removed_deps.push(dep);
+    task.deps_config.forEach(function(dep) {
+        if(dep.task.status != "finished") deps_all_done = false;
+        if(dep.task.status == "failed") failed_deps.push(dep.task);
+        if(dep.task.status == "removed") removed_deps.push(dep.task);
     });
 
     //fail the task if any dependency fails
@@ -621,7 +626,7 @@ function handle_running(task, next) {
 
 function rerun_child(task, cb) {
     //find all child tasks
-    db.Task.find({deps: task._id}, (err, tasks)=>{
+    db.Task.find({'deps_config.task': task._id}, (err, tasks)=>{
         if(tasks.length) logger.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{
@@ -680,19 +685,16 @@ function start_task(task, resource, cb) {
 
         if(task.service_branch) envs.SERVICE_BRANCH = task.service_branch;
 
+        /*
         //TODO - I am not sure if this is the right precendence ordering..
         //start with any envs from dependent resources
         if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
-            /*
-            let resource_detail = config.resources[resource_dep.resource_id];
-            if(resource_detail.envs) for(var key in resource_detail.envs) {
-                envs[key] = resource_detail.envs[key];
-            }
-            */
             if(resource_dep.envs) for(var key in resource_dep.envs) {
                 envs[key] = resource_dep.envs[key];
             }
         });
+        */
+
         //override with resource base envs
         /*
         let resource_detail = config.resources[resource.resource_id];
@@ -919,14 +921,14 @@ function start_task(task, resource, cb) {
 
             //make sure dep task dirs are synced
             next=>{
-                if(!task.deps) return next(); //no deps then skip
-                async.eachSeries(task.deps, function(dep, next_dep) {
+                if(!task.deps_config) return next(); //no deps then skip
+                async.eachSeries(task.deps_config, function(dep, next_dep) {
                     
                     //if resource is the same, don't need to sync
-                    if(task.resource_id.toString() == dep.resource_id.toString()) return next_dep();
+                    if(task.resource_id.toString() == dep.task.resource_id.toString()) return next_dep();
 
                     //go through all resource_id that this task might be stored at
-                    async.eachSeries(dep.resource_ids, (source_resource_id, next_source)=>{
+                    async.eachSeries(dep.task.resource_ids, (source_resource_id, next_source)=>{
 
                         //see if we can use this resource..
                         db.Resource.findById(source_resource_id, function(err, source_resource) {
@@ -945,12 +947,12 @@ function start_task(task, resource, cb) {
                                 return next_source(); 
                             }
 
-                            let source_path = common.gettaskdir(dep.instance_id, dep._id, source_resource);
-                            let dest_path = common.gettaskdir(dep.instance_id, dep._id, resource);
-                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.desc||dep.name||dep._id.toString());
+                            let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
+                            let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
+                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
                             task.status_msg = msg_prefix;
                             task.save(err=>{
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, progress=>{
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
                                     task.status_msg = msg_prefix+" "+progress;
                                     task.save(); 
                                 }, err=>{
@@ -963,7 +965,7 @@ function start_task(task, resource, cb) {
                                         //tryint $addToSet to see if this could prevent the following issue
                                         //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
                                         logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
-                                        db.Task.findOneAndUpdate({_id: dep._id}, {
+                                        db.Task.findOneAndUpdate({_id: dep.task._id}, {
                                             $addToSet: {
                                                 resource_ids: resource._id.toString(),
                                             }
@@ -976,7 +978,7 @@ function start_task(task, resource, cb) {
                         if(err) return next_dep(err);
 
                         //if its already synced, rsyncing is optional, so I don't really care about errors
-                        if(~common.indexOfObjectId(dep.resource_ids, resource._id)) {
+                        if(~common.indexOfObjectId(dep.task.resource_ids, resource._id)) {
                             logger.warn("syncing failed.. but we were able to sync before.. proceeding to next dep");
                             return next_dep();
                         }

@@ -13,7 +13,8 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('../api/common');
 
-exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, progress_cb, cb) {
+//all parameters must be safe
+exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, subdirs, progress_cb, cb) {
     logger.info("rsync_resource.. get_ssh_connection");
 
     let auth_sock;
@@ -95,6 +96,16 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             var hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
             logger.debug("ssh to %s", hostname);
 
+            //include/exclude options - by default, copy everything except .*
+            var inexopts = "--exclude=\".*\"";
+            if(subdirs.length) {
+                inexopts = "";
+                subdirs.forEach(dir=>{
+                    inexopts += "--include=\""+dir+"/***\" ";
+                });
+                inexopts += "--exclude \"*\""; //without this at the end, include doesn't work
+            }
+
             //setup sshagent with the source key
             common.decrypt_resource(source_resource);
             var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
@@ -106,7 +117,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     agentForward: true,
                 }, (err, conn)=>{
                     if(err) return next(err); 
-                    let cmd = "rsync --timeout 600 --exclude=\".*\" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
+                    let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
                     logger.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);

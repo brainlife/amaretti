@@ -172,14 +172,20 @@ var taskSchema = mongoose.Schema({
     //resource to be selected if multiple resource is available and score ties
     preferred_resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
 
-    //object containing details for this task
+    //object containing details for this task (passed to the app)
     config: mongoose.Schema.Types.Mixed, 
 
-    //task dependencies required to run the service 
+    //(deprecate this in favor of deps_config) task dependencies required to run the service 
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true} ],
+    
+    //extra task dependency config
+    deps_config: [ {
+        task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true },
+        subdirs: [String], //subdirs containing required data (rsync will only sync these subdirs if specified
+    } ], 
 
     //resource dependencies..  (for hpss, it will copy the heytab)
-    resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
+    //resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
     //mili-seconds after start_date to stop running job (default to 7 days)
     //note.. this includes time that task is in the queue
@@ -219,6 +225,8 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
+    //TODO - I should probably move this elsewhere.. (or maybe create product collection and link ref it to task collection
+    //as dataset also stores it?
     //content of product.json if generated
     //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
     product: mongoose.Schema.Types.Mixed,

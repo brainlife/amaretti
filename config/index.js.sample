@@ -27,8 +27,8 @@ exports.amaretti = {
     //all user will have access to any resources that are shared with this group 
     global_groups: [1],
 
-    //show a bit more debug loggin
-    debug: true,
+    //show a bit more debug logging (like mongoose)
+    debug: false,
 }
 exports.wf = exports.amaretti; //deprecated (use amaretti)
 exports.sca = exports.amaretti; //deprecated (use amaretti)
