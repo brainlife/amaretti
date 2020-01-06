@@ -953,6 +953,7 @@ function start_task(task, resource, cb) {
                             task.status_msg = msg_prefix;
                             task.save(err=>{
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
+                                    console.log("saving task progress", progress);
                                     task.status_msg = msg_prefix+" "+progress;
                                     task.save(); 
                                 }, err=>{
@@ -983,7 +984,7 @@ function start_task(task, resource, cb) {
                             return next_dep();
                         }
 
-                        task.status_msg = "Couldn't sync any resources.. will try later";
+                        task.status_msg = "Couldn't sync dep task from any resources.. will try later";
                         cb(); 
                     });
 

@@ -71,12 +71,12 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             
             //run rsync (pull from source - use io_hostname if available)
             var source_resource_detail = config.resources[source_resource.resource_id];
-            var hostname = source_resource.config.io_hostname || source_resource.config.hostname || source_resource_detail.hostname;
+            var source_hostname = source_resource.config.io_hostname || source_resource.config.hostname || source_resource_detail.hostname;
             
             //-o ConnectTimeout=120
             //TODO need to investigate why I need these -o options on q6>karst transfer
             var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey";
-            var source = source_resource.config.username+"@"+hostname+":"+source_path+"/";
+            var source = source_resource.config.username+"@"+source_hostname+":"+source_path+"/";
             
             //-v writes output to stderr.. even though it's not error..
             //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
@@ -93,8 +93,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //can't use timeout command as this might get executed on io only node
             //we need to use dest_resource's io_hostname if available
             var dest_resource_detail = config.resources[dest_resource.resource_id];
-            var hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
-            logger.debug("ssh to %s", hostname);
+            var dest_hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
+            logger.debug("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*
             var inexopts = "--exclude=\".*\"";
@@ -112,7 +112,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             common.create_sshagent(privkey, (err, agent, client, auth_sock)=>{
                 if(err) next(err);
                 common.get_ssh_connection(dest_resource, {
-                    hostname,
+                    hostname: dest_hostname,
                     agent: auth_sock,
                     agentForward: true,
                 }, (err, conn)=>{
@@ -133,7 +133,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
                             if(code === undefined) return next("timedout while rsyncing");
                             else if(code) { 
-                                logger.error("On resource:"+hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
+                                logger.error("On dest resource:"+dest_hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
                                 logger.error(errors);
                                 next(errors);
                             } else {
