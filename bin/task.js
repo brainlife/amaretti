@@ -927,8 +927,8 @@ function start_task(task, resource, cb) {
                     //if resource is the same, don't need to sync
                     if(task.resource_id.toString() == dep.task.resource_id.toString()) return next_dep();
 
-                    //go through all resource_id that this task might be stored at
-                    async.eachSeries(dep.task.resource_ids, (source_resource_id, next_source)=>{
+                    //go through all resource_id that this task might be stored at 
+                    async.eachSeries([dep.task.resource_id, ...dep.task.resource_ids.reverse()], (source_resource_id, next_source)=>{
 
                         //see if we can use this resource..
                         db.Resource.findById(source_resource_id, function(err, source_resource) {

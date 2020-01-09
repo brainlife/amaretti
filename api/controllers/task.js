@@ -251,18 +251,13 @@ function find_resource(req, taskid, cb) {
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
         }
 
-        //find resource that we can use to load file list
-        //let resource_ids = [task.resource_id, ...task.resource_ids];
-        let resource_ids = task.resource_ids.reverse(); //try last one added first
+        let resource_ids = [task.resource_id, ...task.resource_ids.reverse()]; 
         async.eachSeries(resource_ids, (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{
                 if(err) return next_resource(err);
                 if(!resource) return next_resource("couldn't find the resource:"+resource_id); //broken?
-
                 if(!resource.active) return next_resource();
                 if(resource.status != "ok") return next_resource();
-                //if(resource.status == "removed") return next_resource();
-
                 cb(null, task, resource);
             });
         }, err=>{
