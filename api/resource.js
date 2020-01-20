@@ -379,7 +379,9 @@ function check_ssh(resource, cb) {
             host: resource.config.hostname,// || detail.hostname,
             username: resource.config.username,
             privateKey: decrypted_resource.config.enc_ssh_private,
+            //debug: console.debug,
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
+            tryKeyboard: true, //needed by stampede2
         });
     } catch (err) {
         if(cb) cb(null, "failed", err.toString());

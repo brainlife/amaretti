@@ -744,7 +744,7 @@ function start_task(task, resource, cb) {
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
                         //conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
                         console.debug("mkdir/rsync appcache, etc..");
-                        conn.exec("mkdir -p "+taskdir+" && rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
+                        conn.exec("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
