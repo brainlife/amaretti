@@ -293,17 +293,17 @@ function check_ssh(resource, cb) {
         //send test script
         var workdir = common.getworkdir(null, resource);
         let t1 = setTimeout(()=>{
-            cb_once(null, "failed", "got ssh connection but not sftp");
+            cb_once(null, "failed", "got ssh connection but sftp timeout");
             t1 = null;
-        }, 10*1000); //6000 too short for osgconnect
+        }, 15*1000); //10 sec too short for osgconnect
         conn.sftp((err, sftp)=>{
             if(!t1) return; //timed out already
             clearTimeout(t1);
 
             if(err) return cb_once(err);
             var to = setTimeout(()=>{
-                cb_once(null, "failed", "send test script timeout - filesytem is offline?");
-            }, 5*1000); 
+                cb_once(null, "failed", "send test script timeout(10sec) - filesytem is offline?");
+            }, 10*1000); 
 
             let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
             let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");

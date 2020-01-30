@@ -103,7 +103,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 subdirs.forEach(dir=>{
                     inexopts += "--include=\""+dir+"/***\" ";
                 });
-                inexopts += "--exclude \"*\""; //without this at the end, include doesn't work
+                inexopts += "--exclude=\"*\""; //without this at the end, include doesn't work
             }
 
             //setup sshagent with the source key
@@ -118,7 +118,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 }, (err, conn)=>{
                     if(err) return next(err); 
                     let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
-                    logger.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
@@ -134,6 +133,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             if(code === undefined) return next("timedout while rsyncing");
                             else if(code) { 
                                 logger.error("On dest resource:"+dest_hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
+                                logger.error(cmd);
                                 logger.error(errors);
                                 next(errors);
                             } else {
