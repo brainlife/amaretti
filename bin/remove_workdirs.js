@@ -32,11 +32,11 @@ function check(cb) {
             {next_date: {$lt: new Date()}}
         ]
     })
-    .sort('next_date') //handle nice ones later, then sort by next_date
+    .sort('next_date') 
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
-            logger.debug("nothing to do.. sleeping..");
+            logger.debug("nothing to do.. sleeping (10sec..)");
             return setTimeout(check, 1000*10); 
         }
 
@@ -57,6 +57,16 @@ function check(cb) {
 }
 
 function remove(task, cb) {
+    //when a resource becomes inactive, some task might get stuck waiting to be removed. 
+    //if the task is removed long time ago, let's assume all those resources are gone so we can move on..
+    let old = new Date();
+    old.setMonth(-6);
+    if(task.create_date < old) {
+        logger.debug("task was created very long time ago.. but still trying to remove workdir.. probably the resource used disappeard and got stuck.. clearing");
+        task.resource_ids = [];
+        cb();
+    }
+
     //start removing!
     logger.info("need to remove this task. resource_ids.length:"+task.resource_ids.length);
     async.eachSeries(task.resource_ids, function(resource_id, next_resource) {
