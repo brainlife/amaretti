@@ -162,6 +162,7 @@ var taskSchema = mongoose.Schema({
     //github repo
     service: String, // "soichih/sca-service-life"
     service_branch: String, //master by default
+    locked: Boolean, //if locked, the task can not be executed again (for app-noop let user upload data but not execute afterward)
 
     commit_id: String, //git commit id when the task was started
        

@@ -75,7 +75,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             
             //-o ConnectTimeout=120
             //TODO need to investigate why I need these -o options on q6>karst transfer
-            var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey";
+            //var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey";
+            //wranger can't rsync from tacc with PreferredAuthentications=publickey
+            var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
             var source = source_resource.config.username+"@"+source_hostname+":"+source_path+"/";
             
             //-v writes output to stderr.. even though it's not error..

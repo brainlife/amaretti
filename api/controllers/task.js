@@ -365,7 +365,7 @@ router.get('/download/:taskid/*', jwt({
                             logger.debug("running tar via conn_q");
 
                             if(req_closed) return next("request already closed... skipping exec()!");
-                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar hcz *\"", (err, stream)=>{
+                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
                                 if(req_closed) return stream.close();
                                 req.on('close', ()=>{
@@ -409,7 +409,7 @@ router.get('/download/:taskid/*', jwt({
  * @apiGroup Task
  * @api {get} /task/upload/:taskid
  *                              Upload File
- * @apiDescription              Upload a file to specified task on a specified path
+ * @apiDescription              Upload a file to specified task on a specified path (task will be locked afterward)
  *
  * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters
  *
@@ -420,12 +420,12 @@ router.get('/download/:taskid/*', jwt({
  *                              {file stats uploaded}
  */
 
-//TODO This is a very dangerous API, and probably only used to stage upload data. Can we get rid of it?
-//(we need to validate query.p more in get_fullpath?)
 router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
+
+        if(task.status != "finished") return next("you can only upload to finished service");
         if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
         
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
@@ -437,57 +437,62 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
                 resource_name: resource.name,
             });
 
-            common.get_ssh_connection(resource, (err, conn_q)=>{
+            //lock the task so user can not execute it again (to prevent malicious use of this task)
+            task.locked = true;
+            task.save(err=>{
                 if(err) return next(err);
-
-                mkdirp(conn_q, path.dirname(fullpath), err=>{
+                common.get_ssh_connection(resource, (err, conn_q)=>{
                     if(err) return next(err);
 
-                    common.get_sftp_connection(resource, (err, sftp)=>{
+                    mkdirp(conn_q, path.dirname(fullpath), err=>{
                         if(err) return next(err);
-                        logger.debug("fullpath",fullpath);
-                        sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
-                            //just in case..
-                            req.on('close', ()=>{
-                                logger.error("request closed........ closing sftp stream also");
-                                write_stream.close();
-                            });
+                        common.get_sftp_connection(resource, (err, sftp)=>{
+                            if(err) return next(err);
+                            logger.debug("fullpath",fullpath);
+                            sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
-                            var pipe = req.pipe(write_stream);
-                            pipe.on('close', function() {
-                                logger.debug("streaming closed");
+                                //just in case..
+                                req.on('close', ()=>{
+                                    logger.error("request closed........ closing sftp stream also");
+                                    write_stream.close();
+                                });
 
-                                //this is an undocumented feature to exlode uploade tar.gz
-                                if(req.query.untar) {
-                                    logger.debug("tar xzf-ing");
+                                var pipe = req.pipe(write_stream);
+                                pipe.on('close', function() {
+                                    logger.debug("streaming closed");
 
-                                    //is this secure enough?
-                                    let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
-                                        "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
-                                        "rm '"+path.basename(fullpath).addSlashes()+"'";
-                                    
-                                    conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
-                                        if(err) return next(err);
-                                        //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
-                                        stream.on('end', function() {
-                                            res.json({msg: "uploaded and untared"});
+                                    //this is an undocumented feature to exlode uploade tar.gz
+                                    if(req.query.untar) {
+                                        logger.debug("tar xzf-ing");
+
+                                        //is this secure enough?
+                                        let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
+                                            "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
+                                            "rm '"+path.basename(fullpath).addSlashes()+"'";
+                                        
+                                        conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
+                                            if(err) return next(err);
+                                            //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                            stream.on('end', function() {
+                                                res.json({msg: "uploaded and untared"});
+                                            });
+                                            stream.on('data', function(data) {
+                                                logger.error(data.toString());
+                                            });
                                         });
-                                        stream.on('data', function(data) {
-                                            logger.error(data.toString());
+                                    } else {
+                                        //get file info (to be sure that the file is uploaded?)
+                                        sftp.stat(fullpath, function(err, stat) {
+                                            if(err) return next(err.toString());
+                                            res.json({filename: path.basename(fullpath), attrs: stat});
                                         });
-                                    });
-                                } else {
-                                    //get file info (to be sure that the file is uploaded?)
-                                    sftp.stat(fullpath, function(err, stat) {
-                                        if(err) return next(err.toString());
-                                        res.json({filename: path.basename(fullpath), attrs: stat});
-                                    });
-                                }
-                            });
-                            req.on('error', function(err) {
-                                logger.error(err);
-                                next("Failed to upload file to "+_path);
+                                    }
+                                });
+                                req.on('error', function(err) {
+                                    logger.error(err);
+                                    next("Failed to upload file to "+_path);
+                                });
                             });
                         });
                     });
@@ -617,6 +622,10 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
             next_check=>{
                 //check instance access
+                if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
+                    return next_check();
+                }
+                    
                 //TODO is this safe if gids happens to contain undefined?
                 const gids = task.gids||[];
                 if(instance.user_id != task.user_id && !~gids.indexOf(instance.group_id)) {

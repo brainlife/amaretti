@@ -170,7 +170,7 @@ function handle_housekeeping(task, cb) {
             }
 
             //handling all resources in parallel - in a hope to speed things a bit.
-            async.each(task.resource_ids, function(resource_id, next_resource) {
+            async.each(task.resource_ids.reverse(), function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
                         logger.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
@@ -962,10 +962,15 @@ function start_task(task, resource, cb) {
                                         next_source(); 
                                     } else {
                                         //success! let's records new resource_ids and proceed to the next dep
-                                        
+                                        //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
+                                        if(dep.subdirs.length) {
+                                            console.debug("partial synced");
+                                            return next_dep();
+                                        }
+
+                                        logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
                                         //tryint $addToSet to see if this could prevent the following issue
                                         //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
-                                        logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
                                         db.Task.findOneAndUpdate({_id: dep.task._id}, {
                                             $addToSet: {
                                                 resource_ids: resource._id.toString(),
@@ -1240,11 +1245,6 @@ function load_product(taskdir, resource, cb) {
                     logger.info(error_msg);
                     return cb();
                 }
-                /*
-                if(product_json.length > 1024*10) {
-                    logger.warn("product.json is >10kb("+product_json.length+") It should be only a few kilobytes");
-                }
-                */
                 if(product_json.length > 1024*1024) return cb("product.json is too big.. 1MB max (should be around a few kilobytes)");
 
                 try {
