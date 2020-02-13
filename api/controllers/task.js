@@ -365,7 +365,7 @@ router.get('/download/:taskid/*', jwt({
                             logger.debug("running tar via conn_q");
 
                             if(req_closed) return next("request already closed... skipping exec()!");
-                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' hcz *\"", (err, stream)=>{
+                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' -hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
                                 if(req_closed) return stream.close();
                                 req.on('close', ()=>{
