@@ -252,8 +252,8 @@ function find_resource(req, taskid, cb) {
         }
 
         //I can't put resource_id as it might not be in resource_ids
-        let resource_ids = [/*task.resource_id,*/ ...task.resource_ids.reverse()]; 
-        async.eachSeries(resource_ids, (resource_id, next_resource)=>{
+        //let resource_ids = [/*task.resource_id,*/ ...task.resource_ids.reverse()]; 
+        async.eachSeries(task.resource_ids, (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{
                 if(err) return next_resource(err);
                 if(!resource) return next_resource("couldn't find the resource:"+resource_id); //broken?

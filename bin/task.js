@@ -46,7 +46,7 @@ function set_nextdate(task) {
         break;
 
     case "running":
-        if(!task.start_date) logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!");
+        if(!task.start_date) logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!", task._id.toString());
     case "stop_requested":
         var elapsed = 0;
         if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
@@ -170,7 +170,7 @@ function handle_housekeeping(task, cb) {
             }
 
             //handling all resources in parallel - in a hope to speed things a bit.
-            async.each(task.resource_ids.reverse(), function(resource_id, next_resource) {
+            async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
                         logger.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
