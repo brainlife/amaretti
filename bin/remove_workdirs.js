@@ -64,7 +64,7 @@ function remove(task, cb) {
     if(task.create_date < old) {
         logger.debug("task was created very long time ago.. but still trying to remove workdir.. probably the resource used disappeard and got stuck.. clearing");
         task.resource_ids = [];
-        cb();
+        return cb();
     }
 
     //start removing!
