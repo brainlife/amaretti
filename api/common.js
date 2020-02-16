@@ -766,6 +766,11 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.product = undefined;
         task.next_date = undefined; //reprocess asap
         task.resource_id = undefined;
+
+        //if user rerun.. then all existing task dirs are invalidated.
+        //TODO - we need to clear this, but I should probably remove existing taskdir
+        task.resource_ids = []; 
+
         task.run = 0;
         task.request_count = 0;
 

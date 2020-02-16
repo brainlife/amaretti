@@ -1023,7 +1023,7 @@
     "type": "get",
     "url": "/task/upload/:taskid",
     "title": "Upload File",
-    "description": "<p>Upload a file to specified task on a specified path</p>",
+    "description": "<p>Upload a file to specified task on a specified path (task will be locked afterward)</p>",
     "parameter": {
       "fields": {
         "Parameter": [

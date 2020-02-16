@@ -1,14 +1,16 @@
 {
-  "name": "amaretti",
+  "name": "amaretti-api",
   "version": "0.0.0",
-  "description": "Light weight inter-resource meta task orchestration service for ABCD compatible apps.",
+  "description": "amaretti api doc",
+  "title": "amaretti api doc",
+  "url": "https://brainlife.io/api/amaretti",
   "sampleUrl": false,
   "defaultVersion": "0.0.0",
   "apidoc": "0.3.0",
   "generator": {
     "name": "apidoc",
-    "time": "2020-01-03T18:07:16.178Z",
+    "time": "2020-02-16T18:30:37.333Z",
     "url": "http://apidocjs.com",
-    "version": "0.17.6"
+    "version": "0.20.0"
   }
 }
