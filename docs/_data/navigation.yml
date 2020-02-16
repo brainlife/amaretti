@@ -19,16 +19,17 @@ docs:
       - title: "Technical Details"
         url: /detail
 
-  - title: Tutorials
-    children:
-      - title: "Authentication"
-        url: /tutorial/authentication
-      - title: "Resource Management"
-        url: /tutorial/resource
-      - title: "Task Submission"
-        url: /tutorial/task
-      - title: "Data Transfer"
-        url: /tutorial/transfer
+# I lost these
+#  - title: Tutorials
+#    children:
+#      - title: "Authentication"
+#        url: /tutorial/authentication
+#      - title: "Resource Management"
+#        url: /tutorial/resource
+#      - title: "Task Submission"
+#        url: /tutorial/task
+#      - title: "Data Transfer"
+#        url: /tutorial/transfer
 
   - title: Support
     children:
