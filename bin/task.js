@@ -735,8 +735,8 @@ function start_task(task, resource, cb) {
                         if(!app_cache) {
 
                             //TODO - not working?
-                            task.next_date = new Date(Date.now()+1000*600);
-                            task.status_msg = "Waiting for the App to be installed";
+                            task.next_date = new Date(Date.now()+1000*300);
+                            task.status_msg = "Waiting for the App to be installed (5mins)";
 
                             return cb(); //cache already inprogress.. retry later..
                         }

@@ -28,6 +28,7 @@
     "jsonwebtoken": "^8.5.1",
     "mime": "^2.4.4",
     "mongoose": "^5.8.2",
+    "morgan": "^1.9.1",
     "multiparty": "^4.2.1",
     "ps-node": "^0.1.6",
     "redis": "^2.8.0",

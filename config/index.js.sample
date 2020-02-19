@@ -28,7 +28,7 @@ exports.amaretti = {
     global_groups: [1],
 
     //show a bit more debug logging (like mongoose)
-    debug: false,
+    debug: true,
 }
 exports.wf = exports.amaretti; //deprecated (use amaretti)
 exports.sca = exports.amaretti; //deprecated (use amaretti)
