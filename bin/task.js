@@ -46,7 +46,7 @@ function set_nextdate(task) {
         break;
 
     case "running":
-        if(!task.start_date) logger.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!", task._id.toString());
+        if(!task.start_date) console.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!", task._id.toString());
     case "stop_requested":
         var elapsed = 0;
         if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
@@ -361,6 +361,7 @@ function handle_requested(task, next) {
                     //penalize projects that are running a lot of jobs already
                     //add up to 600 seconds for projects that has a lot of jobs requested
                     let secs = (60*running_count)+Math.min(requested_count, 600);
+                    secs = Math.max(secs, 10); //min 10 seconds
 
                     logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
