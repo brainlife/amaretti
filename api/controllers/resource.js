@@ -152,38 +152,29 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
     });
 });
 
-//return a list of currently running tasks (experimental)
-//used by warehouse/resource.vue?
-router.get('/tasks/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+//return a list of tasks submitted on this resource recently
+//client ui > warehouse/resource.vue
+router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+    
     //pull currently running tasks
+    /*
     let tasks = await db.Task.find({
-        resource_id: req.params.id,
+        resource_id: req.params.resource_id,
         status: {$in: ["requested", "running", "running_sync"]},
     }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
-    res.json(tasks);
+    */
+
+    let recent = await db.Task.find({
+        resource_id: req.params.resource_id,
+        status: {$in: ["requested", "running", "running_sync", "finished", "failed", /*"removed"*/]},
+    }).lean()
+    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .sort({create_date: -1})
+    .limit(30)
+    .exec()
+
+    res.json({recent});
 });
-
-/*
-//(admin only) generate report material for each resource for admin
-router.get('/report/:id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
-    if(!is_admin(req.user)) return next("admin only");
-
-    let groups = await db.Task.aggregate()
-    .match({ resource_id: mongoose.ObjectId(req.params.id) })
-    .project({
-        _walltime: {$subtract: ["$finish_date", "$start_date"]},
-        _group_id: '$_group_id',
-    })
-    .group({_id: "$_group_id", count: {$sum: 1}, total_walltime: {$sum: "$_walltime"} })
-    .exec();
-
-    let report = {groups};
-
-    console.log("report dump");
-    console.dir(report);
-    res.json(report);
-});
-*/
 
 /**
  * @api {put} /resource/test/:resource_id Test resource

@@ -59,6 +59,8 @@ var instanceSchema = mongoose.Schema({
     update_date: {type: Date, default: Date.now },
 });
 
+instanceSchema.index({name: 1, user_id: 1, group_id: 1, _id: 1})
+
 /* instance events hooks are handled manually so that I can do better control
 instanceSchema.post('save', events.instance);
 instanceSchema.post('findOneAndUpdate', events.instance);
@@ -245,16 +247,14 @@ var taskSchema = mongoose.Schema({
     //
     //time when this task was last started - including being handled by start_task (doesn't mean the actually start time of pbs jobs)
     start_date: Date,
-    //time when this task was last finished
-    finish_date: Date,
-    //time when this task was last failed
-    fail_date: Date,
-    //time when this task was last updated (only used by put api?)
-    update_date: Date,
-    //time when this task was requested (!=create_date if re-requested)
-    request_date: Date,
-    //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
-    remove_date: Date,
+
+    finish_date: Date, //time when this task was last finished
+    runtime: Number, //finish_date - start_date (in ms) - set when finish_date is set
+
+    fail_date: Date, //time when this task was last failed
+    update_date: Date, //time when this task was last updated (only used by put api?)
+    request_date: Date, //time when this task was requested (!=create_date if re-requested)
+    remove_date: Date, //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
 
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)
@@ -271,6 +271,10 @@ taskSchema.index({user_id: 1, _group_id: 1});  //for rule hanler to find task th
 taskSchema.index({'config._outputs.id': 1});  //to look for app-stage that staged specific dataset (dataset.vue) 
 taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count running / requested tasks for each resource
 taskSchema.index({status: 1,  resource_ids: 1, next_date: 1});  //find task to be removed when all resources gets removed
+taskSchema.index({project: 1, removed: 1}); //for task aggregate $math and group by subject/datatype
+taskSchema.index({ "config._rule.id": 1, "status": 1, "_id": 1 }); //({ "config._rule.id": 1, "status": 1, "_id": 1 })
+taskSchema.index({resource_id: 1, finish_date: 1, start_date: 1, _group_id: 1}); //total walltime aggregate
+taskSchema.index({resource_id: 1, status: 1, service: 1});
 
 exports.Task = mongoose.model('Task', taskSchema);
 
@@ -328,7 +332,11 @@ var serviceinfoSchema = mongoose.Schema({
     }),
     */
 
+    //number of unique users who ran this service
     users: Number,
+
+    //object keyed by sub and counts of finished and failed tasks
+    user: mongoose.Schema.Types.Mixed,
 
     runtime_mean: Number,
     runtime_std: Number,

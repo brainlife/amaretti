@@ -28,7 +28,7 @@ const common = require('../common');
  * @apiSuccess {Object}         List of tasks (maybe limited / skipped) and total number of tasks
  */
 //TODO - who else uses this other than appinfo now? Can we make this admin only?
-router.get('/info', jwt({secret: config.amaretti.auth_pubkey, credentialsRequired: false}), function(req, res, next) {
+router.get('/info', jwt({secret: config.amaretti.auth_pubkey/*, credentialsRequired: false*/}), function(req, res, next) {
     let find = {service: req.query.service};
 
     //TODO - should I hide info for private service if user is not member of the project?

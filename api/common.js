@@ -763,6 +763,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.request_date = new Date();
         task.start_date = undefined;
         task.finish_date = undefined;
+        task.walltime = undefined;
         task.product = undefined;
         task.next_date = undefined; //reprocess asap
         task.resource_id = undefined;

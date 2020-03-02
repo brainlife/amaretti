@@ -72,6 +72,7 @@ router.get('/resource_usage', jwt({secret: config.amaretti.auth_pubkey}), functi
         {$match: find},
 
         {   
+            //TODO - working to switch to use walltime field
             $project: {
                 _walltime: {$subtract: ["$finish_date", "$start_date"]},
                 service: 1,
@@ -106,6 +107,25 @@ router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         if(err) return next(err);
         res.json(services);
     });
+});
+
+//return a list of tasks submitted for a service
+//client ui > warehouse/app.vue
+router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+
+    let service = req.query.service;
+    //TODO should I hide hidden service?
+    
+    let recent = await db.Task.find({
+        service,
+        status: {$in: ["requested", "running", "running_sync", "finished", "failed", /*"removed"*/]},
+    }).lean()
+    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .sort({create_date: -1})
+    .limit(30)
+    .exec()
+
+    res.json({recent});
 });
 
 //get task detail

@@ -18,6 +18,7 @@ db.init(function(err) {
     let service_info = {};
     async.series([
 
+        //I might deprecate this counter in favor of more user specific counter below
         next=>{
             console.log("group events by service and status");
             db.Taskevent.aggregate([
@@ -38,7 +39,9 @@ db.init(function(err) {
                                 running_sync: 0,
                                 stop_requested: 0,
                                 stopped: 0,
-                            }
+                            },
+
+                            user: {},
                         }
                     }
                     service_info[status._id.service].counts[status._id.status] = status.count;
@@ -50,6 +53,30 @@ db.init(function(err) {
                 });
                 next();
             });
+        },
+
+        async next=>{
+            console.log("group events by service/user/status");
+
+            let finished = await db.Taskevent.aggregate([
+                {$match: { status: "finished" }},
+                {$group: {_id: { user: "$user_id", service: "$service"}, count: {$sum: 1}}},
+            ]);
+            finished.forEach(status=>{
+                //if(!service_info[status._id.service]) service_info[status._id.service] = {users: {}};
+                if(!service_info[status._id.service].user[status._id.user]) service_info[status._id.service].user[status._id.user] = {};
+                service_info[status._id.service].user[status._id.user].finished = status.count;
+            });
+
+            let failed = await db.Taskevent.aggregate([
+                {$match: { status: "failed" }},
+                {$group: {_id: { user: "$user_id", service: "$service"}, count: {$sum: 1}}},
+            ]);
+            failed.forEach(status=>{
+                if(!service_info[status._id.service].user[status._id.user]) service_info[status._id.service].user[status._id.user] = {};
+                service_info[status._id.service].user[status._id.user].failed = status.count;
+            });
+
         },
 
         next=>{
@@ -72,6 +99,7 @@ db.init(function(err) {
             });
         },
 
+        /* not useful?
         next=>{
             console.log("loading README.md");
             async.eachOfSeries(service_info, (v, k, next_service)=>{
@@ -90,6 +118,7 @@ db.init(function(err) {
                 });
             }, next);
         },
+        */
 
         next=>{
             async.eachOfSeries(service_info, (v, k, next_service)=>{
