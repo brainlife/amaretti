@@ -952,32 +952,49 @@ function start_task(task, resource, cb) {
                             let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
                             let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
                             task.status_msg = msg_prefix;
+                            let saving_progress = false;
                             task.save(err=>{
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
-                                    console.log("saving task progress", progress);
+                                    //console.log("saving task progress", progress);
                                     task.status_msg = msg_prefix+" "+progress;
-                                    task.save(); 
+                                    saving_progress = true;
+                                    task.save(()=>{
+                                        saving_progress = false;
+                                    }); 
                                 }, err=>{
-                                    if(err) {
-                                        task.status_msg = "Failed to synchronize dependent task directories.. "+err.toString();
-                                        next_source(); 
-                                    } else {
-                                        //success! let's records new resource_ids and proceed to the next dep
-                                        //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
-                                        if(dep.subdirs.length) {
-                                            console.debug("partial synced");
-                                            return next_dep();
+                                    
+                                    //I have to wait to make sure task.save() in progress finish writing - before moving to
+                                    //the next step - which may run task.save() immediately which causes
+                                    //"ParallelSaveError: Can't save() the same doc multiple times in parallel. "
+                                    function wait_progress_save() {
+                                        if(saving_progress) {
+                                            logger.error("waiting for progress task.save()");
+                                            return setTimeout(wait_progress_save, 500);
                                         }
 
-                                        logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
-                                        //tryint $addToSet to see if this could prevent the following issue
-                                        //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
-                                        db.Task.findOneAndUpdate({_id: dep.task._id}, {
-                                            $addToSet: {
-                                                resource_ids: resource._id.toString(),
+                                        if(err) {
+                                            task.status_msg = "Failed to synchronize dependent task directories.. "+err.toString();
+                                            next_source(); 
+                                        } else {
+                                            //success! let's records new resource_ids and proceed to the next dep
+                                            //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
+                                            if(dep.subdirs.length) {
+                                                console.debug("partial synced");
+                                                return next_dep();
                                             }
-                                        }, next_dep);
+
+                                            logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
+                                            //tryint $addToSet to see if this could prevent the following issue
+                                            //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
+                                            db.Task.findOneAndUpdate({_id: dep.task._id}, {
+                                                $addToSet: {
+                                                    resource_ids: resource._id.toString(),
+                                                }
+                                            }, next_dep);
+                                        }
                                     }
+
+                                    wait_progress_save();
                                 });
                             });
                         });
