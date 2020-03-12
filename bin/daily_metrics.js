@@ -14,6 +14,9 @@ config.logger.winston.transports[0].level = 'error';
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 
+const mongoose = require("mongoose");
+mongoose.set("debug", false); //suppress log
+
 const graphite_prefix = process.argv[2];
 if(!graphite_prefix) {
     console.error("usage: metrics.js <graphite_prefix>");
@@ -32,7 +35,7 @@ let ignored_service = [
 
 function count_tasks(d) {
     return new Promise((resolve, reject)=>{
-        db.Task.countDocuments({create_date: {$lt: d}, service: {$nin: ignored_service}}, (err, count)=>{
+        db.Task.estimatedDocumentCount({create_date: {$lt: d}, service: {$nin: ignored_service}}, (err, count)=>{
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".task.count "+count+" "+time);

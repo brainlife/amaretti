@@ -46,12 +46,6 @@ exports.select = function(user, task, cb) {
         if(err) return cb(err);
         if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
 
-        /*
-        resources.forEach(resource=>{
-            console.log(resource.name);
-        });
-        */
-
         //select the best resource based on the task
         var best = null;
         var best_score = null;
@@ -97,43 +91,13 @@ exports.select = function(user, task, cb) {
                     consider.detail.msg+="score is set to 0.. not running here";
                     return next_resource();
                 }
-               
-                //for niced tasks, make sure resource score is at least greater than nide. 
-                //this make niced tasks to not submit on low score resources to allow for non-nice jobs
-                //TODO - this was mainly used to prevent pieline rules from using UI staging slots
-                //how that we have dedicated app-stage/archive server (wrangler) this shouldn't be an issue.
-                /*
-                if(task.nice) {
-                    if(consider.score < task.nice) {
-                        consider.detail.msg+="score lower than "+task.nice+". not running here\n";
-                        return next_resource();
-                    }
-                }
-                */
-
-                /*
-                //don't let nice tasks take up all resources.
-                if(task.nice && consider.detail.fullness) {
-                    if(consider.detail.fullness > .9) {
-                        consider.detail.msg+="resource is >90% full. and this is niced task.. not running here";
-                        return next_resource();
-                    }
-                }
-                */
 
                 //+5 if resource is listed in dep
                 if(~dep_resource_ids.indexOf(resource._id.toString())) {
                     consider.detail.msg+="resource listed in deps/resource_ids.. +5\n";
                     consider.score = score+5;
                 }
-
-                /*
-                //+10 score if it's owned by user
-                if(resource.user_id == user.sub) {
-                    consider.detail.msg+="user owns this.. +10\n";
-                    consider.score = score+10;
-                }
-                */
+                
                 //+10 if it's private resource
                 if(resource.gids.length == 0) {
                     consider.detail.msg+="private resource.. +10\n";
