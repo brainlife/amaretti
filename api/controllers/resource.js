@@ -179,7 +179,7 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
     .sort({create_date: -1})
-    .limit(10)
+    .limit(20)
     .exec()
 
     res.json({recent: [...current, ...recent]});

@@ -28,6 +28,11 @@ db.init(function(err) {
         async.eachSeries(resources, function(resource, next_resource) {
             async.series([
 
+                next=>{
+                    console.log("aggregating info for ", resource.name);
+                    next();
+                },
+
                 //store past usage stats (just the total - not service info - which can be queried via api)
                 next=>{
                     resource_lib.stat(resource, (err, stats)=>{
@@ -38,6 +43,7 @@ db.init(function(err) {
                     });
                 },
 
+                /* too expensive... can I calculate this from resource.stats?
                 //list _group_ids for each services
                 next=>{
                     db.Task.aggregate()
@@ -53,6 +59,7 @@ db.init(function(err) {
                         next();
                     });
                 },
+                */
                 
                 //TODO.. query list of jobs currently running on this resource
                 /*
