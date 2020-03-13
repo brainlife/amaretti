@@ -121,7 +121,7 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
         status: {$in: ["requested", "running", "running_sync", "finished", "failed", /*"removed"*/]},
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
-    .sort({create_date: -1})
+    .sort({status: 1, create_date: -1})
     .limit(30)
     .exec()
 
