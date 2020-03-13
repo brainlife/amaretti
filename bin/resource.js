@@ -120,6 +120,7 @@ function run() {
                 },
 
                 //list _group_ids for each services
+                /* //this query takes abnormally long time.. let's troubleshoot
                 next=>{
                     db.Task.aggregate()
                     .match({ resource_id: resource._id })
@@ -134,6 +135,7 @@ function run() {
                         next();
                     });
                 },
+                */
                 
                 //TODO.. query list of jobs currently running on this resource
                 /*

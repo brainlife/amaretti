@@ -48,7 +48,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     .select(req.query.select)
     .limit(req.query.limit || 100)
     .skip(req.query.skip || 0)
-    .sort(req.query.sort || '_id')
+    .sort(req.query.sort)
     .exec(function(err, tasks) {
         if(err) return next(err);
         db.Task.countDocuments(find).exec(function(err, count) {

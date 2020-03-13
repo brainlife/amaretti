@@ -92,7 +92,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     .select(select)
     .limit(req.query.limit || 100)
     .skip(req.query.skip || 0)
-    .sort(req.query.sort || '_id')
+    .sort(req.query.sort)
     .lean()
     .exec(function(err, resources) {
         if(err) return next(err);
