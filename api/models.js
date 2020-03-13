@@ -276,6 +276,7 @@ taskSchema.index({ "config._rule.id": 1, "status": 1, "_id": 1 }); //({ "config.
 taskSchema.index({resource_id: 1, finish_date: 1, start_date: 1, _group_id: 1}); //total walltime aggregate
 taskSchema.index({resource_id: 1, status: 1, service: 1});
 taskSchema.index({instance_id: 1, user_id: 1, _group_id: 1, "_id": 1});
+taskSchema.index({ "resource_id": 1, "status": 1, "create_date": -1}); //look for recent task
 
 exports.Task = mongoose.model('Task', taskSchema);
 

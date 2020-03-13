@@ -24,12 +24,41 @@ db.init(function(err) {
     rcon.on('error', err=>{throw err});
     rcon.on('ready', ()=>{
         logger.info("connected to redis");
-        run();
+        run_every10min();
     });
 });
 
+function report(resources, counts) {
+    var ssh = common.report_ssh();
+    var report = {
+        status: "ok",
+        ssh,
+        resources: resources.length,
+        messages: [],
+        counts,
+        date: new Date(),
+        maxage: 1000*60*60,
+    }
+
+    if(resources.length == 0) {
+        report.status = "failed";
+        report.messages.push("no resource checked.. not registered?");
+    }
+    
+    if(ssh.max_channels > 5) {
+        report.status = "failed";
+        report.messages.push("high ssh channels "+ssh.max_channels);
+    }
+    if(ssh.ssh_cons > 20) {
+        report.status = "failed";
+        report.messages.push("high ssh connections "+ssh.ssh_cons);
+    }
+
+    rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+}
+
 //go through all registered resources and check for connectivity & smoke test
-function run() {
+function run_every10min() {
     db.Resource.find({
         active: true, 
         status: {$ne: "removed"},
@@ -109,47 +138,6 @@ function run() {
                     });
                 },
 
-                //store past usage stats (just the total - not service info - which can be queried via api)
-                next=>{
-                    resource_lib.stat(resource, (err, stats)=>{
-                        if(err) return next(err);
-                        resource.stats.total = stats.total;
-                        resource.stats.services = stats.services;
-                        next();
-                    });
-                },
-
-                //list _group_ids for each services
-                /* //this query takes abnormally long time.. let's troubleshoot
-                next=>{
-                    db.Task.aggregate()
-                    .match({ resource_id: resource._id })
-                    .project({
-                        _walltime: {$subtract: ["$finish_date", "$start_date"]},
-                        _group_id: '$_group_id',
-                    })
-                    .group({_id: "$_group_id", count: {$sum: 1}, total_walltime: {$sum: "$_walltime"} })
-                    .exec((err, projects)=>{
-                        if(err) return next(err);
-                        resource.stats.projects = projects;
-                        next();
-                    });
-                },
-                */
-                
-                //TODO.. query list of jobs currently running on this resource
-                /*
-                async next=>{
-                    let tasks = await db.Task.find({
-                        resource_id: resource._id,
-                        status: {$in: ["requested", "running", "running_sync"]},
-                    }).lean().select('_id user_id _group_id service service_branch status status_msg').exec()
-
-                    console.dir(tasks);
-                    //TODO..
-                },
-                */
-
                 //lastly.. save everything
                 next=>{
                     //console.log(JSON.stringify(resource.stats, null, 4));
@@ -163,37 +151,8 @@ function run() {
             report(resources, counts);
 
             logger.debug("waiting for 10mins before running another check_resource");
-            setTimeout(run, 1000*60*10); //wait 10 minutes each check
+            setTimeout(run_every10min, 1000*60*10); //wait 10 minutes each check
         });
     });
-}
-
-function report(resources, counts) {
-    var ssh = common.report_ssh();
-    var report = {
-        status: "ok",
-        ssh,
-        resources: resources.length,
-        messages: [],
-        counts,
-        date: new Date(),
-        maxage: 1000*60*60,
-    }
-
-    if(resources.length == 0) {
-        report.status = "failed";
-        report.messages.push("no resource checked.. not registered?");
-    }
-    
-    if(ssh.max_channels > 5) {
-        report.status = "failed";
-        report.messages.push("high ssh channels "+ssh.max_channels);
-    }
-    if(ssh.ssh_cons > 20) {
-        report.status = "failed";
-        report.messages.push("high ssh connections "+ssh.ssh_cons);
-    }
-
-    rcon.set("health.amaretti.resource."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
 }
 
