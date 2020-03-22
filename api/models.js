@@ -42,12 +42,12 @@ var instanceSchema = mongoose.Schema({
     desc: String, //desc of the workflow
 
     //we use string for IDS - because we might move auth service to mongo db someday..
-    user_id: {type: String, index: true}, //user that this workflow instance belongs to
+    user_id: String, //user that this workflow instance belongs to
 
     //(optional) make this instance accessible from all members of this group
     //TODO if this is updated, all task's _group_id needs to be updated also
     //not set if this instance is only used for the specific user for uploading
-    group_id: {type: Number, index: true}, 
+    group_id: Number,
 
     //store details mainly used by UI
     config: mongoose.Schema.Types.Mixed,
@@ -59,7 +59,8 @@ var instanceSchema = mongoose.Schema({
     update_date: {type: Date, default: Date.now },
 });
 
-instanceSchema.index({name: 1, user_id: 1, group_id: 1, _id: 1})
+instanceSchema.index({name: 1, user_id: 1, group_id: 1, _id: 1});
+instanceSchema.index({"config.brainlife": 1, "group_id": 1, "status": 1, "user_id": 1 });
 
 /* instance events hooks are handled manually so that I can do better control
 instanceSchema.post('save', events.instance);
@@ -273,10 +274,14 @@ taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count 
 taskSchema.index({status: 1,  resource_ids: 1, next_date: 1});  //find task to be removed when all resources gets removed
 taskSchema.index({project: 1, removed: 1}); //for task aggregate $math and group by subject/datatype
 taskSchema.index({ "config._rule.id": 1, "status": 1, "_id": 1 }); //({ "config._rule.id": 1, "status": 1, "_id": 1 })
-taskSchema.index({resource_id: 1, finish_date: 1, start_date: 1, _group_id: 1}); //total walltime aggregate
+//taskSchema.index({resource_id: 1, finish_date: 1, start_date: 1, _group_id: 1}); //total walltime aggregate
+taskSchema.index({ "_group_id": 1, "finish_date": 1, "resource_id": 1, "service": 1, "start_date": 1 }); //total walltime
+
 taskSchema.index({resource_id: 1, status: 1, service: 1});
 taskSchema.index({instance_id: 1, user_id: 1, _group_id: 1, "_id": 1});
 taskSchema.index({ "resource_id": 1, "status": 1, "create_date": -1}); //look for recent task
+taskSchema.index({ "resource_id": 1, "status": 1, "create_date": -1}); //look for recent task
+taskSchema.index({ "create_date": 1, "service": 1, "user_id": 1 }); //active user count
 
 exports.Task = mongoose.model('Task', taskSchema);
 
@@ -296,8 +301,9 @@ var taskeventSchema = mongoose.Schema({
     status: String,
     status_msg: String,
 
-    date: {type: Date, default: Date.now, index: true },
+    date: {type: Date, default: Date.now },
 });
+taskeventSchema.index({ "service": 1, "status": 1, "date": -1 });//search recently finished
 exports.Taskevent = mongoose.model('Taskevent', taskeventSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
