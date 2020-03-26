@@ -147,21 +147,21 @@ var taskSchema = mongoose.Schema({
     //user_id: {type: String, index: true},  //indexStats shows it's not used
     user_id: String,
 
-    //copy of req.user.gids at the time of task request.
-    //resources that belong to these set of groups will be considered for resource selection
+    //cache of req.user.gids at the time of task request.
+    //used by task handler to recreate the req.user to query resources that task can use to run.
+    //it can be re-queries from auth service, but this reduces the amount of auth service hit
     gids: [{type: Number}], 
-    
-    ////////////////////////////////////////////////////////////////////////////////////////
-    // fields that user can set during request
-
-    //workflow instance id
-    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
     
     //copy of group_id on instance record (should be the same as instance's group_id)
     //this exists to help with access control
     //not set if instance.group_id is not set for user specific instance (like uploading) (is this still true?)
     _group_id: {type: Number, index: true}, 
 
+    ////////////////////////////////////////////////////////////////////////////////////////
+    // fields that user can set during request
+
+    //workflow instance id
+    instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
     //github repo
     service: String, // "soichih/sca-service-life"
     service_branch: String, //master by default
@@ -171,12 +171,17 @@ var taskSchema = mongoose.Schema({
        
     //TEXT INDEX field (below) to be searchable with text search
     name: String, 
-    desc: String, 
+    desc: String,  //TODO who uses this?
   
     //resource to be selected if multiple resource is available and score ties
     preferred_resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
 
-    //object containing details for this task (passed to the app)
+    //only admin can set this field
+    //task will be submitted on the same resource that the follow_task_id has run on (resource_id)
+    //This can be used to run validator and other finalization tasks.
+    follow_task_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Task'},
+
+    //object containing details for this task (passed by user)
     config: mongoose.Schema.Types.Mixed, 
 
     //(deprecate this in favor of deps_config) task dependencies required to run the service 
@@ -229,9 +234,9 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
-    //TODO - I should probably move this elsewhere.. (or maybe create product collection and link ref it to task collection
-    //as dataset also stores it?
     //content of product.json if generated
+    //TODO - I need to move this elsewhere.. (or maybe create product collection and link ref it to task collection
+    //as dataset also stores it?
     //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
     product: mongoose.Schema.Types.Mixed,
  

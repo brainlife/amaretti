@@ -85,7 +85,7 @@ function check(cb) {
     .sort('nice next_date') //handle nice ones later, then sort by next_date
     .populate('deps') //deprecated
     .populate('deps_config.task')
-    //.populate('resource_deps')
+    .populate('follow_task_id')
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
@@ -566,14 +566,12 @@ function handle_running(task, next) {
                             load_product(taskdir, resource, (err, product)=>{
                                 if(err) {
                                     logger.info("failed to load product");
-                                    //common.progress(task.progress_key, {status: 'failed', msg: err.toString()});
                                     task.status = "failed";
                                     task.status_msg = err;
                                     task.fail_date = new Date();
                                     next();
                                 } else {
                                     logger.info("loaded product.json");
-                                    //common.progress(task.progress_key, {status: 'finished', msg: 'Service Completed'});
                                     task.finish_date = new Date();
                                     if(!task.start_date) task.start_date = task.create_date; //shoudn't happen, but it does sometimes.
                                     task.runtime = task.finish_date.getTime() - task.start_date.getTime();

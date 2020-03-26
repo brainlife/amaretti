@@ -132,20 +132,16 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
  *                              }
  */
 router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)=>{
-    logger.debug("choosing best resource for service:"+req.query.service);
-
+    //console.debug("choosing best resource for service:"+req.query.service);
     var query = {};
     if(req.query.service) query.service = req.query.service;
     resource_lib.select(req.user, query, (err, resource, score, considered)=>{
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true, considered});
-        //var resource_detail = config.resources[resource.resource_id];
         res.json({
             score,
             resource: mask_enc(resource),
             considered,
-            //detail: resource_detail, //TODO deprecate this
-            //_detail: resource_detail,
             workdir: common.getworkdir(null, resource),
             _canedit: canedit(req.user, resource),
         });

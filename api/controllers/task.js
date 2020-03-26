@@ -565,6 +565,8 @@ function mkdirp(conn, dir, cb) {
  *                              (Please note that.. housekeeping will run at next_date.)
  * @apiParam {String} [max_runtime] Maximum runtime of job (in msec)
  * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
+ * @apiParam {String} [follow_task_id]
+ *                              Task ID to follow (admin only)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
@@ -641,6 +643,14 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
         task.resource_ids = [];
 
+        if(req.body.follow_task_id) {
+            if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
+                task.follow_task_id = req.body.follow_task_id;
+            } else {
+                return next("you can't set follow_task_id");
+            }
+        }
+
         //check access
         async.series([
             next_check=>{
@@ -672,21 +682,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                     next_check();//ok
                 });
             },
-
-            /*
-            next_check=>{
-                if(!task.resource_deps) return next_check();
-                //make sure user can access all resource_deps
-                async.eachSeries(task.resource_deps, (resource_id, next_resource)=>{
-                    db.Resource.findById(resource_id, (err, resource)=>{
-                        if(err) return next_resource(err);
-                        if(!resource) return next_check("can't find resource_id:"+resource_id);
-                        if(!common.check_access(req.user, resource)) return next_resource("can't access resource_dep:"+resource_id);
-                        next_resource();
-                    });
-                }, next_check);
-            },
-            */
 
             next_check=>{
                 if(task.deps) return next_check();

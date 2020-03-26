@@ -15,7 +15,7 @@ const common = require('./common');
 //task needs to have populated deps
 exports.select = function(user, task, cb) {
     //select all resource available for the user and active
-    logger.debug("finding resource to run .select task_id:%s service:%s branch:%s user:%s",task._id,task.service,task.service_branch,user.sub);
+    //logger.debug("finding resource to run .select task_id:%s service:%s branch:%s user:%s",task._id,task.service,task.service_branch,user.sub);
 
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
@@ -28,17 +28,29 @@ exports.select = function(user, task, cb) {
         });
     }
 
-    //load resource that user has access
+    //admin can request task to run on the followed resource
+    if(task.follow_task_id) {
+        db.Resource.findById(task.follow_task_id.resource_id)
+        .lean()
+        .exec((err, resource)=>{
+            if(err) return cb(err);
+            let best = null;
+            if(resource.active) best = resource;
+            return cb(err, resource, null, []);
+        });
+        return;
+    } 
+    
+    //normal resource selection - find resources that users hass access
     let gids = common.get_user_gids(user); //just pull from user.gids and adds global gids
     db.Resource.find({
+        status: {$ne: "removed"},
+        active: true,
         "$or": [
             {user_id: user.sub},
             {gids: {"$in": gids}},
         ],
         'config.services.name': task.service,
-
-        status: {$ne: "removed"},
-        active: true,
     })
     .lean()
     .sort('create_date')
@@ -69,7 +81,6 @@ exports.select = function(user, task, cb) {
                         desc: resource.config.desc,
                         maxtask: resource.config.maxtask,
                     },
-                    //stats: resource.stats, //too big..
                     status: resource.status, 
                     status_msg: resource.status_msg, 
                     active: resource.active,
@@ -427,58 +438,6 @@ function check_iohost(resource, cb) {
 //pull some statistics about a resource
 //used by bin/resource.js
 exports.stat = async function(resource, cb) {
-
-    /*
-    try {
-
-        //pull service centric counts
-        let data = await db.Task.aggregate().match({resource_id: resource._id}).group({_id: {
-                service: '$service',
-                status: '$status',
-        }, count: {$sum: 1} }).exec();
-
-        //parse out counts
-        let total = {};
-        let services = {};
-
-        data.forEach(rec=>{
-            //rec... { _id: { service: 'soichih/abcd-novnc', status: 'stopped' }, count: 14 },
-            let service = rec._id.service;
-            let status = rec._id.status;
-            let count = rec.count;
-            if(!total[status]) total[status] = 0;
-            if(!services[service]) services[service] = {};
-            if(!services[service][status]) services[service][status] = 0;
-            total[status] += count;
-            services[service][status] += count;
-        });
-
-        //pull project centric counts
-        data = await db.Task.aggregate().match({resource_id: resource._id}).group({_id: {
-                _group_id: '$_group_id',
-                status: '$status',
-        }, count: {$sum: 1} }).exec();
-
-        //parse out counts
-        let groups = {};
-
-        data.forEach(rec=>{
-            //rec... { _id: { service: 'soichih/abcd-novnc', status: 'stopped' }, count: 14 },
-            let group = rec._id._group_id;
-            let status = rec._id.status;
-            let count = rec.count;
-            if(!groups[group]) groups[group] = {};
-            if(!groups[group][status]) groups[group][status] = 0;
-            groups[group][status] += count;
-        });
-
-        cb(null, {total, services, groups});
-
-    } catch(err) {
-        cb(err);
-    }
-    */
-
     try {
         //get execution history counts for each service 
         let data = await db.Taskevent.aggregate()

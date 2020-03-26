@@ -120,6 +120,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 }, (err, conn)=>{
                     if(err) return next(err); 
                     let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
+                    console.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
