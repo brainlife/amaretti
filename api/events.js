@@ -93,15 +93,8 @@ function publish_or_log(ex, key, msg, cb) {
     }
 }
 
-/*
-exports.publish_task = function(ex, key, msg) {
-    message.timestamp = (new Date().getTime())/1000; //it's crazy that amqp doesn't set this?
-    publish_or_log(task_ex, message, {}, cb);
-}
-*/
-
+//deprecate this
 exports.task = function(task) {
-    var key = task.instance_id+"."+task._id;
 
     //get previous task status to see if status changed
     db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}).lean().exec((err, lastevent)=>{
@@ -129,6 +122,14 @@ exports.task = function(task) {
         //TODO - can't I just test to see if _id exists for those field and replace them with it?
         db.Task.findById(task._id).lean().exec((err, _task)=>{
             _task._status_changed = status_changed;
+
+            /*
+            let sub = task.user_id; //TODO task.user_id != req.user.sub.. but for now let's assume that's the case
+            let key = task._group_id+"."+sub+"."+task.instance_id+"."+task._id;
+            publish_or_log(amaretti_ex, key, _task);
+            */
+            
+            let key = task.instance_id+"."+task._id;
             publish_or_log(task_ex, key, _task);
         });
     });

@@ -234,9 +234,8 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
+    //TODO - deprecated by taskproduct
     //content of product.json if generated
-    //TODO - I need to move this elsewhere.. (or maybe create product collection and link ref it to task collection
-    //as dataset also stores it?
     //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
     product: mongoose.Schema.Types.Mixed,
  
@@ -289,6 +288,14 @@ taskSchema.index({ "resource_id": 1, "status": 1, "create_date": -1}); //look fo
 taskSchema.index({ "create_date": 1, "service": 1, "user_id": 1 }); //active user count
 
 exports.Task = mongoose.model('Task', taskSchema);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+var taskproductSchema = mongoose.Schema({
+    task_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true},
+    product: mongoose.Schema.Types.Mixed,
+});
+exports.Taskproduct = mongoose.model('Taskproduct', taskproductSchema);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //

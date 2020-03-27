@@ -563,7 +563,7 @@ function handle_running(task, next) {
                         case 1: //finished
                             //I am not sure if I have enough usecases to warrent the automatical retrieval of product.json to task..
                             logger.debug("finished!");
-                            load_product(taskdir, resource, (err, product)=>{
+                            load_product(taskdir, resource, async (err, product)=>{
                                 if(err) {
                                     logger.info("failed to load product");
                                     task.status = "failed";
@@ -577,7 +577,8 @@ function handle_running(task, next) {
                                     task.runtime = task.finish_date.getTime() - task.start_date.getTime();
                                     task.status = "finished";
                                     task.status_msg = "Successfully completed in "+(task.runtime/(1000*60)).toFixed(2)+" mins on "+resource.name;
-                                    task.product = product;
+
+                                    await storeProduct(task, product);
                                     rerun_child(task, next);
                                 }
                             });
@@ -1088,13 +1089,14 @@ function start_task(task, resource, cb) {
                                 if(code === undefined) next("timedout while running_sync");
                                 else if(code) return next("failed to run (code:"+code+")");
                                 else {
-                                    load_product(taskdir, resource, function(err, product) {
+                                    load_product(taskdir, resource, async function(err, product) {
                                         if(err) return next(err);
                                         //common.progress(task.progress_key, {status: 'finished', /*progress: 1,*/ msg: 'Service Completed'});
                                         task.status = "finished";
                                         task.status_msg = "Service ran successfully";
                                         task.finish_date = new Date();
-                                        task.product = product;
+
+                                        await storeProduct(task, product);
                                         rerun_child(task, next);
                                     });
                                 }
@@ -1276,6 +1278,22 @@ function load_product(taskdir, resource, cb) {
     });
 }
 
+async function storeProduct(task, dirty_product) {
+    product = common.escape_dot(dirty_product);
+
+    //deprecated - switch to taskproduct collection
+    //task.product = product; 
+
+    //for __dtv, I need to merge product from the main task 
+    if(task.follow_task_id) {
+        let follow_product = await db.Taskproduct.find({task_id: task.follow_task_id}).lean().exec();
+        console.dir(follow_product);
+        Object.assign(product, follow_product[0].product); //let follow product takes precidence
+    }
+
+    await db.Taskproduct.findOneAndUpdate({task_id: task._id}, {product}, {upsert: true});
+}
+
 //counter to keep up with how many checks are performed in the last few minutes
 let _counts = {
     checks: 0,
@@ -1300,30 +1318,6 @@ function health_check() {
         
         //check counters
         next=>{
-            //I haven't had a case where this wasn't a false alarm yet..
-            /*
-            if(_counts.tasks == 0) { //should have at least 1 from noop check
-                report.status = "failed";
-                report.messages.push("low tasks count");
-            }
-            if(_counts.checks == 0) {
-                report.status = "failed";
-                report.messages.push("low check count");
-                low_check++;
-                if(low_check > 10) {
-                    logger.error("task check loop seems to be dead.. suiciding");
-                    process.exit(1);
-                }
-            } else low_check = 0;
-            */
-
-            //similar code exists in /api/health.js
-            /*
-            if(ssh.max_channels > 5) {
-                report.status = "failed";
-                report.messages.push("high ssh channels "+ssh.max_channels);
-            }
-            */
             if(ssh.ssh_cons > 60) {
                 report.status = "failed";
                 report.messages.push("high ssh connections "+ssh.ssh_cons);

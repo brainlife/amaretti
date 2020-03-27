@@ -137,10 +137,32 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
     res.json({recent: [...current, ...recent]});
 });
 
+
+//query for task products in batch
+router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+    let ids = req.query.ids;
+    console.dir(ids);
+
+    let find = {_id: {$in: ids}};
+    //access control
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+        find['$or'] = [
+            {user_id: req.user.sub},
+            {_group_id: {$in: req.user.gids||[]}},
+        ];
+    }
+    let tasks = await db.Task.find(find).select('_id').exec();
+    console.dir(tasks);
+    db.Taskproduct.find({task_id: {$in: tasks}}).lean().exec((err, recs)=>{
+        if(err) return next(err);
+        res.json(recs);
+    });
+});
+
 //get task detail
 //unauthenticated user sometimes need to get task detail (like app used, etc..)
 //let's allow them to query for task detail as long as they know which task id to load
-router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ function(req, res, next) {
+router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ (req, res, next)=>{
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
         if(!task) return next("no such task id");
@@ -640,16 +662,15 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
         task.user_id = req.user.sub;
         task.gids = req.user.gids;
+        
+        //allow admin to override some fields
+        if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
+            if(req.body.user_id) task.user_id = req.body.user_id;
+            //if(req.body.gids) task.gids = req.body.gids;
+            if(req.body.follow_task_id) task.follow_task_id = req.body.follow_task_id;
+        }
 
         task.resource_ids = [];
-
-        if(req.body.follow_task_id) {
-            if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
-                task.follow_task_id = req.body.follow_task_id;
-            } else {
-                return next("you can't set follow_task_id");
-            }
-        }
 
         //check access
         async.series([
@@ -819,7 +840,6 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
             task.status = "stopped";
             task.status_msg = "Stopped by user";
         }
-        //task.products = [];
         task.save(function(err) {
             if(err) return next(err);
             /*
@@ -895,6 +915,7 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         task.update_date = new Date();
         task.save(function(err) {
             if(err) return next(err);
+            events.publish("task.update."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json(task);
         });
     });

@@ -764,7 +764,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         task.start_date = undefined;
         task.finish_date = undefined;
         task.walltime = undefined;
-        task.product = undefined;
+        task.product = undefined; //deprecated by taskproduct
         task.next_date = undefined; //reprocess asap
         task.resource_id = undefined;
 
@@ -867,4 +867,18 @@ exports.set_conn_timeout = function(cqueue, stream, time) {
 }
 */
 
+//copied from warehouse/ common.js
+exports.escape_dot = function(obj) {
+    if(typeof obj == "object") {
+        for(let key in obj) {
+            exports.escape_dot(obj[key]);
+            if(key.includes(".")) {
+                let newkey = key.replace(/\./g, '-');
+                obj[newkey] = obj[key];
+                delete obj[key];
+            }
+        }
+    }
+    return obj;
+}
 
