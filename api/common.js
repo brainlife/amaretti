@@ -164,22 +164,53 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     const old = ssh_conns[id];
     if(old) {
         if(old.connecting) {
-            logger.info("still connecting.. waiting .. %s", id);
-            return setTimeout(()=>{
-                exports.get_ssh_connection(resource, opts, cb);
-            }, 1000);
-        }
-
-        //if connection is too old, close it and open new one
-        if(old.queue.length == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
-            logger.info("connection is old.. opening new one");
-            old.end();
+            //someone is still connecting..
+            let old_date = new Date();
+            old_date.setSeconds(old_date.getSeconds() - 20);
+            if(old.create_date < old_date) {
+                console.error("connection reuse timeout.. let's open a new one again");    
+                //TODO - how can I abort the open request?
+            } else {
+                opts.count++;
+                logger.info("still connecting.. waiting .. %s", id);
+                return setTimeout(()=>{
+                    exports.get_ssh_connection(resource, opts, cb);
+                }, 1000);
+            }
         } else {
-            logger.info("reusing ssh(cqueue) connection for %s (queue size:%d) (connected:%s)", id, old.queue.length, old.connected);
-            return cb(null, old);
+            /*
+            //we could use the old connection but if it's too old, close it and open new one
+            //TODO - what's wrong with an old connection? maybe we could just check to make sure 
+            //if it still works?
+            if(old.queue.length == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
+                logger.info("connection too is old.. (and nobody is using it) re-openinge");
+                old.end();
+            } else {
+                logger.info("reusing ssh(cqueue) connection for %s (queue size:%d) (connected:%s)", id, old.queue.length, old.connected);
+                //TODO - should I check to make sure if the connection is still good? then we don't have to
+                //close the old connection just because it's old?
+                return cb(null, old);
+            }
+            */
+
+            //test the old connection to make sure it still works..
+            //if not, open a news one
+            console.debug("testing old connection................");
+            old.exec("true", (err, stream)=>{
+                if(err) {
+                    //no longer working.. we should reconnect
+                    old.end();
+                    delete ssh_conns[id];
+                    exports.get_ssh_connection(resource, opts, cb); //try again..
+                } else {
+                    return cb(null, old);
+                }
+            });
+            return;
         }
     }
-    ssh_conns[id] = {connecting: true};
+
+    ssh_conns[id] = {connecting: true, create_date: new Date()};
 
     //open new connection
     logger.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);

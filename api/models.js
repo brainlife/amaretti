@@ -203,7 +203,9 @@ var taskSchema = mongoose.Schema({
 
     //TODO - I should probaly deprecate this. also.. app should handle its own retry if it's expecting things to fail
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run
-    retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
+    
+    //retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
+
     nice: Number, //nice-ness of this task can't be negative (except a paid user?)
   
     ////////////////////////////////////////////////////////////////////////////////////////

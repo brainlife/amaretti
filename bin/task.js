@@ -42,7 +42,6 @@ function set_nextdate(task) {
     case "stopped":
         task.next_date = new Date(Date.now()+1000*3600*36);
         //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
-        //if(task.remove_date && task.remove_date < task.next_date) task.next_date = new Date(Date.now()+1000*3600*1);
         break;
 
     case "running":
@@ -100,7 +99,7 @@ function check(cb) {
 
         set_nextdate(task);
         _counts.tasks++;
-        logger.info("------- %s %s by %s id:%s %s", task.status, task.service, task.user_id, task._id.toString(), task.name);
+        console.log("------- ", task.status, task.service, task.user_id, task._id.toString(), task.name);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -139,13 +138,6 @@ function check(cb) {
         });
     });
 }
-
-/*
-function handle_unknown(task, cb) {
-    logger.debug("don't have anything particular to do with this task");
-    return cb(); 
-}
-*/
 
 function handle_housekeeping(task, cb) {
     //logger.debug("houskeeping!");
@@ -585,20 +577,33 @@ function handle_running(task, next) {
                             break;
                         case 2: //job failed
                             logger.debug("job failed");
+                            /*
                             if(task.retry >= task.run) {
-                                //common.progress(task.progress_key, {status: 'failed', msg: 'Service failed - retrying:'+task.run});
                                 task.status = "requested";
-                                task.next_date = undefined; //too soon?
-                                task.start_date = undefined;
+                                task.status_msg = out+" - will rerun in 3 hour. run:"+task.run;
+
                                 task.request_date = new Date();
+                                task.start_date = undefined;
+                                task.finish_date = undefined;
+                                task.walltime = undefined;
+                                task.next_date = new Date(Date.now()+1000*3600*3);
+                                task.resource_id = undefined;
+                                
+                                //if user rerun.. then all existing task dirs are invalidated.
+                                //TODO - we need to clear this, but I should probably remove existing taskdir
+                                task.resource_ids = []; 
+
                                 task.request_count = 0;
-                                task.status_msg = out+" - retrying "+task.run;
                             } else {
                                 //common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
                                 task.status = "failed";
                                 task.status_msg = out;
                                 task.fail_date = new Date();
                             }
+                            */
+                            task.status = "failed";
+                            task.status_msg = out;
+                            task.fail_date = new Date();
                             next();
                             break;
                         case 3: //status temporarly unknown
@@ -635,32 +640,6 @@ function rerun_child(task, cb) {
     });
 }
 
-/*
-function find_available_resource(resource_ids) {
-    return new Promise((resolve, reject)=>{
-        async.eachSeries(source_resource_ids, (source_resource_id, next_source)=>{
-
-            //see if we can use this resource..
-            db.Resource.findById(dep.resource_id, function(err, source_resource) {
-                if(err) return next_dep(err);
-
-                let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
-                if(source_resource.lastok_date < daysago) {
-                    return cb("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. failing this task");
-                }
-                if(!source_resource.active) {
-                    task.status_msg = "resource("+source_resource.name+") which contains the input data is not active. will try later.";
-                    //let's retry later.. //TODO - maybe I should look for other resources that has this task?
-                    return cb(); 
-                }
-            });
-        }, err=>{
-
-        });
-    });
-}
-*/
-
 //initialize task and run or start the service
 function start_task(task, resource, cb) {
     var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
@@ -678,30 +657,11 @@ function start_task(task, resource, cb) {
             TASK_ID: task._id.toString(),
             USER_ID: task.user_id,
             SERVICE: task.service,
-
-            //PROGRESS_URL: config.progress.api+"/status/"+task.progress_key, //deprecated
         };
         task._envs = envs;
 
         if(task.service_branch) envs.SERVICE_BRANCH = task.service_branch;
 
-        /*
-        //TODO - I am not sure if this is the right precendence ordering..
-        //start with any envs from dependent resources
-        if(task.resource_deps) task.resource_deps.forEach(function(resource_dep) {
-            if(resource_dep.envs) for(var key in resource_dep.envs) {
-                envs[key] = resource_dep.envs[key];
-            }
-        });
-        */
-
-        //override with resource base envs
-        /*
-        let resource_detail = config.resources[resource.resource_id];
-        if(resource_detail.envs) for(var key in resource_detail.envs) {
-            envs[key] = resource_detail.envs[key];
-        }
-        */
         //override with any resource instance envs
         if(resource.envs) for(var key in resource.envs) {
             envs[key] = resource.envs[key];
@@ -762,72 +722,7 @@ function start_task(task, resource, cb) {
                     });
                 });
             },
-            /* (old way) git clone on remote resource directly.. this requires remote resource to have git installed
-             * and also can --egress from the login node*/
-            /*
-            //create task dir by git shallow cloning the requested service
-            next=>{
-                logger.debug("git cloning taskdir "+task._id.toString());
-                //common.progress(task.progress_key+".prep", {progress: 0.5, msg: 'Installing/updating '+service+' service'});
-                var repo_owner = service.split("/")[0];
-                var cmd = "[ -d "+taskdir+" ] || "; //don't need to git clone if the taskdir already exists
-                //TODO --recurse-submodules can be added here.. but I think people do that just to compile in some libs..
-                //so until developers actually need them there, let's leave it
-                cmd += "git clone -q --depth 1 ";
-                if(task.service_branch) cmd += "-b '"+task.service_branch.addSlashes()+"' ";
-                cmd += service_detail.git.clone_url+" "+taskdir;
-                //logger.debug("running %s", cmd);
-                common.get_ssh_connection(resource, (err, conn)=>{
-                    if(err) return next(err);
-                    conn.exec("timeout 60 bash -c \""+cmd+"\"", function(err, stream) {
-                        if(err) return next(err);
-                        //common.set_conn_timeout(conn, stream, 1000*90); //timed out at 60 sec.. (should take 5-10s normally)
-                        let last_error = "";
-                        stream.on('close', function(code, signal) {
-                            if(code === undefined) {
-                                logger.warn("timeout while git clonning "+cmd);
-                                task.status_msg = "timeout while git cloning.. will retry later";
-                                return cb(); //I want to retry if rsyncing fails by leaving the task status to be requested
-                            }
-                            else if(code) return next("Failed to git clone. code:"+code+" signal:"+signal+" "+last_error);
-                            else next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.info(data.toString());
-                            last_error = data.toString();
-                        });
-                    });
-                });
-            },
             
-            //update service
-            next=>{
-                //logger.debug("making sure requested service is up-to-date", task._id.toString());
-                //conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull && git lfs fetch --all && git log -1\"", (err, stream)=>{
-                common.get_ssh_connection(resource, (err, conn)=>{
-                    if(err) return next(err);
-                    conn.exec("timeout 45 bash -c \"cd "+taskdir+" && rm -f .git/*.lock && git fetch && git reset --hard && git pull\"", (err, stream)=>{
-                        if(err) return next(err);
-                        stream.on('close', function(code, signal) {
-                            if(code === undefined) {
-                                return next("timeout while git pull");
-                            } else if(code) {
-                                return next("Failed to git pull code:"+code);
-                            } 
-                            next();
-                        })
-                        .on('data', function(data) {
-                            logger.info(data.toString());
-                        }).stderr.on('data', function(data) {
-                            logger.info(data.toString());
-                        });
-                    });
-                });
-            },                
-            */
-
             //install config.json in the taskdir
             next=>{
                 if(!task.config) {
@@ -993,7 +888,7 @@ function start_task(task, resource, cb) {
                                         }
                                     }
 
-                                    wait_progress_save();
+                                    setTimeout(wait_progress_save, 500);
                                 });
                             });
                         });
@@ -1288,7 +1183,7 @@ async function storeProduct(task, dirty_product) {
     if(task.follow_task_id) {
         let follow_product = await db.Taskproduct.find({task_id: task.follow_task_id}).lean().exec();
         console.dir(follow_product);
-        Object.assign(product, follow_product[0].product); //let follow product takes precidence
+        if(follow_product.length == 1) Object.assign(product, follow_product[0].product); //let follow product takes precidence
     }
 
     await db.Taskproduct.findOneAndUpdate({task_id: task._id}, {product}, {upsert: true});
@@ -1329,20 +1224,6 @@ function health_check() {
 
             next();
         },
-        
-        //checking ssh agent
-        /*
-        next=>{
-            common.sshagent_list_keys((err, keys)=>{
-                if(err) {
-                    report.status = 'failed';
-                    report.messages.push(err);
-                }
-                report.agent_keys = keys.length;
-                next();
-            });
-        },
-        */
 
         //check task handling queue
         next=>{

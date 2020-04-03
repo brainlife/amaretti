@@ -258,6 +258,7 @@ function check_ssh(resource, cb) {
             logger.error("cb already called", err, status, message);
         }
 
+        console.log("closing connection", resource.name);
         conn.end();
     }
     
@@ -310,23 +311,6 @@ function check_ssh(resource, cb) {
                 logger.debug("resource_test.sh write stream ended - running");
             });
             readstream.pipe(writestream);
-
-
-            /*
-            conn.exec('resource_test', (err, stream)=>{
-                if (err) return cb_once(err);
-                var out = "";
-                stream.on('close', function(code, signal) {
-                    logger.debug(out);
-                    if(code == 0) cb_once(null, "ok", out);
-                    else cb_once(null, "failed", out);
-                }).on('data', function(data) {
-                    out += data;
-                }).stderr.on('data', function(data) {
-                    out += data;
-                });
-            })
-            */
         });
     });
     conn.on('end', function() {
@@ -369,7 +353,6 @@ function check_iohost(resource, cb) {
     var conn = new Client();
     var ready = false;
 
-    /*
     function cb_once(err, status, message) {
         if(cb) {
             cb(err, status, message);
@@ -378,9 +361,10 @@ function check_iohost(resource, cb) {
             logger.error("cb already called", err, status, message);
         }
 
+        console.log("closing connection (iohsot)", resource.name);
         conn.end();
     }
-    */
+
     
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.once('ready', function() {
@@ -392,13 +376,15 @@ function check_iohost(resource, cb) {
             logger.debug("reading dir "+workdir);
             var to = setTimeout(()=>{
                 logger.error("readdir timeout"); 
-                cb(null, "failed", "readdir timeout - filesytem is offline?");
+                cb_once(null, "failed", "readdir timeout - filesytem is offline?");
+                to =null;
             }, 3*1000); 
-            
             sftp.opendir(workdir, function(err, stat) {
+                if(!to) returnl //timed out already
                 clearTimeout(to);
-                if(err) return cb(null, "failed", "can't access workdir");
-                cb(null, "ok", "workdir is accessible");
+
+                if(err) return cb_once(null, "failed", "can't access workdir");
+                cb_once(null, "ok", "workdir is accessible");
                 //TODO - I should probably check to see if I can write to it
             });
         });

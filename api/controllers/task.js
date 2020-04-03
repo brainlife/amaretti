@@ -141,8 +141,6 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
 //query for task products in batch
 router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
     let ids = req.query.ids;
-    console.dir(ids);
-
     let find = {_id: {$in: ids}};
     //access control
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
@@ -152,7 +150,6 @@ router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, r
         ];
     }
     let tasks = await db.Task.find(find).select('_id').exec();
-    console.dir(tasks);
     db.Taskproduct.find({task_id: {$in: tasks}}).lean().exec((err, recs)=>{
         if(err) return next(err);
         res.json(recs);
@@ -761,7 +758,11 @@ router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functi
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+
+        if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+            //non admin!
+            if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        }
 
         task.user_id = req.user.sub; //overwrite 
         common.rerun_task(task, req.body.remove_date, err=>{
