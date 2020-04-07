@@ -88,6 +88,8 @@ exports.select = function(user, task, cb) {
                     score,
                     detail, //score details
 
+                    stats: resource.stats,
+
                     owner: resource.user_id,
                 };
                 considered.push(consider);

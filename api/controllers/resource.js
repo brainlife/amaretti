@@ -160,9 +160,10 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
     }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
     */
 
+    //I could also query for requested with start_date set.. but who cares?
     let current = await db.Task.find({
         resource_id: req.params.resource_id,
-        status: {$in: ["requested", "running","running_sync"]},
+        status: {$in: ["running","running_sync"]},
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
     .sort({create_date: -1})

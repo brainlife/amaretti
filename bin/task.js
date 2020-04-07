@@ -9,6 +9,7 @@ const redis = require('redis');
 const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
+const deepmerge = require('deepmerge');
 
 //mine
 const config = require('../config');
@@ -366,7 +367,7 @@ function handle_requested(task, next) {
         //set start date to *lock* this task
         task.status_msg = "Starting task";
         task.start_date = new Date();
-        task._considered = considered;
+        //task._considered = considered;
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
             logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
@@ -375,7 +376,7 @@ function handle_requested(task, next) {
         }
         //need to save start_date to db so that other handler doesn't get called
         task.save(err=>{
-            start_task(task, resource, err=>{
+            start_task(task, resource, considered, err=>{
                 if(err) {
                     //permanently failed to start (or running_sync failed).. mark the task as failed
                     logger.error([task._id.toString(), err]);
@@ -548,7 +549,7 @@ function handle_running(task, next) {
                         case 0: //still running
                             logger.debug("still running");
                             if(out.length > 300) out = "... "+out.substring(out.length - 300); //grab the last N chars if it's too long
-                            if(out.length == 0) out = "(no log output)";
+                            if(out.length == 0) out = ""; //empty log .. TODO - show something!
                             task.status_msg = out;
                             next();
                             break;
@@ -563,7 +564,6 @@ function handle_running(task, next) {
                                     task.fail_date = new Date();
                                     next();
                                 } else {
-                                    logger.info("loaded product.json");
                                     task.finish_date = new Date();
                                     if(!task.start_date) task.start_date = task.create_date; //shoudn't happen, but it does sometimes.
                                     task.runtime = task.finish_date.getTime() - task.start_date.getTime();
@@ -641,7 +641,7 @@ function rerun_child(task, cb) {
 }
 
 //initialize task and run or start the service
-function start_task(task, resource, cb) {
+function start_task(task, resource, considered, cb) {
     var service = task.service; //TODO - should I get rid of this unwrapping? (just use task.service)
     if(service == null) return cb(new Error("service not set.."));
     _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
@@ -802,7 +802,7 @@ function start_task(task, resource, cb) {
                         
                         //report why the resource was picked
                         stream.write("\n# why was this resource chosen?\n");
-                        task._considered.forEach(con=>{
+                        considered.forEach(con=>{
                             stream.write("# "+con.name+" ("+con.id+")\n");
                             con.detail.msg.split("\n").forEach(line=>{
                                 stream.write("#    "+line+"\n");
@@ -1174,6 +1174,7 @@ function load_product(taskdir, resource, cb) {
 }
 
 async function storeProduct(task, dirty_product) {
+    logger.info("storing product");
     product = common.escape_dot(dirty_product);
 
     //deprecated - switch to taskproduct collection
@@ -1181,9 +1182,11 @@ async function storeProduct(task, dirty_product) {
 
     //for __dtv, I need to merge product from the main task 
     if(task.follow_task_id) {
-        let follow_product = await db.Taskproduct.find({task_id: task.follow_task_id}).lean().exec();
-        console.dir(follow_product);
-        if(follow_product.length == 1) Object.assign(product, follow_product[0].product); //let follow product takes precidence
+        let follow_product = await db.Taskproduct.findOne({task_id: task.follow_task_id}).lean().exec();
+        if(follow_product) {
+            //Object.assign(product, follow_product.product); //let follow product takes precidence
+            product = deepmerge(product, follow_product.product);
+        }
     }
 
     await db.Taskproduct.findOneAndUpdate({task_id: task._id}, {product}, {upsert: true});
