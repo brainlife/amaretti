@@ -299,7 +299,7 @@ function find_resource(req, taskid, cb) {
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return cb("don't have access to specified task");
         }
 
-        //I can't put resource_id as it might not be in resource_ids
+        //I can't put resource_id as it might not be in resource_ids (resource_id is where it ran last time?)
         //let resource_ids = [/*task.resource_id,*/ ...task.resource_ids.reverse()]; 
         async.eachSeries(task.resource_ids, (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{

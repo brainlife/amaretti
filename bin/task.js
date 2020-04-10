@@ -1013,7 +1013,8 @@ function start_task(task, resource, considered, cb) {
 }
 
 //TODO - I am not sure zip download from github includes lfs content?
-//returns (err, app_cache) app_cache will be set to false if other jobs seems to be staging the same cache
+//returns (err, app_cache) app_cache will be set to false if other jobs 
+//seems to be staging the same cache
 function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
     let app_cache = workdir+"/appcache/"+service.split("/")[1]+"-"+commit_id;
 
@@ -1037,13 +1038,14 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         },
         
         //see if app cache directory is not empty (purged?)
+        //TODO - what was the point of this?
         next=>{
-            conn.exec("timeout 30 rmdir "+app_cache, (err, stream)=>{
+            conn.exec("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while trying to remove empty app cache directory");
-                    if(code == 1) return next(); //directory not empty.. proceed
-                    if(code != 0) return next("failed to (try)rmdir");
+                    if(code == 1) return next(); //no such directory
+                    if(code != 0) return next("failed to (try) removing empty directory");
                     logger.debug("rmdir of app cache successfull.. which means it was empty");
                     next(); 
                 })
@@ -1052,7 +1054,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 });
             });
         },
-        
+
         //see if app is cached already
         next=>{
             //logger.debug("checking app_cache %s", app_cache);
@@ -1183,7 +1185,7 @@ async function storeProduct(task, dirty_product) {
     //for __dtv, I need to merge product from the main task 
     if(task.follow_task_id) {
         let follow_product = await db.Taskproduct.findOne({task_id: task.follow_task_id}).lean().exec();
-        if(follow_product) {
+        if(follow_product && follow_product.product) {
             //Object.assign(product, follow_product.product); //let follow product takes precidence
             product = deepmerge(product, follow_product.product);
         }
