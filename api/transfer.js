@@ -99,14 +99,18 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             logger.debug("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*
-            var inexopts = "--exclude=\".*\"";
+            var inexopts = "--exclude=\".*\" ";
             if(subdirs.length) {
                 inexopts = "";
                 subdirs.forEach(dir=>{
                     inexopts += "--include=\""+dir+"/***\" ";
                 });
-                inexopts += "--exclude=\"*\""; //without this at the end, include doesn't work
+                inexopts += "--exclude=\"*\" "; //without this at the end, include doesn't work
             }
+
+            //work around for ratar mount not able to handle hardlinks
+            //https://github.com/mxmlnkn/ratarmount/issues/28
+            //TODO
 
             //setup sshagent with the source key
             common.decrypt_resource(source_resource);

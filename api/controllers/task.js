@@ -647,6 +647,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
             });
         }
 
+        //TODO - we should validate this? 
         task.deps_config = req.body.deps_config;
         task.preferred_resource_id = req.body.preferred_resource_id;
         task.resource_deps = req.body.resource_deps;

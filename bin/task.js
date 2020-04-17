@@ -155,7 +155,7 @@ function handle_housekeeping(task, cb) {
         next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
-            minage.setDate(minage.getDate() - 21); 
+            minage.setDate(minage.getDate() - 14); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
                 logger.info("skipping missing task dir check - as this task is too fresh");
@@ -529,7 +529,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                console.debug("running status");
+                //console.debug("running status");
                 conn.exec("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
@@ -1143,8 +1143,12 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 function load_product(taskdir, resource, cb) {
     logger.debug("loading "+taskdir+"/product.json");
     common.get_sftp_connection(resource, function(err, sftp) {
+        console.debug("sftp_connection returned");
         if(err) return cb(err);
+        console.debug("creating readstream");
         sftp.createReadStream(taskdir+"/product.json", (err, stream)=>{
+            if(err) return cb(err);
+            console.debug("stream ready for product.json");
             var product_json = "";
             var error_msg = "";
             stream.on('error', function(err) {

@@ -153,8 +153,6 @@ var taskSchema = mongoose.Schema({
     gids: [{type: Number}], 
     
     //copy of group_id on instance record (should be the same as instance's group_id)
-    //this exists to help with access control
-    //not set if instance.group_id is not set for user specific instance (like uploading) (is this still true?)
     _group_id: {type: Number, index: true}, 
 
     ////////////////////////////////////////////////////////////////////////////////////////

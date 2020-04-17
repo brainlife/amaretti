@@ -12,7 +12,15 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 
 router.get('/checkaccess/instance/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+
+    //allow admin to access any instances (for admin task view)
+    if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
+        res.json({status: "ok", admin: true});
+        return;
+    }
+
     let instid = req.params.id;
+
     db.Instance.findOne({
         _id: instid, 
         '$or': [

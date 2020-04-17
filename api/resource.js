@@ -137,7 +137,7 @@ exports.select = function(user, task, cb) {
             if(best) {
                 logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
             } else {
-                logger.debug("no resource matched to run this task :)");
+                //logger.debug("no resource matched to run this task :)");
                 //console.dir(considered);
             } 
             cb(err, best, best_score, considered);

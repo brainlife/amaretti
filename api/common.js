@@ -195,7 +195,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
 
             //test the old connection to make sure it still works..
             //if not, open a news one
-            console.debug("testing old connection................");
+            //TODO - need to set timeout?
             old.exec("true", (err, stream)=>{
                 if(err) {
                     //no longer working.. we should reconnect

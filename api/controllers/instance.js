@@ -112,8 +112,7 @@ router.put('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
  * @apiDescription              Create a new instance
  *
  * @apiParam {String} name      Name of the instance
- * @apiParam {Number} [group_id] 
- *                              Group ID where you want to share this process with (don't set if it's private)
+ * @apiParam {Number} [group_id]  Group ID where you want to share this process with (defaults to first gids in jwt)
  * @apiParam {String} [desc]    Description of the instance
  * @apiParam {Object} [config]  Any information you'd like to associate with this instanace
  *
@@ -127,8 +126,11 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
     instance.config = req.body.config;
     instance.user_id = req.user.sub;
 
-    //set group_id if user is member of
-    if(req.body.group_id) {
+    if(!req.body.group_id) {
+        if(req.user.gids.length == 0) return next("group_id is not set and user is not member of any group");
+        instance.group_id = req.user.gids[0]; //should be user's first group
+    } else {
+        //check group_id if user is member of
         let gids = req.user.gids||[];
         if(~gids.indexOf(req.body.group_id)) instance.group_id = req.body.group_id;
         else return next("not member of the group you have specified");
