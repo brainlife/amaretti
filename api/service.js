@@ -11,13 +11,6 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
-/*
-const github_qs = {
-    client_id: config.github.client_id,
-    client_secret: config.github.client_secret,
-}
-*/
-
 var _details_cache = {};
 exports.loaddetail = function(service_name, branch, cb) {
     var cache = _details_cache[service_name];
@@ -30,7 +23,6 @@ exports.loaddetail = function(service_name, branch, cb) {
             delete _details_cache[service_name];
         } else {
             //cache is good!
-            //logger.debug("using service cache", service_name);
             return cb(null, cache.detail);
         }
     }
@@ -38,6 +30,7 @@ exports.loaddetail = function(service_name, branch, cb) {
 }
 
 function do_loaddetail(service_name, branch, cb) {
+    console.log("loading service detail from github");
     if(!branch) branch = "master";
     var detail = {
         name: service_name,
@@ -48,7 +41,6 @@ function do_loaddetail(service_name, branch, cb) {
         stop: "stop",
     }
 
-    //logger.debug("loading service details");
     async.series([
 
         //load github repo detail
@@ -68,18 +60,6 @@ function do_loaddetail(service_name, branch, cb) {
                 next(); 
             });
         },
-
-        /* ref should be loaded at runtime
-        next=>{
-            let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
-            request.get({url, qs: github_qs, json: true, headers: {'User-Agent': 'brainlife/amaretti'} }, function(err, _res, body) {
-                if(err) return next(err);
-                if(_res.statusCode != 200) return next(body);
-                detail.ref = body.object;
-                next();
-            });
-        },
-        */
 
         //load package.json (optional)
         next=>{
@@ -113,7 +93,6 @@ function do_loaddetail(service_name, branch, cb) {
             date: new Date(),
             detail
         };
-        //console.log(JSON.stringify(detail, null, 4));
 
         //all done
         cb(null, detail);

@@ -42,7 +42,6 @@ function set_nextdate(task) {
     case "finished":
     case "stopped":
         task.next_date = new Date(Date.now()+1000*3600*36);
-        //check sooner if we are past the remove_date (TODO - maybe not necessary now that stop_requested would handle this??)
         break;
 
     case "running":
@@ -351,10 +350,10 @@ function handle_requested(task, next) {
                 db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
                     if(err) return next(err);
 
-                    //penalize projects that are running a lot of jobs already
-                    //add up to 600 seconds for projects that has a lot of jobs requested
-                    let secs = (60*running_count)+Math.min(requested_count, 600);
-                    secs = Math.max(secs, 10); //min 10 seconds
+                    //penalize projects that are running a lot of jobs already (15 seconds per job)
+                    //also add up to an hour for projects that has a lot of jobs requested (1 second each)
+                    let secs = (15*running_count)+Math.min(requested_count, 3600);
+                    secs = Math.max(secs, 15); //min 15 seconds
 
                     logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
@@ -441,7 +440,10 @@ function handle_stop(task, next) {
         }
 
         _service.loaddetail(task.service, task.service_branch, (err, service_detail)=>{
-            if(err) return next(err);
+            if(err) {
+                console.error(err);
+                return next(err);
+            }
             common.get_ssh_connection(resource, function(err, conn) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
