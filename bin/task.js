@@ -154,7 +154,7 @@ function handle_housekeeping(task, cb) {
         next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
             var minage = new Date();
-            minage.setDate(minage.getDate() - 14); 
+            minage.setDate(minage.getDate() - 10); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
                 logger.info("skipping missing task dir check - as this task is too fresh");
@@ -550,7 +550,7 @@ function handle_running(task, next) {
                             break;
                         case 0: //still running
                             logger.debug("still running");
-                            if(out.length > 300) out = "... "+out.substring(out.length - 300); //grab the last N chars if it's too long
+                            if(out.length > 500) out = "... "+out.substring(out.length - 500); //grab the last N chars if it's too long
                             if(out.length == 0) out = ""; //empty log .. TODO - show something!
                             task.status_msg = out;
                             next();
