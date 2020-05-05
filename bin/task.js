@@ -1247,7 +1247,7 @@ function health_check() {
             }).exec((err, count)=>{
                 if(err) return next(err);
                 report.queue_size = count;
-                if(count > 1000) {
+                if(count > 3000) {
                     report.status = "failed";
                     report.messages.push("high task queue count"+count);
                 }
