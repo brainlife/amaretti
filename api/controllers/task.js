@@ -791,7 +791,9 @@ router.put('/poke/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end();
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+            if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        }
         task.next_date = undefined;
         if(task.status == "requested") task.start_date = undefined; //for jobs that are stuck while starting
         task.save(err=>{
@@ -822,7 +824,9 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+            if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        }
 
         //TODO - _handled is deprecated, but I should still make sure that the task isn't currently handled? but how?
         //if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
@@ -882,7 +886,9 @@ router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+            if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        }
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
             events.publish("task.remove."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
@@ -909,8 +915,9 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
 
     db.Task.findById(id, function(err, task) {
         if(!task) return next("no such task:"+id);
-        if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
-
+        if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+            if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+        }
         if(req.body.name !== undefined) task.name = req.body.name;
         if(req.body.desc !== undefined) task.desc = req.body.desc;
 

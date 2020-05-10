@@ -66,7 +66,7 @@ exports.start = function(cb) {
     db.init(function(err) {
         if(err) return cb(err);
         app.listen(port, host, function() {
-            console.log("workflow/api service:%s running on %s:%d in %s mode", process.env.NODE_APP_INSTANCE, host, port, app.settings.env);
+            console.log("workflow/api service:%s running on %s:%d in %s mode", process.pid, host, port, app.settings.env);
         });
     });
 }

@@ -58,7 +58,7 @@ exports.health_check = function() {
             
             //report to redis
             //logger.debug("reporting to redis--------------------------------------------------");
-            redis_client.set("health.amaretti.api."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+            redis_client.set("health.amaretti.api."+process.pid, JSON.stringify(report));
         });
         //});
     } catch(err) {

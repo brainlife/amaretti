@@ -1188,7 +1188,7 @@ async function storeProduct(task, dirty_product) {
     //deprecated - switch to taskproduct collection
     //task.product = product; 
 
-    //for __dtv, I need to merge product from the main task 
+    //for validation task, I need to merge product from the main task 
     if(task.follow_task_id) {
         let follow_product = await db.Taskproduct.findOne({task_id: task.follow_task_id}).lean().exec();
         if(follow_product && follow_product.product) {
@@ -1260,7 +1260,7 @@ function health_check() {
         logger.debug(JSON.stringify(report, null, 4));
 
         //send report
-        rcon.set("health.amaretti.task."+(process.env.NODE_APP_INSTANCE||'0'), JSON.stringify(report));
+        rcon.set("health.amaretti.task."+process.pid, JSON.stringify(report));
 
         //reset counter
         _counts.checks = 0;
