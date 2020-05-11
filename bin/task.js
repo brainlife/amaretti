@@ -690,7 +690,7 @@ function start_task(task, resource, considered, cb) {
             next=>{
                 console.log("get_ssh_connection to setup taskdir");
                 common.get_ssh_connection(resource, (err, conn)=>{
-
+                    if(err) return next(err);
                     let workdir = common.getworkdir(null, resource);
                     cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
                         if(err) return next(err);
