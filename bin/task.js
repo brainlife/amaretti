@@ -1260,7 +1260,7 @@ function health_check() {
         logger.debug(JSON.stringify(report, null, 4));
 
         //send report
-        rcon.set("health.amaretti.task."+process.pid, JSON.stringify(report));
+        rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
 
         //reset counter
         _counts.checks = 0;

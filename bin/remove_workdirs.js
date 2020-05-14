@@ -26,7 +26,7 @@ function check(cb) {
     //pick the next one to process
     db.Task.findOne({
         status: "removed", 
-        resource_ids: { $exists: true, $ne: [] },
+        resource_ids: { $gt: [] },
         $or: [
             {next_date: {$exists: false}},
             {next_date: {$lt: new Date()}}
