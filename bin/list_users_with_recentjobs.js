@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-const winston = require('winston');
 const async = require('async');
 const request = require('request');
 const fs = require('fs');
@@ -8,7 +7,6 @@ const redis = require('redis');
 const jsonwebtoken = require('jsonwebtoken');
 
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');
 
