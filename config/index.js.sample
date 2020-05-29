@@ -45,6 +45,10 @@ exports.metrics = {
     api: "http://10.0.0.10",
 }
 
+exports.mailchimp = {
+    api_key: fs.readFileSync(__dirname+"/mailchimp.key", "ascii").trim(),
+}
+
 exports.events = {
     //warning.. you don't get error message if your user/pass etc. are incorrect (it just keeps retrying silently..)
     amqp: {url: "amqp://amaretti:gobrain@localhost:5672/brainlife"},

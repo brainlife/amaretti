@@ -1186,15 +1186,21 @@ async function storeProduct(task, dirty_product) {
     logger.info("storing product");
     product = common.escape_dot(dirty_product);
 
-    //deprecated - switch to taskproduct collection
-    //task.product = product; 
-
     //for validation task, I need to merge product from the main task 
+    //TODO - this is more of a warehouse behavior?
     if(task.follow_task_id) {
         let follow_product = await db.Taskproduct.findOne({task_id: task.follow_task_id}).lean().exec();
         if(follow_product && follow_product.product) {
-            //Object.assign(product, follow_product.product); //let follow product takes precidence
-            product = deepmerge(product, follow_product.product);
+            
+            //mark some brainlife UI elements that it's from the follow_task.. so we can avoid 
+            //showing it twice.
+            if(follow_product.product.brainlife) {
+                follow_product.product.brainlife.forEach(item=>{
+                    item._follow = true;
+                });
+            }
+
+            product = deepmerge(product, follow_product.product); //TODO shouldn't product have precidence over follow_product?
         }
     }
 

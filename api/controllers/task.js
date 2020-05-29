@@ -43,6 +43,9 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
             {_group_id: {$in: req.user.gids||[]}},
         ];
     }
+
+    if(req.query.select) console.log("select:"+req.query.select);
+
     db.Task.find(find)
     .select(req.query.select)
     .limit(req.query.limit || 100)
@@ -50,12 +53,6 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
     .sort(req.query.sort)
     .exec(function(err, tasks) {
         if(err) return next(err);
-        /*
-        db.Task.estimatedDocumentCount(find).exec(function(err, count) {
-            if(err) return next(err);
-            res.json({tasks: tasks, count: count});
-        });
-        */
         res.json({tasks});
     });
 });

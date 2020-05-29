@@ -2,7 +2,7 @@
 #to run the stack locally
 
 pm2 delete amaretti
-pm2 start api/wf.js --name amaretti --watch --ignore-watch="*.log test *.sh ui bin example .git"
+pm2 start api/wf.js --name amaretti-api --watch --ignore-watch="*.log test *.sh ui bin example .git"
 
 pm2 delete amaretti-task
 pm2 start bin/task.js --name amaretti-task --watch --ignore-watch="*.log test *.sh ui example .git"
