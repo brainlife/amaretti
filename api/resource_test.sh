@@ -29,6 +29,12 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
+which unzip >/dev/null
+if [ ! $? -eq 0 ]; then
+    echo "unzip not installed on PATH"
+    exit 1
+fi
+
 #check for default abcd hook
 which start >/dev/null
 if [ ! $? -eq 0 ]; then

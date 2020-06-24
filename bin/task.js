@@ -579,30 +579,6 @@ function handle_running(task, next) {
                             break;
                         case 2: //job failed
                             logger.debug("job failed");
-                            /*
-                            if(task.retry >= task.run) {
-                                task.status = "requested";
-                                task.status_msg = out+" - will rerun in 3 hour. run:"+task.run;
-
-                                task.request_date = new Date();
-                                task.start_date = undefined;
-                                task.finish_date = undefined;
-                                task.walltime = undefined;
-                                task.next_date = new Date(Date.now()+1000*3600*3);
-                                task.resource_id = undefined;
-                                
-                                //if user rerun.. then all existing task dirs are invalidated.
-                                //TODO - we need to clear this, but I should probably remove existing taskdir
-                                task.resource_ids = []; 
-
-                                task.request_count = 0;
-                            } else {
-                                //common.progress(task.progress_key, {status: 'failed', msg: 'Service failed'});
-                                task.status = "failed";
-                                task.status_msg = out;
-                                task.fail_date = new Date();
-                            }
-                            */
                             task.status = "failed";
                             task.status_msg = out;
                             task.fail_date = new Date();
@@ -705,7 +681,6 @@ function start_task(task, resource, considered, cb) {
                         }
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
-                        //conn.exec("mkdir -p "+taskdir+" && cp -r "+app_cache+"/* "+taskdir, (err, stream)=>{
                         console.debug("mkdir/rsync appcache, etc..");
                         conn.exec("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
@@ -758,13 +733,11 @@ function start_task(task, resource, considered, cb) {
             //write _.env.sh
             //TODO - tried to pass all envs as part of command line that I am passing to start.sh, but couldn't quite make it work
             next=>{
-                //logger.debug("writing _env.sh "+task._id.toString());
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("writing _env.sh");
                     conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
-                        //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while writing _env.sh");
                             else if(code) return next("Failed to write _env.sh -- code:"+code);
@@ -781,7 +754,6 @@ function start_task(task, resource, considered, cb) {
                         stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+" of "+(task.retry+1)+")\n");
                         var username = resource.config.username;//||resource_detail.username);
                         var hostname = resource.config.hostname;//||resource_detail.hostname);
-                        //stream.write("# resource       : "+resource_detail.name+" / "+resource.name+"\n");
                         stream.write("# resource       : "+resource.name+"\n"); //+" ("+resource_detail.name+")\n");
                         stream.write("#                : "+username+"@"+hostname+"\n");
                         stream.write("# task dir       : "+taskdir+"\n");
@@ -831,15 +803,6 @@ function start_task(task, resource, considered, cb) {
                         //see if we can use this resource..
                         db.Resource.findById(source_resource_id, function(err, source_resource) {
                             if(err) return next_source(err); //db error?
-
-                            /* TODO - I need to find the *latest* lastok_date and fail task not what we go through all resource_ids
-                            let daysago = new Date(Date.now()-1000*3600*24*3); //3 days old enough?
-                            if(source_resource.lastok_date < daysago) {
-                                console.debug("resource("+source_resource.name+") which contains the input data has been inactive for more than 3 days. trying next resource");
-                                return next_source();
-                            }
-                            */
-
                             if(!source_resource.active) {
                                 task.status_msg = "resource("+source_resource.name+") which contains the input data is not active.. try next source.";
                                 return next_source(); 
@@ -952,11 +915,7 @@ function start_task(task, resource, considered, cb) {
             },
 
             //TODO - I think I should deprecate this in the future, but it's still used by 
-            //          * soichih/sca-service-noop (deprecated by brainlife/app-noop)
             //          * brainlife/app-noop
-            //          * brain-life/validator-neuro-track
-            //          * brain-life/validator-neuro-anat
-            //          * brain-life/validator-neuro-func-task
 
             //short sync job can be accomplished by using start.sh to run the (less than 30 sec) process and
             //status.sh checking for its output (or just assume that it worked)
@@ -969,7 +928,7 @@ function start_task(task, resource, considered, cb) {
                 task.run++;
                 task.status = "running_sync"; //mainly so that client knows what this task is doing (unnecessary?)
                 task.status_msg = "Synchronously running service";
-                task.save(function(err) {
+                task.save(err=>{
                     if(err) return next(err);
                     //not updating instance status - because run should only take very short time
                     //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't set env via exec opt

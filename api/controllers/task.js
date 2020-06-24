@@ -44,7 +44,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
         ];
     }
 
-    if(req.query.select) console.log("select:"+req.query.select);
+    //if(req.query.select) console.log("select:"+req.query.select);
 
     db.Task.find(find)
     .select(req.query.select)

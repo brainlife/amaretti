@@ -1,5 +1,4 @@
 .vscode
-package-lock.json
 nohup_grunt.out
 node_modules
 ui/bower_components
