@@ -288,6 +288,14 @@ function handle_requested(task, next) {
         logger.error("start_ date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     }
 
+    //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
+    if(task.remove_date < now) {
+        task.status_msg = "Requested but it is past the remove date";
+        task.status = "stopped"; //not yet started.. just stop
+        task.next_date = undefined; //let house keeper remove it immediately
+        return next();
+    }
+
     //make sure dependent tasks has all finished
     var deps_all_done = true;
     var failed_deps = [];

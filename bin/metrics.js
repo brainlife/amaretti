@@ -171,7 +171,7 @@ request.get({
         //for "test.users.hayashis 1 1549643698"
         for(let user_id in users) {
             let user = results.contact_details[user_id];
-            let sensu_key = graphite_prefix+".users."+user.username;
+            let sensu_key = graphite_prefix+".users."+user.username.replace(/\./g, '_');
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
             if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
