@@ -11,6 +11,8 @@ const bodyParser = require('body-parser');
 const compression = require('compression');
 const cors = require('cors');
 
+const expressJwt = require('express-jwt');
+
 //mine
 const config = require('../config');
 //const logger = winston.createLogger(config.logger.winston);
