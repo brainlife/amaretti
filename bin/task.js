@@ -1053,12 +1053,14 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     if(code === undefined) return next("timeout while checking app cache .zip");
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
-                        logger.warn("app cache .zip exists.. I will wait.. mod time: %s age:%d(secs)", mod_s, age);
+                        logger.warn("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
                         if(age < 60) {
                             //task.next_date = new Date(Date.now()+1000*600);
                             //task.status = "Waiting for App to be installed";
+                            logger.warn("will wait..");
                             return cb(null, false); //retry later.. maybe it's still getting downloaded
                         }
+                        logger.warn("will proceed and override..");
                         next(); //proceed and overwrite..
                     } else {
                         logger.debug("no app_cache .. proceed with download. code:"+code);

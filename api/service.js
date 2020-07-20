@@ -3,7 +3,8 @@
 //contrib
 const winston = require('winston');
 const async = require('async');
-const request = require('request');
+const request = require('request'); //deprecate
+const axios = require('axios');
 
 //mine
 const config = require('../config');
@@ -101,7 +102,29 @@ function do_loaddetail(service_name, branch, cb) {
 
 exports.get_sha = function(service_name, branch, cb) {
     if(!branch) branch = "master";
-    //let url = 'https://api.github.com/repos/'+service_name+"/git/refs/heads/"+branch;
+
+    //lookup as branch
+    axios.get('https://api.github.com/repos/'+service_name+'/git/refs/heads/'+branch, {
+        headers: {
+            'User-Agent': 'brainlife/amaretti',
+            'Authorization': 'token '+config.github.access_token,
+        }
+    }).then(res=>{
+        cb(null, res.data.object);
+    }).catch(err=>{
+        //lookup as tags
+        axios.get('https://api.github.com/repos/'+service_name+'/git/refs/tags/'+branch, {
+            headers: {
+                'User-Agent': 'brainlife/amaretti',
+                'Authorization': 'token '+config.github.access_token,
+            }
+        }).then(res=>{
+            cb(null, res.data.object);
+        }).catch(err=>{
+            cb("no such branch/tag:"+branch);
+        });
+    });
+    /*
     let url = 'https://api.github.com/repos/'+service_name+"/git/refs";
     logger.debug(url);
     request.get({url, json: true, headers: {
@@ -120,5 +143,6 @@ exports.get_sha = function(service_name, branch, cb) {
         logger.debug(ref.object);
         cb(null, ref.object);
     });
+    */
 }
 
