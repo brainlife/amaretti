@@ -8,11 +8,15 @@ const async = require('async');
 const mongoose = require('mongoose');
 const path = require('path');
 const mime = require('mime');
+const multer = require('multer');
+const fs = require('fs');
 
 const config = require('../../config');
 const db = require('../models');
 const events = require('../events');
 const common = require('../common');
+
+const upload = multer({dest: "/tmp"}); //TODO - might run out of disk?
 
 /**
  * @apiGroup Task
@@ -453,7 +457,7 @@ router.get('/download/:taskid/*', jwt({
 /**
  * @apiGroup Task
  * @api {get} /task/upload/:taskid
- *                              Upload File
+ *                              Upload File (DEPRECATED - use upload2 with FormData/multipart)
  * @apiDescription              Upload a file to specified task on a specified path (task will be locked afterward)
  *
  * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters
@@ -547,6 +551,127 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
         });
     });
 });
+
+/** 
+ * @apiGroup Task
+ * @api {get} /task/upload/:taskid
+ *                              Upload File (using multipart)
+ * @apiDescription              Upload a file to specified task on a specified path (task will be locked afterward)
+ *
+ * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters. if you don't set this, the file will be stored in the task directory using originalname
+ * @apiParam {String} [untar]   Untar .tar input after it's uploaded
+ *
+ * @apiHeader {String} authorization
+ *                              A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccessExample {json} Success-Response:
+ *                              {file stats uploaded}
+ */
+
+router.post('/upload2/:taskid', jwt({secret: config.amaretti.auth_pubkey}), upload.single('file'), function(req, res, next) {
+
+    find_resource(req, req.params.taskid, (err, task, resource)=>{
+        if(err) return next(err);
+
+        if(task.status != "finished") return next("you can only upload to finished service");
+        if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
+    
+        //req.file
+        /*
+        {
+          fieldname: 'file',
+          originalname: 'sub-OpenSciJan22_phasediff.nii.gz',
+          encoding: '7bit',
+          mimetype: 'application/gzip',
+          destination: '/tmp',
+          filename: '8af1174d9e1188fe9084de5d90b0ea75',
+          path: '/tmp/8af1174d9e1188fe9084de5d90b0ea75',
+          size: 223679
+        }
+        */
+        //console.dir(req.file);
+        let p = req.query.p||req.file.originalname;
+        get_fullpath(task, resource, p, (err, fullpath)=>{
+            if(err) return next(err);
+            console.log("using fullpath", fullpath);
+
+            events.publish("task.upload."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {
+                fullpath,
+                resource_id: resource._id,
+                resource_name: resource.name,
+            });
+
+            //lock the task so user can not execute it again (to prevent malicious use of this task)
+            task.locked = true;
+            task.save(err=>{
+                if(err) return next(err);
+                common.get_ssh_connection(resource, (err, conn_q)=>{
+                    if(err) return next(err);
+
+                    mkdirp(conn_q, path.dirname(fullpath), err=>{
+                        if(err) return next(err);
+
+                        common.get_sftp_connection(resource, (err, sftp)=>{
+                            if(err) return next(err);
+                            console.info("fullpath",fullpath);
+
+                            const readStream = fs.createReadStream(req.file.path);
+                            sftp.createWriteStream(fullpath, (err, write_stream)=>{
+
+                                /*
+                                //just in case..
+                                readstream.on('close', ()=>{
+                                    console.error("request closed........ closing sftp stream also");
+                                    write_stream.close();
+                                });
+                                */
+
+                                var pipe = readStream.pipe(write_stream);
+                                pipe.on('close', function() {
+                                    console.info("streaming closed.. removing uploaded file");
+                                    fs.unlinkSync(req.file.path);
+
+                                    //this is an undocumented feature to exlode uploade tar.gz
+                                    if(req.query.untar) {
+                                        console.info("tar xzf-ing");
+
+                                        //is this secure enough?
+                                        let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
+                                            "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
+                                            "rm '"+path.basename(fullpath).addSlashes()+"'";
+                                        
+                                        conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
+                                            if(err) return next(err);
+                                            //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
+                                            stream.on('end', function() {
+                                                res.json({msg: "uploaded and untared"});
+                                            });
+                                            stream.on('data', function(data) {
+                                                console.error(data.toString());
+                                            });
+                                        });
+                                    } else {
+                                        //get file info (to be sure that the file is uploaded?)
+                                        sftp.stat(fullpath, function(err, stat) {
+                                            if(err) return next(err.toString());
+                                            console.dir(stat);
+                                            res.json({filename: path.basename(fullpath), attrs: stat});
+                                        });
+                                    }
+                                });
+                                readStream.on('error', function(err) {
+                                    console.error(err);
+                                    next("Failed to upload file to "+_path);
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
 
 //TODO - should use sftp/mkdir ?
 function mkdirp(conn, dir, cb) {

@@ -6,8 +6,6 @@ const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
-//const winston = require('winston');
-//const expressWinston = require('express-winston');
 const compression = require('compression');
 const cors = require('cors');
 
@@ -15,7 +13,6 @@ const expressJwt = require('express-jwt');
 
 //mine
 const config = require('../config');
-//const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 
 //init express
@@ -31,12 +28,9 @@ app.disable('x-powered-by'); //for better security?
 app.use(bodyParser.json({limit: '2mb'}));  //default is 100kb
 app.use(bodyParser.urlencoded({ extended: false }));
 
-//app.use(expressWinston.logger(config.logger.winston));
-
 app.use('/', require('./controllers'));
 
 //error handling
-//app.use(expressWinston.errorLogger(config.logger.winston)); 
 app.use(function(err, req, res, next) {
     if(typeof err == "string") err = {message: err};
     if(err instanceof Error) err = {message: err.toString()};
