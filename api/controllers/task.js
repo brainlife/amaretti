@@ -10,7 +10,6 @@ const path = require('path');
 const mime = require('mime');
 
 const config = require('../../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const events = require('../events');
 const common = require('../common');
@@ -171,10 +170,10 @@ function ls_resource(resource, _path, cb) {
     if(_path[0] != "/") _path = common.getworkdir(_path, resource);
 
     //for ssh resource, simply readdir via sftp
-    logger.debug("getting ssh connection");
+    console.info("getting ssh connection");
     common.get_sftp_connection(resource, function(err, sftp) {
         if(err) return cb(err);
-        //logger.debug("reading directory:"+_path);
+        //console.info("reading directory:"+_path);
         var t = setTimeout(function() {
             cb("Timed out while reading directory: "+_path);
             t = null;
@@ -191,7 +190,7 @@ function ls_resource(resource, _path, cb) {
                     file.link = true;
                     sftp.stat(_path+"/"+file.filename, (err, stat)=>{
                         if(err) {
-                            logger.error("broken symlink: %s", file.filename);
+                            console.error("broken symlink: %s", file.filename);
                             return next_file();
                         }
                         file.directory = stat.isDirectory();
@@ -364,13 +363,13 @@ router.get('/download/:taskid/*', jwt({
 }), function(req, res, next) {
 
     let p = req.query.p || req.params[0];
-    logger.debug("/task/download/"+req.params.taskid+" "+p);
+    console.info("/task/download/"+req.params.taskid+" "+p);
     
     //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
     //only thrown if client terminates request (including no change?)
     let req_closed = false;
     req.on('close', ()=>{
-        logger.debug("req/close");
+        console.info("req/close");
         req_closed = true;
     });
 
@@ -386,7 +385,7 @@ router.get('/download/:taskid/*', jwt({
                 resource_name: resource.name,
             });
 
-            logger.debug("gettingn sftp connection");
+            console.info("gettingn sftp connection");
             if(req_closed) return next("request already closed.. bailing p1");
             common.get_sftp_connection(resource, function(err, sftp) {
                 if(err) return next(err);
@@ -397,7 +396,7 @@ router.get('/download/:taskid/*', jwt({
 
                     if(req_closed) return next("request already closed.. bailing p3");
                     if(stat.isDirectory()) {
-                        logger.debug("directory.. getting ssh connection_q");
+                        console.info("directory.. getting ssh connection_q");
                         common.get_ssh_connection(resource, function(err, conn_q) {
                             if(err) return next(err);
 
@@ -408,14 +407,14 @@ router.get('/download/:taskid/*', jwt({
 
                             res.setHeader('Content-disposition', 'attachment; filename='+name);
                             res.setHeader('Content-Type', "application/x-tgz");
-                            logger.debug("running tar via conn_q");
+                            console.info("running tar via conn_q");
 
                             if(req_closed) return next("request already closed... skipping exec()!");
                             conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' -hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
                                 if(req_closed) return stream.close();
                                 req.on('close', ()=>{
-                                    logger.debug("request close after pipe began.. closing stream");
+                                    console.info("request close after pipe began.. closing stream");
                                     stream.close();
                                 });
                                 //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
@@ -423,13 +422,13 @@ router.get('/download/:taskid/*', jwt({
                             });
                         });
                     } else {
-                        logger.debug("file.. streaming file via sftp", fullpath);
+                        console.info("file.. streaming file via sftp", fullpath);
                         
                         //npm-mime uses filename to guess mime type, so I can use this locally
                         //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
                         let ext = path.extname(fullpath);
                         let mimetype = mime.getType(ext);
-                        logger.debug("mimetype:"+mimetype);
+                        console.info("mimetype:"+mimetype);
 
                         //without attachment, the file will replace the current page
                         res.setHeader('Content-disposition', 'attachment; filename='+path.basename(fullpath));
@@ -439,7 +438,7 @@ router.get('/download/:taskid/*', jwt({
                             //in case user terminates in the middle.. read stream doesn't raise any event!
                             if(req_closed) return stream.close();
                             req.on('close', ()=>{
-                                logger.info("request closed........ closing sftp stream also");
+                                console.info("request closed........ closing sftp stream also");
                                 stream.close();
                             });
                             stream.pipe(res);
@@ -495,22 +494,22 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
 
                         common.get_sftp_connection(resource, (err, sftp)=>{
                             if(err) return next(err);
-                            logger.debug("fullpath",fullpath);
+                            console.info("fullpath",fullpath);
                             sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
                                 //just in case..
                                 req.on('close', ()=>{
-                                    logger.error("request closed........ closing sftp stream also");
+                                    console.error("request closed........ closing sftp stream also");
                                     write_stream.close();
                                 });
 
                                 var pipe = req.pipe(write_stream);
                                 pipe.on('close', function() {
-                                    logger.debug("streaming closed");
+                                    console.info("streaming closed");
 
                                     //this is an undocumented feature to exlode uploade tar.gz
                                     if(req.query.untar) {
-                                        logger.debug("tar xzf-ing");
+                                        console.info("tar xzf-ing");
 
                                         //is this secure enough?
                                         let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
@@ -524,19 +523,20 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
                                                 res.json({msg: "uploaded and untared"});
                                             });
                                             stream.on('data', function(data) {
-                                                logger.error(data.toString());
+                                                console.error(data.toString());
                                             });
                                         });
                                     } else {
                                         //get file info (to be sure that the file is uploaded?)
                                         sftp.stat(fullpath, function(err, stat) {
                                             if(err) return next(err.toString());
+                                            console.dir(stat);
                                             res.json({filename: path.basename(fullpath), attrs: stat});
                                         });
                                     }
                                 });
                                 req.on('error', function(err) {
-                                    logger.error(err);
+                                    console.error(err);
                                     next("Failed to upload file to "+_path);
                                 });
                             });
@@ -550,16 +550,16 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
 
 //TODO - should use sftp/mkdir ?
 function mkdirp(conn, dir, cb) {
-    logger.debug("mkdir -p "+dir);
+    console.info("mkdir -p "+dir);
     conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
         if(err) return cb(err);
         stream.on('end', function(data) {
-            logger.debug("mkdirp done");
-            logger.debug(data);
+            console.info("mkdirp done");
+            console.info(data);
             cb();
         });
         stream.on('data', function(data) {
-            logger.error(data.toString());
+            console.error(data.toString());
         });
     });
 }
@@ -635,7 +635,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
 
         //deps is deprecated, but might be used by old cli / existing tasks
         if(req.body.deps) {
-            logger.warn("req.body.deps set.. which is deprecated by deps_config");
+            console.warn("req.body.deps set.. which is deprecated by deps_config");
             let deps = req.body.deps.filter(dep=>dep);//remove null
 
             //migrate to deps_config
@@ -726,7 +726,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
                     service_branch: task.service_branch,
                 });
                 common.update_instance_status(instance_id, err=>{
-                    if(err) logger.error(err);
+                    if(err) console.error(err);
                 });
             });
         });
@@ -769,7 +769,7 @@ router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functi
             events.publish("task.rerun."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task successfully re-requested", task: task});
             common.update_instance_status(task.instance_id, err=>{
-                if(err) logger.error(err);
+                if(err) console.error(err);
             });
         }); 
     });
@@ -854,7 +854,7 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
             events.publish("task.stop."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task successfully requested to stop", task: task});
             common.update_instance_status(task.instance_id, err=>{
-                if(err) logger.error(err);
+                if(err) console.error(err);
             });
         });
     });

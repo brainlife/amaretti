@@ -88,12 +88,13 @@ request.get({
 
         //pull contact details
         contact_details: cb=>{
-            if(Object.keys(users).length == 0) return cb(null, {});
+            let uids = Object.keys(users).filter(i=>parseInt(i));
+            if(uids.length == 0) return cb(null, {});
             request.get({
                 url: config.api.auth+"/profile/list", json: true,
                 qs: {
                     where: JSON.stringify({
-                        sub: {$in: Object.keys(users)},
+                        sub: {$in: uids},
                     }),
                     limit: 5000, //TODO unsustainable?
                 },
@@ -171,6 +172,10 @@ request.get({
         //for "test.users.hayashis 1 1549643698"
         for(let user_id in users) {
             let user = results.contact_details[user_id];
+            if(!user) {
+                console.error("no contact detail for", user_id);
+                continue
+            } 
             let sensu_key = graphite_prefix+".users."+user.username.replace(/\./g, '_');
             re.set('amaretti.metric.'+sensu_key, 1);
             re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes

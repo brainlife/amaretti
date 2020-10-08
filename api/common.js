@@ -325,13 +325,13 @@ function sftp_ref(sftp) {
             //'ready' doesn't fire for stream
             //'finish' doesn't fire for stream
             sftp._count--;
-            logger.debug("createreadstream closed _count:", sftp._count);
+            //logger.debug("createreadstream closed _count:", sftp._count);
         });
         cb(null, stream);
     }
 
     function createWriteStream(path, cb) {
-        logger.debug("createWriteStream", sftp._count);
+        //logger.debug("createWriteStream", sftp._count);
         if(sftp._count > 4) {
             return setTimeout(()=>{
                 createWriteStream(path, cb);
@@ -345,7 +345,7 @@ function sftp_ref(sftp) {
         }, 1000*60*30); 
         stream.on('close', ()=>{
             clearTimeout(stream_timeout);
-            logger.debug("createwritestream close");
+            //logger.debug("createwritestream refcount -1");
             sftp._count--;
         });
         cb(null, stream);

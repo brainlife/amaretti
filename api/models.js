@@ -277,15 +277,12 @@ taskSchema.index({'config._outputs.id': 1});  //to look for app-stage that stage
 taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count running / requested tasks for each resource
 taskSchema.index({status: 1,  resource_ids: 1, next_date: 1});  //find task to be removed when all resources gets removed
 taskSchema.index({project: 1, removed: 1}); //for task aggregate $math and group by subject/datatype
-//taskSchema.index({ "config._rule.id": 1, "status": 1, "_id": 1 }); //({ "config._rule.id": 1, "status": 1, "_id": 1 })
-//taskSchema.index({resource_id: 1, finish_date: 1, start_date: 1, _group_id: 1}); //total walltime aggregate
 taskSchema.index({ "_group_id": 1, "finish_date": 1, "resource_id": 1, "service": 1, "start_date": 1 }); //total walltime
-
 taskSchema.index({resource_id: 1, status: 1, service: 1});
-//taskSchema.index({instance_id: 1, user_id: 1, _group_id: 1, "_id": 1});
 taskSchema.index({resource_id: 1, status: 1, create_date: -1}); //look for recent task
 taskSchema.index({service: 1, status: 1, user_id: 1, create_date: 1, }); //active user count
 taskSchema.index({service: 1, status: 1, "config._tid": 1, user_id: 1, _group_id: 1, create_date: -1}); //dashboard task list
+taskSchema.index({follow_task_id: 1 });
 
 exports.Task = mongoose.model('Task', taskSchema);
 

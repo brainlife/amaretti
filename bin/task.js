@@ -301,6 +301,11 @@ function handle_requested(task, next) {
     var failed_deps = [];
     var removed_deps = [];
     task.deps_config.forEach(function(dep) {
+        if(!dep.task) {
+            //task removed by administrator? (I had to remove task with user_id set to "warehouse" once)
+            removed_deps.push(dep.task);
+            return;
+        }
         if(dep.task.status != "finished") deps_all_done = false;
         if(dep.task.status == "failed") failed_deps.push(dep.task);
         if(dep.task.status == "removed") removed_deps.push(dep.task);
@@ -1223,7 +1228,7 @@ function health_check() {
             }).exec((err, count)=>{
                 if(err) return next(err);
                 report.queue_size = count;
-                if(count > 3000) {
+                if(count > 2000) {
                     report.status = "failed";
                     report.messages.push("high task queue count"+count);
                 }

@@ -11,7 +11,6 @@ const winston = require('winston');
 const jwt = require('express-jwt');
 const async = require('async');
 const path = require('path');
-const multiparty = require('multiparty');
 const mime = require('mime');
 const request = require('request');
 
