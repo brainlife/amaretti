@@ -20,14 +20,8 @@ const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
-//missing catch() on Promise will be caught here
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error("sleeping for 10 seconds and killing");
-    logger.error(reason);
-    return setTimeout(function() {
-        process.exit(1);
-    }, 1000*10);
-});
+
+let resourceSyncCount = {};
 
 db.init(function(err) {
     if(err) throw err;
@@ -685,12 +679,10 @@ function start_task(task, resource, considered, cb) {
                     cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
                         if(err) return next(err);
                         if(!app_cache) {
-
                             //TODO - not working?
                             task.next_date = new Date(Date.now()+1000*300);
                             task.status_msg = "Waiting for the App to be installed (5mins)";
-
-                            return cb(); //cache already inprogress.. retry later..
+                            return cb(); //retry
                         }
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
@@ -820,6 +812,15 @@ function start_task(task, resource, considered, cb) {
                                 task.status_msg = "resource("+source_resource.name+") which contains the input data is not active.. try next source.";
                                 return next_source(); 
                             }
+                            
+                            //make sure we don't sync too many times from a single resource
+                            if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = 0;
+                            console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
+                            if(resourceSyncCount[source_resource_id] > 8) {
+                                task.status_msg = "source resource is busy shipping out data.. waiting";
+                                task.next_date = new Date(Date.now()+1000*60);
+                                return cb(); //retry
+                            }
 
                             let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
                             let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
@@ -827,14 +828,18 @@ function start_task(task, resource, considered, cb) {
                             task.status_msg = msg_prefix;
                             let saving_progress = false;
                             task.save(err=>{
+                                console.log("sync count: ++");
+                                resourceSyncCount[source_resource_id]++;
+
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
-                                    //console.log("saving task progress", progress);
                                     task.status_msg = msg_prefix+" "+progress;
                                     saving_progress = true;
                                     task.save(()=>{
                                         saving_progress = false;
                                     }); 
                                 }, err=>{
+                                    console.log("sync count: --");
+                                    resourceSyncCount[source_resource_id]--;
                                     
                                     //I have to wait to make sure task.save() in progress finish writing - before moving to
                                     //the next step - which may run task.save() immediately which causes
@@ -881,7 +886,7 @@ function start_task(task, resource, considered, cb) {
                         }
 
                         task.status_msg = "Couldn't sync dep task from any resources.. will try later";
-                        cb(); 
+                        cb();  //retry
                     });
 
                 }, next);
@@ -1188,6 +1193,7 @@ let _counts = {
 }
 
 let low_check = 0;
+let serviceStarted = new Date();
 
 function health_check() {
 
@@ -1197,6 +1203,7 @@ function health_check() {
         ssh,
         messages: [],
         date: new Date(),
+        startDate: serviceStarted,
         counts: _counts,
         maxage: 1000*240,
     }
@@ -1259,4 +1266,18 @@ rcon.on('ready', ()=>{
 
 health_check(); //initial check (I shouldn't do this anymore?)
 
+//missing catch() on Promise will be caught here
+process.on('unhandledRejection', (err, promise) => {
+    logger.error("unhandledRejection-------------------");
+    logger.error(err);
+    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid+".unhandled-rejection", JSON.stringify(err));
+    process.exit(1);
+});
+
+process.on('uncaughtException', err=>{
+    logger.error("unhandledException-------------------");
+    logger.error(err);
+    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid+".unhandled-exception", JSON.stringify(err));
+    process.exit(1);
+});
 
