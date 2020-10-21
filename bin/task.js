@@ -1267,17 +1267,26 @@ rcon.on('ready', ()=>{
 health_check(); //initial check (I shouldn't do this anymore?)
 
 //missing catch() on Promise will be caught here
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (reason, promise) => {
     logger.error("unhandledRejection-------------------");
-    logger.error(err);
-    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid+".unhandled-rejection", JSON.stringify(err));
+    logger.error(reason);
+    /*
+    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify({
+        reason,
+    }));
+    */
     process.exit(1);
 });
 
-process.on('uncaughtException', err=>{
+process.on('uncaughtException', (err, origin)=>{
     logger.error("unhandledException-------------------");
     logger.error(err);
-    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid+".unhandled-exception", JSON.stringify(err));
+    logger.error(origin);
+    /*
+    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify({
+        err,
+    }));
+    */
     process.exit(1);
 });
 
