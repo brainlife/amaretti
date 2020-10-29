@@ -1149,7 +1149,15 @@ function load_product(taskdir, resource, cb) {
                 if(product_json.length > 1024*1024) return cb("product.json is too big.. 1MB max (should be around a few kilobytes)");
 
                 try {
-                    var product = JSON.parse(product_json);
+                    //NaN is not a valid JSON, but python.dumps() allows it by default.
+                    /*
+                    //instead of forcing all client to do the right thing.. let's handle it
+                    var product = JSON.parse(product_json.replace(/\bNaN\b/g, '"***NaN***"'), (key, value)=>{
+                        return value === "***NaN***" ? NaN : value;
+                    });
+                    */
+                    var product = JSON.parse(product_json.replace(/\bNaN\b/g, "null"));
+
                     logger.info("successfully loaded product.json");
                     cb(null, product);
                 } catch(e) {
@@ -1250,6 +1258,11 @@ function health_check() {
         //send report
         rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
 
+        if(report.queue_size > 1000 && _counts.checks == 0) {
+            console.error("looks like it's it died.. suiciding");
+            process.exit(1);
+        }
+
         //reset counter
         _counts.checks = 0;
         _counts.tasks = 0;
@@ -1264,7 +1277,9 @@ rcon.on('ready', ()=>{
     setInterval(health_check, 1000*120);
 });
 
+/* this might cause premature suicide?
 health_check(); //initial check (I shouldn't do this anymore?)
+*/
 
 //missing catch() on Promise will be caught here
 process.on('unhandledRejection', (reason, promise) => {
