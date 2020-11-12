@@ -464,114 +464,6 @@ exports.report_ssh = function() {
     }
 }
 
-/* //deprecated 
-exports.progress = function(key, p, cb) {
-    logger.warn("common.progress is deprecated");
-    request({
-        method: 'POST',
-        url: config.progress.api+'/status/'+key, 
-        rejectUnauthorized: false, //this maybe needed if the https server doesn't contain intermediate cert ..
-        json: p, 
-    }, function(err, res, body){
-        if(err) {
-            logger.debug(err);
-        } else {
-            logger.debug([key, p]);
-        }
-        if(cb) cb(err, body);
-    });
-}
-*/
-
-//*
-//TODO should I deprecate this?
-//ssh to host using username/password
-//currently only used by sshkey installer
-/*
-exports.ssh_command = function(username, password, host, command, opts, cb) {
-    var conn = new Client();
-    var out = "";
-    var ready = false;
-    var nexted = false;
-    conn.on('ready', function() {
-        ready = true;
-        conn.exec(command, opts, function(err, stream) {
-            if (err) {
-                conn.end();
-                nexted = true;
-                return cb(err);
-            }
-            stream.on('close', function(code, signal) {
-                conn.end();
-                nexted = true;
-                cb(code);
-            }).on('data', function(data) {
-                out += data;
-            }).stderr.on('data', function(data) {
-                out += data;
-            });
-        });
-    });
-    conn.on('error', function(err) {
-        console.error(err.toString());
-        //caused by invalid password, etc..
-        nexted = true;
-        if(err.level && err.level == "client-authentication") {
-            cb("Possibly incorrect username / password");
-        } else {
-            if(err.message) cb(err.message);
-            else cb(err.toString());
-        }
-    });
-    conn.on('end', function() {
-        if(!ready && !nexted) cb('SSH connection ended before it began.. maybe maintenance day?');
-    });
-    conn.on('keyboard-interactive', function(name, instructions, lang, prompts, sshcb) {
-        if(~prompts[0].prompt.indexOf("Password:")) sshcb([password]);
-        else {
-            sshcb("SSH server prompted something that I don't know how to answer");
-            logger.debug(prompts);
-        }
-    });
-    conn.connect({
-        port: 22,
-        host: host,
-        username: username,
-        password: password,
-        tryKeyboard: true, //in case password auth is disabled
-    });
-}
-*/
-
-//TODO who uses this?
-/*
-exports.ssh_stat = function(conn, path, cb) {
-    //console.log("-----------statting--------------------");
-    conn.exec("stat --format='%s %F' "+path, (err, stream)=>{
-        if(err) return cb(err);
-		let out = "";
-		stream.on('error', cb);
-		stream.on('close', code=>{
-			//console.log("read stream closed", code);
-			if(code != 0) return cb("stat failed "+code);
-			let tokens = out.trim().split(" ");	
-			let size = parseInt(tokens[0]);
-			let dir = false;
-			if(tokens[1] == "directory") dir = true;
-            //console.log("-----------done statting--------------------");
-			cb(null, { size, dir });
-		});
-		stream.on('data', data=>{
-            //console.log(data.toString());
-			out+=data.toString();
-		});
-		stream.stderr.on('data', data=>{
-			logger.error(data.toString());
-		});
-    });
-}
-*/
-
 exports.get_user_gids = function(user) {
     var gids = user.gids||[];
     gids = gids.concat(config.amaretti.global_groups);
@@ -592,31 +484,6 @@ exports.check_access = function(user, resource) {
     }
     return false;
 }
-
-/*
-exports.create_progress_key = function(instance_id, task_id) {
-    var key = "_sca."+instance_id;
-    if(task_id) key += "."+task_id;
-    return key;
-}
-*/
-
-/*
-//run hsi locally (where sca-wf is running) - used mainly to test the hpss account, and by resource/ls for hpss resource
-exports.ls_hpss = function(resource, _path, cb) {
-    exports.decrypt_resource(resource);
-    var keytab = new Buffer(resource.config.enc_keytab, 'base64');
-    //var good_keytab = fs.readFileSync("/home/hayashis/.ssh/soichi-hsi.keytab");
-    var context = new hpss.context({
-        username: resource.config.username,
-        keytab: keytab,
-    });    
-    context.ls(_path, function(err, files) {
-        context.clean();
-        cb(err, files); 
-    });
-}
-*/
 
 exports.request_task_removal = function(task, cb) {
     //running jobs needs to be stopped first
@@ -816,61 +683,6 @@ exports.rerun_task = function(task, remove_date, cb) {
     });
 }
 
-/*
-exports.get_gids = function(user_id, cb) {
-    //look in redis first
-    let key = "cache.gids."+user_id;
-    let ekey = "cache.gids."+user_id+".exists"; //we can't store empty array but we want to cache that..
-    exports.redis.exists(ekey, (err, exists)=>{
-        if(err) return cb(err);
-        if(exists) {
-            exports.redis.lrange(key, 0, -1, cb); //return all gids
-            return;
-        } else {
-            //load from profile service
-            logger.debug("cache miss.. looking up user gids from auth service", key); 
-            request.get({
-                url: config.api.auth+"/user/groups/"+user_id,
-                json: true,
-                headers: { 'Authorization': 'Bearer '+config.amaretti.jwt }
-            }, function(err, res, gids) {
-                if(err) return cb(err);
-                switch(res.statusCode) {
-                case 404:
-                    //often user_id is set to non existing user_id on auth service (like "sca")
-                    gids = []; 
-                    break;
-                case 401:
-                    //token is misconfigured?
-                    return cb("401 while trying to pull gids from auth service.. bad jwt?");
-                case 200:
-                    //success! 
-                    break;
-                default:
-                    return cb("invalid status code:"+res.statusCode+" while obtaining user's group ids.. retry later")
-                }
-
-                //reply to the caller
-                cb(null, gids);
-                
-                //cache on redis (can't rpush empty list to redis)
-                if(gids.length == 0) {
-                    //logger.warn("gids empty.", key);
-                    exports.redis.set(ekey, "empty");
-                    exports.redis.expire(ekey, 60); //60 seconds too long?
-                    return;
-                } else {
-                    gids.unshift(key);
-                    exports.redis.set(ekey, "not empty");
-                    exports.redis.expire(ekey, 60); //60 seconds too long?
-                    exports.redis.rpush(gids);
-                    exports.redis.expire(key, 60); //60 seconds too long?
-                }
-            });
-        }
-    });
-}
-*/
 
 //search inside a list of mongoose ObjectID return position
 exports.indexOfObjectId = function(ids, search_id, cb) {
@@ -880,23 +692,6 @@ exports.indexOfObjectId = function(ids, search_id, cb) {
     });
     return pos;
 }
-
-/*
-exports.set_conn_timeout = function(cqueue, stream, time) {
-    var timeout = setTimeout(()=>{
-        //logger.error("reached connection timeout.. closing ssh connection (including other sessions..)");
-        logger.error("reached connection timeout.. closing ssh connection");
-        //stream.close() won't do anything, so the only option is to close the whole connection 
-        //https://github.com/mscdex/ssh2/issues/339
-        cqueue.end();
-        //stream.close(); //seems to work now?
-    }, time);
-    stream.on('close', (code, signal)=>{
-        logger.debug("exec closed!");
-        clearTimeout(timeout);
-    });
-}
-*/
 
 //copied from warehouse/ common.js
 exports.escape_dot = function(obj) {

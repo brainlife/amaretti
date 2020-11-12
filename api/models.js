@@ -9,7 +9,7 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 
-if(config.amaretti.debug) mongoose.set("debug", true);
+//if(config.amaretti.debug) mongoose.set("debug", true);
 
 exports.init = function(cb) {
     events.init(err=>{
