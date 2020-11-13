@@ -696,9 +696,9 @@ function start_task(task, resource, considered, cb) {
                                 next();
                             })
                             .on('data', function(data) {
-                                console.log(data.toString());
+                                //console.log(data.toString());
                             }).stderr.on('data', function(data) {
-                                console.error(data.toString());
+                                //console.error(data.toString());
                             });
                         });
 
