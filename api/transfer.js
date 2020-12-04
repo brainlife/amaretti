@@ -9,13 +9,12 @@ const ConnectionQueuer = require('ssh2-multiplexer');
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('../api/common');
 
 //all parameters must be safe
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, subdirs, progress_cb, cb) {
-    logger.info("rsync_resource.. get_ssh_connection");
+    console.log("rsync_resource.. get_ssh_connection");
 
     let auth_sock;
     let agent;
@@ -33,9 +32,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         next();
                     })
                     .on('data', data=>{
-                        logger.info(data.toString());
+                        console.log(data.toString());
                     }).stderr.on('data', data=>{
-                        logger.warn(data.toString());
+                        console.log(data.toString());
                     });
                 });
             });
@@ -45,7 +44,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
-            logger.info("finding and removing broken symlink on source resource before rsync", source_path);
+            console.log("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
                 //conn.exec("timeout 60 find -L "+source_path+" -type l -delete", (err, stream)=>{
@@ -58,9 +57,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         next();
                     })
                     .on('data', data=>{
-                        logger.info(data.toString());
+                        console.log(data.toString());
                     }).stderr.on('data', data=>{
-                        logger.warn(data.toString());
+                        console.error(data.toString());
                     });
                 });
             });
@@ -96,7 +95,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //we need to use dest_resource's io_hostname if available
             var dest_resource_detail = config.resources[dest_resource.resource_id];
             var dest_hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
-            logger.debug("ssh to %s", dest_hostname);
+            console.log("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*
             var inexopts = "--exclude=\".*\" ";
@@ -132,39 +131,30 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         let first = true;
 
                         stream.on('close', (code, signal)=>{
-                            logger.debug("stream closed.....................");
+                            console.debug("stream closed.....................");
 
                             agent.kill(); //I could call agnet.kill as soon as rsync starts, but agent doesn't die until rsync finishes..
                             conn.end(); //need to create new ssh connection each time.. 
 
                             if(code === undefined) return next("timedout while rsyncing");
                             else if(code) { 
-                                logger.error("On dest resource:"+dest_hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
-                                logger.error(cmd);
-                                logger.error(errors);
+                                console.error("On dest resource:"+dest_hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
+                                console.error(cmd);
+                                console.error(errors);
                                 next(errors);
                             } else {
-                                logger.info("done! %d:%d", code, signal);
+                                console.info("done! %d:%d", code, signal);
                                 next();
                             }
                         }).on('data', data=>{
                             if(first) {
-                                logger.debug("removing key");
+                                console.debug("removing key");
                                 client.removeAllKeys({}, err=>{
-                                    if(err) logger.error(err);
+                                    if(err) console.error(err);
                                 });
                                 first = false;
                             }
 
-                            /*
-                            if(agent) {
-                                logger.debug("closing agent");
-                                agent.kill();
-                                agent = null;
-                            }
-                            */
-
-                            //logger.debug(data.toString());
                             let str = data.toString().trim();
                             if(str == "") return;
                              
@@ -174,11 +164,11 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             if(delta > 1000*5) {
                                 progress_cb(str);
                                 progress_date = now;
-                                logger.debug(str);
+                                console.debug(str);
                             } 
                         }).stderr.on('data', data=>{
                             errors += data.toString();
-                            logger.debug(data.toString());
+                            console.debug(data.toString());
                         });
                     });
                 });

@@ -269,6 +269,7 @@ function handle_housekeeping(task, cb) {
 function handle_requested(task, next) {
 
     let now = new Date();
+    let initialState = task.status;
 
     //requested jobs are handled asynchrnously.. (start_date will be set while being handled)
     //if some api reset next_date, it could get reprocessed while it's starting up
@@ -279,7 +280,7 @@ function handle_requested(task, next) {
             logger.info("job seems to be starting.. "+starting_for);
             return next();
         }
-        logger.error("start_ date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
+        logger.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     }
 
     //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
@@ -336,7 +337,8 @@ function handle_requested(task, next) {
     if(!deps_all_done) {
         logger.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependencies";
-        task.next_date = new Date(Date.now()+1000*3600*24); //when dependency finished, it should auto-poke this task. so it's okay for this to be long
+        //when dependency finished, it should auto-poke this task. so it's okay for this to be long
+        task.next_date = new Date(Date.now()+1000*3600*24); 
         return next();
     }
 
@@ -373,7 +375,6 @@ function handle_requested(task, next) {
         //set start date to *lock* this task
         task.status_msg = "Starting task";
         task.start_date = new Date();
-        //task._considered = considered;
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
             logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
@@ -391,19 +392,20 @@ function handle_requested(task, next) {
                     task.fail_date = new Date();
                 } 
 
-                if(task.status == "requested") {
-                    //if it didn't start, reset start_date so we can handle it later again
-                    task.start_date = undefined;
-                    task.save();
-                } else {
-                    //either startup failed, or success
-                    task.save(err=>{
-                        if(err) logger.error(err);
+                //if we couldn't start (in case of retry), reset start_date so we can handle it later again
+                if(task.status == "requested") task.start_date = undefined;
+
+                //check() handles save/update_instance_status, but we are diverging here..
+                task.save(err=>{
+                    if(err) logger.error(err);
+
+                    //if status changes, then let's update instance status also
+                    if(task.status != initialState) {
                         common.update_instance_status(task.instance_id, err=>{
                             if(err) logger.error(err);
                         });
-                    });
-                }
+                    }
+                });
             });
 
             //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 

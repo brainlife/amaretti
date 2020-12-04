@@ -159,12 +159,14 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     //need to create a unique key for resource and any options used
     const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname, opts});
+
+    console.debug("get_ssh__connection:", id);
     
     //see if we already have an active ssh session
     const old = ssh_conns[id];
     if(old) {
         if(old.connecting) {
-            //someone is still connecting..
+            //other thread is still connecting..
             let old_date = new Date();
             old_date.setSeconds(old_date.getSeconds() - 20);
             if(old.create_date < old_date) {
@@ -172,37 +174,31 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 //TODO - how can I abort the open request?
             } else {
                 opts.count++;
-                logger.info("still connecting.. waiting .. %s", id);
+                console.debug("other thread still connecting.. waiting");
                 return setTimeout(()=>{
                     exports.get_ssh_connection(resource, opts, cb);
                 }, 1000);
             }
         } else {
-            /*
-            //we could use the old connection but if it's too old, close it and open new one
-            //TODO - what's wrong with an old connection? maybe we could just check to make sure 
-            //if it still works?
-            if(old.queue.length == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
-                logger.info("connection too is old.. (and nobody is using it) re-openinge");
+            //test the old connection to make sure it still works.. if not, open a new one
+            console.log("testing old connection")
+            let to = setTimeout(()=>{
+                to = null;
+                console.error("failed to check old connection.. assuming it's dead");
                 old.end();
-            } else {
-                logger.info("reusing ssh(cqueue) connection for %s (queue size:%d) (connected:%s)", id, old.queue.length, old.connected);
-                //TODO - should I check to make sure if the connection is still good? then we don't have to
-                //close the old connection just because it's old?
-                return cb(null, old);
-            }
-            */
-
-            //test the old connection to make sure it still works..
-            //if not, open a news one
-            //TODO - need to set timeout?
+                delete ssh_conns[id];
+                exports.get_ssh_connection(resource, opts, cb);
+            }, 1000*5);
             old.exec("true", (err, stream)=>{
+                if(!to) return; //already timed out
+                clearTimeout(to);
                 if(err) {
-                    //no longer working.. we should reconnect
+                    console.debug("old connection doesn't work anymore.. reconnecting");
                     old.end();
                     delete ssh_conns[id];
-                    exports.get_ssh_connection(resource, opts, cb); //try again..
+                    exports.get_ssh_connection(resource, opts, cb);
                 } else {
+                    console.debug("reusing old connection")
                     return cb(null, old);
                 }
             });
@@ -221,7 +217,6 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         cb = null;
     }, 1000*30);
 
-    //const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', ()=>{
         if(!connection_timeout) return; //already timed out
@@ -235,15 +230,17 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         cb = null;
     });
     conn.on('end', ()=>{
-        logger.info("ssh connection ended .. %s", id);
+        console.log("ssh socket disconnected", id);
         delete ssh_conns[id];
     });
     conn.on('close', ()=>{
-        logger.info("ssh connection closed .. %s", id);
+        logger.info("ssh socket closed", id);
         delete ssh_conns[id];
     });
+
+    //assume error only happens before ready?
     conn.on('error', err=>{
-        if(!connection_timeout) return; //already timed out
+        if(!connection_timeout) return; //already timed out (don't care about this error anymore)
         clearTimeout(connection_timeout);
 
         logger.error("ssh connectionn error(%s) .. %s", err, id);
@@ -366,7 +363,7 @@ exports.get_sftp_connection = function(resource, cb) {
     var old = sftp_conns[id];
     if(old) {
         if(old.connecting) {
-            logger.info("waiting for connecting sftp .. %s", id);
+            console.debug("waiting for already connecting sftp .. %s", id);
             return setTimeout(()=>{
                 exports.get_sftp_connection(resource, cb);
             }, 1000);

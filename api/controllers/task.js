@@ -460,7 +460,7 @@ router.get('/download/:taskid/*', jwt({
  *                              Upload File (DEPRECATED - use upload2 with FormData/multipart)
  * @apiDescription              Upload a file to specified task on a specified path (task will be locked afterward)
  *
- * @apiParam {String} [p]       File/directory path to download (relative to task directory. Use encodeURIComponent() to escape non URL characters
+ * @apiParam {String} [p]       File/directory path to upload to (relative to task directory. Use encodeURIComponent() to escape non URL characters
  *
  * @apiHeader {String} authorization
  *                              A valid JWT token "Bearer: xxxxx"
@@ -501,11 +501,13 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
                             console.info("fullpath",fullpath);
                             sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
+                                /*
                                 //just in case..
                                 req.on('close', ()=>{
                                     console.error("request closed........ closing sftp stream also");
                                     write_stream.close();
                                 });
+                                */
 
                                 var pipe = req.pipe(write_stream);
                                 pipe.on('close', function() {
@@ -513,12 +515,13 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
 
                                     //this is an undocumented feature to exlode uploade tar.gz
                                     if(req.query.untar) {
-                                        console.info("tar xzf-ing");
 
                                         //is this secure enough?
                                         let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
                                             "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
                                             "rm '"+path.basename(fullpath).addSlashes()+"'";
+
+                                        console.debug(cmd);
                                         
                                         conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
@@ -678,12 +681,11 @@ function mkdirp(conn, dir, cb) {
     console.info("mkdir -p "+dir);
     conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
         if(err) return cb(err);
-        stream.on('end', function(data) {
+        stream.on('end', data=>{
             console.info("mkdirp done");
-            console.info(data);
             cb();
         });
-        stream.on('data', function(data) {
+        stream.on('data', data=>{
             console.error(data.toString());
         });
     });
@@ -1052,13 +1054,6 @@ router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         });
     });
 });
-
-//bulk action
-
-/*
- * stop all and remove
- * db.getCollection('tasks').update({_group_id: 307, status: "requested"}, {$set: {status: "stopped", remove_date: new Date()}, $unset: {next_date: 1}}, {multi: true})
-*/
 
 module.exports = router;
 

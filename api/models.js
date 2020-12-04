@@ -264,7 +264,7 @@ var taskSchema = mongoose.Schema({
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)
     request_count: {type: Number, default: 0 },
-});
+}, {minimize: false}); //don't let empty config({}) disappeare
 
 taskSchema.post('save', events.task);
 taskSchema.post('findOneAndUpdate', events.task);
