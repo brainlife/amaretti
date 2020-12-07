@@ -1,0 +1,14 @@
+db.getCollection('tasks').aggregate(
+   [
+      {
+        $match: {service: {$nin: ["soichih/sca-product-raw"]}}
+      },
+      {
+        $group : {
+           _id : {user_id: "$user_id", service: "$service"},
+           count: { $sum: 1 }
+        }
+      }
+   ]
+)
+
