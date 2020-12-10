@@ -190,7 +190,7 @@ function score_resource(user, resource, task, cb) {
         }
 
         msg += "resource is "+Math.round(fullness*100)+"% occupied\n";
-        cb(null, score, {running, msg, fullness});
+        cb(null, score, {running, msg, maxtask, fullness});
     });
 }
 
