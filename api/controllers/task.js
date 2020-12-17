@@ -118,11 +118,15 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
     let service = req.query.service;
     //TODO should I hide hidden service?
 
+    const select = '_id user_id _group_id service service_branch '+
+                   'status status_msg create_date request_date '+
+                   'start_date finish_date fail_date resource_id ';
+
     let current = await db.Task.find({
         service,
         status: {$in: ["requested", "running", "running_sync"]},
     }).lean()
-    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .select(select)
     .sort({create_date: -1})
     .limit(30)
     .exec()
@@ -131,7 +135,7 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
         service,
         status: {$in: ["finished", "failed", /*"removed"*/]},
     }).lean()
-    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .select(select)
     .sort({create_date: -1})
     .limit(20)
     .exec()

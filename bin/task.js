@@ -188,7 +188,7 @@ function handle_housekeeping(task, cb) {
                             t = null; 
                             logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
                             next_resource();
-                        }, 5000); 
+                        }, 2500); 
                         sftp.readdir(taskdir, function(err, files) {
                             if(!t) return; //timeout already called
 
