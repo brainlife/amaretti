@@ -121,7 +121,7 @@ exports.task = function(task) {
         //to normalize the field type, let's load the record from database
         //TODO - can't I just test to see if _id exists for those field and replace them with it?
         db.Task.findById(task._id).lean().exec((err, _task)=>{
-            _task._status_changed = status_changed;
+            //_task._status_changed = status_changed;
 
             /*
             let sub = task.user_id; //TODO task.user_id != req.user.sub.. but for now let's assume that's the case

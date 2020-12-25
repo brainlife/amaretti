@@ -74,9 +74,11 @@ exports.express = {
     port: 12403,
 }
 
+/*
 exports.progress = {
     api: 'https://dev1.soichi.us/api/progress',
 }
+*/
 
 exports.resources = require('./resources');
 

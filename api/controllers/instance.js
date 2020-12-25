@@ -95,14 +95,14 @@ router.put('/:instid', jwt({secret: config.amaretti.auth_pubkey}), function(req,
         if(err) return next(err);
         if(!instance) return next("no such instance, or no access");
 
-        let status_changed = false;
-        if(instance.status != req.body.status) status_changed = true;
+        //let status_changed = false;
+        //if(instance.status != req.body.status) status_changed = true;
 
         //update
         for(let key in req.body) instance[key] = req.body[key];
         instance.save((err, updated_instance)=>{
             if(err) return next(err);
-            instance._status_changed = status_changed;
+            //instance._status_changed = status_changed;
             res.json(instance);
             events.instance(instance);
         });

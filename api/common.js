@@ -564,8 +564,8 @@ exports.update_instance_status = function(instance_id, cb) {
                 logger.error(JSON.stringify(counts, null, 4));
             }
 
-            let status_changed = false;
-            if(instance.status != newstatus) status_changed = true;
+            //let status_changed = false;
+            //if(instance.status != newstatus) status_changed = true;
             
             //create task summary
             if(!instance.config) instance.config = {};
@@ -596,7 +596,7 @@ exports.update_instance_status = function(instance_id, cb) {
             //logger.debug(JSON.stringify(instance.config, null, 4));
 
             let instance_o = instance.toObject();
-            instance_o._status_changed = status_changed;
+            //instance_o._status_changed = status_changed;
             events.instance(instance_o);
         });
     });
