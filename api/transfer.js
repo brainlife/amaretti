@@ -99,7 +99,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
             //include/exclude options - by default, copy everything except .*
             var inexopts = "--exclude=\".*\" ";
-            if(subdirs.length) {
+            if(subdirs && subdirs.length) {
                 inexopts = "";
                 subdirs.forEach(dir=>{
                     inexopts += "--include=\""+dir+"/***\" ";

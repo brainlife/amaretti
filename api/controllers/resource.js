@@ -42,6 +42,7 @@ function is_admin(user) {
 function canedit(user, resource) {
     if(!user) return false;
     if(resource.user_id == user.sub) return true;
+    if(resource.admins.includes(user.sub)) return true;
     if(is_admin(user)) return true;
     return false;
 }
@@ -150,15 +151,6 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
 //return a list of tasks submitted on this resource recently
 //client ui > warehouse/resource.vue
 router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
-    
-    //pull currently running tasks
-    /*
-    let tasks = await db.Task.find({
-        resource_id: req.params.resource_id,
-        status: {$in: ["requested", "running", "running_sync"]},
-    }).lean().select('_id user_id _group_id service service_branch status status_msg create_date start_date').exec()
-    */
-
     //I could also query for requested with start_date set.. but who cares?
     let recent = await db.Task.find({
         resource_id: req.params.resource_id,
@@ -168,18 +160,6 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
     .sort({start_date: 1})
     .limit(100)
     .exec()
-
-    /*
-    let recent = await db.Task.find({
-        resource_id: req.params.resource_id,
-        status: {$in: ["finished", "failed"]},
-    }).lean()
-    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
-    .sort({next_date: -1})
-    .limit(20)
-    .exec()
-    res.json({recent: [...current, ...recent]});
-    */
 
     res.json({recent});
 });
@@ -288,6 +268,7 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
  * @apiParam {Number[]} [gids]  List of groups that can use this resource (only amaretti admin can enter this)
+ * @apiParam {String[]} [admins]  List of subs who can administer this resource
  * @apiParam {Boolean} [active] Set true to enable resource
  *
  * @apiDescription Just create a DB entry for a new resource - it doesn't test resource / install keys, etc..
@@ -326,11 +307,8 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
     //first save..
     resource.save().then(_resource=>{
         //I have to save twice because we can't encrypt enc_ fields without _id set
-        //console.log("dumping _id");
-        //console.log(_resource._id);
         common.encrypt_resource(_resource);
         _resource.markModified('config');
-        //console.log("saving twice");
         return _resource.save();
     }).then(_final_resource=>{
         var resource = _final_resource.toObject();
@@ -356,7 +334,6 @@ router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, 
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end("couldn't find such resource");
-        //if(resource.user_id != req.user.sub) return res.status(401).end("you don't own this resource");
         if(!canedit(req.user, resource)) return res.status(401).end("you don't have access to this resource");
         resource.status = "removed";
         resource.save(err=>{

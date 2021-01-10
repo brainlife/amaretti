@@ -25,7 +25,7 @@ let resourceSyncCount = {};
 
 db.init(function(err) {
     if(err) throw err;
-    logger.debug("db-initialized");
+    console.debug("db-initialized");
     check(); //start check loop
 });
 
@@ -35,11 +35,11 @@ function set_nextdate(task) {
     case "failed":
     case "finished":
     case "stopped":
-        task.next_date = new Date(Date.now()+1000*3600*36);
+        task.next_date = new Date(Date.now()+1000*3600*36); //1.5 days
         break;
 
     case "running":
-        if(!task.start_date) console.error("status is set to running but no start_date set.. this shouldn't happen (but it did once) investigate!", task._id.toString());
+        if(!task.start_date) console.error("status is set to running but no start_date set.. this shouldn't happen (but it happens!) investigate!", task._id.toString());
     case "stop_requested":
         var elapsed = 0;
         if(task.start_date) elapsed = Date.now() - task.start_date.getTime(); 
@@ -82,7 +82,7 @@ function check(cb) {
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
-            logger.debug("nothing to do.. sleeping..");
+            console.debug("nothing to do.. sleeping..");
             return setTimeout(check, 1000); 
         }
 
@@ -117,6 +117,7 @@ function check(cb) {
         }
 
         let previous_status = task.status;
+        task.handle_date = new Date(); //record the handle date
         handler(task, err=>{
             if(err) logger.error(err); //continue
             task.save(function(err) {
@@ -134,7 +135,7 @@ function check(cb) {
 }
 
 function handle_housekeeping(task, cb) {
-    //logger.debug("houskeeping!");
+    //console.debug("houskeeping!");
     async.series([
         //check to see if taskdir still exists
         //TODO...
@@ -174,7 +175,7 @@ function handle_housekeeping(task, cb) {
                     }
 
                     //all good.. now check to see if taskdir still exists (not purged by resource)
-                    //logger.debug("getting sftp connection for taskdir check:"+resource_id);
+                    //console.debug("getting sftp connection for taskdir check:"+resource_id);
                     common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) {
                             logger.error(err);
@@ -183,7 +184,7 @@ function handle_housekeeping(task, cb) {
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
                         //TODO is it better to use sftp?
-                        logger.debug("querying ls %s", taskdir);
+                        console.debug("querying ls %s", taskdir);
                         var t = setTimeout(function() { 
                             t = null; 
                             logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
@@ -194,14 +195,14 @@ function handle_housekeeping(task, cb) {
 
                             clearTimeout(t);
                             if(err) {
-                                logger.debug(err);
-                                logger.debug("let's assume directory is missing.. TODO - we need to parse the err to see why it failes.");
+                                console.debug(err);
+                                console.debug("let's assume directory is missing.. TODO - we need to parse the err to see why it failes.");
                                 task.resource_ids.pull(resource_id);
                             } else {
                                 //TODO - can I do something useful with files?
-                                logger.debug("taskdir has %d files", files.length);
+                                console.debug("taskdir has %d files", files.length);
                             }
-                            logger.debug("moving to the next resource");
+                            console.debug("moving to the next resource");
                             next_resource();
                         });
                     });
@@ -309,7 +310,7 @@ function handle_requested(task, next) {
     //fail the task if any dependency fails
     //TODO - maybe make this optional based on task option?
     if(failed_deps.length > 0) {
-        logger.debug("dependency failed.. failing this task");
+        console.debug("dependency failed.. failing this task");
         task.status_msg = "Dependency failed.";
         task.status = "failed";
         task.fail_date = new Date();
@@ -318,7 +319,7 @@ function handle_requested(task, next) {
     
     //fail the task if any dependency is removed
     if(removed_deps.length > 0) {
-        logger.debug("dependency removed.. failing this task");
+        console.debug("dependency removed.. failing this task");
         task.status_msg = "Dependency removed.";
         task.status = "failed";
         task.fail_date = new Date();
@@ -335,7 +336,7 @@ function handle_requested(task, next) {
     }
 
     if(!deps_all_done) {
-        logger.debug("dependency not met.. postponing");
+        console.debug("dependency not met.. postponing");
         task.status_msg = "Waiting on dependencies";
         //when dependency finished, it should auto-poke this task. so it's okay for this to be long
         task.next_date = new Date(Date.now()+1000*3600*24); 
@@ -377,7 +378,7 @@ function handle_requested(task, next) {
         task.start_date = new Date();
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-            logger.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
+            console.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
             //TODO - this could cause concurrency issue sometimes (I should try $addToSet?)
             task.resource_ids.push(resource._id);
         }
@@ -549,24 +550,24 @@ function handle_running(task, next) {
                         //remove everything before sca token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
                         out = out.substring(pos+delimtoken.length).trim();
-                        //logger.debug(out);
+                        //console.debug(out);
 
                         switch(code) {
                         case undefined:
-                            logger.debug("status timeout");
+                            console.debug("status timeout");
                             task.stauts_msg = "status unknown (timeout)"; //assume it to be still running..
                             next();
                             break;
                         case 0: //still running
-                            logger.debug("still running");
+                            console.debug("still running");
                             if(out.length > 500) out = "... "+out.substring(out.length - 500); //grab the last N chars if it's too long
                             if(out.length == 0) out = ""; //empty log .. TODO - show something!
                             task.status_msg = out;
                             next();
                             break;
                         case 1: //finished
-                            //I am not sure if I have enough usecases to warrent the automatical retrieval of product.json to task..
-                            logger.debug("finished!");
+                            //I am not sure if I have enough use cases to warrent the automatical retrieval of product.json to task..
+                            console.debug("finished!");
                             load_product(taskdir, resource, async (err, product)=>{
                                 if(err) {
                                     logger.info("failed to load product");
@@ -587,7 +588,7 @@ function handle_running(task, next) {
                             });
                             break;
                         case 2: //job failed
-                            logger.debug("job failed");
+                            console.debug("job failed");
                             task.status = "failed";
                             task.status_msg = out;
                             task.fail_date = new Date();
@@ -619,7 +620,7 @@ function handle_running(task, next) {
 function rerun_child(task, cb) {
     //find all child tasks
     db.Task.find({'deps_config.task': task._id}, (err, tasks)=>{
-        if(tasks.length) logger.debug("rerunning child tasks:"+tasks.length);
+        if(tasks.length) console.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{
             common.rerun_task(_task, null, next_task);
@@ -654,7 +655,7 @@ function start_task(task, resource, considered, cb) {
             envs[key] = resource.envs[key];
         }
 
-        logger.debug("starting task on "+resource.name);
+        console.debug("starting task on "+resource.name);
         async.series([
             
             //query current github commit id
@@ -694,7 +695,7 @@ function start_task(task, resource, considered, cb) {
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
                                 if(code != 0) return next("failed to create taskdir.. code:"+code)
-                                logger.debug("taskdir created");
+                                console.debug("taskdir created");
                                 next();
                             })
                             .on('data', function(data) {
@@ -858,12 +859,12 @@ function start_task(task, resource, considered, cb) {
                                         } else {
                                             //success! let's records new resource_ids and proceed to the next dep
                                             //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
-                                            if(dep.subdirs.length) {
+                                            if(dep.subdirs && dep.subdirs.length) {
                                                 console.debug("partial synced");
                                                 return next_dep();
                                             }
 
-                                            logger.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
+                                            console.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
                                             //tryint $addToSet to see if this could prevent the following issue
                                             //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
                                             db.Task.findOneAndUpdate({_id: dep.task._id}, {
@@ -897,7 +898,7 @@ function start_task(task, resource, considered, cb) {
             //finally, run the service!
             next=>{
                 if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
-                logger.debug("starting service: "+taskdir+"/"+service_detail.start);
+                console.debug("starting service: "+taskdir+"/"+service_detail.start);
 
                 //save status since it might take a while to start
                 task.status_msg = "Starting service";
@@ -1028,7 +1029,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     if(code === undefined) return next("timeout while trying to remove empty app cache directory");
                     if(code == 1) return next(); //no such directory
                     if(code != 0) return next("failed to (try) removing empty directory");
-                    logger.debug("rmdir of app cache successfull.. which means it was empty");
+                    console.debug("rmdir of app cache successfull.. which means it was empty");
                     next(); 
                 })
                 .on('data', data=>{
@@ -1039,15 +1040,15 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 
         //see if app is cached already
         next=>{
-            //logger.debug("checking app_cache %s", app_cache);
+            //console.debug("checking app_cache %s", app_cache);
             conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while checking app_cache");
                     else if(code == 0) {
-                        logger.debug("app cache exists");
+                        console.debug("app cache exists");
                         return cb(null, app_cache);
-                    } else logger.debug("no app cache");
+                    } else console.debug("no app cache");
                     next();
                 })
                 .on('data', function(data) {
@@ -1067,15 +1068,13 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                         let age = new Date().getTime()/1000 - mod_s;
                         logger.warn("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
                         if(age < 60) {
-                            //task.next_date = new Date(Date.now()+1000*600);
-                            //task.status = "Waiting for App to be installed";
-                            logger.warn("will wait..");
+                            console.debug("will wait..");
                             return cb(null, false); //retry later.. maybe it's still getting downloaded
                         }
                         logger.warn("will proceed and override..");
                         next(); //proceed and overwrite..
                     } else {
-                        logger.debug("no app_cache .. proceed with download. code:"+code);
+                        console.debug("no app_cache .. proceed with download. code:"+code);
                         //TODO - it could happen that other download has just began.. might need to do flock?
                         next();
                     }
@@ -1099,7 +1098,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     if(code === undefined) return next("timedout while caching app");
                     else if(code) return next("failed to cache app .. code:"+code);
                     else {
-                        logger.debug("successfully cached app");
+                        console.debug("successfully cached app");
                         next();
                     }
                 })
@@ -1125,7 +1124,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 }
 
 function load_product(taskdir, resource, cb) {
-    logger.debug("loading "+taskdir+"/product.json");
+    console.debug("loading "+taskdir+"/product.json");
     common.get_sftp_connection(resource, function(err, sftp) {
         console.debug("sftp_connection returned");
         if(err) return cb(err);
@@ -1255,7 +1254,7 @@ function health_check() {
 
     ], err=>{
         if(err) return logger.error(err);
-        logger.debug(JSON.stringify(report, null, 4));
+        console.debug(JSON.stringify(report, null, 4));
 
         //send report
         rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));

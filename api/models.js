@@ -74,7 +74,13 @@ exports.Instance = mongoose.model('Instance', instanceSchema);
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 var resourceSchema = mongoose.Schema({
+
+    //sub of the person registered 
     user_id: {type: String, index: true}, 
+
+    //subs of users who should have administrative access for this resource
+    admins: [String],
+
     active: {type: Boolean, default: true},
     name: String, 
     //desc: String, //desc is stored under config.desc for some reason
@@ -188,7 +194,11 @@ var taskSchema = mongoose.Schema({
     //extra task dependency config
     deps_config: [ {
         task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true },
-        subdirs: [String], //subdirs containing required data (rsync will only sync these subdirs if specified
+        //subdirs containing required data (rsync will only sync these subdirs if specified
+        subdirs: {
+            type: [String], 
+            default: undefined,
+        }
     } ], 
 
     //resource dependencies..  (for hpss, it will copy the heytab)
@@ -260,6 +270,8 @@ var taskSchema = mongoose.Schema({
     update_date: Date, //time when this task was last updated (only used by put api?)
     request_date: Date, //time when this task was requested (!=create_date if re-requested)
     remove_date: Date, //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
+
+    handle_date: {type: Date, default: Date.now }, //last time this task was handled by task handler
 
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)

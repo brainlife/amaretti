@@ -776,8 +776,33 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
             });
         }
 
-        //TODO - we should validate this? 
-        task.deps_config = req.body.deps_config;
+        if(req.body.deps_config) {
+            //dedupe while copying deps_config to task.deps_conf
+            //the same task id / subdir combinations from deps_config
+            //TODO - validate?
+            console.debug("req.body.deps_config", req.body.deps_config)
+            task.deps_config = [];
+            req.body.deps_config.forEach(conf=>{
+                let existing = task.deps_config.find(c=>c.task == conf.task);
+                if(existing) {
+                    //merge config
+                    if(conf.subdirs) {
+                        if(existing.subdirs) {
+                            let merged = [...existing.subdirs, ...conf.subdirs];
+                            existing.subdirs = [...new Set(merged)];//dedupe subdirs
+                        }
+                    } else {
+                        //reset subdir as we now need the whole task
+                        existing.subdirs = undefined;
+                    }
+                } else {
+                    task.deps_config.push(conf);
+                }
+            });
+            console.debug("task.deps_config", task.deps_config)
+        }
+
+        //TODO - validate?
         task.preferred_resource_id = req.body.preferred_resource_id;
         task.resource_deps = req.body.resource_deps;
 
