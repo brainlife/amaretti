@@ -204,8 +204,11 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                     exports.get_ssh_connection(resource, opts, cb);
                 } else {
                     console.debug("reusing old connection")
+                    cb(null, old);
+
+                    //to test the theory that old.exec is getting called twice
                     cb = null;
-                    return cb(null, old);
+                    return;
                 }
             });
             return;
