@@ -42,7 +42,7 @@ function is_admin(user) {
 function canedit(user, resource) {
     if(!user) return false;
     if(resource.user_id == user.sub) return true;
-    if(resource.admins.includes(user.sub)) return true;
+    if(resource.admins && resource.admins.includes(user.sub)) return true;
     if(is_admin(user)) return true;
     return false;
 }
