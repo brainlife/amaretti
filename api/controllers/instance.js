@@ -231,6 +231,7 @@ router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, r
         }}
     ]).exec(function(err, counts) {
         if(err) return next(err);
+        delete counts[0]._id; //_id(group id) is not count.. so let's hide it
         res.json(counts);
     });
 });

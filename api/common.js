@@ -201,7 +201,9 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                     console.debug("old connection doesn't work anymore.. reconnecting");
                     old.end();
                     delete ssh_conns[id];
-                    exports.get_ssh_connection(resource, opts, cb);
+                    setTimeout(()=>{
+                        exports.get_ssh_connection(resource, opts, cb);
+                    }, 1000);
                 } else {
                     console.debug("reusing old connection")
                     cb(null, old);
