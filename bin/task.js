@@ -819,9 +819,9 @@ function start_task(task, resource, considered, cb) {
                             //make sure we don't sync too many times from a single resource
                             if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = 0;
                             console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
-                            if(resourceSyncCount[source_resource_id] > 6) {
+                            if(resourceSyncCount[source_resource_id] >= 45) {
                                 task.status_msg = "source resource is busy shipping out data.. waiting";
-                                task.next_date = new Date(Date.now()+1000*60);
+                                task.next_date = new Date(Date.now()+1000*90);
                                 return cb(); //retry
                             }
 

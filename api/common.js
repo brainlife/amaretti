@@ -189,30 +189,44 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 delete ssh_conns[id];
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000*5);
-            old.exec("true", (err, stream)=>{
+            try {
+                old.exec("true", (err, stream)=>{
+                    if(!to) return; //already timed out
+                    clearTimeout(to);
+                    if(err) {
+                        /*
+                        if(!cb) {
+                            console.error("old.exec() called with err set.. but it looks like we already passed this.. maybe exec is calling callback twice? ignoring this - assuming it already worked?")
+                            return;
+                        }
+                        */
+                        console.error(err);
+                        console.debug(new Date(), "old connection doesn't work anymore.. reconnecting");
+                        old.end();
+                        delete ssh_conns[id];
+                        setTimeout(()=>{
+                            exports.get_ssh_connection(resource, opts, cb);
+                        }, 5000);
+                    } else {
+                        console.debug("reusing old connection")
+                        cb(null, old);
+
+                        //to test the theory that old.exec is getting called twice
+                        //cb = null;
+                        //return;
+                    }
+                });
+            } catch (err) {
+                console.error("failed to test connection")
                 if(!to) return; //already timed out
                 clearTimeout(to);
-                if(err) {
-                    if(!cb) {
-                        console.error("old.exec() called with err set.. but it looks like we already passed this.. maybe exec is calling callback twice? ignoring this - assuming it already worked?")
-                        return;
-                    }
-                    console.error(err);
-                    console.debug("old connection doesn't work anymore.. reconnecting");
-                    old.end();
-                    delete ssh_conns[id];
-                    setTimeout(()=>{
-                        exports.get_ssh_connection(resource, opts, cb);
-                    }, 1000);
-                } else {
-                    console.debug("reusing old connection")
-                    cb(null, old);
-
-                    //to test the theory that old.exec is getting called twice
-                    cb = null;
-                    return;
-                }
-            });
+                console.error(err);
+                console.debug(new Date(), "old connection threw exception (not connected anymore?).. reconnecting");
+                delete ssh_conns[id];
+                setTimeout(()=>{
+                    exports.get_ssh_connection(resource, opts, cb);
+                }, 5000);
+            }
             return;
         }
     }
