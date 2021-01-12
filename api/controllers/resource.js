@@ -157,7 +157,7 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
         status: {$nin: ["removed", "stopped"]},
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
-    .sort({start_date: 1})
+    .sort({create_date: -1})
     .limit(100)
     .exec()
 
