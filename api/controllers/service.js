@@ -32,7 +32,6 @@ router.get('/info', jwt({secret: config.amaretti.auth_pubkey/*, credentialsRequi
     let find = {service: req.query.service};
 
     //TODO - should I hide info for private service if user is not member of the project?
-
     db.Serviceinfo.findOne(find)
     .exec(function(err, info) {
         if(err) return next(err);

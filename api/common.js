@@ -189,8 +189,8 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 delete ssh_conns[id];
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000*5);
-            try {
-                old.exec("true", (err, stream)=>{
+            //try {
+                old.execCatch("true", (err, stream)=>{
                     if(!to) return; //already timed out
                     clearTimeout(to);
                     if(err) {
@@ -202,7 +202,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                         */
                         console.error(err);
                         console.debug(new Date(), "old connection doesn't work anymore.. reconnecting");
-                        old.end();
+                        //old.end(); //this causes infinite callback loop
                         delete ssh_conns[id];
                         setTimeout(()=>{
                             exports.get_ssh_connection(resource, opts, cb);
@@ -216,6 +216,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                         //return;
                     }
                 });
+            /*
             } catch (err) {
                 console.error("failed to test connection")
                 if(!to) return; //already timed out
@@ -227,6 +228,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                     exports.get_ssh_connection(resource, opts, cb);
                 }, 5000);
             }
+            */
             return;
         }
     }
@@ -251,6 +253,17 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         const connq = new ConnectionQueuer(conn);
         ssh_conns[id] = connq; //cache
         connq.connected = new Date();
+
+        //ssh2/lib/client.js throws exception if connection is no longer connected
+        //this is just wrapper to catch that and sends it to cb
+        connq.execCatch = (cmd, cb)=>{
+            try {
+                connq.exec(cmd, cb)
+            } catch(err) {
+                cb(err);
+            }
+        }
+
         if(cb) cb(null, connq); //ready!
         cb = null;
     });

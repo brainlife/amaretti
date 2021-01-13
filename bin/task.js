@@ -458,7 +458,7 @@ function handle_stop(task, next) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 console.log("running stop");
-                conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
+                conn.execCatch("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         task.status = "stopped";
@@ -542,7 +542,7 @@ function handle_running(task, next) {
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
                 //console.debug("running status");
-                conn.exec("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
+                conn.execCatch("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
@@ -690,7 +690,7 @@ function start_task(task, resource, considered, cb) {
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
                         console.debug("mkdir/rsync appcache, etc..");
-                        conn.exec("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
+                        conn.execCatch("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
@@ -719,7 +719,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("installing config.json");
-                    conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
+                    conn.execCatch("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
@@ -744,7 +744,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("writing _env.sh");
-                    conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
+                    conn.execCatch("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while writing _env.sh");
@@ -819,9 +819,9 @@ function start_task(task, resource, considered, cb) {
                             //make sure we don't sync too many times from a single resource
                             if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = 0;
                             console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
-                            if(resourceSyncCount[source_resource_id] >= 45) {
-                                task.status_msg = "source resource is busy shipping out data.. waiting";
-                                task.next_date = new Date(Date.now()+1000*90);
+                            if(resourceSyncCount[source_resource_id] >= 5) {
+                                task.status_msg = "source resource is busy shipping out other data.. waiting";
+                                task.next_date = new Date(Date.now()+1000*60);
                                 return cb(); //retry
                             }
 
@@ -908,7 +908,7 @@ function start_task(task, resource, considered, cb) {
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
                         console.log("writing _env.sh(run)");
-                        conn.exec("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
+                        conn.execCatch("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
@@ -956,7 +956,7 @@ function start_task(task, resource, considered, cb) {
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
                         console.log("writing _env.sh(run-sync)");
-                        conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
+                        conn.execCatch("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             
                             //20 seconds too short to validate large dwi by validator-neuro-track
@@ -1006,7 +1006,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //make sure appcache parent directory exists
         next=>{
             let app_cache_dir = path.dirname(app_cache);
-            conn.exec("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
+            conn.execCatch("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while creating appcache directory");
@@ -1023,7 +1023,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //see if app cache directory is not empty (purged?)
         //TODO - what was the point of this?
         next=>{
-            conn.exec("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
+            conn.execCatch("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while trying to remove empty app cache directory");
@@ -1041,7 +1041,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //see if app is cached already
         next=>{
             //console.debug("checking app_cache %s", app_cache);
-            conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
+            conn.execCatch("timeout 30 ls "+app_cache, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while checking app_cache");
@@ -1052,14 +1052,15 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     next();
                 })
                 .on('data', function(data) {
-                    logger.info(data.toString());
+                    //too verbose..
+                    //logger.info(data.toString());
                 });
             });
         },
 
         //check to see if other process is already downloading a cache
         next=>{
-            conn.exec("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
+            conn.execCatch("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
@@ -1091,7 +1092,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //cache app and unzip, and unwind
         next=>{
             logger.info("caching app %s", app_cache+".zip");
-            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
+            conn.execCatch("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
                     //TODO - should I remove the partially downloaded zip?
