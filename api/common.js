@@ -160,7 +160,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname, opts});
 
-    console.debug("get_ssh__connection:", id);
+    console.debug("get_ssh_connection:", id);
     
     //see if we already have an active ssh session
     const old = ssh_conns[id];
@@ -181,7 +181,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
             }
         } else {
             //test the old connection to make sure it still works.. if not, open a new one
-            console.log("testing old connection")
+            //console.log("testing old connection")
             let to = setTimeout(()=>{
                 to = null;
                 console.error("failed to check old connection.. assuming it's dead");
@@ -208,7 +208,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                             exports.get_ssh_connection(resource, opts, cb);
                         }, 5000);
                     } else {
-                        console.debug("reusing old connection")
+                        //console.debug("reusing old connection")
                         cb(null, old);
 
                         //to test the theory that old.exec is getting called twice
@@ -264,8 +264,12 @@ exports.get_ssh_connection = function(resource, opts, cb) {
             }
         }
 
-        if(cb) cb(null, connq); //ready!
-        cb = null;
+        if(cb) {
+            cb(null, connq); //ready!
+            cb = null;
+        } else {
+            console.error("ssh2 client connection is ready but cb() is already called..")
+        }
     });
     conn.on('end', ()=>{
         console.log("ssh socket disconnected", id);

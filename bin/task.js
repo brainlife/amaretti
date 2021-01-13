@@ -662,12 +662,16 @@ function start_task(task, resource, considered, cb) {
             next=>{
                 _service.get_sha(service, task.service_branch, (err, ref)=>{
                     if(err) {
-                        logger.error("failed to obtain commit id from github.. maybe service/branch no longer exists?");
+                        console.error("failed to obtain commit id from github.. maybe service/branch no longer exists?");
                         console.error(err);
                         //return next(err); //can't convert to string?
                         return next("failed to get commit id from github. Did service/branch name change?");
                     }
-                    //console.log(ref.sha);
+                    if(!ref) {
+                        console.error("failed to obtain sha from github")
+                        console.error(ref);
+                        return next("failed to get sha of app from githb.")
+                    }
                     task.commit_id = ref.sha;
                     next();
                 });
