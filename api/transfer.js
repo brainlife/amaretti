@@ -24,7 +24,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             common.get_ssh_connection(dest_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
-                conn.execCatch("timeout 20 mkdir -p "+dest_path, (err, stream)=>{
+                conn.exec("timeout 20 mkdir -p "+dest_path, (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while mkdir -p "+dest_path);
@@ -48,7 +48,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
                 //https://unix.stackexchange.com/questions/34248/how-can-i-find-broken-symlinks
-                conn.execCatch("timeout 30 find "+source_path+" -type l ! -exec test -e {} \\; -delete", (err, stream)=>{
+                conn.exec("timeout 30 find "+source_path+" -type l ! -exec test -e {} \\; -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
                         if(code === undefined) return next("timedout while removing broken symlinks on source");
@@ -123,7 +123,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     if(err) return next(err); 
                     let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
                     console.debug(cmd);
-                    conn.execCatch(cmd, (err, stream)=>{
+                    conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
                         let progress_date = new Date();

@@ -12,9 +12,50 @@ const child_process = require('child_process');
 const ps = require('ps-node');
 
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const events = require('./events');
+
+//override ConnectionQueuer for temporary exception catch fix
+ConnectionQueuer.prototype.start = function () {
+  var self = this;
+  if (!this.running) {
+    this.running = true;
+    this.interval = setInterval(function () {
+      if(self.counter > 0) {
+        var saux = self.queue.shift();
+        if (self.queue.length < 1) {
+          self.stop();
+        }
+        if (saux !== undefined) {
+          self.counter--;
+          try {
+              self.connection.exec(saux.cmd, saux.options, function (err, stream) {
+                if (err) {
+                  self.counter++;
+                } else {
+                  stream.on('exit', function (code, signal) {
+                    self.counter++;
+                  });
+                }
+                if (saux.callback !== undefined) {
+                  saux.callback(err, stream);
+                }
+              });
+          } catch (err) {
+            self.counter++;
+            console.error(err);
+            if (saux.callback !== undefined) {
+              saux.callback(err);
+            }
+          }
+        }
+      } else {
+        debug('Queueing...'.yellow);
+      }
+    }, 100);
+  }
+};
+
 
 //http://locutus.io/php/strings/addslashes/
 //http://locutus.io/php/addslashes/
@@ -29,7 +70,7 @@ ps.lookup({
     if(err) throw err;
     list.forEach(p=>{
         if(p.ppid == "1") {
-            logger.info("killing orphaned ssh-agent");
+            console.log("killing orphaned ssh-agent");
             console.dir(p);
             process.kill(p.pid);
         }
@@ -50,41 +91,31 @@ process.on('exit', ()=>{
 
 exports.create_sshagent = function(key, cb) {
     let auth_sock = "/tmp/"+Math.random()+"."+Math.random()+"."+Math.random()+".ssh-agent.sock";
-    logger.debug("spawning(-D).. ssh-agent for %s", auth_sock);
+    console.debug("spawning(-D).. ssh-agent for %s", auth_sock);
     let agent = child_process.spawn("ssh-agent", ["-D", "-a", auth_sock]);
     agent.stdout.on('data', data=>{
-        logger.debug(data);
+        console.debug(data);
     });
     agent.stderr.on('data', data=>{
-        logger.error(data);
+        console.error(data);
     });
     agent.on('exit', code=>{
-        logger.debug("ssh-agent exited %d %s (as it should)", code, auth_sock);
+        console.debug("ssh-agent exited %d %s (as it should)", code, auth_sock);
     });
 
     //I need to give a bit of time for sshagent to start 
     setTimeout(()=>{
         //this throws if ssh agent isn't running, but try/catch won't catch.. 
         //https://github.com/joyent/node-sshpk-agent/issues/11
-        //"expires" in seconds (10 seconds seems to be too short..)
-        //TODO - I am not sure if 60 seconds is enough, or that extending it would fix the problem.
-        //    [rsync]
-        //    Permission denied (publickey).
-        //    sync: connection unexpectedly closed (0 bytes received so far) [receiver]
-        //common.sshagent_add_key(privkey, {expires: 60}, next);  
-        let client = new sshagent.Client({socketPath: auth_sock});
-
-        /* I get.. "SSH agent does not support RFC extension"
-        client.listExtensions((err, extensions)=>{
-            if(err) logger.error(err);
-            console.log("----------------listExtensions");
-            console.dir(extensions);
-        });
-        */
-        client.addKey(key, /*{expires: 0},*/ err=>{
-            cb(err, agent, client, auth_sock, key);
-        });
-    }, 1000);
+        try {
+            let client = new sshagent.Client({socketPath: auth_sock});
+            client.addKey(key, /*{expires: 0},*/ err=>{
+                cb(err, agent, client, auth_sock, key);
+            });
+        } catch (err) {
+            cb(err);
+        }
+    }, 1500);
 }
 
 //connect to redis - used to store various shared caches
@@ -132,7 +163,7 @@ exports.encrypt_resource = function(resource) {
 //TODO crypto could throw execption - but none of the client are handling it.. 
 exports.decrypt_resource = function(resource) {
     if(resource.decrypted) {
-        logger.info("resource already decrypted");
+        console.log("resource already decrypted");
         return;
     }
     for(var k in resource.config) {
@@ -190,7 +221,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000*5);
             //try {
-                old.execCatch("true", (err, stream)=>{
+                old.exec("true", (err, stream)=>{
                     if(!to) return; //already timed out
                     clearTimeout(to);
                     if(err) {
@@ -236,7 +267,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     ssh_conns[id] = {connecting: true, create_date: new Date()};
 
     //open new connection
-    logger.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
+    console.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
     let connection_timeout = setTimeout(()=>{
         connection_timeout = null;
         console.log("ssh connection timeout...");
@@ -249,20 +280,23 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         if(!connection_timeout) return; //already timed out
         clearTimeout(connection_timeout);
 
-        logger.info("ssh connection ready .. %s", id);
+        console.log("ssh connection ready .. %s", id);
         const connq = new ConnectionQueuer(conn);
         ssh_conns[id] = connq; //cache
         connq.connected = new Date();
 
         //ssh2/lib/client.js throws exception if connection is no longer connected
         //this is just wrapper to catch that and sends it to cb
+        /*
         connq.execCatch = (cmd, cb)=>{
             try {
                 connq.exec(cmd, cb)
             } catch(err) {
+                console.error("connectionqueue ssh exec threw error")
                 cb(err);
             }
         }
+        */
 
         if(cb) {
             cb(null, connq); //ready!
@@ -276,7 +310,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         delete ssh_conns[id];
     });
     conn.on('close', ()=>{
-        logger.info("ssh socket closed", id);
+        console.log("ssh socket closed", id);
         delete ssh_conns[id];
     });
 
@@ -285,7 +319,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         if(!connection_timeout) return; //already timed out (don't care about this error anymore)
         clearTimeout(connection_timeout);
 
-        logger.error("ssh connectionn error(%s) .. %s", err, id);
+        console.error("ssh connectionn error(%s) .. %s", err, id);
         delete ssh_conns[id];
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
@@ -342,19 +376,19 @@ function sftp_ref(sftp) {
     function createReadStream(path, cb) {
         //prevent more than 5 concurrent connection (most places only allows up to 8)
         if(sftp._count > 4) {
-            logger.info("waiting sftp._count", sftp._count);
+            console.log("waiting sftp._count", sftp._count);
             return setTimeout(()=>{
                 createReadStream(path, cb);
             }, 3000);
         }
         sftp._count++;
-        logger.debug("createReadStream sftp._count:", sftp._count);
+        console.debug("createReadStream sftp._count:", sftp._count);
         let stream = sftp.createReadStream(path);
 
         //10 minutes isn't enough for azure/vm to send output_fe.mat (1.2G) 
         //(todo). but output_fe.mat could be as big as 6G!
         let stream_timeout = setTimeout(()=>{
-            logger.error("readstream timeout.. force closing");
+            console.error("readstream timeout.. force closing");
             stream.close();
         }, 1000*60*30); 
 
@@ -364,13 +398,13 @@ function sftp_ref(sftp) {
             //'ready' doesn't fire for stream
             //'finish' doesn't fire for stream
             sftp._count--;
-            //logger.debug("createreadstream closed _count:", sftp._count);
+            //console.debug("createreadstream closed _count:", sftp._count);
         });
         cb(null, stream);
     }
 
     function createWriteStream(path, cb) {
-        //logger.debug("createWriteStream", sftp._count);
+        //console.debug("createWriteStream", sftp._count);
         if(sftp._count > 4) {
             return setTimeout(()=>{
                 createWriteStream(path, cb);
@@ -379,12 +413,12 @@ function sftp_ref(sftp) {
         sftp._count++;
         let stream = sftp.createWriteStream(path);
         let stream_timeout = setTimeout(()=>{
-            logger.error("writestream timeout.. force closing");
+            console.error("writestream timeout.. force closing");
             stream.close();
         }, 1000*60*30); 
         stream.on('close', ()=>{
             clearTimeout(stream_timeout);
-            //logger.debug("createwritestream refcount -1");
+            //console.debug("createwritestream refcount -1");
             sftp._count--;
         });
         cb(null, stream);
@@ -413,16 +447,16 @@ exports.get_sftp_connection = function(resource, cb) {
 
         //if connection is too old, close it and open new one
         if(old._count == 0 && (new Date().getTime() - old.connected) > 1000*3600) {
-            logger.info("sftp connection is old.. opening new one %s", id);
+            console.log("sftp connection is old.. opening new one %s", id);
             old.end();
         } else {
-            logger.debug("reusing sftp for resource %s", id);
+            console.debug("reusing sftp for resource %s", id);
             return cb(null, old);
         }
     }
     sftp_conns[id] = {connecting: true};
 
-    logger.debug("opening new sftp connection");
+    console.debug("opening new sftp connection");
     let connection_timeout = setTimeout(()=>{
         connection_timeout = null;
         console.log("ssh connection timeout...");
@@ -430,28 +464,27 @@ exports.get_sftp_connection = function(resource, cb) {
         cb = null;
     }, 1000*30);
 
-    //const detail = config.resources[resource.resource_id];
     const conn = new Client();
     conn.on('ready', function() {
         if(!connection_timeout) return; //already timed out
         clearTimeout(connection_timeout);
 
-        logger.debug("new ssh for sftp connection ready.. opening sftp %s", id);
+        console.debug("new ssh for sftp connection ready.. opening sftp:"+id);
         let t = setTimeout(()=>{
-            logger.error("got ssh connection but not sftp..");
+            console.error("got ssh connection but not sftp..");
             delete sftp_conns[id];
-            if(cb) cb(err);
+            if(cb) cb("got ssh connection but timedout while obtaining sftp:"+id);
             cb = null;
             t = null;
         }, 10*1000); //6sec too short for osgconnect
         conn.sftp((err, sftp)=>{
             if(!t) {
-                logger.error("it timed out while obtaining sftp connection.. should I close sftp connection?");
+                console.error("it timed out while obtaining sftp connection.. should I close sftp connection?");
                 return; //timed out already
             }
             clearTimeout(t);
             if(err) {
-                logger.error(err);
+                console.error(err);
                 if(cb) cb(err);
                 cb = null;
                 return;
@@ -464,19 +497,18 @@ exports.get_sftp_connection = function(resource, cb) {
         });
     });
     conn.on('end', function() {
-        logger.debug("sftp connection ended %s", id);
+        console.debug("sftp connection ended %s", id);
         delete sftp_conns[id];
     });
     conn.on('close', function() {
-        logger.debug("sftp connection closed %s", id);
+        console.debug("sftp connection closed %s", id);
         delete sftp_conns[id];
     });
     conn.on('error', function(err) {
         if(!connection_timeout) return; //already timed out
         clearTimeout(connection_timeout);
 
-        logger.error("sftp connectionn error(%s) .. %s", err, id);
-        //console.error(sftp_conns[id]);
+        console.error("sftp connectionn error(%s) .. %s", err, id);
         delete sftp_conns[id];
 
         //we want to return connection error to caller, but error could fire after ready event is called. 
@@ -602,8 +634,8 @@ exports.update_instance_status = function(instance_id, cb) {
             else if(counts.stopped > 0) newstatus = "stopped";
 
             if(newstatus == "unknown") {
-                logger.error("can't figure out instance status", instance._id.toString());
-                logger.error(JSON.stringify(counts, null, 4));
+                console.error("can't figure out instance status", instance._id.toString());
+                console.error(JSON.stringify(counts, null, 4));
             }
 
             //let status_changed = false;
@@ -634,8 +666,8 @@ exports.update_instance_status = function(instance_id, cb) {
             instance.update_date = new Date();
             instance.save(cb);
 
-            //logger.debug("updating instance status");
-            //logger.debug(JSON.stringify(instance.config, null, 4));
+            //console.debug("updating instance status");
+            //console.debug(JSON.stringify(instance.config, null, 4));
 
             let instance_o = instance.toObject();
             //instance_o._status_changed = status_changed;
@@ -674,7 +706,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         if(count > 0) {
             //TODO - rerunning task with active deps might not be always bad - if the tasks are in different resource.
             //let's not veto this completely.. I need to think more
-            logger.warn("rerunning task with active deps - it might make the deps fail");
+            console.log("rerunning task with active deps - it might make the deps fail");
             //return cb("Can't rerun this task as it has dependent tasks that are currrently running.");
         }
 
@@ -685,7 +717,7 @@ exports.rerun_task = function(task, remove_date, cb) {
         else if(task.remove_date) {
             var diff = task.remove_date - task.request_date;
             if(diff < 0) {
-                logger.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
+                console.error("remove_date is before request_date.. unsetting remove_date..  this shouldn't happen but it does.. investigate");
                 task.remove_date = undefined;
             } else {
                 task.remove_date = new Date();

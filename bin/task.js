@@ -387,7 +387,7 @@ function handle_requested(task, next) {
             start_task(task, resource, considered, err=>{
                 if(err) {
                     //permanently failed to start (or running_sync failed).. mark the task as failed
-                    logger.error([task._id.toString(), err]);
+                    console.error("start_task failed. taskid:", task._id.toString(), err);
                     task.status = "failed";
                     task.status_msg = err;
                     task.fail_date = new Date();
@@ -398,7 +398,7 @@ function handle_requested(task, next) {
 
                 //check() handles save/update_instance_status, but we are diverging here..
                 task.save(err=>{
-                    if(err) logger.error(err);
+                    if(err) console.error(err);
 
                     //if status changes, then let's update instance status also
                     if(task.status != initialState) {
@@ -458,7 +458,7 @@ function handle_stop(task, next) {
                 if(err) return next(err);
                 var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                 console.log("running stop");
-                conn.execCatch("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
+                conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.stop+"\"", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', function(code, signal) {
                         task.status = "stopped";
@@ -541,8 +541,7 @@ function handle_running(task, next) {
                 
                 //delimite output from .bashrc to _status.sh so that I can grab a clean status.sh output
                 var delimtoken = "=====WORKFLOW====="; 
-                //console.debug("running status");
-                conn.execCatch("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
+                conn.exec("timeout 10 bash -c \"cd "+taskdir+" && source _env.sh && echo '"+delimtoken+"' && "+service_detail.status+"\"", (err, stream)=>{
                     if(err) return next(err);
                     //common.set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
@@ -694,7 +693,7 @@ function start_task(task, resource, considered, cb) {
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
                         console.debug("mkdir/rsync appcache, etc..");
-                        conn.execCatch("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
+                        conn.exec("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
@@ -723,7 +722,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("installing config.json");
-                    conn.execCatch("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
+                    conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
@@ -748,7 +747,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("writing _env.sh");
-                    conn.execCatch("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
+                    conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while writing _env.sh");
@@ -912,7 +911,7 @@ function start_task(task, resource, considered, cb) {
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
                         console.log("writing _env.sh(run)");
-                        conn.execCatch("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
+                        conn.exec("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
@@ -960,7 +959,7 @@ function start_task(task, resource, considered, cb) {
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
                         console.log("writing _env.sh(run-sync)");
-                        conn.execCatch("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
+                        conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             
                             //20 seconds too short to validate large dwi by validator-neuro-track
@@ -1010,7 +1009,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //make sure appcache parent directory exists
         next=>{
             let app_cache_dir = path.dirname(app_cache);
-            conn.execCatch("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
+            conn.exec("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while creating appcache directory");
@@ -1027,7 +1026,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //see if app cache directory is not empty (purged?)
         //TODO - what was the point of this?
         next=>{
-            conn.execCatch("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
+            conn.exec("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while trying to remove empty app cache directory");
@@ -1045,7 +1044,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //see if app is cached already
         next=>{
             //console.debug("checking app_cache %s", app_cache);
-            conn.execCatch("timeout 30 ls "+app_cache, (err, stream)=>{
+            conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
                     if(code === undefined) return next("timeout while checking app_cache");
@@ -1064,7 +1063,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 
         //check to see if other process is already downloading a cache
         next=>{
-            conn.execCatch("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
+            conn.exec("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
@@ -1096,7 +1095,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //cache app and unzip, and unwind
         next=>{
             logger.info("caching app %s", app_cache+".zip");
-            conn.execCatch("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
+            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
                     //TODO - should I remove the partially downloaded zip?
@@ -1288,14 +1287,11 @@ health_check(); //initial check (I shouldn't do this anymore?)
 */
 
 //missing catch() on Promise will be caught here
+//this doesn't really do anything good
+/*
 process.on('unhandledRejection', (reason, promise) => {
     logger.error("unhandledRejection-------------------");
     logger.error(reason);
-    /*
-    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify({
-        reason,
-    }));
-    */
     process.exit(1);
 });
 
@@ -1303,11 +1299,6 @@ process.on('uncaughtException', (err, origin)=>{
     logger.error("unhandledException-------------------");
     logger.error(err);
     logger.error(origin);
-    /*
-    rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify({
-        err,
-    }));
-    */
     process.exit(1);
 });
-
+*/

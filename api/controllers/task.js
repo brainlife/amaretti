@@ -418,7 +418,7 @@ router.get('/download/:taskid/*', jwt({
                             console.info("running tar via conn_q");
 
                             if(req_closed) return next("request already closed... skipping exec()!");
-                            conn_q.execCatch("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' -hcz *\"", (err, stream)=>{
+                            conn_q.exec("timeout 600 bash -c \"cd \""+fullpath.addSlashes()+"\" && tar --exclude='.*' -hcz *\"", (err, stream)=>{
                                 if(err) return next(err);
                                 if(req_closed) return stream.close();
                                 req.on('close', ()=>{
@@ -527,7 +527,7 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
 
                                         //console.debug(cmd);
                                         
-                                        conn_q.execCatch("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
+                                        conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
                                             //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                             stream.on('end', function() {
@@ -647,7 +647,7 @@ router.post('/upload2/:taskid', jwt({secret: config.amaretti.auth_pubkey}), uplo
                                             "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
                                             "rm '"+path.basename(fullpath).addSlashes()+"'";
                                         
-                                        conn_q.execCatch("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
+                                        conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
                                             //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                             stream.on('end', function() {
@@ -683,7 +683,7 @@ router.post('/upload2/:taskid', jwt({secret: config.amaretti.auth_pubkey}), uplo
 //TODO - should use sftp/mkdir ?
 function mkdirp(conn, dir, cb) {
     console.info("mkdir -p "+dir);
-    conn.execCatch("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
+    conn.exec("mkdir -p \""+dir.addSlashes()+"\"", {}, function(err, stream) {
         if(err) return cb(err);
         stream.on('end', data=>{
             console.info("mkdirp done");
