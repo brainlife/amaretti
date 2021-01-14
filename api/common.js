@@ -50,7 +50,7 @@ ConnectionQueuer.prototype.start = function () {
           }
         }
       } else {
-        debug('Queueing...'.yellow);
+        console.debug('Queueing...');
       }
     }, 100);
   }
@@ -107,6 +107,7 @@ exports.create_sshagent = function(key, cb) {
     setTimeout(()=>{
         //this throws if ssh agent isn't running, but try/catch won't catch.. 
         //https://github.com/joyent/node-sshpk-agent/issues/11
+        //https://github.com/joyent/node-sshpk-agent/issues/24
         try {
             let client = new sshagent.Client({socketPath: auth_sock});
             client.addKey(key, /*{expires: 0},*/ err=>{
@@ -191,7 +192,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname, opts});
 
-    console.debug("get_ssh_connection:", id);
+    //console.debug("get_ssh_connection:", id);
     
     //see if we already have an active ssh session
     const old = ssh_conns[id];
@@ -267,7 +268,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     ssh_conns[id] = {connecting: true, create_date: new Date()};
 
     //open new connection
-    console.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
+    //console.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
     let connection_timeout = setTimeout(()=>{
         connection_timeout = null;
         console.log("ssh connection timeout...");

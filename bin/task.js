@@ -13,13 +13,11 @@ const deepmerge = require('deepmerge');
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');
 const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
-
 
 let resourceSyncCount = {};
 
@@ -55,12 +53,12 @@ function set_nextdate(task) {
         break;
 
     case "running_sync":
-        logger.warn("don't know how to set next_date for running_sync..");
+        console.log("don't know how to set next_date for running_sync..");
         //TODO - maybe fail the task if it's running too long?
         task.next_date = new Date(Date.now()+1000*3600); 
         break;
     default:
-        logger.warn(["don't know how to calculate next_date for status",task.status," -- setting to 1hour"]);
+        console.log(["don't know how to calculate next_date for status",task.status," -- setting to 1hour"]);
         task.next_date = new Date(Date.now()+1000*3600); 
     }
 }
@@ -119,14 +117,14 @@ function check(cb) {
         let previous_status = task.status;
         task.handle_date = new Date(); //record the handle date
         handler(task, err=>{
-            if(err) logger.error(err); //continue
+            if(err) console.error(err); //continue
             task.save(function(err) {
-                if(err) logger.error(err); //continue..
+                if(err) console.error(err); //continue..
 
                 //if task status changed, update instance status also
                 if(task.status == previous_status) return check(); //no change
                 common.update_instance_status(task.instance_id, err=>{
-                    if(err) logger.error(err);
+                    if(err) console.error(err);
                     check();
                 });
             });
@@ -152,7 +150,7 @@ function handle_housekeeping(task, cb) {
             minage.setDate(minage.getDate() - 10); 
             var check_date = task.finish_date || task.fail_date;
             if(!check_date || check_date > minage) {
-                logger.info("skipping missing task dir check - as this task is too fresh");
+                console.log("skipping missing task dir check - as this task is too fresh");
                 return next();
             }
 
@@ -160,11 +158,11 @@ function handle_housekeeping(task, cb) {
             async.each(task.resource_ids, function(resource_id, next_resource) {
                 db.Resource.findById(resource_id, function(err, resource) {
                     if(err) {
-                        logger.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
+                        console.error("failed to find resource_id:"+resource_id.toString()+" for taskdir check will try later");
                         return next_resource(err);
                     }
                     if(!resource || resource.status == 'removed') {
-                        logger.info("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" is removed.. assuming task dir to be gone");
+                        console.log("can't check taskdir for task_id:"+task._id.toString()+" because resource_id:"+resource_id.toString()+" is removed.. assuming task dir to be gone");
                         
                         task.resource_ids.pull(resource_id);
                         return next_resource();
@@ -178,7 +176,7 @@ function handle_housekeeping(task, cb) {
                     //console.debug("getting sftp connection for taskdir check:"+resource_id);
                     common.get_sftp_connection(resource, function(err, sftp) {
                         if(err) {
-                            logger.error(err);
+                            console.error(err);
                             return next_resource(); //maybe a temp. resource error?
                         }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
@@ -187,7 +185,7 @@ function handle_housekeeping(task, cb) {
                         console.debug("querying ls %s", taskdir);
                         var t = setTimeout(function() { 
                             t = null; 
-                            logger.error("timed out while trying to ls "+taskdir+" assuming it still exists");
+                            console.error("timed out while trying to ls "+taskdir+" assuming it still exists");
                             next_resource();
                         }, 2500); 
                         sftp.readdir(taskdir, function(err, files) {
@@ -209,7 +207,7 @@ function handle_housekeeping(task, cb) {
                 });
             }, err=>{
                 if(err) {
-                    logger.info(err); //continue
+                    console.log(err); //continue
                     next();
                 } else {
                     //now.. if we *know* that there are no more resource that has this task, consider it removed
@@ -229,7 +227,7 @@ function handle_housekeeping(task, cb) {
             //check for early remove specified by user
             var now = new Date();
             if(task.remove_date && task.remove_date < now) {
-                logger.info("remove_date is set and task is passed the date");
+                console.log("remove_date is set and task is passed the date");
                 need_remove = true;
             }
 
@@ -278,10 +276,10 @@ function handle_requested(task, next) {
     if(task.start_date) {
         let starting_for = now - task.start_date;
         if(starting_for < 1000*3600) {
-            logger.info("job seems to be starting.. "+starting_for);
+            console.log("job seems to be starting.. "+starting_for);
             return next();
         }
-        logger.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
+        console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     }
 
     //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
@@ -365,7 +363,7 @@ function handle_requested(task, next) {
                     let secs = (15*running_count)+Math.min(requested_count, 3600);
                     secs = Math.max(secs, 15); //min 15 seconds
 
-                    logger.info("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
+                    console.log("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
                     next();
                 });
@@ -403,7 +401,7 @@ function handle_requested(task, next) {
                     //if status changes, then let's update instance status also
                     if(task.status != initialState) {
                         common.update_instance_status(task.instance_id, err=>{
-                            if(err) logger.error(err);
+                            if(err) console.error(err);
                         });
                     }
                 });
@@ -418,7 +416,7 @@ function handle_requested(task, next) {
 }
 
 function handle_stop(task, next) {
-    logger.info("handling stop request "+task._id.toString());
+    console.log("handling stop request "+task._id.toString());
 
     //if not yet submitted to any resource, then it's easy
     if(!task.resource_id) {
@@ -430,7 +428,7 @@ function handle_stop(task, next) {
     db.Resource.findById(task.resource_id, function(err, resource) {
         if(err) return next(err);
         if(!resource || resource.status == "removed") {
-            logger.error("can't stop task_id:"+task._id.toString()+" because resource_id:"+task.resource_id+" no longer exists");
+            console.error("can't stop task_id:"+task._id.toString()+" because resource_id:"+task.resource_id+" no longer exists");
             task.status = "stopped";
             task.status_msg = "Couldn't stop cleanly. Resource no longer exists.";
             return next();
@@ -476,9 +474,9 @@ function handle_stop(task, next) {
                         next();
                     })
                     .on('data', function(data) {
-                        logger.info(data.toString());
+                        console.log(data.toString());
                     }).stderr.on('data', function(data) {
-                        logger.info(data.toString());
+                        console.log(data.toString());
                     });
                 });
             });
@@ -497,7 +495,7 @@ function handle_running(task, next) {
     var now = new Date();
     var runtime = now - task.start_date;
     if(task.max_runtime !== undefined && task.max_runtime < runtime) {
-        logger.warn("task running too long.. stopping "+runtime);
+        console.log("task running too long.. stopping "+runtime);
         task.status = "stop_requested";
         task.status_msg = "Runtime exceeded stop date. Stopping";
         task.next_date = undefined;
@@ -527,7 +525,7 @@ function handle_running(task, next) {
         }
         _service.loaddetail(task.service, task.service_branch, (err, service_detail)=>{
             if(err) {
-                logger.error("Couldn't load package detail for service:"+task.service);
+                console.error("Couldn't load package detail for service:"+task.service);
                 return next(err); 
             }
 
@@ -569,7 +567,7 @@ function handle_running(task, next) {
                             console.debug("finished!");
                             load_product(taskdir, resource, async (err, product)=>{
                                 if(err) {
-                                    logger.info("failed to load product");
+                                    console.log("failed to load product");
                                     task.status = "failed";
                                     task.status_msg = err;
                                     task.fail_date = new Date();
@@ -594,12 +592,12 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 3: //status temporarly unknown
-                            logger.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name);
+                            console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name);
                             next();
                             break;
                         default:
                             //TODO - should I mark it as failed? or.. 3 strikes and out rule?
-                            logger.error("unknown return code:"+code+" returned from _status.sh on resource:%s", resource.name);
+                            console.error("unknown return code:"+code+" returned from _status.sh on resource:%s", resource.name);
                             next();
                         }
                     })
@@ -715,7 +713,7 @@ function start_task(task, resource, considered, cb) {
             //install config.json in the taskdir
             next=>{
                 if(!task.config) {
-                    logger.info("no config object stored in task.. skipping writing config.json");
+                    console.log("no config object stored in task.. skipping writing config.json");
                     return next();
                 }
 
@@ -731,9 +729,9 @@ function start_task(task, resource, considered, cb) {
                             else next();
                         })
                         .on('data', function(data) {
-                            logger.info(data.toString());
+                            console.log(data.toString());
                         }).stderr.on('data', function(data) {
-                            logger.info(data.toString());
+                            console.log(data.toString());
                         });
                         stream.write(JSON.stringify(task.config, null, 4));
                         stream.end();
@@ -755,9 +753,9 @@ function start_task(task, resource, considered, cb) {
                             else next();
                         })
                         .on('data', function(data) {
-                            logger.info(data.toString());
+                            console.log(data.toString());
                         }).stderr.on('data', function(data) {
-                            logger.info(data.toString());
+                            console.log(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
 
@@ -774,7 +772,7 @@ function start_task(task, resource, considered, cb) {
                         for(var k in envs) {
                             var v = envs[k];
                             if(typeof v !== 'string') {
-                                logger.warn("skipping non string value:"+v+" for key:"+k);
+                                console.log("skipping non string value:"+v+" for key:"+k);
                                 continue;
                             }
                             var vs = v.replace(/\"/g,'\\"'); //TODO - is this safe enough?
@@ -852,7 +850,7 @@ function start_task(task, resource, considered, cb) {
                                     //"ParallelSaveError: Can't save() the same doc multiple times in parallel. "
                                     function wait_progress_save() {
                                         if(saving_progress) {
-                                            logger.error("waiting for progress task.save()");
+                                            console.error("waiting for progress task.save()");
                                             return setTimeout(wait_progress_save, 500);
                                         }
 
@@ -887,7 +885,7 @@ function start_task(task, resource, considered, cb) {
 
                         //if its already synced, rsyncing is optional, so I don't really care about errors
                         if(~common.indexOfObjectId(dep.task.resource_ids, resource._id)) {
-                            logger.warn("syncing failed.. but we were able to sync before.. proceeding to next dep");
+                            console.log("syncing failed.. but we were able to sync before.. proceeding to next dep");
                             return next_dep();
                         }
 
@@ -928,10 +926,10 @@ function start_task(task, resource, considered, cb) {
 
                             //NOTE - no stdout / err should be received since it's redirected to boot.log
                             stream.on('data', function(data) {
-                                logger.info(data.toString());
+                                console.log(data.toString());
                             });
                             stream.stderr.on('data', function(data) {
-                                logger.info(data.toString());
+                                console.log(data.toString());
                             });
                         });
                     });
@@ -946,7 +944,7 @@ function start_task(task, resource, considered, cb) {
             next=>{
                 if(!service_detail.run) return next(); //not all service uses run (they may use start/status)
 
-                logger.warn("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
+                console.log("running_sync service (deprecate!): "+taskdir+"/"+service_detail.run);
 
                 //need to save now for running_sync (TODO - I should call update instance?
                 task.run++;
@@ -985,9 +983,9 @@ function start_task(task, resource, considered, cb) {
 
                             //NOTE - no stdout / err should be received since it's redirected to boot.log
                             .on('data', function(data) {
-                                logger.info(data.toString());
+                                console.log(data.toString());
                             }).stderr.on('data', function(data) {
-                                logger.info(data.toString());
+                                console.log(data.toString());
                             });
                         });
                     });
@@ -1018,7 +1016,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     } else next("failed to create appcache directory");
                 })
                 .on('data', function(data) {
-                    logger.info(data.toString());
+                    console.log(data.toString());
                 });
             });
         },
@@ -1036,7 +1034,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     next(); 
                 })
                 .on('data', data=>{
-                    logger.info(data.toString());
+                    console.log(data.toString());
                 });
             });
         },
@@ -1056,7 +1054,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 })
                 .on('data', function(data) {
                     //too verbose..
-                    //logger.info(data.toString());
+                    //console.log(data.toString());
                 });
             });
         },
@@ -1070,12 +1068,12 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     if(code === undefined) return next("timeout while checking app cache .zip");
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
-                        logger.warn("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
+                        console.log("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
                         if(age < 60) {
                             console.debug("will wait..");
                             return cb(null, false); //retry later.. maybe it's still getting downloaded
                         }
-                        logger.warn("will proceed and override..");
+                        console.log("will proceed and override..");
                         next(); //proceed and overwrite..
                     } else {
                         console.debug("no app_cache .. proceed with download. code:"+code);
@@ -1084,7 +1082,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     }
                 })
                 .on('data', function(data) {
-                    logger.info(data.toString());
+                    console.log(data.toString());
                     mod_s += data.toString();
                 }).stderr.on('data', function(data) {
                     console.error(data.toString());
@@ -1094,7 +1092,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 
         //cache app and unzip, and unwind
         next=>{
-            logger.info("caching app %s", app_cache+".zip");
+            console.log("caching app %s", app_cache+".zip");
             conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
@@ -1147,8 +1145,8 @@ function load_product(taskdir, resource, cb) {
             stream.on('close', function(code, signal) {
                 if(code) return cb("Failed to retrieve product.json from the task directory - code:",code);
                 if(error_msg) {
-                    logger.info("Failed to load product.json (continuing)");
-                    logger.info(error_msg);
+                    console.log("Failed to load product.json (continuing)");
+                    console.log(error_msg);
                     return cb();
                 }
                 if(product_json.length > 1024*1024) return cb("product.json is too big.. 1MB max (should be around a few kilobytes)");
@@ -1163,10 +1161,10 @@ function load_product(taskdir, resource, cb) {
                     */
                     var product = JSON.parse(product_json.replace(/\bNaN\b/g, "null"));
 
-                    logger.info("successfully loaded product.json");
+                    console.log("successfully loaded product.json");
                     cb(null, product);
                 } catch(e) {
-                    logger.error("Failed to parse product.json (ignoring): "+e.toString());
+                    console.error("Failed to parse product.json (ignoring): "+e.toString());
                     cb();
                 }
             });
@@ -1175,7 +1173,7 @@ function load_product(taskdir, resource, cb) {
 }
 
 async function storeProduct(task, dirty_product) {
-    logger.info("storing product");
+    console.log("storing product");
     product = common.escape_dot(dirty_product);
 
     //for validation task, I need to merge product from the main task 
@@ -1257,7 +1255,7 @@ function health_check() {
         },
 
     ], err=>{
-        if(err) return logger.error(err);
+        if(err) return console.error(err);
         console.debug(JSON.stringify(report, null, 4));
 
         //send report
@@ -1278,7 +1276,7 @@ function health_check() {
 var rcon = redis.createClient(config.redis.port, config.redis.server);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
-    logger.info("connected to redis");
+    console.log("connected to redis");
     setInterval(health_check, 1000*120);
 });
 
@@ -1290,15 +1288,15 @@ health_check(); //initial check (I shouldn't do this anymore?)
 //this doesn't really do anything good
 /*
 process.on('unhandledRejection', (reason, promise) => {
-    logger.error("unhandledRejection-------------------");
-    logger.error(reason);
+    console.error("unhandledRejection-------------------");
+    console.error(reason);
     process.exit(1);
 });
 
 process.on('uncaughtException', (err, origin)=>{
-    logger.error("unhandledException-------------------");
-    logger.error(err);
-    logger.error(origin);
+    console.error("unhandledException-------------------");
+    console.error(err);
+    console.error(origin);
     process.exit(1);
 });
 */

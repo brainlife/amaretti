@@ -94,7 +94,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //we need to use dest_resource's io_hostname if available
             var dest_resource_detail = config.resources[dest_resource.resource_id];
             var dest_hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
-            console.log("ssh to %s", dest_hostname);
+            //console.log("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*
             var inexopts = "--exclude=\".*\" ";
@@ -122,7 +122,6 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 }, (err, conn)=>{
                     if(err) return next(err); 
                     let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
-                    console.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";
@@ -130,7 +129,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         let first = true;
 
                         stream.on('close', (code, signal)=>{
-                            console.debug("stream closed.....................");
+                            //console.debug("stream closed.....................");
 
                             agent.kill(); //I could call agnet.kill as soon as rsync starts, but agent doesn't die until rsync finishes..
                             conn.end(); //need to create new ssh connection each time.. 
@@ -147,7 +146,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             }
                         }).on('data', data=>{
                             if(first) {
-                                console.debug("removing key");
+                                //console.debug("removing key");
                                 client.removeAllKeys({}, err=>{
                                     if(err) console.error(err);
                                 });
