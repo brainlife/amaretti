@@ -91,31 +91,30 @@ process.on('exit', ()=>{
 
 exports.create_sshagent = function(key, cb) {
     let auth_sock = "/tmp/"+Math.random()+"."+Math.random()+"."+Math.random()+".ssh-agent.sock";
-    console.debug("spawning(-D).. ssh-agent for %s", auth_sock);
+    //console.debug("spawning(-D).. ssh-agent for %s", auth_sock);
     let agent = child_process.spawn("ssh-agent", ["-D", "-a", auth_sock]);
     agent.stdout.on('data', data=>{
-        console.debug(data);
+        //console.debug(data);
     });
     agent.stderr.on('data', data=>{
-        console.error(data);
+        console.error(data.toString());
     });
     agent.on('exit', code=>{
-        console.debug("ssh-agent exited %d %s (as it should)", code, auth_sock);
+        //console.debug("ssh-agent exited %d %s (as it should)", code, auth_sock);
     });
 
     //I need to give a bit of time for sshagent to start 
     setTimeout(()=>{
-        //this throws if ssh agent isn't running, but try/catch won't catch.. 
-        //https://github.com/joyent/node-sshpk-agent/issues/11
+        let client = new sshagent.Client({socketPath: auth_sock});
+        client.addKey(key, /*{expires: 0},*/ err=>{
+            cb(err, agent, client, auth_sock, key);
+        });
+        
         //https://github.com/joyent/node-sshpk-agent/issues/24
-        try {
-            let client = new sshagent.Client({socketPath: auth_sock});
-            client.addKey(key, /*{expires: 0},*/ err=>{
-                cb(err, agent, client, auth_sock, key);
-            });
-        } catch (err) {
+        client.on('error', err=>{
+            console.error("create_sshagent", err);
             cb(err);
-        }
+        })
     }, 1500);
 }
 

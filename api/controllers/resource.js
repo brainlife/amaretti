@@ -154,14 +154,22 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
     //I could also query for requested with start_date set.. but who cares?
     let recent = await db.Task.find({
         resource_id: req.params.resource_id,
-        status: {$nin: ["removed", "stopped"]},
+        status: {$nin: ["removed", "stopped", "running"/*, "requested"*/]},
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
     .sort({create_date: -1})
     .limit(100)
     .exec()
+    
+    let running = await db.Task.find({
+        resource_id: req.params.resource_id,
+        status: {$in: ["running", "running_sync"/*, "requested"*/]},
+    }).lean()
+    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .sort({create_date: -1})
+    .exec()
 
-    res.json({recent});
+    res.json({recent, running});
 });
 
 /**

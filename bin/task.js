@@ -376,7 +376,7 @@ function handle_requested(task, next) {
         task.start_date = new Date();
         task.resource_id = resource._id;
         if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-            console.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
+            //console.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
             //TODO - this could cause concurrency issue sometimes (I should try $addToSet?)
             task.resource_ids.push(resource._id);
         }
@@ -592,7 +592,10 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 3: //status temporarly unknown
-                            console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name);
+                            //TODO - I should mark the job as failurer if it's been a long time since last good status output
+                            //of 3 stries and out?
+                            console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name, task.instance_id+"/"+task._id);
+                            conseole.error(out);
                             next();
                             break;
                         default:
@@ -819,7 +822,7 @@ function start_task(task, resource, considered, cb) {
                             
                             //make sure we don't sync too many times from a single resource
                             if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = 0;
-                            console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
+                            //console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
                             if(resourceSyncCount[source_resource_id] >= 5) {
                                 task.status_msg = "source resource is busy shipping out other data.. waiting";
                                 task.next_date = new Date(Date.now()+1000*60);
@@ -832,7 +835,7 @@ function start_task(task, resource, considered, cb) {
                             task.status_msg = msg_prefix;
                             let saving_progress = false;
                             task.save(err=>{
-                                console.log("sync count: ++");
+                                //console.log("sync count: ++");
                                 resourceSyncCount[source_resource_id]++;
 
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
@@ -842,7 +845,7 @@ function start_task(task, resource, considered, cb) {
                                         saving_progress = false;
                                     }); 
                                 }, err=>{
-                                    console.log("sync count: --");
+                                    //console.log("sync count: --");
                                     resourceSyncCount[source_resource_id]--;
                                     
                                     //I have to wait to make sure task.save() in progress finish writing - before moving to
