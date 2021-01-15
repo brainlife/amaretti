@@ -595,7 +595,7 @@ function handle_running(task, next) {
                             //TODO - I should mark the job as failurer if it's been a long time since last good status output
                             //of 3 stries and out?
                             console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name, task.instance_id+"/"+task._id);
-                            conseole.error(out);
+                            console.error(out);
                             next();
                             break;
                         default:
