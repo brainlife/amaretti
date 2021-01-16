@@ -114,7 +114,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             common.decrypt_resource(source_resource);
             var privkey = sshpk.parsePrivateKey(source_resource.config.enc_ssh_private, 'pem');
             common.create_sshagent(privkey, (err, agent, client, auth_sock)=>{
-                if(err) next(err);
+                if(err) return next(err);
                 common.get_ssh_connection(dest_resource, {
                     hostname: dest_hostname,
                     agent: auth_sock,

@@ -818,7 +818,6 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
         //allow admin to override some fields
         if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
             if(req.body.user_id) task.user_id = req.body.user_id;
-            //if(req.body.gids) task.gids = req.body.gids;
             if(req.body.follow_task_id) task.follow_task_id = req.body.follow_task_id;
         }
 
@@ -917,9 +916,13 @@ router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functi
         if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
             //non admin!
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
+
+            //if rerun by non-admin, reset the user_id
+            //if it's admin (like "warehouse"), let's keep the original user_id because it's most likely be done
+            //by some administrative reason
+            task.user_id = req.user.sub; 
         }
 
-        task.user_id = req.user.sub; //overwrite 
         common.rerun_task(task, req.body.remove_date, err=>{
             if(err) return next(err);
             events.publish("task.rerun."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
