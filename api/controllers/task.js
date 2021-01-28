@@ -145,6 +145,16 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
 
 
 //query for task products in batch
+/**
+ * @apiGroup Task
+ * @api {get} /task             Return task products
+ * @apiDescription              Query for tasks and return products for each tasks
+ * @apiParam String[] ids       List of IDS in array (don't stringify)
+ * 
+ * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
+ *
+ * @apiSuccess {Object[]}         List of product objects
+ */
 router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
     let ids = req.query.ids;
     let find = {_id: {$in: ids}};

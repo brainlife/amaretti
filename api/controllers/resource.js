@@ -151,10 +151,10 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
 //return a list of tasks submitted on this resource recently
 //client ui > warehouse/resource.vue
 router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
-    //I could also query for requested with start_date set.. but who cares?
+
     let recent = await db.Task.find({
         resource_id: req.params.resource_id,
-        status: {$nin: ["removed", "stopped", "running"/*, "requested"*/]},
+        status: {$nin: ["removed", "stopped", "running", "running_sync", "requested"]},
     }).lean()
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
     .sort({create_date: -1})
@@ -168,6 +168,18 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
     .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
     .sort({create_date: -1})
     .exec()
+
+    //also look for tasks that are transitioning from requested to running
+    let starting = await db.Task.find({
+        resource_id: req.params.resource_id,
+        status: "requested",
+        start_date: {$exists: true},
+    }).lean()
+    .select('_id user_id _group_id service service_branch status status_msg create_date request_date start_date finish_date fail_date')
+    .sort({create_date: -1})
+    .exec()
+
+    running = [...starting, ...running];
 
     res.json({recent, running});
 });

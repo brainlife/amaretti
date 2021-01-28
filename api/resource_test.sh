@@ -82,8 +82,9 @@ if [ ! $? -eq 0 ]; then
     exit 1
 fi
 
-#let's clean empty appcache directory
-#done in task handler
-#if [ -d appcache ]; then
-#    find appcache -depth -empty -delete
-#fi
+#check workdir free size
+available=$(df . | awk 'NR==2{print $4}')
+if [ $available -lt 10737418 ]; then
+    echo "less than 10 GB left on workdir"
+    df .
+fi

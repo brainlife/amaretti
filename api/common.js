@@ -113,7 +113,7 @@ exports.create_sshagent = function(key, cb) {
         //https://github.com/joyent/node-sshpk-agent/issues/24
         client.on('error', err=>{
             console.error("create_sshagent", err);
-            cb(err);
+            //cb(err);
         })
     }, 1500);
 }
@@ -712,8 +712,9 @@ exports.rerun_task = function(task, remove_date, cb) {
 
         //all good! let's proceed with rerunning
         
-        //let user reset remove_date, or set it based on last relationship between request_date and remove_date
+        //let user reset remove_date, 
         if(remove_date) task.remove_date = remove_date;
+        //or set it based on last relationship between request_date and remove_date
         else if(task.remove_date) {
             var diff = task.remove_date - task.request_date;
             if(diff < 0) {
@@ -722,6 +723,7 @@ exports.rerun_task = function(task, remove_date, cb) {
             } else {
                 task.remove_date = new Date();
                 task.remove_date.setTime(task.remove_date.getTime() + diff); 
+                console.debug("reset remove_date", task.remove_date);
             }
         }
 
