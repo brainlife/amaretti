@@ -694,7 +694,7 @@ function start_task(task, resource, considered, cb) {
                         
                         //TODO - this doesn't copy hidden files (like .gitignore).. it's okay?
                         console.debug("mkdir/rsync appcache, etc..");
-                        conn.exec("timeout 30 mkdir -p "+taskdir+" && timeout 90 rsync -av "+app_cache+"/ "+taskdir, (err, stream)=>{
+                        conn.exec("timeout 10 mkdir -p "+taskdir+" && timeout 120 rsync -a "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("timeout while creating taskdir");
@@ -705,7 +705,7 @@ function start_task(task, resource, considered, cb) {
                             .on('data', function(data) {
                                 //console.log(data.toString());
                             }).stderr.on('data', function(data) {
-                                //console.error(data.toString());
+                                console.error(data.toString());
                             });
                         });
 
@@ -723,7 +723,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("installing config.json");
-                    conn.exec("timeout 10 cat > "+taskdir+"/config.json", function(err, stream) {
+                    conn.exec("timeout 15 cat > "+taskdir+"/config.json", function(err, stream) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
@@ -748,7 +748,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     console.log("writing _env.sh");
-                    conn.exec("timeout 10 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
+                    conn.exec("timeout 15 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("timedout while writing _env.sh");
@@ -911,8 +911,7 @@ function start_task(task, resource, considered, cb) {
                     //BigRed2 seems to have AcceptEnv disabled in sshd_config - so I can't pass env via exec
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
-                        console.log("writing _env.sh(run)");
-                        conn.exec("timeout 30 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
+                        conn.exec("timeout 45 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.start+" >> start.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
@@ -960,7 +959,7 @@ function start_task(task, resource, considered, cb) {
                     common.get_ssh_connection(resource, (err, conn)=>{
                         if(err) return next(err);
                         console.log("writing _env.sh(run-sync)");
-                        conn.exec("timeout 60 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
+                        conn.exec("timeout 90 bash -c \"cd "+taskdir+" && source _env.sh && "+service_detail.run+" > run.log 2>&1\"", (err, stream)=>{
                             if(err) return next(err);
                             
                             //20 seconds too short to validate large dwi by validator-neuro-track

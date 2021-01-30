@@ -231,6 +231,10 @@ router.get('/count', jwt({secret: config.amaretti.auth_pubkey}), function(req, r
         }}
     ]).exec(function(err, counts) {
         if(err) return next(err);
+
+        //TODO - should I cure the root cause?
+        if(counts == 0) return next("Instance.aggregate didn't return any count");
+
         delete counts[0]._id; //_id(group id) is not count.. so let's hide it
         res.json(counts);
     });
