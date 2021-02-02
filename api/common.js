@@ -15,6 +15,7 @@ const config = require('../config');
 const db = require('./models');
 const events = require('./events');
 
+/* patched on git@github.com:soichih/ssh2-multiplexer.git
 //override ConnectionQueuer for temporary exception catch fix
 ConnectionQueuer.prototype.start = function () {
   var self = this;
@@ -55,7 +56,7 @@ ConnectionQueuer.prototype.start = function () {
     }, 100);
   }
 };
-
+*/
 
 //http://locutus.io/php/strings/addslashes/
 //http://locutus.io/php/addslashes/
@@ -191,8 +192,6 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     const hostname = resource.config.hostname;// || detail.hostname;
     const id = JSON.stringify({id: resource._id, hostname, opts});
 
-    //console.debug("get_ssh_connection:", id);
-    
     //see if we already have an active ssh session
     const old = ssh_conns[id];
     if(old) {
@@ -204,7 +203,6 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 console.error("connection reuse timeout.. let's open a new one again");    
                 //TODO - how can I abort the open request?
             } else {
-                opts.count++;
                 console.debug("other thread still connecting.. waiting");
                 return setTimeout(()=>{
                     exports.get_ssh_connection(resource, opts, cb);
@@ -220,46 +218,20 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 delete ssh_conns[id];
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000*5);
-            //try {
-                old.exec("true", (err, stream)=>{
-                    if(!to) return; //already timed out
-                    clearTimeout(to);
-                    if(err) {
-                        /*
-                        if(!cb) {
-                            console.error("old.exec() called with err set.. but it looks like we already passed this.. maybe exec is calling callback twice? ignoring this - assuming it already worked?")
-                            return;
-                        }
-                        */
-                        console.error(err);
-                        console.debug(new Date(), "old connection doesn't work anymore.. reconnecting");
-                        //old.end(); //this causes infinite callback loop
-                        delete ssh_conns[id];
-                        setTimeout(()=>{
-                            exports.get_ssh_connection(resource, opts, cb);
-                        }, 5000);
-                    } else {
-                        //console.debug("reusing old connection")
-                        cb(null, old);
-
-                        //to test the theory that old.exec is getting called twice
-                        //cb = null;
-                        //return;
-                    }
-                });
-            /*
-            } catch (err) {
-                console.error("failed to test connection")
+            old.exec("true", (err, stream)=>{
                 if(!to) return; //already timed out
                 clearTimeout(to);
-                console.error(err);
-                console.debug(new Date(), "old connection threw exception (not connected anymore?).. reconnecting");
-                delete ssh_conns[id];
-                setTimeout(()=>{
-                    exports.get_ssh_connection(resource, opts, cb);
-                }, 5000);
-            }
-            */
+                if(err) {
+                    console.error(err);
+                    console.debug(new Date(), "old connection doesn't work anymore.. reconnecting");
+                    delete ssh_conns[id];
+                    setTimeout(()=>{
+                        exports.get_ssh_connection(resource, opts, cb);
+                    }, 5000);
+                } else {
+                    cb(null, old);
+                }
+            });
             return;
         }
     }
@@ -267,10 +239,9 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     ssh_conns[id] = {connecting: true, create_date: new Date()};
 
     //open new connection
-    //console.debug("opening new ssh connection (should connect in 30 seconds).. %s", id);
     let connection_timeout = setTimeout(()=>{
         connection_timeout = null;
-        console.log("ssh connection timeout...");
+        console.error("ssh connection timeout...");
         if(cb) cb("ssh connection timeout");
         cb = null;
     }, 1000*30);
@@ -280,23 +251,10 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         if(!connection_timeout) return; //already timed out
         clearTimeout(connection_timeout);
 
-        console.log("ssh connection ready .. %s", id);
-        const connq = new ConnectionQueuer(conn);
+        console.log("ssh connection ready .. creating connecitonQueuer %s", id);
+        const connq = new ConnectionQueuer(conn, {maxChannels: 8});
         ssh_conns[id] = connq; //cache
         connq.connected = new Date();
-
-        //ssh2/lib/client.js throws exception if connection is no longer connected
-        //this is just wrapper to catch that and sends it to cb
-        /*
-        connq.execCatch = (cmd, cb)=>{
-            try {
-                connq.exec(cmd, cb)
-            } catch(err) {
-                console.error("connectionqueue ssh exec threw error")
-                cb(err);
-            }
-        }
-        */
 
         if(cb) {
             cb(null, connq); //ready!
@@ -329,6 +287,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
 
     exports.decrypt_resource(resource);
     //https://github.com/mscdex/ssh2#client-methods
+    console.log("connecting ssh", id)
     conn.connect(Object.assign({
         host: hostname,
         username: resource.config.username,
