@@ -218,7 +218,9 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 delete ssh_conns[id];
                 exports.get_ssh_connection(resource, opts, cb);
             }, 1000*5);
-            old.exec("true", (err, stream)=>{
+
+            //use the real connection (not queued.. as we don't want to wait for queue for this)
+            old.connection.exec("true", (err, stream)=>{
                 if(!to) return; //already timed out
                 clearTimeout(to);
                 if(err) {
@@ -294,8 +296,8 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         privateKey: resource.config.enc_ssh_private,
 
         //setting it longer for csiu
-        keepaliveInterval: 15*1000, //default 0 (disabled)
-        keepaliveCountMax: 10, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        keepaliveInterval: 10*1000, //default 0 (disabled)
+        //keepaliveCountMax: 10, //default 3 (https://github.com/mscdex/ssh2/issues/367)
 
         //TODO - increasing readyTimeout doesn't seem to fix "Error: Timed out while waiting for handshake"
         //I think I should re-try connecting instead?

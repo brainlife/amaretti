@@ -461,7 +461,7 @@ function handle_stop(task, next) {
                     stream.on('close', function(code, signal) {
                         task.status = "stopped";
                         if(code === undefined) {
-                            task.status_msg = "Timedout while trying to stop the task";
+                            task.status_msg = "Connection terminated while trying to stop the task";
                         } else if(code) {
                             task.status_msg = "Failed to stop the task cleanly -- code:"+code;
                         } else {
@@ -697,7 +697,7 @@ function start_task(task, resource, considered, cb) {
                         conn.exec("timeout 10 mkdir -p "+taskdir+" && timeout 120 rsync -a "+app_cache+"/ "+taskdir, (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
-                                if(code === undefined) return next("timeout while creating taskdir");
+                                if(code === undefined) return next("connection terminated while creating taskdir");
                                 if(code != 0) return next("failed to create taskdir.. code:"+code)
                                 console.debug("taskdir created");
                                 next();
@@ -727,7 +727,7 @@ function start_task(task, resource, considered, cb) {
                         if(err) return next(err);
                         //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
-                            if(code === undefined) return next("timedout while installing config.json");
+                            if(code === undefined) return next("connection terminated while installing config.json");
                             else if(code) return next("Failed to write config.json");
                             else next();
                         })
@@ -751,7 +751,7 @@ function start_task(task, resource, considered, cb) {
                     conn.exec("timeout 15 bash -c \"cd "+taskdir+" && cat > _env.sh && chmod +x _env.sh\"", function(err, stream) {
                         if(err) return next(err);
                         stream.on('close', function(code, signal) {
-                            if(code === undefined) return next("timedout while writing _env.sh");
+                            if(code === undefined) return next("connection terminated while installing _env.sh");
                             else if(code) return next("Failed to write _env.sh -- code:"+code);
                             else next();
                         })
@@ -915,7 +915,7 @@ function start_task(task, resource, considered, cb) {
                             if(err) return next(err);
                             //common.set_conn_timeout(conn, stream, 1000*20);
                             stream.on('close', function(code, signal) {
-                                if(code === undefined) return next("timedout while starting task");
+                                if(code === undefined) return next("connection terminated while starting task");
                                 else if(code) return next(service_detail.start+" failed. code:"+code+" (maybe start timeout?)");
                                 else {
                                     task.next_date = new Date(); //so that we check the status soon
@@ -967,7 +967,7 @@ function start_task(task, resource, considered, cb) {
                             //common.set_conn_timeout(conn, stream, 1000*60); 
 
                             stream.on('close', function(code, signal) {
-                                if(code === undefined) next("timedout while running_sync");
+                                if(code === undefined) next("connection terminated while running_sync");
                                 else if(code) return next("failed to run (code:"+code+")");
                                 else {
                                     load_product(taskdir, resource, async function(err, product) {
@@ -1012,7 +1012,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
             conn.exec("timeout 30 mkdir -p "+app_cache_dir, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("timeout while creating appcache directory");
+                    if(code === undefined) return next("connection terminated while creating appcache directory");
                     else if(code == 0) {
                         return next();
                     } else next("failed to create appcache directory");
@@ -1029,7 +1029,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
             conn.exec("timeout 30 find "+app_cache+" -depth -empty -delete", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("timeout while trying to remove empty app cache directory");
+                    if(code === undefined) return next("connection terminated while removing empty app cache directory");
                     if(code == 1) return next(); //no such directory
                     if(code != 0) return next("failed to (try) removing empty directory");
                     console.debug("rmdir of app cache successfull.. which means it was empty");
@@ -1047,7 +1047,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
             conn.exec("timeout 30 ls "+app_cache, (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("timeout while checking app_cache");
+                    if(code === undefined) return next("connection terminated while checking app_cache");
                     else if(code == 0) {
                         console.debug("app cache exists");
                         return cb(null, app_cache);
@@ -1067,7 +1067,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("timeout while checking app cache .zip");
+                    if(code === undefined) return next("connection termuinated while checking app cache .zip");
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
                         console.log("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
@@ -1099,7 +1099,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
                     //TODO - should I remove the partially downloaded zip?
-                    if(code === undefined) return next("timedout while caching app");
+                    if(code === undefined) return next("connection terminated while caching app");
                     else if(code) return next("failed to cache app .. code:"+code);
                     else {
                         console.debug("successfully cached app");
