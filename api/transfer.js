@@ -41,19 +41,37 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         },  
 
         //cleanup broken symlinks on source resource
+        //also check for infinite loop
         next=>{
             //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
             console.log("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
+                
                 //https://unix.stackexchange.com/questions/34248/how-can-i-find-broken-symlinks
                 conn.exec("timeout 30 find "+source_path+" -type l ! -exec test -e {} \\; -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{
-                        if(code === undefined) return next("timedout while removing broken symlinks on source");
+                        if(code === undefined) return next("connection closed while removing broken symlinks on source");
                         else if(code) return next("Failed to cleanup broken symlinks on source (or source is removed) code:"+code);
-                        next();
+
+                        //https://serverfault.com/questions/265598/how-do-i-find-circular-symbolic-links
+                        //find . -follow -printf ""
+                        console.log("finding filesystem loop");
+                        conn.exec("timeout 30 find "+source_path+" -follow -printf \"\"", (err, stream)=>{
+                            if(err) return next(err);
+                            stream.on('close', (code, signal)=>{
+                                if(code === undefined) return next("connection closed while detecting infinite sym loop");
+                                else if(code) return next("filesytem loop detected");
+                                next();
+                            })
+                            .on('data', data=>{
+                                console.log(data.toString());
+                            }).stderr.on('data', data=>{
+                                console.error(data.toString());
+                            });
+                        });
                     })
                     .on('data', data=>{
                         console.log(data.toString());

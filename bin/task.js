@@ -596,6 +596,7 @@ function handle_running(task, next) {
                             //of 3 stries and out?
                             console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name, task.instance_id+"/"+task._id);
                             console.error(out);
+                            task.status_msg = out;
                             next();
                             break;
                         default:
@@ -728,7 +729,7 @@ function start_task(task, resource, considered, cb) {
                         //common.set_conn_timeout(conn, stream, 1000*5);
                         stream.on('close', function(code, signal) {
                             if(code === undefined) return next("connection terminated while installing config.json");
-                            else if(code) return next("Failed to write config.json");
+                            else if(code) return next("Failed to write config.json -- code:"+code);
                             else next();
                         })
                         .on('data', function(data) {
@@ -1145,7 +1146,7 @@ function load_product(taskdir, resource, cb) {
                 product_json += data;
             })
             stream.on('close', function(code, signal) {
-                if(code) return cb("Failed to retrieve product.json from the task directory - code:",code);
+                if(code) return cb("Failed to retrieve product.json from the task directory - code:"+code);
                 if(error_msg) {
                     console.log("Failed to load product.json (continuing)");
                     console.log(error_msg);
