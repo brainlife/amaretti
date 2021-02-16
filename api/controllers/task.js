@@ -1050,16 +1050,41 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
 router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
+
+    //remove the task itself
     db.Task.findById(task_id, function(err, task) {
         if(err) return next(err);
         if(!task) return res.status(404).end("couldn't find such task id");
         if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         }
+        console.log("requesting task removal", task._id);
         common.request_task_removal(task, function(err) {
             if(err) return next(err);
+
             events.publish("task.remove."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
-            res.json({message: "Task requested for removal"});
+
+            //also remove all followed_task too
+            //by removing followed_task - like validator, we prevent subsequent apps to be 
+            //submitted using the validator output which might not be exist. user should have
+            //good reason why they want to remove the task (maybe it lost the resource access?)
+            //so by making the followed task follow it, we prevent it.
+            db.Task.find({follow_task_id: task._id}, function(err, followed_tasks) {
+                if(err) return next(err);
+                async.eachSeries(followed_tasks, function(follow_task, next_task) {
+                    console.log("removing followed task", follow_task._id)
+                    common.request_task_removal(follow_task, err=>{
+                        if(err) return next_task(err);
+                        events.publish("task.remove."+(follow_task._group_id||'ng')+"."+follow_task.user_id+"."+follow_task.instance_id+"."+follow_task._id, {});
+                        next_task();
+                    });
+                }, function(err) {
+                    if(err) return next(err);
+
+                    //then reply
+                    res.json({message: "Task requested for removal."});
+                }); 
+            });
         }); 
     });
 });

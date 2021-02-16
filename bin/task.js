@@ -181,20 +181,18 @@ function handle_housekeeping(task, cb) {
                         }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        //TODO is it better to use sftp?
-                        console.debug("querying ls %s", taskdir);
+                        console.debug("querying %s", taskdir);
                         var t = setTimeout(function() { 
                             t = null; 
-                            console.error("timed out while trying to ls "+taskdir+" assuming it still exists");
+                            console.error("timed out while trying to readdir "+taskdir+" assuming it still exists");
                             next_resource();
                         }, 2500); 
                         sftp.readdir(taskdir, function(err, files) {
                             if(!t) return; //timeout already called
-
                             clearTimeout(t);
                             if(err) {
                                 console.debug(err);
-                                console.debug("let's assume directory is missing.. TODO - we need to parse the err to see why it failes.");
+                                console.debug("let's assume directory went missing.. removing resource_id");
                                 task.resource_ids.pull(resource_id);
                             } else {
                                 //TODO - can I do something useful with files?

@@ -209,15 +209,17 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 }, 1000);
             }
         } else {
+            //TODO - let's see if we can reduce the ssh related issues without this
             //test the old connection to make sure it still works.. if not, open a new one
             //console.log("testing old connection")
+            /*
             let to = setTimeout(()=>{
                 to = null;
-                console.error("failed to check old connection.. assuming it's dead");
+                console.error("timeout while checking old connection.. assuming it's dead");
                 old.end();
                 delete ssh_conns[id];
                 exports.get_ssh_connection(resource, opts, cb);
-            }, 1000*5);
+            }, 1000*10);
 
             //use the real connection (not queued.. as we don't want to wait for queue for this)
             old.connection.exec("true", (err, stream)=>{
@@ -225,15 +227,18 @@ exports.get_ssh_connection = function(resource, opts, cb) {
                 clearTimeout(to);
                 if(err) {
                     console.error(err);
-                    console.debug(new Date(), "old connection doesn't work anymore.. reconnecting");
+                    console.debug(new Date(), "old connection doesn't work anymore.. reconnecting in 20 seconds");
+                    old.end();
                     delete ssh_conns[id];
                     setTimeout(()=>{
                         exports.get_ssh_connection(resource, opts, cb);
-                    }, 5000);
+                    }, 1000*20);
                 } else {
                     cb(null, old);
                 }
             });
+            */
+            cb(null, old);
             return;
         }
     }
@@ -254,7 +259,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         clearTimeout(connection_timeout);
 
         console.log("ssh connection ready .. creating connecitonQueuer %s", id);
-        const connq = new ConnectionQueuer(conn, {maxChannels: 8});
+        const connq = new ConnectionQueuer(conn, {maxChannels: 6});
         ssh_conns[id] = connq; //cache
         connq.connected = new Date();
 
@@ -387,7 +392,7 @@ function sftp_ref(sftp) {
 }
 
 //I need to keep up with sftp connection cache independent of ssh connection pool
-//TODO - won't this run out of sftp channel for a resource if too many requests are made?
+//this returns reference counted sftp - similar to ssh connection queue
 var sftp_conns = {};
 exports.get_sftp_connection = function(resource, cb) {
 
@@ -413,7 +418,7 @@ exports.get_sftp_connection = function(resource, cb) {
             return cb(null, old);
         }
     }
-    sftp_conns[id] = {connecting: true};
+    sftp_conns[id] = {connecting: true, create_date: new Date()};
 
     console.debug("opening new sftp connection");
     let connection_timeout = setTimeout(()=>{
@@ -482,6 +487,7 @@ exports.get_sftp_connection = function(resource, cb) {
         privateKey: resource.config.enc_ssh_private,
         keepaliveInterval: 10*1000, //default 0 (disabled)
         //keepaliveCountMax: 10, //default 3 (https://github.com/mscdex/ssh2/issues/367)
+        readyTimeout: 1000*30, //default 20 seconds (https://github.com/mscdex/ssh2/issues/142) is too short?
         tryKeyboard: true, //needed by stampede2
     });
 }
