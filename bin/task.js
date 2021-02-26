@@ -773,10 +773,12 @@ function start_task(task, resource, considered, cb) {
                         //write ENVs
                         for(var k in envs) {
                             var v = envs[k];
-                            if(typeof v !== 'string') {
-                                console.log("skipping non string value:"+v+" for key:"+k);
-                                continue;
+                            //let's make sure we have primitive types
+                            if(typeof v == 'object') {
+                                v = "_ignoring_";
                             }
+                            v = v.toString();
+
                             var vs = v.replace(/\"/g,'\\"'); //TODO - is this safe enough?
                             stream.write("export "+k+"=\""+vs+"\"\n");
                         }

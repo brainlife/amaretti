@@ -8,7 +8,6 @@ const child_process = require('child_process');
 const express = require('express');
 const router = express.Router();
 const winston = require('winston');
-const jwt = require('express-jwt');
 const async = require('async');
 const path = require('path');
 const mime = require('mime');
@@ -63,7 +62,7 @@ function canedit(user, resource) {
  *
  * @apiSuccess {Object}         List of resources (maybe limited / skipped) and total number of resources
  */
-router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/', common.jwt(), function(req, res, next) {
     var find = {};
     if(req.query.find || req.query.where) find = JSON.parse(req.query.find || req.query.where);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
@@ -131,7 +130,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
  *                              _canedit: true,
  *                              }
  */
-router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)=>{
+router.get('/best', common.jwt(), (req, res, next)=>{
     //console.debug("choosing best resource for service:"+req.query.service);
     var query = {};
     if(req.query.service) query.service = req.query.service;
@@ -150,7 +149,7 @@ router.get('/best', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)
 
 //return a list of tasks submitted on this resource recently
 //client ui > warehouse/resource.vue
-router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+router.get('/tasks/:resource_id', common.jwt(), async (req, res, next)=>{
 
     let recent = await db.Task.find({
         resource_id: req.params.resource_id,
@@ -205,7 +204,7 @@ router.get('/tasks/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), as
  *     }
  *
  */
-router.put('/test/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/test/:id', common.jwt(), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -241,7 +240,7 @@ router.put('/test/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req
  * @apiSuccess {Object} Resource Object
  *
  */
-router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/:id', common.jwt(), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -312,7 +311,7 @@ router.put('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res
  *      active: true }
  *
  */
-router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.post('/', common.jwt(), function(req, res, next) {
 
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("resource.create")) 
         return next("you are not authorized to register new resource. please contact admin");
@@ -349,7 +348,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
  * @apiSuccess {String} ok
  *
  */
-router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.delete('/:id', common.jwt(), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
@@ -364,7 +363,7 @@ router.delete('/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, 
 });
 
 //(admin only) allow other service (warehouse) to directly access storage resource's data
-router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/archive/download/:id/*', common.jwt(), function(req, res, next) {
     logger.debug("requested");
     if(!is_admin(req.user)) return next("admin only");
     let path = req.params[0];
@@ -417,7 +416,7 @@ router.get('/archive/download/:id/*', jwt({secret: config.amaretti.auth_pubkey})
  * @apiSuccess {Object} Resource Object
  *
  */
-router.get('/usage/:resource_id', jwt({secret: config.amaretti.auth_pubkey}), (req, res, next)=>{
+router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
     //check access
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
         if(err) return next(err);

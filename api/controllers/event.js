@@ -3,15 +3,13 @@
 //contrib
 const express = require('express');
 const router = express.Router();
-const winston = require('winston');
-const jwt = require('express-jwt');
 
 //mine
 const config = require('../../config');
-const logger = winston.createLogger(config.logger.winston);
+const common = require('../common');
 const db = require('../models');
 
-router.get('/checkaccess/instance/:id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/checkaccess/instance/:id', common.jwt(), function(req, res, next) {
 
     //allow admin to access any instances (for admin task view)
     if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {

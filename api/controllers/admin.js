@@ -4,7 +4,6 @@
 const express = require('express');
 const router = express.Router();
 const winston = require('winston');
-const jwt = require('express-jwt');
 const async = require('async');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -26,7 +25,7 @@ const common = require('../common');
  *
  * @apiSuccess {Object}         List of count groups
  */
-router.get('/services/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/services/running', common.jwt(), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
     db.Task.aggregate([

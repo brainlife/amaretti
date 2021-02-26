@@ -10,6 +10,7 @@ const redis = require('redis');
 const request = require('request');
 const child_process = require('child_process');
 const ps = require('ps-node');
+const jwt = require('express-jwt');
 
 const config = require('../config');
 const db = require('./models');
@@ -744,5 +745,13 @@ exports.escape_dot = function(obj) {
         }
     }
     return obj;
+}
+
+//wrapper for express-jwt to set some required default options
+exports.jwt = opt=>{
+    return jwt(Object.assign({
+        secret: config.amaretti.auth_pubkey,
+        algorithms: ['RS256'],
+    }, opt));
 }
 

@@ -2,8 +2,6 @@
 
 const express = require('express');
 const router = express.Router();
-const winston = require('winston');
-const jwt = require('express-jwt');
 const async = require('async');
 const mongoose = require('mongoose');
 const path = require('path');
@@ -33,7 +31,7 @@ const upload = multer({dest: "/tmp"}); //TODO - might run out of disk?
  *
  * @apiSuccess {Object}         List of tasks (maybe limited / skipped) and total number of tasks
  */
-router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/', common.jwt(), function(req, res, next) {
     var find = {};
     if(req.query.find) find = JSON.parse(req.query.find);
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
@@ -63,7 +61,7 @@ router.get('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, n
 //(admin only) aggregate task by service/resource_id
 //users:
 //  warehouse / common.update_project_stats (used by warehouse/bin/projectinfo)
-router.get('/resource_usage', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/resource_usage', common.jwt(), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
 
     var find = {};
@@ -98,7 +96,7 @@ router.get('/resource_usage', jwt({secret: config.amaretti.auth_pubkey}), functi
 
 //(admin only) return list of services currently running and number of them
 //who uses this? (can I deprecate this?)
-router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/running', common.jwt(), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
     
     //group by status and count
@@ -113,7 +111,7 @@ router.get('/running', jwt({secret: config.amaretti.auth_pubkey}), function(req,
 
 //return a list of tasks submitted for a service
 //client ui > warehouse/app.vue
-router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+router.get('/recent', common.jwt(), async (req, res, next)=>{
 
     let service = req.query.service;
     //TODO should I hide hidden service?
@@ -155,7 +153,7 @@ router.get('/recent', jwt({secret: config.amaretti.auth_pubkey}), async (req, re
  *
  * @apiSuccess {Object[]}         List of product objects
  */
-router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, res, next)=>{
+router.get('/product', common.jwt(), async (req, res, next)=>{
     let ids = req.query.ids;
     let find = {_id: {$in: ids}};
     //access control
@@ -175,7 +173,7 @@ router.get('/product', jwt({secret: config.amaretti.auth_pubkey}), async (req, r
 //get task detail
 //unauthenticated user sometimes need to get task detail (like app used, etc..)
 //let's allow them to query for task detail as long as they know which task id to load
-router.get('/:id', /*jwt({secret: config.amaretti.auth_pubkey}),*/ (req, res, next)=>{
+router.get('/:id', (req, res, next)=>{
     db.Task.findById(req.params.id).exec((err, task)=>{
         if(err) return next(err);
         if(!task) return next("no such task id");
@@ -282,7 +280,7 @@ function ls_resource(resource, _path, cb) {
  *      }
  *  ]}
  */
-router.get('/ls/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.get('/ls/:taskid', common.jwt(), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -367,8 +365,7 @@ function get_fullpath(task, resource, p, cb) {
  *
  */
 
-router.get('/download/:taskid/*', jwt({
-    secret: config.amaretti.auth_pubkey,
+router.get('/download/:taskid/*', common.jwt({
     getToken: function(req) {
         //load token from req.headers as well as query.at
         if(req.query.at) return req.query.at;
@@ -483,7 +480,7 @@ router.get('/download/:taskid/*', jwt({
  *                              {file stats uploaded}
  */
 
-router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -585,7 +582,7 @@ router.post('/upload/:taskid', jwt({secret: config.amaretti.auth_pubkey}), funct
  *                              {file stats uploaded}
  */
 
-router.post('/upload2/:taskid', jwt({secret: config.amaretti.auth_pubkey}), upload.single('file'), function(req, res, next) {
+router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(req, res, next) {
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
@@ -747,7 +744,7 @@ function mkdirp(conn, dir, cb) {
  *     }
  *                              
  */
-router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.post('/', common.jwt(), function(req, res, next) {
     if(!req.body.instance_id) return next("please specify instance_id");
     if(!req.body.service) return next("please specify service");
 
@@ -916,7 +913,7 @@ router.post('/', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, 
  *     }
  *                              
  */
-router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/rerun/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -952,7 +949,7 @@ router.put('/rerun/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functi
  * @apiHeader {String} authorization    A valid JWT token "Bearer: xxxxx"
  *                              
  */
-router.put('/poke/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/poke/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -985,7 +982,7 @@ router.put('/poke/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
  *     }
  *                              
  */
-router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/stop/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
     db.Task.findById(task_id, function(err, task) {
@@ -1047,7 +1044,7 @@ router.put('/stop/:task_id', jwt({secret: config.amaretti.auth_pubkey}), functio
  *     }
  *                              
  */
-router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.delete('/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
     const gids = req.user.gids||[];
 
@@ -1101,7 +1098,7 @@ router.delete('/:task_id', jwt({secret: config.amaretti.auth_pubkey}), function(
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  *
  */
-router.put('/:taskid', jwt({secret: config.amaretti.auth_pubkey}), function(req, res, next) {
+router.put('/:taskid', common.jwt(), function(req, res, next) {
     const id = req.params.taskid;
     const gids = req.user.gids||[];
 
