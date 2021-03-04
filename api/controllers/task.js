@@ -806,7 +806,7 @@ router.post('/', common.jwt(), function(req, res, next) {
                     task.deps_config.push(conf);
                 }
             });
-            console.debug("task.deps_config", task.deps_config)
+            //console.debug("task.deps_config", task.deps_config)
         }
 
         //TODO - validate?

@@ -497,9 +497,10 @@ exports.report_ssh = function() {
 
     //dump oped ssh connection to troubleshoot high ssh connection
     console.debug("ssh report------------------");
+    console.debug("connections:", Object.keys(ssh_conns).length);
     for(let k in ssh_conns) {
-        const c = ssh_cons[k];
-        console.log(k, "created on", c.create_date, "connecting", c.connecting);
+        const c = ssh_conns[k];
+        console.debug(k, "created on", c.create_date, "connecting", c.connecting);
     }
 
     return {
