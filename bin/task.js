@@ -1226,11 +1226,11 @@ function health_check() {
         
         //check counters
         next=>{
-            if(ssh.ssh_cons > 60) {
+            if(ssh.ssh_cons > 120) {
                 report.status = "failed";
                 report.messages.push("high ssh connections "+ssh.ssh_cons);
             }
-            if(ssh.sftp_cons > 30) {
+            if(ssh.sftp_cons > 60) {
                 report.status = "failed";
                 report.messages.push("high sftp connections "+ssh.sftp_cons);
             }
