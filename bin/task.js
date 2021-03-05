@@ -542,10 +542,12 @@ function handle_running(task, next) {
                     //common.set_conn_timeout(conn, stream, 1000*45);
                     var out = "";
                     stream.on('close', (code, signal)=>{
-                        //remove everything before sca token (to ignore output from .bashrc)
+                        //remove everything before delimiter token (to ignore output from .bashrc)
                         var pos = out.indexOf(delimtoken);
                         out = out.substring(pos+delimtoken.length).trim();
-                        //console.debug(out);
+
+                        //remove non ascii..
+                        out = out.replace(/[^\x00-\x7F]/g, ""); //remove nonascii
 
                         switch(code) {
                         case undefined:

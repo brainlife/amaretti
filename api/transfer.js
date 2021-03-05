@@ -57,9 +57,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                         else if(code) return next("Failed to cleanup broken symlinks on source (or source is removed) code:"+code);
 
                         //https://serverfault.com/questions/265598/how-do-i-find-circular-symbolic-links
-                        //find . -follow -printf ""
-                        console.log("finding filesystem loop");
-                        conn.exec("timeout 30 find "+source_path+" -follow -printf \"\"", (err, stream)=>{
+                        //only checking links as it's very slow..
+                        conn.exec("timeout 30 find "+source_path+" -follow -type l -printf \"\"", (err, stream)=>{
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("connection closed while detecting infinite sym loop");
