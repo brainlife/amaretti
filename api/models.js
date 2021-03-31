@@ -17,7 +17,7 @@ exports.init = function(cb) {
         mongoose.connect(config.mongodb, {
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            server: { auto_reconnect: true },
+            auto_reconnect: true,
         }, function(err) {
             if(err) return cb(err);
             //logger.info("connected to mongo");

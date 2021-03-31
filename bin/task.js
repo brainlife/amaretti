@@ -191,12 +191,17 @@ function handle_housekeeping(task, cb) {
                             if(!t) return; //timeout already called
                             clearTimeout(t);
                             if(err) {
-                                console.debug(err);
-                                console.debug("let's assume directory went missing.. removing resource_id");
-                                task.resource_ids.pull(resource_id);
+                                console.debug(err.toString());
+                                if(err.code == 2) {
+                                    //directory went missing.. removing resource_id
+                                    task.resource_ids.pull(resource_id);
+                                } else {
+                                    console.error("unknown error while checking directory..")
+                                    console.error(err);
+                                }
                             } else {
                                 //TODO - can I do something useful with files?
-                                console.debug("taskdir has %d files", files.length);
+                                console.debug("taskdir still has %d files", files.length);
                             }
                             console.debug("moving to the next resource");
                             next_resource();
@@ -1070,7 +1075,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("connection termuinated while checking app cache .zip");
+                    if(code === undefined) return next("connection terminated while checking app cache .zip");
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
                         console.log("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
@@ -1098,7 +1103,13 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
         //cache app and unzip, and unwind
         next=>{
             console.log("caching app %s", app_cache+".zip");
-            conn.exec("timeout 300 cat > "+app_cache+".zip && unzip -o -d "+app_cache+".unzip "+app_cache+".zip && rm -rf "+app_cache+" && mv "+app_cache+".unzip/*"+" "+app_cache+" && rm "+app_cache+".zip && rmdir "+app_cache+".unzip", (err, stream)=>{
+            conn.exec("timeout 300 "+
+                "cat > "+app_cache+".zip && "+
+                "unzip -o -d "+app_cache+".unzip "+app_cache+".zip && "+
+                "rm -rf "+app_cache+" && "+
+                "mv "+app_cache+".unzip/*"+" "+app_cache+" && "+
+                "rm "+app_cache+".zip && "+
+                "rmdir "+app_cache+".unzip", (err, stream)=>{
                 if(err) return next(err);
                 stream.on('close', function(code, signal) {
                     //TODO - should I remove the partially downloaded zip?
@@ -1178,7 +1189,6 @@ function load_product(taskdir, resource, cb) {
 }
 
 async function storeProduct(task, dirty_product) {
-    console.log("storing product");
     product = common.escape_dot(dirty_product);
 
     //for validation task, I need to merge product from the main task 
@@ -1253,7 +1263,7 @@ function health_check() {
                 report.queue_size = count;
                 if(count > 2000) {
                     report.status = "failed";
-                    report.messages.push("high task queue count"+count);
+                    report.messages.push("high task queue count "+count);
                 }
                 next();
             });
@@ -1261,13 +1271,16 @@ function health_check() {
 
     ], err=>{
         if(err) return console.error(err);
+        
+        //dump report
+        console.debug(new Date());
         console.debug(JSON.stringify(report, null, 4));
 
         //send report
         rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
 
-        if(report.queue_size > 1000 && _counts.checks == 0) {
-            console.error("looks like it's it died.. suiciding");
+        if(report.queue_size > 0 && _counts.checks == 0) {
+            console.error("not checking anymore.. the loop died? killing.");
             process.exit(1);
         }
 
@@ -1281,27 +1294,7 @@ function health_check() {
 var rcon = redis.createClient(config.redis.port, config.redis.server);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
-    console.log("connected to redis");
+    console.log("staring health check");
     setInterval(health_check, 1000*120);
 });
 
-/* this might cause premature suicide?
-health_check(); //initial check (I shouldn't do this anymore?)
-*/
-
-//missing catch() on Promise will be caught here
-//this doesn't really do anything good
-/*
-process.on('unhandledRejection', (reason, promise) => {
-    console.error("unhandledRejection-------------------");
-    console.error(reason);
-    process.exit(1);
-});
-
-process.on('uncaughtException', (err, origin)=>{
-    console.error("unhandledException-------------------");
-    console.error(err);
-    console.error(origin);
-    process.exit(1);
-});
-*/

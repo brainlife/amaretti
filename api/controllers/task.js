@@ -48,6 +48,7 @@ router.get('/', common.jwt(), function(req, res, next) {
     //if(req.query.select) console.log("select:"+req.query.select);
 
     db.Task.find(find)
+    .lean()
     .select(req.query.select)
     .limit(req.query.limit || 100)
     .skip(req.query.skip || 0)
@@ -548,7 +549,6 @@ router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
                                         //get file info (to be sure that the file is uploaded?)
                                         sftp.stat(fullpath, function(err, stat) {
                                             if(err) return next(err.toString());
-                                            console.dir(stat);
                                             res.json({filename: path.basename(fullpath), attrs: stat});
                                         });
                                     }
@@ -603,7 +603,6 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
           size: 223679
         }
         */
-        //console.dir(req.file);
         let p = req.query.p||req.file.originalname;
         get_fullpath(task, resource, p, (err, fullpath)=>{
             if(err) return next(err);
@@ -668,7 +667,6 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
                                         //get file info (to be sure that the file is uploaded?)
                                         sftp.stat(fullpath, function(err, stat) {
                                             if(err) return next(err.toString());
-                                            console.dir(stat);
                                             res.json({filename: path.basename(fullpath), attrs: stat});
                                         });
                                     }

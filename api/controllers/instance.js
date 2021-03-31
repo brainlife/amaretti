@@ -37,10 +37,12 @@ router.get('/', common.jwt(), function(req, res, next) {
 
     //user can only access their own process or process owned by group that they have access to
     let gids = req.user.gids||[];
-    find['$or'] = [
-        {user_id: req.user.sub},
-        {group_id: {$in: req.user.gids||[]}},
-    ];
+    if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) {
+        find['$or'] = [
+            {user_id: req.user.sub},
+            {group_id: {$in: req.user.gids||[]}},
+        ];
+    }
 
     db.Instance.find(find)
     .select(req.query.select)
@@ -92,9 +94,6 @@ router.put('/:instid', common.jwt(), function(req, res, next) {
         if(err) return next(err);
         if(!instance) return next("no such instance, or no access");
 
-        //let status_changed = false;
-        //if(instance.status != req.body.status) status_changed = true;
-
         //update
         for(let key in req.body) instance[key] = req.body[key];
         instance.save((err, updated_instance)=>{
@@ -136,12 +135,12 @@ router.post('/', common.jwt(), function(req, res, next) {
         else return next("not member of the group you have specified");
     }
 
-    instance.save(function(err) {
+    instance.save((err, rec)=>{
         if(err) return next(err);
-        let instance_o = instance.toObject();
+        let instance_o = rec.toObject();
         instance_o._status_changed = true; //new object.. so.
         res.json(instance_o);
-        events.instance(instance);
+        events.instance(rec);
     });
 });
 
