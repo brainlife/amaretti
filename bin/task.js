@@ -398,6 +398,8 @@ function handle_requested(task, next) {
                 if(task.status == "requested") task.start_date = undefined;
 
                 //check() handles save/update_instance_status, but we are diverging here..
+                console.log(task.status_msg);
+                
                 task.save(err=>{
                     if(err) console.error(err);
 
@@ -829,22 +831,28 @@ function start_task(task, resource, considered, cb) {
                             }
                             
                             //make sure we don't sync too many times from a single resource
-                            if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = 0;
+                            if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = {};
                             //console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
-                            if(resourceSyncCount[source_resource_id] >= 5) {
-                                task.status_msg = "source resource is busy shipping out other data.. waiting";
-                                task.next_date = new Date(Date.now()+1000*60);
+
+                            const shipping = Object.keys(resourceSyncCount[source_resource_id]);
+                            if(task.nice && shipping.length > 4) {
+                                task.status_msg = `source resource(${source_resource.name}) is busy shipping out other data (${resourceSyncCount[source_resource_id]}).. waiting`;
+                                task.next_date = new Date(Date.now()+1000*120);
                                 return cb(); //retry
                             }
 
+                            //let's start syncing!
                             let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
                             let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
                             let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
                             task.status_msg = msg_prefix;
                             let saving_progress = false;
                             task.save(err=>{
-                                //console.log("sync count: ++");
-                                resourceSyncCount[source_resource_id]++;
+
+                                resourceSyncCount[source_resource_id][task._id] = new Date();
+
+                                console.debug("resourceSyncCount");
+                                console.debug(resourceSyncCount[source_resource_id]);
 
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
                                     task.status_msg = msg_prefix+" "+progress;
@@ -854,7 +862,7 @@ function start_task(task, resource, considered, cb) {
                                     }); 
                                 }, err=>{
                                     //console.log("sync count: --");
-                                    resourceSyncCount[source_resource_id]--;
+                                    delete resourceSyncCount[source_resource_id][task._id];
                                     
                                     //I have to wait to make sure task.save() in progress finish writing - before moving to
                                     //the next step - which may run task.save() immediately which causes
@@ -1040,7 +1048,7 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     if(code === undefined) return next("connection terminated while removing empty app cache directory");
                     if(code == 1) return next(); //no such directory
                     if(code != 0) return next("failed to (try) removing empty directory");
-                    console.debug("rmdir of app cache successfull.. which means it was empty");
+                    //if code == 0, then that means it was not empty, or it was empty and successfully removed
                     next(); 
                 })
                 .on('data', data=>{

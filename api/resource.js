@@ -8,14 +8,12 @@ const fs = require('fs');
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
 //task needs to have populated deps
 exports.select = function(user, task, cb) {
     //select all resource available for the user and active
-    //logger.debug("finding resource to run .select task_id:%s service:%s branch:%s user:%s",task._id,task.service,task.service_branch,user.sub);
 
     //pull resource_ids of deps so that we can raise score on resource where deps exists
     var dep_resource_ids = [];
@@ -56,7 +54,7 @@ exports.select = function(user, task, cb) {
     .sort('create_date')
     .exec((err, resources)=>{
         if(err) return cb(err);
-        if(task.preferred_resource_id) logger.info("user preferred_resource_id:"+task.preferred_resource_id);
+        if(task.preferred_resource_id) console.info("user preferred_resource_id:"+task.preferred_resource_id);
 
         //select the best resource based on the task
         var best = null;
@@ -135,10 +133,7 @@ exports.select = function(user, task, cb) {
         }, err=>{
             //for debugging
             if(best) {
-                logger.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
-            } else {
-                //logger.debug("no resource matched to run this task :)");
-                //console.dir(considered);
+                console.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
             } 
             cb(err, best, best_score, considered);
         });
@@ -169,7 +164,6 @@ function score_resource(user, resource, task, cb) {
     if(maxtask === undefined) maxtask = 1; //backwas compatiblity
     if(maxtask == 0) return cb(null, null); //can't run here
 
-    //logger.debug("counting running / requested tasks for resource:"+resource._id);
     db.Task.countDocuments({
         resource_id: resource._id, 
         $or: [
@@ -178,7 +172,7 @@ function score_resource(user, resource, task, cb) {
         ],
         _id: {$ne: task._id}, //don't count myself waiting
     }, (err, running)=>{
-        if(err) logger.error(err);
+        if(err) console.error(err);
 
         let msg = "resource.config score:"+score+"\n";
         msg+="tasks running:"+running+" maxtask:"+maxtask+"\n";
@@ -211,7 +205,7 @@ exports.check = function(resource, cb) {
                 if(err) return next(err);
                 status = _status;
                 msg = _msg;
-                logger.info("ssh check / resource_id: "+resource._id+" status:"+status+" msg:"+msg);
+                console.log("ssh check / resource_id: "+resource._id+" name: "+resource.name+" status:"+status+" msg:"+msg);
                 next();
             });
         },
@@ -224,7 +218,7 @@ exports.check = function(resource, cb) {
                 if(err) return next(err);
                 status = _status;
                 msg = _msg;
-                logger.info("iohost check / resource_id: "+resource._id+" status:"+status+" msg:"+msg);
+                console.log("iohost check / resource_id: "+resource._id+" name: "+resource.name+" status:"+status+" msg:"+msg);
                 next();
             });
         },
@@ -257,7 +251,7 @@ function check_ssh(resource, cb) {
             cb(err, status, message);
             cb = null;
         } else {
-            logger.error("cb already called", err, status, message);
+            console.error("cb already called", err, status, message);
         }
 
         console.log("closing connection", resource.name);
@@ -287,12 +281,12 @@ function check_ssh(resource, cb) {
             let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
             writestream.on('close', ()=>{
                 clearTimeout(to);
-                logger.debug("resource_test.sh write stream closed - running resource_test.sh");
+                console.debug("resource_test.sh write stream closed - running resource_test.sh");
                 conn.exec('cd '+workdir+' && bash resource_test.sh', (err, stream)=>{
                     if (err) return cb_once(err);
                     var out = "";
                     stream.on('close', function(code, signal) {
-                        logger.debug(out);
+                        console.debug(out);
                         if(code == 0) cb_once(null, "ok", out);
                         else cb_once(null, "failed", out);
                     }).on('data', function(data) {
@@ -305,21 +299,21 @@ function check_ssh(resource, cb) {
                 })
             });
             writestream.on('error', err=>{
-                logger.debug("resource_test.sh write stream errored");
+                console.debug("resource_test.sh write stream errored");
                 clearTimeout(to);
                 if(err) return cb_once(null, "failed", "failed to stream resource_test.sh");
             });
             writestream.on('end', ()=>{
-                logger.debug("resource_test.sh write stream ended - running");
+                console.debug("resource_test.sh write stream ended - running");
             });
             readstream.pipe(writestream);
         });
     });
     conn.on('end', function() {
-        logger.debug("ssh connection ended");
+        console.debug("ssh connection ended");
     });
     conn.on('close', function() {
-        logger.debug("ssh connection closed");
+        console.debug("ssh connection closed");
         if(!ready && cb) {
             cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
             cb = null;
@@ -333,7 +327,7 @@ function check_ssh(resource, cb) {
     //clone resource so that decrypted content won't leak out of here
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
     common.decrypt_resource(decrypted_resource);
-    logger.debug("check_ssh / decrypted");
+    console.debug("check_ssh / decrypted");
     //var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
@@ -360,7 +354,7 @@ function check_iohost(resource, cb) {
             cb(err, status, message);
             cb = null;
         } else {
-            logger.error("cb already called", err, status, message);
+            console.error("cb already called", err, status, message);
         }
 
         console.log("closing connection (iohsot)", resource.name);
@@ -375,9 +369,9 @@ function check_iohost(resource, cb) {
         var workdir = common.getworkdir(null, resource);
         conn.sftp(function(err, sftp) {
             if(err) return cb(err);
-            logger.debug("reading dir "+workdir);
+            console.debug("reading dir "+workdir);
             var to = setTimeout(()=>{
-                logger.error("readdir timeout"); 
+                console.error("readdir timeout"); 
                 cb_once(null, "failed", "readdir timeout - filesytem is offline?");
                 to =null;
             }, 3*1000); 
@@ -394,11 +388,11 @@ function check_iohost(resource, cb) {
     });
 
     conn.on('end', function() {
-        logger.debug("ssh connection ended");
+        console.debug("ssh connection ended");
     });
 
     conn.on('close', function() {
-        logger.debug("ssh connection closed");
+        console.debug("ssh connection closed");
         if(!ready && cb) {
             cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
             cb = null;

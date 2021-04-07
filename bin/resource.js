@@ -11,7 +11,6 @@ const redis = require('redis');
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
@@ -23,7 +22,7 @@ db.init(function(err) {
     rcon = redis.createClient(config.redis.port, config.redis.server);
     rcon.on('error', err=>{throw err});
     rcon.on('ready', ()=>{
-        logger.info("connected to redis");
+        console.log("connected to redis");
         run_every10min();
     });
 });
@@ -72,7 +71,6 @@ function run_every10min() {
                 //check resource status
                 next=>{
                     //TODO - should I add timeout?
-                    console.log("checking "+resource._id+" "+resource.name);
                     resource_lib.check(resource, function(err) {
                         //I don't care if someone's resource status is failing or not
                         
@@ -84,7 +82,7 @@ function run_every10min() {
                         var weekold = new Date();
                         weekold.setDate(weekold.getDate() - 7);
                         if(!resource.lastok_date && resource.create_date < weekold && resource.status != "ok") {
-                            logger.info("deactivating resource since it's never been active for long time");
+                            console.log("deactivating resource since it's never been active for long time");
                             resource.active = false;
                             return resource.save(next_resource);
                         }
@@ -93,7 +91,7 @@ function run_every10min() {
                         var monthold = new Date();
                         monthold.setDate(monthold.getDate() - 7);
                         if(resource.lastok_date && resource.lastok_date < monthold && resource.status != "ok") {
-                            logger.info("deactivating resource which has been non-ok for more than 30 days");
+                            console.log("deactivating resource which has been non-ok for more than 30 days");
                             resource.active = false;
                             return resource.save(next_resource);
                         }
@@ -106,7 +104,7 @@ function run_every10min() {
                 //https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
                 //curl "http://10.0.0.10/render?target=dev.amaretti.resource-id.59ea931df82bb308c0197c3d&format=json&from=-1day&noNullPoints=true" | jq -r
                 next=>{
-                    console.dir(config.metrics.api+"/render?target="+config.metrics.resource_prefix+"."+resource._id);
+                    //console.dir(config.metrics.api+"/render?target="+config.metrics.resource_prefix+"."+resource._id);
                     request.get({url: config.metrics.api+"/render", qs: {
                         target: config.metrics.resource_prefix+"."+resource._id,
                         from: "-3day",
@@ -146,11 +144,11 @@ function run_every10min() {
                  
             ], next_resource);
         }, err=>{
-            if(err) logger.error(err); //continue
-            else logger.debug("checked "+resources.length+" resources");
+            if(err) console.error(err); //continue
+            else console.debug("checked "+resources.length+" resources");
             report(resources, counts);
 
-            logger.debug("waiting for 10mins before running another check_resource");
+            console.debug("waiting for 10mins before running another check_resource");
             setTimeout(run_every10min, 1000*60*10); //wait 10 minutes each check
         });
     });
