@@ -282,7 +282,7 @@ function check_ssh(resource, cb) {
             writestream.on('close', ()=>{
                 clearTimeout(to);
                 console.debug("resource_test.sh write stream closed - running resource_test.sh");
-                conn.exec('cd '+workdir+' && bash resource_test.sh', (err, stream)=>{
+                conn.exec('cd '+workdir+' && timeout 10 bash resource_test.sh', (err, stream)=>{
                     if (err) return cb_once(err);
                     var out = "";
                     stream.on('close', function(code, signal) {

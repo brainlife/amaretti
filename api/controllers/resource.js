@@ -151,6 +151,7 @@ router.get('/best', common.jwt(), (req, res, next)=>{
 //client ui > warehouse/resource.vue
 router.get('/tasks/:resource_id', common.jwt(), async (req, res, next)=>{
 
+    console.log(new Date(), "loading recent");
     let recent = await db.Task.find({
         resource_id: req.params.resource_id,
         status: {$nin: ["removed", "stopped", "running", "running_sync", "requested"]},
@@ -160,6 +161,7 @@ router.get('/tasks/:resource_id', common.jwt(), async (req, res, next)=>{
     .limit(100)
     .exec()
     
+    console.log(new Date(), "loading running");
     let running = await db.Task.find({
         resource_id: req.params.resource_id,
         status: {$in: ["running", "running_sync"/*, "requested"*/]},
@@ -169,6 +171,7 @@ router.get('/tasks/:resource_id', common.jwt(), async (req, res, next)=>{
     .exec()
 
     //also look for tasks that are transitioning from requested to running
+    console.log(new Date(), "loading starting");
     let starting = await db.Task.find({
         resource_id: req.params.resource_id,
         status: "requested",
@@ -180,6 +183,7 @@ router.get('/tasks/:resource_id', common.jwt(), async (req, res, next)=>{
 
     running = [...starting, ...running];
 
+    console.log(new Date(), "output json");
     res.json({recent, running});
 });
 

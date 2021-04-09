@@ -19,7 +19,24 @@ const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
+//keep up with which resources are currently accessed (fetching input data)
 let resourceSyncCount = {};
+//remove old resourceSyncCount entry..
+//this is an attempt to test a theory that resourceSyncCount gets stuck (transfer function cb doesn't fire)
+//if this cures the problem, then we should investigate why transfer cb doesn't fire and fix it.
+//if this doesn't help, then get rid of this setInterval
+setInterval(()=>{
+    const old = new Date(Date.now()-1000*900);
+    for(const resource_id in resourceSyncCount) {
+        for(const task_id in resourceSyncCount[resource_id]) {
+            const rdate = resourceSyncCount[resource_id][task_id];
+            if(rdate < old) {
+                console.error("resourceSyncCount--", resource_id, task_id, rdate, "too old.. removing");
+                delete resourceSyncCount[resource_id][task_id];
+            }
+        }
+    }
+}, 1000*5);
 
 db.init(function(err) {
     if(err) throw err;
@@ -836,8 +853,8 @@ function start_task(task, resource, considered, cb) {
 
                             const shipping = Object.keys(resourceSyncCount[source_resource_id]);
                             if(task.nice && shipping.length > 4) {
-                                task.status_msg = `source resource(${source_resource.name}) is busy shipping out other data (${resourceSyncCount[source_resource_id]}).. waiting`;
-                                task.next_date = new Date(Date.now()+1000*120);
+                                task.status_msg = `source resource(${source_resource.name}) is busy shipping out other data.. waiting`;
+                                task.next_date = new Date(Date.now()+1000*90);
                                 return cb(); //retry
                             }
 
@@ -848,11 +865,10 @@ function start_task(task, resource, considered, cb) {
                             task.status_msg = msg_prefix;
                             let saving_progress = false;
                             task.save(err=>{
+                                resourceSyncCount[source_resource_id][task.id] = new Date();
 
-                                resourceSyncCount[source_resource_id][task._id] = new Date();
-
-                                console.debug("resourceSyncCount");
-                                console.debug(resourceSyncCount[source_resource_id]);
+                                console.debug("-- resourceSyncCount source_resource_id: ", source_resource_id, "----");
+                                console.log(JSON.stringify(resourceSyncCount[source_resource_id], null, 4));
 
                                 _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
                                     task.status_msg = msg_prefix+" "+progress;
@@ -861,7 +877,6 @@ function start_task(task, resource, considered, cb) {
                                         saving_progress = false;
                                     }); 
                                 }, err=>{
-                                    //console.log("sync count: --");
                                     delete resourceSyncCount[source_resource_id][task._id];
                                     
                                     //I have to wait to make sure task.save() in progress finish writing - before moving to

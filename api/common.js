@@ -79,18 +79,6 @@ ps.lookup({
     });
 });
 
-/* doesn't work
-process.on('exit', ()=>{
-    console.log("exit--------------------------------");
-    for(let id in sshagents) {
-        if(sshagents[id]) {
-            console.log("terminating ssh-agent %s", id);
-            sshagents[id].agent.kill();
-        }
-    }
-});
-*/
-
 exports.create_sshagent = function(key, cb) {
     let auth_sock = "/tmp/"+Math.random()+"."+Math.random()+"."+Math.random()+".ssh-agent.sock";
     //console.debug("spawning(-D).. ssh-agent for %s", auth_sock);
@@ -496,7 +484,7 @@ exports.get_sftp_connection = function(resource, cb) {
 exports.report_ssh = function() {
 
     //dump oped ssh connection to troubleshoot high ssh connection
-    console.debug("ssh report------------------");
+    console.debug("-- ssh report ----------------------");
     console.debug("connections:", Object.keys(ssh_conns).length);
     for(let k in ssh_conns) {
         const c = ssh_conns[k];
