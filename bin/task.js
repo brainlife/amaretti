@@ -35,7 +35,7 @@ setInterval(()=>{
                 delete resourceSyncCount[resource_id][task_id];
 
                 //keep record of this happening
-                resourceSyncCount[resource_id][task_id+".timeout"] = new Date();
+                //resourceSyncCount[resource_id][task_id+".timeout"] = new Date();
             }
         }
     }
