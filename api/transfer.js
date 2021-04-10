@@ -138,7 +138,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     agentForward: true,
                 }, (err, conn)=>{
                     if(err) return next(err); 
-                    let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
+                    let cmd = "timeout 630 rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";

@@ -33,6 +33,9 @@ setInterval(()=>{
             if(rdate < old) {
                 console.error("resourceSyncCount--", resource_id, task_id, rdate, "too old.. removing");
                 delete resourceSyncCount[resource_id][task_id];
+
+                //keep record of this happening
+                resourceSyncCount[resource_id][task_id+".timeout"] = new Date();
             }
         }
     }
