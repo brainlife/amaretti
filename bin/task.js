@@ -127,7 +127,7 @@ function check(cb) {
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
-            console.debug("nothing to do.. sleeping..", argv.nonice?"(nonice)":"(for all)");
+            console.debug(new Date(), "nothing to do.. sleeping..", argv.nonice?"(nonice)":"(nice)");
             return setTimeout(check, 1000); 
         }
 
