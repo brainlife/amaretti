@@ -41,7 +41,8 @@
     "ssh2-multiplexer": "github:soichih/ssh2-multiplexer",
     "sshpk": "^1.16.1",
     "sshpk-agent": "^1.8.1",
-    "winston": "^3.3.3"
+    "winston": "^3.3.3",
+    "yargs": "^16.2.0"
   },
   "devDependencies": {
     "coveralls": "^3.1.0",

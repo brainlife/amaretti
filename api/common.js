@@ -483,6 +483,7 @@ exports.get_sftp_connection = function(resource, cb) {
 
 exports.report_ssh = function() {
 
+    /*
     //dump oped ssh connection to troubleshoot high ssh connection
     console.debug("-- ssh report ----------------------");
     console.debug("connections:", Object.keys(ssh_conns).length);
@@ -490,6 +491,7 @@ exports.report_ssh = function() {
         const c = ssh_conns[k];
         console.debug(k, "created on", c.create_date, "connecting", c.connecting);
     }
+    */
 
     return {
         ssh_cons: Object.keys(ssh_conns).length,

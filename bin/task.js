@@ -11,6 +11,8 @@ const async = require('async');
 const Client = require('ssh2').Client;
 const deepmerge = require('deepmerge');
 
+const yargs = require('yargs');
+
 //mine
 const config = require('../config');
 const db = require('../api/models');
@@ -18,6 +20,24 @@ const common = require('../api/common');
 const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
+
+
+const argv = yargs
+    .option('nonice', {
+        alias: 't',
+        description: 'skip nice tasks',
+        type: 'boolean',
+    })
+    .help()
+    .alias('help', 'h')
+    .argv;
+
+/*
+if(argv.nonice) {
+    console.log("nonice");
+    process.exit(1);
+}
+*/
 
 //keep up with which resources are currently accessed (fetching input data)
 let resourceSyncCount = {};
@@ -85,22 +105,28 @@ function set_nextdate(task) {
 
 function check(cb) {
     _counts.checks++; //for health reporting
-    db.Task.findOne({
+
+    const query = {
         status: {$ne: "removed"}, //ignore removed tasks
         //status: {$nin: ["removed", "failed"]}, //ignore removed tasks
         $or: [
             {next_date: {$exists: false}},
             {next_date: {$lt: new Date()}}
         ]
-    })
-    .sort('nice next_date') //handle nice ones later, then sort by next_date
+    }
+    if(argv.nonice) query.nice = {$exists: false};
+
+    db.Task.findOne(query)
+    //sorting slows down the query significantly.. let's just be smart about setting next_date 
+    //and make sure we don't go too delinquent
+    //.sort('nice next_date') //handle nice ones later, then sort by next_date (this slows the query down)
     .populate('deps') //deprecated
     .populate('deps_config.task')
     .populate('follow_task_id')
     .exec((err, task) => {
         if(err) throw err; //throw and let pm2 restart
         if(!task) {
-            console.debug("nothing to do.. sleeping..");
+            console.debug("nothing to do.. sleeping..", argv.nonice?"(nonice)":"(for all)");
             return setTimeout(check, 1000); 
         }
 
@@ -201,7 +227,7 @@ function handle_housekeeping(task, cb) {
                         }
                         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
                         if(!taskdir || taskdir.length < 10) return next_resource("taskdir looks odd.. bailing");
-                        console.debug("querying %s", taskdir);
+                        console.debug("sftp.readdir %s", taskdir);
                         var t = setTimeout(function() { 
                             t = null; 
                             console.error("timed out while trying to readdir "+taskdir+" assuming it still exists");
@@ -386,7 +412,7 @@ function handle_requested(task, next) {
                     let secs = (15*running_count)+Math.min(requested_count, 3600);
                     secs = Math.max(secs, 15); //min 15 seconds
 
-                    console.log("%s -- retry in %d secs (running:%d requested:%d)", task.status_msg, secs, running_count, requested_count);
+                    console.log("%s -- retry in %d secs -- running:%d group_id:%d(requested:%d)", task.status_msg, secs, running_count, task._group_id, requested_count);
                     task.next_date = new Date(Date.now()+1000*secs);
                     next();
                 });
@@ -685,7 +711,109 @@ function start_task(task, resource, considered, cb) {
 
         console.debug("starting task on "+resource.name);
         async.series([
-            
+        
+            //make sure dep task dirs are synced first
+            next=>{
+                if(!task.deps_config) return next(); //no deps then skip
+                async.eachSeries(task.deps_config, function(dep, next_dep) {
+                    
+                    //if resource is the same, don't need to sync
+                    if(task.resource_id.toString() == dep.task.resource_id.toString()) return next_dep();
+
+                    //go through all resource_id that this task might be stored at 
+                    async.eachSeries([dep.task.resource_id, ...dep.task.resource_ids.reverse()], (source_resource_id, next_source)=>{
+
+                        //see if we can use this resource..
+                        db.Resource.findById(source_resource_id, function(err, source_resource) {
+                            if(err) return next_source(err); //db error?
+                            if(!source_resource.active) {
+                                task.status_msg = "resource("+source_resource.name+") which contains the input data is not active.. try next source.";
+                                return next_source(); 
+                            }
+                            
+                            //make sure we don't sync too many times from a single resource
+                            if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = {};
+                            //console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
+
+                            const shipping = Object.keys(resourceSyncCount[source_resource_id]);
+                            if(task.nice && shipping.length > 4) {
+                                task.status_msg = `source resource(${source_resource.name}) is busy shipping out other data.. waiting`;
+                                task.next_date = new Date(Date.now()+1000*90);
+                                return cb(); //retry
+                            }
+
+                            //let's start syncing!
+                            let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
+                            let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
+                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
+                            task.status_msg = msg_prefix;
+                            let saving_progress = false;
+                            task.save(err=>{
+                                resourceSyncCount[source_resource_id][task.id] = new Date();
+
+                                console.debug("-- resourceSyncCount source_resource_id: ", source_resource_id, "----");
+                                console.log(JSON.stringify(resourceSyncCount[source_resource_id], null, 4));
+
+                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
+                                    task.status_msg = msg_prefix+" "+progress;
+                                    saving_progress = true;
+                                    task.save(()=>{
+                                        saving_progress = false;
+                                    }); 
+                                }, err=>{
+                                    delete resourceSyncCount[source_resource_id][task._id];
+                                    
+                                    //I have to wait to make sure task.save() in progress finish writing - before moving to
+                                    //the next step - which may run task.save() immediately which causes
+                                    //"ParallelSaveError: Can't save() the same doc multiple times in parallel. "
+                                    function wait_progress_save() {
+                                        if(saving_progress) {
+                                            console.error("waiting for progress task.save()");
+                                            return setTimeout(wait_progress_save, 500);
+                                        }
+
+                                        if(err) {
+                                            task.status_msg = "Failed to synchronize dependent task directories.. "+err.toString();
+                                            next_source(); 
+                                        } else {
+                                            //success! let's records new resource_ids and proceed to the next dep
+                                            //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
+                                            if(dep.subdirs && dep.subdirs.length) {
+                                                console.debug("partial synced");
+                                                return next_dep();
+                                            }
+
+                                            console.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
+                                            //tryint $addToSet to see if this could prevent the following issue
+                                            //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
+                                            db.Task.findOneAndUpdate({_id: dep.task._id}, {
+                                                $addToSet: {
+                                                    resource_ids: resource._id.toString(),
+                                                }
+                                            }, next_dep);
+                                        }
+                                    }
+
+                                    setTimeout(wait_progress_save, 500);
+                                });
+                            });
+                        });
+                    }, err=>{
+                        if(err) return next_dep(err);
+
+                        //if its already synced, rsyncing is optional, so I don't really care about errors
+                        if(~common.indexOfObjectId(dep.task.resource_ids, resource._id)) {
+                            console.log("syncing failed.. but we were able to sync before.. proceeding to next dep");
+                            return next_dep();
+                        }
+
+                        task.status_msg = "Couldn't sync dep task from any resources.. will try later";
+                        cb();  //retry
+                    });
+
+                }, next);
+            },
+    
             //query current github commit id
             next=>{
                 _service.get_sha(service, task.service_branch, (err, ref)=>{
@@ -830,109 +958,6 @@ function start_task(task, resource, considered, cb) {
                     });
                 });
             },
-
-            //make sure dep task dirs are synced
-            next=>{
-                if(!task.deps_config) return next(); //no deps then skip
-                async.eachSeries(task.deps_config, function(dep, next_dep) {
-                    
-                    //if resource is the same, don't need to sync
-                    if(task.resource_id.toString() == dep.task.resource_id.toString()) return next_dep();
-
-                    //go through all resource_id that this task might be stored at 
-                    async.eachSeries([dep.task.resource_id, ...dep.task.resource_ids.reverse()], (source_resource_id, next_source)=>{
-
-                        //see if we can use this resource..
-                        db.Resource.findById(source_resource_id, function(err, source_resource) {
-                            if(err) return next_source(err); //db error?
-                            if(!source_resource.active) {
-                                task.status_msg = "resource("+source_resource.name+") which contains the input data is not active.. try next source.";
-                                return next_source(); 
-                            }
-                            
-                            //make sure we don't sync too many times from a single resource
-                            if(!resourceSyncCount[source_resource_id]) resourceSyncCount[source_resource_id] = {};
-                            //console.log("source resource sync count: ", resourceSyncCount[source_resource_id], source_resource_id);
-
-                            const shipping = Object.keys(resourceSyncCount[source_resource_id]);
-                            if(task.nice && shipping.length > 4) {
-                                task.status_msg = `source resource(${source_resource.name}) is busy shipping out other data.. waiting`;
-                                task.next_date = new Date(Date.now()+1000*90);
-                                return cb(); //retry
-                            }
-
-                            //let's start syncing!
-                            let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
-                            let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
-                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
-                            task.status_msg = msg_prefix;
-                            let saving_progress = false;
-                            task.save(err=>{
-                                resourceSyncCount[source_resource_id][task.id] = new Date();
-
-                                console.debug("-- resourceSyncCount source_resource_id: ", source_resource_id, "----");
-                                console.log(JSON.stringify(resourceSyncCount[source_resource_id], null, 4));
-
-                                _transfer.rsync_resource(source_resource, resource, source_path, dest_path, dep.subdirs, progress=>{
-                                    task.status_msg = msg_prefix+" "+progress;
-                                    saving_progress = true;
-                                    task.save(()=>{
-                                        saving_progress = false;
-                                    }); 
-                                }, err=>{
-                                    delete resourceSyncCount[source_resource_id][task._id];
-                                    
-                                    //I have to wait to make sure task.save() in progress finish writing - before moving to
-                                    //the next step - which may run task.save() immediately which causes
-                                    //"ParallelSaveError: Can't save() the same doc multiple times in parallel. "
-                                    function wait_progress_save() {
-                                        if(saving_progress) {
-                                            console.error("waiting for progress task.save()");
-                                            return setTimeout(wait_progress_save, 500);
-                                        }
-
-                                        if(err) {
-                                            task.status_msg = "Failed to synchronize dependent task directories.. "+err.toString();
-                                            next_source(); 
-                                        } else {
-                                            //success! let's records new resource_ids and proceed to the next dep
-                                            //only if length is not set (copy all mode). if we are doing partial syncing, we don't want to mark it on database as full copy
-                                            if(dep.subdirs && dep.subdirs.length) {
-                                                console.debug("partial synced");
-                                                return next_dep();
-                                            }
-
-                                            console.debug("adding new resource_id (could cause same doc in parallel error? :%s", resource._id.toString());
-                                            //tryint $addToSet to see if this could prevent the following issue
-                                            //"ParallelSaveError: Can't save() the same doc multiple times in parallel."
-                                            db.Task.findOneAndUpdate({_id: dep.task._id}, {
-                                                $addToSet: {
-                                                    resource_ids: resource._id.toString(),
-                                                }
-                                            }, next_dep);
-                                        }
-                                    }
-
-                                    setTimeout(wait_progress_save, 500);
-                                });
-                            });
-                        });
-                    }, err=>{
-                        if(err) return next_dep(err);
-
-                        //if its already synced, rsyncing is optional, so I don't really care about errors
-                        if(~common.indexOfObjectId(dep.task.resource_ids, resource._id)) {
-                            console.log("syncing failed.. but we were able to sync before.. proceeding to next dep");
-                            return next_dep();
-                        }
-
-                        task.status_msg = "Couldn't sync dep task from any resources.. will try later";
-                        cb();  //retry
-                    });
-
-                }, next);
-            },
-
             //finally, run the service!
             next=>{
                 if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
@@ -1258,6 +1283,7 @@ function health_check() {
         startDate: serviceStarted,
         counts: _counts,
         maxage: 1000*240,
+        nonice: argv.nonice,
     }
 
     async.series([
@@ -1278,13 +1304,15 @@ function health_check() {
 
         //check task handling queue
         next=>{
-            db.Task.count({
+            const query = {
                 status: {$ne: "removed"}, //ignore removed tasks
                 $or: [
                     {next_date: {$exists: false}},
                     {next_date: {$lt: new Date()}}
                 ]
-            }).exec((err, count)=>{
+            };
+            if(argv.nonice) query.nice = {$exists: false};
+            db.Task.count(query).exec((err, count)=>{
                 if(err) return next(err);
                 report.queue_size = count;
                 if(count > 2000) {

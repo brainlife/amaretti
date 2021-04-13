@@ -56,19 +56,19 @@ fi
 
 #make sure batch scheduler is alive (and responsive)
 if hash squeue 2>/dev/null; then
-    timeout 5 sinfo
+    timeout 5 sinfo >/dev/null
     if [ ! $? -eq 0 ]; then
         echo "squeue/sinfo seem to be not working.. maybe something wrong with the scheduler?"
         exit 1
     fi
 elif hash qstat 2>/dev/null; then
-    timeout 5 qstat -q
+    timeout 5 qstat -q >/dev/null
     if [ ! $? -eq 0 ]; then
         echo "qstat seems to be not working.. maybe something wrong with the scheduler?"
         exit 1
     fi
 elif hash condor_q 2>/dev/null; then
-    timeout 10 condor_q $USER
+    timeout 10 condor_q $USER >/dev/null
     if [ ! $? -eq 0 ]; then
         echo "condor_q seems to be not working.. maybe something wrong with the scheduler?"
         exit 1
@@ -76,7 +76,7 @@ elif hash condor_q 2>/dev/null; then
 fi
 
 #check for access right
-mkdir _resource_check && rmdir _resource_check
+mkdir -p _resource_check && rmdir _resource_check
 if [ ! $? -eq 0 ]; then
     echo "couldn't write to workdir: `pwd`"
     exit 1
