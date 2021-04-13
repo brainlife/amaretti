@@ -115,6 +115,7 @@ function check(cb) {
         ]
     }
     if(argv.nonice) query.nice = {$exists: false};
+    else query.nice = {$exists: true};
 
     db.Task.findOne(query)
     //sorting slows down the query significantly.. let's just be smart about setting next_date 
@@ -1312,6 +1313,8 @@ function health_check() {
                 ]
             };
             if(argv.nonice) query.nice = {$exists: false};
+            else query.nice = {$exists: true};
+
             db.Task.count(query).exec((err, count)=>{
                 if(err) return next(err);
                 report.queue_size = count;
