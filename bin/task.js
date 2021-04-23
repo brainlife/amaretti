@@ -10,6 +10,7 @@ const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
 const deepmerge = require('deepmerge');
+const stripAnsi = require('strip-ansi');
 
 const yargs = require('yargs');
 
@@ -293,7 +294,7 @@ function handle_housekeeping(task, cb) {
 
             //find any tasks that depends on me.. 
             db.Task.findOne({ 
-                deps: task._id, 
+                "deps_config.task": task._id, 
                 status: {$in: [ "requested", "running", "running_sync" ]} 
             }, (err, depend)=>{
                 if(err) next(err);
@@ -583,7 +584,6 @@ function handle_running(task, next) {
 
             common.get_ssh_connection(resource, (err, conn)=>{
                 if(err) {
-                    //retry laster..
                     task.status_msg = err.toString();
                     return next();
                 }
@@ -601,7 +601,8 @@ function handle_running(task, next) {
                         out = out.substring(pos+delimtoken.length).trim();
 
                         //remove non ascii..
-                        out = out.replace(/[^\x00-\x7F]/g, ""); //remove nonascii
+                        //out = out.replace(/[^\x00-\x7F]/g, ""); //remove nonascii
+                        out = stripAnsi(out);
 
                         switch(code) {
                         case undefined:
