@@ -33,7 +33,7 @@ function mask_enc(resource) {
 }
 
 function is_admin(user) {
-    if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true; //deprecate (use scopes.amaretti)
+    //if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true; //deprecate (use scopes.amaretti)
     if(user.scopes.amaretti && ~user.scopes.amaretti.indexOf("admin")) return true;
     return false;
 }
@@ -41,7 +41,7 @@ function is_admin(user) {
 function canedit(user, resource) {
     if(!user) return false;
     if(resource.user_id == user.sub) return true;
-    if(resource.admins && resource.admins.includes(user.sub)) return true;
+    if(resource.admins && resource.admins.includes(user.sub.toString())) return true;
     if(is_admin(user)) return true;
     return false;
 }

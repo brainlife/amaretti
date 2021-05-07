@@ -675,7 +675,16 @@ function handle_running(task, next) {
 
 function rerun_child(task, cb) {
     //find all child tasks
-    db.Task.find({'deps_config.task': task._id}, (err, tasks)=>{
+    db.Task.find({
+        "deps_config.task": task._id,
+
+        //when a rule is turned off and job is removed, staging might finish after it's removed
+        //and re-start the following job! let's rerun if the state is anything other than removed
+        //I am afraid this might prevent old vis jobs from getting rerun if it's already removed
+        //but UI does rerun of removed job manually (mixin/wait.js).. so I believe it's ok..
+        "status": {$ne: "removed"},
+
+    }, (err, tasks)=>{
         if(tasks.length) console.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
         async.eachSeries(tasks, (_task, next_task)=>{
