@@ -1107,6 +1107,7 @@ router.put('/:taskid', common.jwt(), function(req, res, next) {
         }
         if(req.body.name !== undefined) task.name = req.body.name;
         if(req.body.desc !== undefined) task.desc = req.body.desc;
+        //if(req.body.config !== undefined && task.status == "requested") task.config = req.body.config;
 
         task.update_date = new Date();
         task.save(function(err) {

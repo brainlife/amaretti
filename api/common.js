@@ -646,25 +646,20 @@ exports.rerun_task = function(task, remove_date, cb) {
     //don't need to rerun non-terminated task
     case "running":
     case "running_sync":
-    //shouldn't rerun task that's stop_requested
+    //don't know how I can rerun task that's stop_requested.. 
     case "stop_requested":
-    //maybe shouldn't rerun if task is stopped?
-    //case "stopped":
         return cb();
-    //"removed" job needs to be rerun for novnc.. but it was filtered out.. why didn't do that? git commit doesn't say much
     }
 
     //don't rerun if task is already starting
-    if(task.start_date && task.status == "requested") {
-        return cb();
-    }
+    if(task.start_date && task.status == "requested") return cb();
 
     //don't rerun task that's locked
     if(task.locked) return cb("task is locked");
 
     //check to see if any deps tasks are running currently using this task.
     db.Task.findOne({ 
-        deps: task._id, 
+        "deps_config.task": task._id, 
         status: {$in: [ "requested", "running", "running_sync" ]} 
     }).countDocuments((err, count)=>{
         if(err) next(err);

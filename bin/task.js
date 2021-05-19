@@ -683,7 +683,6 @@ function rerun_child(task, cb) {
         //I am afraid this might prevent old vis jobs from getting rerun if it's already removed
         //but UI does rerun of removed job manually (mixin/wait.js).. so I believe it's ok..
         "status": {$ne: "removed"},
-
     }, (err, tasks)=>{
         if(tasks.length) console.debug("rerunning child tasks:"+tasks.length);
         //for each child, rerun
@@ -877,6 +876,41 @@ function start_task(task, resource, considered, cb) {
                         });
 
                     });
+                });
+            },
+
+            //this is really warehouse specific behavior, but I can't think of a better way
+            //load taskproduct for each deps_config
+            next=>{
+                if(!task.deps_config) return next(); //no deps then skip
+                if(!task.config || !task.config._inputs) return next(); 
+                const ids = task.deps_config.map(t=>t.task.id);
+                console.log("loading taskproduct", ids);
+                db.Taskproduct.find({task_id: {$in: ids}}).then(products=>{
+                    //merge product info to config inputs
+                    console.log(JSON.stringify(products, null, 4));
+                    task.config._inputs.forEach(input=>{
+                        const product = products.find(p=>p.task_id == input.task_id);
+                        if(!product) return;
+                        console.log("handling", input, product.product);
+
+                        //apply product root content (for all inputs)
+                        const root = product.product;
+                        if(root.meta) Object.assign(input.meta, root.meta);
+                        if(root.tags) input.tags = Array.from(new Set([...input.tags, ...root.tags]));
+                        if(root.datatype_tags) input.datatype_tags = Array.from(new Set([...input.datatype_tags, ...root.datatype_tags]));
+
+                        //apply output specific content
+                        const p = root[input.subdir];
+                        if(!p) return;
+                        if(p.meta) Object.assign(input.meta, p.meta);
+                        if(p.tags) input.tags = Array.from(new Set([...input.tags, ...p.tags]));
+                        if(p.datatype_tags) input.datatype_tags = 
+                            Array.from(new Set([...input.datatype_tags, ...p.datatype_tags]));
+                        input._productMerged = true;
+                        console.log("megedd", p, input);
+                    });
+                    next();
                 });
             },
             
@@ -1250,11 +1284,11 @@ function load_product(taskdir, resource, cb) {
     });
 }
 
+//TODO - this is more of a warehouse behavior?
 async function storeProduct(task, dirty_product) {
     product = common.escape_dot(dirty_product);
 
     //for validation task, I need to merge product from the main task 
-    //TODO - this is more of a warehouse behavior?
     if(task.follow_task_id) {
         let follow_product = await db.Taskproduct.findOne({task_id: task.follow_task_id}).lean().exec();
         if(follow_product && follow_product.product) {
@@ -1270,8 +1304,39 @@ async function storeProduct(task, dirty_product) {
             product = deepmerge(product, follow_product.product); //TODO shouldn't product have precidence over follow_product?
         }
     }
+    if(!product) return;
 
     await db.Taskproduct.findOneAndUpdate({task_id: task._id}, {product}, {upsert: true});
+    
+    /*
+    //we want to ensure that product.json content
+    //gets applied before we poke child tasks.. it's also easier to update task config in amaretti.
+    //I need to merge the product.json on all of my deps config._inputs that's already submitted using this 
+    //task's output
+    console.log("updating child's config with product-------------------------------");
+    const childTasks = await db.Task.find({"deps_config.task": task._id});
+    for await (const child of childTasks) {
+        console.log("handling child", child.id);
+        console.dir(child.config);
+        if(!child.config._inputs) return; //staging job?
+        child.config._inputs.forEach(input=>{
+            if(input.task_id == task.id) {
+                console.log("handling input", input);
+                const p = product[input.subdir];
+                if(p) {
+                    if(p.meta) Object.assign(input.meta, p.meta);
+                    if(p.tags) input.tags = Array.from(new Set([...input.tags, ...p.tags]));
+                    if(p.datatype_tags) input.datatype_tags = Array.from(new Set([...input.datatype_tags, ...p.datatype_tags]));
+                }
+                console.log("updated to");
+                console.dir(input);
+            }
+        })
+        child.markModified("config");
+        await child.save();
+    }
+    console.log("updated all");
+    */
 }
 
 //counter to keep up with how many checks are performed in the last few minutes
