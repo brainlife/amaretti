@@ -164,17 +164,20 @@ function check(cb) {
 
         let previous_status = task.status;
         task.handle_date = new Date(); //record the handle date
-        handler(task, err=>{
+        handler(task, async (err, skipSave)=>{
             if(err) console.error(err); //continue
-            task.save(function(err) {
-                if(err) console.error(err); //continue..
 
-                //if task status changed, update instance status also
-                if(task.status == previous_status) return check(); //no change
-                common.update_instance_status(task.instance_id, err=>{
-                    if(err) console.error(err);
-                    check();
-                });
+            //handle_requested split start_task which does its own task.save().
+            //to prevent parallel save, I let the last save from handle_requested by start_task
+            //so we should not save here.. 
+            if(skipSave) console.log("skipping task.save()---", skipSave);
+            if(!skipSave) await task.save();
+
+            //if task status changed, update instance status also
+            if(task.status == previous_status) return check(); //no change
+            common.update_instance_status(task.instance_id, err=>{
+                if(err) console.error(err);
+                check();
             });
         });
     });
@@ -266,6 +269,7 @@ function handle_housekeeping(task, cb) {
                         task.status = "removed"; //most likely removed by cluster
                         task.status_msg = "Output from this task seems to have been all removed";
                     }
+                    console.log("done dealing with resourxces");
                     next();
                 }
             });
@@ -312,8 +316,9 @@ function handle_housekeeping(task, cb) {
         },
 
         //TODO - stop tasks that got stuck in running / running_sync
-
-    ], cb);
+    ], (err, results)=>{
+        cb(err);
+    });
 }
 
 function handle_requested(task, next) {
@@ -462,9 +467,9 @@ function handle_requested(task, next) {
 
             //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
             //start_task is designed to be able to run concurrently..
-            next();
+            console.log("started task.. skiping save");
+            next(null, true); //skip saving to prevent parallel save with start_task
         });
-
     });
 }
 
@@ -721,7 +726,6 @@ function start_task(task, resource, considered, cb) {
 
         console.debug("starting task on "+resource.name);
         async.series([
-        
             //make sure dep task dirs are synced first
             next=>{
                 if(!task.deps_config) return next(); //no deps then skip
@@ -892,6 +896,7 @@ function start_task(task, resource, considered, cb) {
                     task.config._inputs.forEach(input=>{
                         const product = products.find(p=>p.task_id == input.task_id);
                         if(!product) return;
+                        if(!product.product) return; //TODO why does this happen?
                         console.log("handling", input, product.product);
 
                         //apply product root content (for all inputs)
@@ -1098,7 +1103,9 @@ function start_task(task, resource, considered, cb) {
                 });
             },
             //done with all steps!
-        ], cb);
+        ], (err, results)=>{
+            cb(err);
+        });
     });
 }
 
