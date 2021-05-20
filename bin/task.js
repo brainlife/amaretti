@@ -899,6 +899,10 @@ function start_task(task, resource, considered, cb) {
                         if(!product.product) return; //TODO why does this happen?
                         console.log("handling", input, product.product);
 
+                        if(!input.meta) input.meta = {};
+                        if(!input.tags) input.tags = [];
+                        if(!input.datatype_tags) input.datatype_tags = [];
+
                         //apply product root content (for all inputs)
                         const root = product.product;
                         if(root.meta) Object.assign(input.meta, root.meta);
