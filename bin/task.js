@@ -853,7 +853,7 @@ function start_task(task, resource, considered, cb) {
                 common.get_ssh_connection(resource, (err, conn)=>{
                     if(err) return next(err);
                     let workdir = common.getworkdir(null, resource);
-                    cache_app(conn, service, workdir, taskdir, task.commit_id, (err, app_cache)=>{
+                    cache_app(conn, service, task.service_branch, workdir, taskdir, task.commit_id, (err, app_cache)=>{
                         if(err) return next(err);
                         if(!app_cache) {
                             //TODO - not working?
@@ -1116,7 +1116,7 @@ function start_task(task, resource, considered, cb) {
 //TODO - I am not sure zip download from github includes lfs content?
 //returns (err, app_cache) app_cache will be set to false if other jobs 
 //seems to be staging the same cache
-function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
+function cache_app(conn, service, branch, workdir, taskdir, commit_id, cb) {
     let app_cache = workdir+"/appcache/"+service.split("/")[1]+"-"+commit_id;
 
     async.series([
@@ -1178,22 +1178,22 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
 
         //check to see if other process is already downloading a cache
         next=>{
-            conn.exec("(set -o pipefail; timeout 30 stat --printf=\"%Y\" "+app_cache+".zip || touch "+app_cache+".zip)", (err, stream)=>{
+            conn.exec("timeout 30 stat --printf=\"%Y\" "+app_cache+".clone", (err, stream)=>{
                 if(err) return next(err);
                 let mod_s = "";
                 stream.on('close', (code, signal)=>{
-                    if(code === undefined) return next("connection terminated while checking app cache .zip");
+                    if(code === undefined) return next("connection terminated while checking app cache .clone");
                     else if(code == 0) {
                         let age = new Date().getTime()/1000 - mod_s;
-                        console.log("app cache .zip exists.. mod time: %s age:%d(secs)", mod_s, age);
+                        console.log("app cache .clone exists.. mod time: %s age:%d(secs)", mod_s, age);
                         if(age < 60) {
                             console.debug("will wait..");
                             return cb(null, false); //retry later.. maybe it's still getting downloaded
                         }
-                        console.log("will proceed and override..");
+                        console.log("but it's too old.. will override..");
                         next(); //proceed and overwrite..
                     } else {
-                        console.debug("no app_cache .. proceed with download. code:"+code);
+                        console.debug("nobody is cloning app.. proceeding with clone. code:"+code);
                         //TODO - it could happen that other download has just began.. might need to do flock?
                         next();
                     }
@@ -1202,14 +1202,18 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                     console.log(data.toString());
                     mod_s += data.toString();
                 }).stderr.on('data', function(data) {
-                    console.error(data.toString());
+                    //might say .clone doesn't exist, but that's a good thing
+                    //console.error(data.toString());
                 });
             });
         },
 
+        /*
+        //.zip doesn't allow cloning submodules..
+        //https://github.com/dear-github/dear-github/issues/214
         //cache app and unzip, and unwind
         next=>{
-            console.log("caching app %s", app_cache+".zip");
+            console.log("caching app %s", app_cache+".clone");
             conn.exec("timeout 300 "+
                 "cat > "+app_cache+".zip && "+
                 "unzip -o -d "+app_cache+".unzip "+app_cache+".zip && "+
@@ -1241,6 +1245,33 @@ function cache_app(conn, service, workdir, taskdir, commit_id, cb) {
                         "Authorization": "token "+config.github.access_token, //for private repo
                     }, 
                 }).pipe(stream); 
+            });
+        },
+        */
+        
+        //cache app and unzip, and unwind
+        next=>{
+            console.log("caching app %s", app_cache+".clone");
+            const branchOpt = branch?("--branch "+branch):"";
+            conn.exec("timeout 60 "+ 
+                "rm -rf "+app_cache+".clone && "+ 
+                "git clone --recurse-submodules --depth=1 "+branchOpt+" https://"+config.github.access_token+"@github.com/"+service+" "+app_cache+".clone && "+
+                "mv "+app_cache+".clone "+app_cache, (err, stream)=>{
+                if(err) return next(err);
+                stream.on('close', function(code, signal) {
+                    //TODO - should I remove the partially downloaded zip?
+                    if(code === undefined) return next("connection terminated while caching app");
+                    else if(code) return next("failed to cache app .. code:"+code);
+                    else {
+                        console.debug("successfully cached app");
+                        next();
+                    }
+                })
+                .on('data', function(data) {
+                    console.log(data.toString());
+                }).stderr.on('data', function(data) {
+                    console.error(data.toString());
+                });
             });
         },
     ], err=>{

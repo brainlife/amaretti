@@ -167,7 +167,7 @@ var taskSchema = mongoose.Schema({
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
     //github repo
     service: String, // "soichih/sca-service-life"
-    service_branch: String, //master by default
+    service_branch: String, //master/main by default
     locked: Boolean, //if locked, the task can not be executed again (for app-noop let user upload data but not execute afterward)
 
     commit_id: String, //git commit id when the task was started
@@ -243,10 +243,12 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
+    /*
     //TODO - deprecated by taskproduct
     //content of product.json if generated
     //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
     product: mongoose.Schema.Types.Mixed,
+    */
  
     //next time sca-task should check this task again (unset to check immediately)
     //next_date: {type: Date, index: true}, //indexStats shows it's not used
