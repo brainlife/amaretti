@@ -112,9 +112,8 @@ function run_every10min() {
                         noNullPoints: "true"
                     }, json: true, debug: true }, (err, _res, json)=>{
                         if(err) return next(err);
-                        let data;
-                        if(json.length == 0) data = []; //maybe never run?
-                        else data = json[0].datapoints;
+                        let data = [];
+                        if(json.length) data = json[0].datapoints;
 
                         //aggregate graph into each hours
                         let start = new Date();

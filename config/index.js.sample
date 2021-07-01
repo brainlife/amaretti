@@ -40,7 +40,7 @@ exports.github = {
 
 exports.metrics = {
     resource_prefix: "dev.amaretti.resource-id",
-    api: "http://10.0.0.10",
+    api: "http://10.0.0.10:2080", //graphite@monitor 
 }
 
 exports.mailchimp = {

@@ -286,11 +286,13 @@ function handle_housekeeping(task, cb) {
                 need_remove = true;
             }
 
-            //remove task that's more than 3 months
-            var maxage = new Date();
-            maxage.setDate(now.getDate() - 90);
-            if(task.create_date < maxage) {
-                need_remove = true;
+            //if remove_date isn't set.. remove task that's more than 3 months
+            if(!task.remove_date) {
+                var maxage = new Date();
+                maxage.setDate(now.getDate() - 90);
+                if(task.create_date < maxage) {
+                    need_remove = true;
+                }
             }
 
             //no need to remove, then no need to go further

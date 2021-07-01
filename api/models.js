@@ -204,7 +204,7 @@ var taskSchema = mongoose.Schema({
     //resource_deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'} ],
 
     //mili-seconds after start_date to stop running job (default to 7 days)
-    //note.. this includes time that task is in the queue
+    //note.. this includes time that task is in the batch queue (don't set it too short!)
     //this mainly exists to prevent jobs from getting stuck running, but also to stop tasks while it's being started.
     max_runtime: { type: Number, default: 1000*3600*24*7},
 
