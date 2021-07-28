@@ -1,6 +1,10 @@
-#!/usr/bin/node
+#!/usr/bin/env node
 
-//node
+
+//make require to work while we migrate to import
+//import { createRequire } from "module";
+//const require = createRequire(import.meta.url);
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -10,18 +14,16 @@ const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
 const deepmerge = require('deepmerge');
-const stripAnsi = require('strip-ansi');
-
 const yargs = require('yargs');
 
-//mine
+const stripAnsi = require('strip-ansi');
+
 const config = require('../config');
 const db = require('../api/models');
 const common = require('../api/common');
 const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
-
 
 const argv = yargs
     .option('nonice', {
@@ -32,13 +34,6 @@ const argv = yargs
     .help()
     .alias('help', 'h')
     .argv;
-
-/*
-if(argv.nonice) {
-    console.log("nonice");
-    process.exit(1);
-}
-*/
 
 //keep up with which resources are currently accessed (fetching input data)
 let resourceSyncCount = {};
@@ -1210,47 +1205,6 @@ function cache_app(conn, service, branch, workdir, taskdir, commit_id, cb) {
             });
         },
 
-        /*
-        //.zip doesn't allow cloning submodules..
-        //https://github.com/dear-github/dear-github/issues/214
-        //cache app and unzip, and unwind
-        next=>{
-            console.log("caching app %s", app_cache+".clone");
-            conn.exec("timeout 300 "+
-                "cat > "+app_cache+".zip && "+
-                "unzip -o -d "+app_cache+".unzip "+app_cache+".zip && "+
-                "rm -rf "+app_cache+" && "+
-                "mv "+app_cache+".unzip/*"+" "+app_cache+" && "+
-                "rm "+app_cache+".zip && "+
-                "rmdir "+app_cache+".unzip", (err, stream)=>{
-                if(err) return next(err);
-                stream.on('close', function(code, signal) {
-                    //TODO - should I remove the partially downloaded zip?
-                    if(code === undefined) return next("connection terminated while caching app");
-                    else if(code) return next("failed to cache app .. code:"+code);
-                    else {
-                        console.debug("successfully cached app");
-                        next();
-                    }
-                })
-                .on('data', function(data) {
-                    console.log(data.toString());
-                }).stderr.on('data', function(data) {
-                    console.error(data.toString());
-                });
-                
-                //download from github
-                request.get({
-                    url: "https://github.com/"+service+"/archive/"+commit_id+".zip", 
-                    headers: {
-                        "User-Agent": "brainlife/amaretti",
-                        "Authorization": "token "+config.github.access_token, //for private repo
-                    }, 
-                }).pipe(stream); 
-            });
-        },
-        */
-        
         //cache app and unzip, and unwind
         next=>{
             console.log("caching app %s", app_cache+".clone");

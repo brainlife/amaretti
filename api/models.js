@@ -15,9 +15,10 @@ exports.init = function(cb) {
     events.init(err=>{
         if(err) return cb(err);
         mongoose.connect(config.mongodb, {
+            readPreference: 'nearest',
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            auto_reconnect: true,
+            auto_reconnect: true, //isn't this default?
         }, function(err) {
             if(err) return cb(err);
             //logger.info("connected to mongo");
