@@ -114,11 +114,28 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //console.log("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*
-            var inexopts = "--exclude=\".*\" ";
+            //let's not copy config.json as it could contains sensitive info 
+            //(like.. token/secret for xnat in app-stage!!)
+            var inexopts = "--exclude=\".*\" --exclude=config.json";
             if(subdirs && subdirs.length) {
                 inexopts = "";
                 subdirs.forEach(dir=>{
-                    inexopts += "--include=\""+dir+"/***\" ";
+                    if(dir.indexOf("include:") == 0) {
+                        //because of rsync oddness, I need to enumerate all parent directories separately.
+                        //https://stackoverflow.com/a/26790074/99330
+                        const fullpath = dir.substring(8);
+                        const tokens = fullpath.split("/");
+                        let part = "";
+                        tokens.forEach(token=>{
+                            part += token;
+                            inexopts += "--include=\""+part+"\" ";
+                            part += "/";
+                        });
+                        inexopts += "--include=\""+part+"***\" "; //need the last one with ***
+                    } else {
+                        //subdir method is simple..
+                        inexopts += "--include=\""+dir+"/***\" ";
+                    }
                 });
                 inexopts += "--exclude=\"*\" "; //without this at the end, include doesn't work
             }
@@ -139,6 +156,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 }, (err, conn)=>{
                     if(err) return next(err); 
                     let cmd = "timeout 630 rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
+                    console.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
                         if(err) return next(err);
                         let errors = "";

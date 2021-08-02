@@ -965,7 +965,7 @@ function start_task(task, resource, considered, cb) {
                         .on('data', function(data) {
                             console.log(data.toString());
                         }).stderr.on('data', function(data) {
-                            console.log(data.toString());
+                            console.error(data.toString());
                         });
                         stream.write("#!/bin/bash\n");
 
