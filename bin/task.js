@@ -428,11 +428,7 @@ function handle_requested(task, next) {
         task.status_msg = "Starting task";
         task.start_date = new Date();
         task.resource_id = resource._id;
-        if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-            //console.debug(["adding resource id", task.service, task._id.toString(), resource._id.toString()]);
-            //TODO - this could cause concurrency issue sometimes (I should try $addToSet?)
-            task.resource_ids.push(resource._id);
-        }
+        
         //need to save start_date to db so that other handler doesn't get called
         task.save(err=>{
             start_task(task, resource, considered, err=>{
@@ -443,6 +439,10 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
+
+                if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
+                    task.resource_ids.push(resource._id);
+                }
 
                 //if we couldn't start (in case of retry), reset start_date so we can handle it later again
                 if(task.status == "requested") task.start_date = undefined;
