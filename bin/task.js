@@ -440,9 +440,12 @@ function handle_requested(task, next) {
                     task.fail_date = new Date();
                 } 
 
+                /*
                 if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
                     task.resource_ids.push(resource._id);
                 }
+                */
+                task.resource_ids.addToSet(resource._id);
 
                 //if we couldn't start (in case of retry), reset start_date so we can handle it later again
                 if(task.status == "requested") task.start_date = undefined;
