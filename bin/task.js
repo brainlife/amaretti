@@ -334,103 +334,103 @@ function handle_requested(task, next) {
         }
         console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     }
-
-    //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
-    if(task.remove_date < now) {
-        task.status_msg = "Requested but it is past the remove date";
-        task.status = "stopped"; //not yet started.. just stop
-        task.next_date = undefined; //let house keeper remove it immediately
-        return next();
-    }
-
-    //make sure dependent tasks has all finished
-    var deps_all_done = true;
-    var failed_deps = [];
-    var removed_deps = [];
-    task.deps_config.forEach(function(dep) {
-        if(!dep.task) {
-            //task removed by administrator? (I had to remove task with user_id set to "warehouse" once)
-            removed_deps.push(dep.task);
-            return;
-        }
-        if(dep.task.status != "finished") deps_all_done = false;
-        if(dep.task.status == "failed") failed_deps.push(dep.task);
-        if(dep.task.status == "removed") removed_deps.push(dep.task);
-    });
-
-    //fail the task if any dependency fails
-    //TODO - maybe make this optional based on task option?
-    if(failed_deps.length > 0) {
-        console.debug("dependency failed.. failing this task");
-        task.status_msg = "Dependency failed.";
-        task.status = "failed";
-        task.fail_date = new Date();
-        return next();
-    }
     
-    //fail the task if any dependency is removed
-    if(removed_deps.length > 0) {
-        console.debug("dependency removed.. failing this task");
-        task.status_msg = "Dependency removed.";
-        task.status = "failed";
-        task.fail_date = new Date();
-        return next();
-    }
-     
-    //fail if requested for too long
-    var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
-    if(reqtime > 1000 * 3600*24*20) {
-        task.status_msg = "Task has been stuck in requested state for >20 days.. failing";
-        task.status = "failed";
-        task.fail_date = new Date();
-        return next();
-    }
+    //immediately set start date to prevent this task from getting double processed
+    task.status_msg = "Starting task";
+    task.start_date = new Date();
+    task.save(err=>{
+        if(err) console.error(err);
+        
+        //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
+        if(task.remove_date < now) {
+            task.status_msg = "Requested but it is past the remove date";
+            task.status = "stopped"; //not yet started.. just stop
+            task.next_date = undefined; //let house keeper remove it immediately
+            return next();
+        }
 
-    if(!deps_all_done) {
-        console.debug("dependency not met.. postponing");
-        task.status_msg = "Waiting on dependencies";
-        //when dependency finished, it should auto-poke this task. so it's okay for this to be long
-        task.next_date = new Date(Date.now()+1000*3600*24); 
-        return next();
-    }
+        //make sure dependent tasks has all finished
+        var deps_all_done = true;
+        var failed_deps = [];
+        var removed_deps = [];
+        task.deps_config.forEach(function(dep) {
+            if(!dep.task) {
+                //task removed by administrator? (I had to remove task with user_id set to "warehouse" once)
+                removed_deps.push(dep.task);
+                return;
+            }
+            if(dep.task.status != "finished") deps_all_done = false;
+            if(dep.task.status == "failed") failed_deps.push(dep.task);
+            if(dep.task.status == "removed") removed_deps.push(dep.task);
+        });
 
-    let user = {
-        sub: task.user_id,
-        gids: task.gids,
-    }
-    _resource_select(user, task, function(err, resource, score, considered) {
-        if(err) return next(err);
-        if(!resource || resource.status == "removed") {
-            task.status_msg = "No resource currently available to run this task.. waiting.. ";
-            //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
-            //this should make sure that no project will consume all available slots simply because the project
-            //submits tons of tasks..
-            //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
-            db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
-                if(err) return next(err);
-                db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
-                    if(err) return next(err);
-
-                    //penalize projects that are running a lot of jobs already (15 seconds per job)
-                    //also add up to an hour for projects that has a lot of jobs requested (1 second each)
-                    let secs = (15*running_count)+Math.min(requested_count, 3600);
-                    secs = Math.max(secs, 15); //min 15 seconds
-
-                    console.log("%s -- retry in %d secs -- running:%d group_id:%d(requested:%d)", task.status_msg, secs, running_count, task._group_id, requested_count);
-                    task.next_date = new Date(Date.now()+1000*secs);
-                    next();
-                });
-            });
-            return;
+        //fail the task if any dependency fails
+        //TODO - maybe make this optional based on task option?
+        if(failed_deps.length > 0) {
+            console.debug("dependency failed.. failing this task");
+            task.status_msg = "Dependency failed.";
+            task.status = "failed";
+            task.fail_date = new Date();
+            return next();
         }
         
-        //set start date to *lock* this task
-        task.status_msg = "Starting task";
-        task.start_date = new Date();
-        task.resource_id = resource._id;
-        
-        //need to save start_date to db so that other handler doesn't get called
-        task.save(err=>{
+        //fail the task if any dependency is removed
+        if(removed_deps.length > 0) {
+            console.debug("dependency removed.. failing this task");
+            task.status_msg = "Dependency removed.";
+            task.status = "failed";
+            task.fail_date = new Date();
+            return next();
+        }
+         
+        //fail if requested for too long
+        var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
+        if(reqtime > 1000 * 3600*24*20) {
+            task.status_msg = "Task has been stuck in requested state for >20 days.. failing";
+            task.status = "failed";
+            task.fail_date = new Date();
+            return next();
+        }
+
+        if(!deps_all_done) {
+            console.debug("dependency not met.. postponing");
+            task.status_msg = "Waiting on dependencies";
+            //when dependency finished, it should auto-poke this task. so it's okay for this to be long
+            task.next_date = new Date(Date.now()+1000*3600*24); 
+            return next();
+        }
+
+        let user = {
+            sub: task.user_id,
+            gids: task.gids,
+        }
+        _resource_select(user, task, function(err, resource, score, considered) {
+            if(err) return next(err);
+            if(!resource || resource.status == "removed") {
+                task.status_msg = "No resource currently available to run this task.. waiting.. ";
+                //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
+                //this should make sure that no project will consume all available slots simply because the project
+                //submits tons of tasks..
+                //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
+                db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
+                    if(err) return next(err);
+                    db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
+                        if(err) return next(err);
+
+                        //penalize projects that are running a lot of jobs already (15 seconds per job)
+                        //also add up to an hour for projects that has a lot of jobs requested (1 second each)
+                        let secs = (15*running_count)+Math.min(requested_count, 3600);
+                        secs = Math.max(secs, 15); //min 15 seconds
+
+                        console.log("%s -- retry in %d secs -- running:%d group_id:%d(requested:%d)", task.status_msg, secs, running_count, task._group_id, requested_count);
+                        task.next_date = new Date(Date.now()+1000*secs);
+                        next();
+                    });
+                });
+                return;
+            }
+
+            //ready to start it!
             start_task(task, resource, considered, err=>{
                 if(err) {
                     //permanently failed to start (or running_sync failed).. mark the task as failed
@@ -445,6 +445,9 @@ function handle_requested(task, next) {
                     task.resource_ids.push(resource._id);
                 }
                 */
+
+                //shouldn't we do this in start_task?
+                task.resource_id = resource._id;
                 task.resource_ids.addToSet(resource._id);
 
                 //if we couldn't start (in case of retry), reset start_date so we can handle it later again
@@ -726,13 +729,14 @@ function start_task(task, resource, considered, cb) {
 
         console.debug("starting task on "+resource.name);
         async.series([
+            
             //make sure dep task dirs are synced first
             next=>{
                 if(!task.deps_config) return next(); //no deps then skip
                 async.eachSeries(task.deps_config, function(dep, next_dep) {
                     
                     //if resource is the same, don't need to sync
-                    if(task.resource_id.toString() == dep.task.resource_id.toString()) return next_dep();
+                    if(resource._id.toString() == dep.task.resource_id.toString()) return next_dep();
 
                     //go through all resource_id that this task might be stored at 
                     async.eachSeries([dep.task.resource_id, ...dep.task.resource_ids.reverse()], (source_resource_id, next_source)=>{
