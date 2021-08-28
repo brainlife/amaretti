@@ -326,6 +326,7 @@ function handle_requested(task, next) {
     //requested jobs are handled asynchrnously.. (start_date will be set while being handled)
     //if some api reset next_date, it could get reprocessed while it's starting up
     //so we need to bail if this is the cause
+    //WARNING - don't run anything asynchrnous after checking for task.start_date before I save the task with new start_date 
     if(task.start_date) {
         let starting_for = now - task.start_date;
         if(starting_for < 1000*3600) {
@@ -334,71 +335,71 @@ function handle_requested(task, next) {
         }
         console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     }
+
+    //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
+    if(task.remove_date < now) {
+        task.status_msg = "Requested but it is past the remove date";
+        task.status = "stopped"; //not yet started.. just stop
+        task.next_date = undefined; //let house keeper remove it immediately
+        return next();
+    }
+
+    //make sure dependent tasks has all finished
+    var deps_all_done = true;
+    var failed_deps = [];
+    var removed_deps = [];
+    task.deps_config.forEach(function(dep) {
+        if(!dep.task) {
+            //task removed by administrator? (I had to remove task with user_id set to "warehouse" once)
+            removed_deps.push(dep.task);
+            return;
+        }
+        if(dep.task.status != "finished") deps_all_done = false;
+        if(dep.task.status == "failed") failed_deps.push(dep.task);
+        if(dep.task.status == "removed") removed_deps.push(dep.task);
+    });
+
+    //fail the task if any dependency fails
+    //TODO - maybe make this optional based on task option?
+    if(failed_deps.length > 0) {
+        console.debug("dependency failed.. failing this task");
+        task.status_msg = "Dependency failed.";
+        task.status = "failed";
+        task.fail_date = new Date();
+        return next();
+    }
     
-    //immediately set start date to prevent this task from getting double processed
+    //fail the task if any dependency is removed
+    if(removed_deps.length > 0) {
+        console.debug("dependency removed.. failing this task");
+        task.status_msg = "Dependency removed.";
+        task.status = "failed";
+        task.fail_date = new Date();
+        return next();
+    }
+     
+    //fail if requested for too long
+    var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
+    if(reqtime > 1000 * 3600*24*20) {
+        task.status_msg = "Task has been stuck in requested state for >20 days.. failing";
+        task.status = "failed";
+        task.fail_date = new Date();
+        return next();
+    }
+
+    if(!deps_all_done) {
+        console.debug("dependency not met.. postponing");
+        task.status_msg = "Waiting on dependencies";
+        //when dependency finished, it should auto-poke this task. so it's okay for this to be long
+        task.next_date = new Date(Date.now()+1000*3600*24); 
+        return next();
+    }    
+
+    //set start date before checking for resource_select to prevent this task from getting double processed
     task.status_msg = "Starting task";
     task.start_date = new Date();
     task.save(err=>{
         if(err) console.error(err);
-        
-        //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
-        if(task.remove_date < now) {
-            task.status_msg = "Requested but it is past the remove date";
-            task.status = "stopped"; //not yet started.. just stop
-            task.next_date = undefined; //let house keeper remove it immediately
-            return next();
-        }
-
-        //make sure dependent tasks has all finished
-        var deps_all_done = true;
-        var failed_deps = [];
-        var removed_deps = [];
-        task.deps_config.forEach(function(dep) {
-            if(!dep.task) {
-                //task removed by administrator? (I had to remove task with user_id set to "warehouse" once)
-                removed_deps.push(dep.task);
-                return;
-            }
-            if(dep.task.status != "finished") deps_all_done = false;
-            if(dep.task.status == "failed") failed_deps.push(dep.task);
-            if(dep.task.status == "removed") removed_deps.push(dep.task);
-        });
-
-        //fail the task if any dependency fails
-        //TODO - maybe make this optional based on task option?
-        if(failed_deps.length > 0) {
-            console.debug("dependency failed.. failing this task");
-            task.status_msg = "Dependency failed.";
-            task.status = "failed";
-            task.fail_date = new Date();
-            return next();
-        }
-        
-        //fail the task if any dependency is removed
-        if(removed_deps.length > 0) {
-            console.debug("dependency removed.. failing this task");
-            task.status_msg = "Dependency removed.";
-            task.status = "failed";
-            task.fail_date = new Date();
-            return next();
-        }
-         
-        //fail if requested for too long
-        var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
-        if(reqtime > 1000 * 3600*24*20) {
-            task.status_msg = "Task has been stuck in requested state for >20 days.. failing";
-            task.status = "failed";
-            task.fail_date = new Date();
-            return next();
-        }
-
-        if(!deps_all_done) {
-            console.debug("dependency not met.. postponing");
-            task.status_msg = "Waiting on dependencies";
-            //when dependency finished, it should auto-poke this task. so it's okay for this to be long
-            task.next_date = new Date(Date.now()+1000*3600*24); 
-            return next();
-        }
 
         let user = {
             sub: task.user_id,
@@ -407,7 +408,7 @@ function handle_requested(task, next) {
         _resource_select(user, task, function(err, resource, score, considered) {
             if(err) return next(err);
             if(!resource || resource.status == "removed") {
-                task.status_msg = "No resource currently available to run this task.. waiting.. ";
+
                 //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
                 //this should make sure that no project will consume all available slots simply because the project
                 //submits tons of tasks..
@@ -423,7 +424,11 @@ function handle_requested(task, next) {
                         secs = Math.max(secs, 15); //min 15 seconds
 
                         console.log("%s -- retry in %d secs -- running:%d group_id:%d(requested:%d)", task.status_msg, secs, running_count, task._group_id, requested_count);
+
+                        task.status_msg = "No resource currently available to run this task.. waiting.. ";
                         task.next_date = new Date(Date.now()+1000*secs);
+                        task.start_date = undefined; //reset start_date so it will be handled again later
+
                         next();
                     });
                 });
