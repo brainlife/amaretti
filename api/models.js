@@ -16,9 +16,12 @@ exports.init = function(cb) {
         if(err) return cb(err);
         mongoose.connect(config.mongodb, {
             readPreference: 'nearest',
+            writeConcern: {
+                w: 'majority', //isn't this the default?
+            },
+            readConcern: 'majority',//prevents read to grab stale data from secondary
             useNewUrlParser: true,
             useUnifiedTopology: true,
-            auto_reconnect: true, //isn't this default?
         }, function(err) {
             if(err) return cb(err);
             //logger.info("connected to mongo");

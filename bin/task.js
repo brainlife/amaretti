@@ -134,7 +134,7 @@ function check(cb) {
 
         set_nextdate(task);
         _counts.tasks++;
-        console.log("------- ", task.status, task.service, task.user_id, task._id.toString(), task.name);
+        console.log("------- ", task._id.toString(), "user:", task.user_id, task.status, task.service, task.name);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -323,7 +323,7 @@ function handle_requested(task, next) {
     let now = new Date();
     let initialState = task.status;
 
-    //requested jobs are handled asynchrnously.. (start_date will be set while being handled)
+    //requested jobs are handled asynchronously.. (start_date will be set while being handled)
     //if some api reset next_date, it could get reprocessed while it's starting up
     //so we need to bail if this is the cause
     //WARNING - don't run anything asynchrnous after checking for task.start_date before I save the task with new start_date 
@@ -396,7 +396,7 @@ function handle_requested(task, next) {
     }    
 
     //set start date before checking for resource_select to prevent this task from getting double processed
-    task.status_msg = "Starting task";
+    task.status_msg = "Looking for resource";
     task.start_date = new Date();
     task.save(err=>{
         if(err) console.error(err);
@@ -423,13 +423,13 @@ function handle_requested(task, next) {
                         let secs = (15*running_count)+Math.min(requested_count, 3600);
                         secs = Math.max(secs, 15); //min 15 seconds
 
-                        console.log("%s -- retry in %d secs -- running:%d group_id:%d(requested:%d)", task.status_msg, secs, running_count, task._group_id, requested_count);
+                        console.log("can't find resource.. retry in %d secs -- running:%d group_id:%d(requested:%d)", secs, running_count, task._group_id, requested_count);
 
                         task.status_msg = "No resource currently available to run this task.. waiting.. ";
                         task.next_date = new Date(Date.now()+1000*secs);
                         task.start_date = undefined; //reset start_date so it will be handled again later
 
-                        next();
+                        return next();
                     });
                 });
                 return;
@@ -444,12 +444,6 @@ function handle_requested(task, next) {
                     task.status_msg = err;
                     task.fail_date = new Date();
                 } 
-
-                /*
-                if(!~common.indexOfObjectId(task.resource_ids, resource._id)) {
-                    task.resource_ids.push(resource._id);
-                }
-                */
 
                 //shouldn't we do this in start_task?
                 task.resource_id = resource._id;
@@ -768,7 +762,7 @@ function start_task(task, resource, considered, cb) {
                             //let's start syncing!
                             let source_path = common.gettaskdir(dep.task.instance_id, dep.task._id, source_resource);
                             let dest_path = common.gettaskdir(dep.task.instance_id, dep.task._id, resource);
-                            let msg_prefix = "Synchronizing dependent task directory: "+(dep.task.desc||dep.task.name||dep.task._id.toString());
+                            let msg_prefix = "Synchronizing dependent task directory from "+source_resource.name+" to "+resource.name+". "+(dep.task.desc||dep.task.name||dep.task._id.toString());
                             task.status_msg = msg_prefix;
                             let saving_progress = false;
                             task.save(err=>{
@@ -1021,6 +1015,7 @@ function start_task(task, resource, considered, cb) {
                     });
                 });
             },
+            
             //finally, run the service!
             next=>{
                 if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence
