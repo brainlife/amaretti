@@ -12,6 +12,30 @@ const config = require('../config');
 const db = require('./models');
 const common = require('../api/common');
 
+//execute cmd and call cb() with returned stdout content (if any)
+function run_command(resource, cmd, next) {
+    common.get_ssh_connection(resource, {}, (err, conn)=>{
+        if(err) return next(err); 
+        let stdout = "";
+        let stderr = "";
+        conn.exec(cmd, (err, stream)=>{
+            if(err) return next(err);
+            stream.on('close', (code, signal)=>{
+                if(code === undefined) return next("timedout running "+cmd);
+                else if(code) return next("code "+code+" running "+cmd);
+                next(null, stdout, stderr);
+            })
+            .on('data', data=>{
+                console.log(data.toString());
+                stdout += data.toString();
+            }).stderr.on('data', data=>{
+                console.error(data.toString());
+                stderr += data.toString();
+            });
+        });
+    });
+}
+
 //all parameters must be safe
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, subdirs, progress_cb, cb) {
     console.log("rsync_resource.. get_ssh_connection");
@@ -22,6 +46,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
     async.series([
         //make sure dest dir exists
         next=>{
+            run_command(dest_resource, "timeout 20 mkdir -p "+dest_path, next);
+            /*
             common.get_ssh_connection(dest_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
                 conn.exec("timeout 20 mkdir -p "+dest_path, (err, stream)=>{
@@ -38,7 +64,25 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     });
                 });
             });
+            */
         },  
+
+        //make sure we aren't syncing between the same filesystem (like /N/project on IU resources)
+        next=>{
+            run_command(dest_resource, "stat -c %i "+dest_path, (err, dest_id)=>{
+                if(err) return next(err);
+                run_command(source_resource, "stat -c %i "+source_path, (err, source_id)=>{
+                    if(err) return next(err);
+                    console.debug("source_path", source_path, source_id);
+                    console.debug("dest_path", dest_path, dest_id);
+                    if(dest_id == source_id) {  
+                        console.log("it *looks* like source filesytem is the same as dest filesytem.. skipping sync");
+                        return cb(); //we are all done!
+                    }
+                    next();
+                });
+            });
+        },
 
         //cleanup broken symlinks on source resource
         //also check for infinite loop
