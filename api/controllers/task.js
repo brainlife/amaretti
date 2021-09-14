@@ -317,7 +317,7 @@ function find_resource(req, taskid, cb) {
         //I can't put resource_id as it might not be in resource_ids (resource_id is where it ran last time?)
         //let resource_ids = [/*task.resource_id,*/ ...task.resource_ids.reverse()]; 
 
-	//we want to access in reverse order so we try the latest resource first
+	    //we want to access in reverse order so we try the latest resource first
         async.eachSeries(task.resource_ids.reverse(), (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{
                 if(err) return next_resource(err);
@@ -959,7 +959,16 @@ router.put('/poke/:task_id', common.jwt(), function(req, res, next) {
             if(task.user_id != req.user.sub && !~gids.indexOf(task._group_id)) return res.status(401).end("can't access this task");
         }
         task.next_date = undefined;
-        if(task.status == "requested") task.start_date = undefined; //for jobs that are stuck while starting
+
+        //reset start_date for jobs that are stuck while starting
+        if(task.status == "requested") {
+            const starting_for = new Date() - task.start_date;
+            if(starting_for > 1000*600) {
+                console.log("resetting start_date as it's starting for more than 10 minutes..");
+                task.start_date = undefined; 
+            }
+        }
+
         task.save(err=>{
             if(err) return next(err);
             res.json({message: "Task poked", task: task});

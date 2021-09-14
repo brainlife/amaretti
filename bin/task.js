@@ -135,6 +135,8 @@ function check(cb) {
         set_nextdate(task);
         _counts.tasks++;
         console.log("------- ", task._id.toString(), "user:", task.user_id, task.status, task.service, task.name);
+        //console.log("request_date", task.request_date);
+        //console.log("start_date", task.start_date);
         
         //pick which handler to use based on task status
         let handler = null;
@@ -320,7 +322,7 @@ function handle_housekeeping(task, cb) {
 
 function handle_requested(task, next) {
 
-    let now = new Date();
+    const now = new Date();
     let initialState = task.status;
 
     //requested jobs are handled asynchronously.. (start_date will be set while being handled)
@@ -329,12 +331,14 @@ function handle_requested(task, next) {
     //WARNING - don't run anything asynchrnous after checking for task.start_date before I save the task with new start_date 
     if(task.start_date) {
         let starting_for = now - task.start_date;
-        if(starting_for < 1000*3600) {
-            console.log("job seems to be starting.. "+starting_for);
+        console.log("start_date is set", starting_for);
+        if(starting_for < 1000*60*30) {
+            console.log("job seems to be still starting.. for "+starting_for);
+            task.status_msg = "Job poked at "+now.toLocaleString()+" but job is still starting.. for "+starting_for/1000+"secs";
             return next();
         }
         console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
-    }
+    } 
 
     //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
     if(task.remove_date < now) {
@@ -428,7 +432,6 @@ function handle_requested(task, next) {
                         task.status_msg = "No resource currently available to run this task.. waiting.. ";
                         task.next_date = new Date(Date.now()+1000*secs);
                         task.start_date = undefined; //reset start_date so it will be handled again later
-
                         return next();
                     });
                 });
