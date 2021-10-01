@@ -28,8 +28,8 @@ db.init(function(err) {
 });
 
 function report(resources, counts) {
-    var ssh = common.report_ssh();
-    var report = {
+    const ssh = common.report_ssh();
+    const report = {
         status: "ok",
         ssh,
         resources: resources.length,
@@ -53,6 +53,8 @@ function report(resources, counts) {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
 
+    console.log("---health report--- pid:", process.pid);
+    console.dir(report);
     rcon.set("health.amaretti.resource."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
 }
 

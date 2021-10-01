@@ -654,7 +654,7 @@ function handle_running(task, next) {
                             task.status = "failed";
                             task.status_msg = out;
                             task.fail_date = new Date();
-                            next();
+                            poke_next(task, next);
                             break;
                         case 3: //status temporarly unknown
                             //TODO - I should mark the job as failurer if it's been a long time since last good status output
@@ -701,6 +701,20 @@ function rerun_child(task, cb) {
         }, cb);
     });
 }
+
+function poke_next(task, cb) {
+    //find all child tasks
+    db.Task.find({
+        "deps_config.task": task._id,
+    }, (err, tasks)=>{
+        //and *poke* them..
+        async.eachSeries(tasks, (_task, next_task)=>{
+            _task.next_date = undefined;
+            _task.save(next_task);
+        }, cb);
+    });
+}
+
 
 //initialize task and run or start the service
 function start_task(task, resource, considered, cb) {
