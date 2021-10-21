@@ -722,7 +722,7 @@ function start_task(task, resource, considered, cb) {
     if(service == null) return cb(new Error("service not set.."));
     _service.loaddetail(service, task.service_branch, (err, service_detail)=>{
         if(err) return cb(err);
-        if(!service_detail) return cb("Couldn't find such service:"+service);
+        if(!service_detail) return cb("Couldn't find such service:"+service+" - if the repo is private, please invite brlife github user ID with read access");
 
         var taskdir = common.gettaskdir(task.instance_id, task._id, resource);
 

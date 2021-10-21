@@ -29,6 +29,9 @@ exports.loaddetail = function(service_name, branch, cb) {
 
     do_loaddetail(service_name, branch, (err, detail)=>{
         //cache the detail
+        //TODO - we are caching even if detail is null (couldn't find the repo - maybe set to private?)
+        //when user make the repo to public, it would be cached for another 10 minutes.. maybe we could
+        //reduce the duration of cache if we can't find the repo?
         _details_cache[service_name] = {
             date: new Date(), detail
         };
