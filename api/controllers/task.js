@@ -1129,5 +1129,46 @@ router.put('/:taskid', common.jwt(), function(req, res, next) {
     });
 });
 
+//(experimental) used by warehouse provenance graph walker
+//return sample tasks records with specified appId that successfully finished, and across different _group_id
+router.get('/samples/:appId', async (req, res, next)=>{
+    /*
+    console.log("querying sample tasks with appId", req.params.appId);
+    const group_ids = await db.Task.find({
+        finish_date: {$exists: true},
+        "config._app": req.params.appId,
+    })
+    //.sort('-finish_date')
+    .distinct('_group_id');
+
+    console.dir(group_ids);
+    */
+    const recent = new Date();
+    recent.setDate(recent.getDate()-365);
+    console.log(recent);
+    const samples = await db.Task.aggregate([
+        {   
+            $match: {
+                //finish_date: {$exists: true},
+                finish_date: { $gt: recent },
+                "config._app": req.params.appId,
+                follow_task_id: {$exists: false}, //don't include validator
+            }
+        },
+        {
+            //$limit: 1000,
+            $sample: {size: 100},
+        },
+        {
+            $group: {
+                _id: "$_group_id",
+                taskIds: {$push: "$_id"},
+            },
+        },
+    ]);    
+    console.dir(samples);
+    res.json(samples);
+});
+
 module.exports = router;
 
