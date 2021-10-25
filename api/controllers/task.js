@@ -1145,7 +1145,6 @@ router.get('/samples/:appId', async (req, res, next)=>{
     */
     const recent = new Date();
     recent.setDate(recent.getDate()-365);
-    console.log(recent);
     const samples = await db.Task.aggregate([
         {   
             $match: {
@@ -1153,20 +1152,28 @@ router.get('/samples/:appId', async (req, res, next)=>{
                 finish_date: { $gt: recent },
                 "config._app": req.params.appId,
                 follow_task_id: {$exists: false}, //don't include validator
-            }
+            },
+        },
+        {
+            $project: {
+                _id: 1,
+                service: 1,
+            },
         },
         {
             //$limit: 1000,
             $sample: {size: 100},
         },
+        /*
         {
             $group: {
                 _id: "$_group_id",
                 taskIds: {$push: "$_id"},
             },
         },
+        */
     ]);    
-    console.dir(samples);
+    //console.dir(samples);
     res.json(samples);
 });
 

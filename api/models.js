@@ -15,11 +15,14 @@ exports.init = function(cb) {
     events.init(err=>{
         if(err) return cb(err);
         mongoose.connect(config.mongodb, {
+            //TODO - move to config
             readPreference: 'nearest',
+            readConcern: {
+                level: 'majority',//prevents read to grab stale data from secondary
+            },
             writeConcern: {
                 w: 'majority', //isn't this the default?
             },
-            readConcern: 'majority',//prevents read to grab stale data from secondary
             useNewUrlParser: true,
             useUnifiedTopology: true,
         }, function(err) {
