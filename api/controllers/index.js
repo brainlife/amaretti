@@ -4,7 +4,7 @@ const express = require('express');
 const router = express.Router();
 const winston = require('winston');
 const request = require('request');
-const redis = require('redis');
+//const redis = require('redis');
 
 //mine
 const config = require('../../config');

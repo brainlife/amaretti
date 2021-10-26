@@ -1144,12 +1144,14 @@ router.get('/samples/:appId', async (req, res, next)=>{
     console.dir(group_ids);
     */
     const recent = new Date();
-    recent.setDate(recent.getDate()-365);
+    //recent.setDate(recent.getDate()-365);
     const samples = await db.Task.aggregate([
         {   
             $match: {
                 //finish_date: {$exists: true},
-                finish_date: { $gt: recent },
+                //$gt requires index set with -1? for now, it's pretty quick without this
+                //so let's just query across all
+                //finish_date: { $gt: new Date("2019-01-01")},
                 "config._app": req.params.appId,
                 follow_task_id: {$exists: false}, //don't include validator
             },

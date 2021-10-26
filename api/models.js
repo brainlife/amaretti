@@ -304,7 +304,8 @@ taskSchema.index({resource_id: 1, status: 1, start_date: 1});  //index to count 
 taskSchema.index({status: 1,  resource_ids: 1, next_date: 1});  //find task to be removed when all resources gets removed
 //taskSchema.index({service: 1, status: 1, user_id: 1, create_date: 1, }); //active user count
 taskSchema.index({service: 1, status: 1, "config._tid": 1, user_id: 1, _group_id: 1, create_date: -1}); //dashboard task list
-taskSchema.index({follow_task_id: 1 });
+//taskSchema.index({follow_task_id: 1 });
+taskSchema.index({finish_date: 1, "config._app": 1, follow_task_id: 1 }); //sample tasks for an app
 
 exports.Task = mongoose.model('Task', taskSchema);
 
