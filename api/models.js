@@ -15,14 +15,20 @@ exports.init = function(cb) {
     events.init(err=>{
         if(err) return cb(err);
         mongoose.connect(config.mongodb, {
+            //writeConcern: majority slows down things.. let's just read/write
+            //from primary only for now..
+            /*
             //TODO - move to config
             readPreference: 'nearest',
             readConcern: {
-                level: 'majority',//prevents read to grab stale data from secondary
+                //prevents read to grab stale data from secondary
+                //requires writeConcern to be set to "majority" also.
+                level: 'majority',
             },
             writeConcern: {
-                w: 'majority', //isn't this the default?
+                w: 'majority',
             },
+            */
             useNewUrlParser: true,
             useUnifiedTopology: true,
         }, function(err) {
