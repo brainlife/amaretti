@@ -1132,26 +1132,28 @@ router.put('/:taskid', common.jwt(), function(req, res, next) {
 //(experimental) used by warehouse provenance graph walker
 //return sample tasks records with specified appId that successfully finished, and across different _group_id
 router.get('/samples/:appId', async (req, res, next)=>{
+    //start 1 year ago
+    const today = new Date();
+    let queryDate = new Date();
+    queryDate.setDate(-365);
+    const samples = [];
+    while(queryDate < today) {
+        const endDate = new Date(queryDate);
+        endDate.setDate(queryDate.getDate() + 1);
+        //console.log("querying for", req.params.appId, "on", queryDate, endDate);
+        const sample = await db.Task.findOne({
+            finish_date: { $gte: queryDate, $lt: endDate },
+            "config._app": req.params.appId,
+            follow_task_id: {$exists: false}, //don't include validator
+        }, {_id: 1, service: 1});
+        if(sample) samples.push(sample); 
+        queryDate = endDate;
+    }
     /*
-    console.log("querying sample tasks with appId", req.params.appId);
-    const group_ids = await db.Task.find({
-        finish_date: {$exists: true},
-        "config._app": req.params.appId,
-    })
-    //.sort('-finish_date')
-    .distinct('_group_id');
-
-    console.dir(group_ids);
-    */
-    const recent = new Date();
-    //recent.setDate(recent.getDate()-365);
     const samples = await db.Task.aggregate([
         {   
             $match: {
-                //finish_date: {$exists: true},
-                //$gt requires index set with -1? for now, it's pretty quick without this
-                //so let's just query across all
-                //finish_date: { $gt: new Date("2019-01-01")},
+                finish_date: { $gt: new Date("2020-01-01")},
                 "config._app": req.params.appId,
                 follow_task_id: {$exists: false}, //don't include validator
             },
@@ -1163,19 +1165,12 @@ router.get('/samples/:appId', async (req, res, next)=>{
             },
         },
         {
-            //$limit: 1000,
-            $sample: {size: 100},
+            $sample: {size: 1000},
         },
-        /*
-        {
-            $group: {
-                _id: "$_group_id",
-                taskIds: {$push: "$_id"},
-            },
-        },
-        */
     ]);    
-    //console.dir(samples);
+    */
+    console.log("done sampling", samples.length);
+    
     res.json(samples);
 });
 
