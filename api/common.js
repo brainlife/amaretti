@@ -189,48 +189,21 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     const old = ssh_conns[id];
     if(old) {
         if(old.connecting) {
-            //other thread is still connecting..
+            //other thread is still connecting.. let's wait
             let old_date = new Date();
             old_date.setSeconds(old_date.getSeconds() - 20);
             if(old.create_date < old_date) {
-                console.error("connection reuse timeout.. let's open a new one again");    
+                console.error("ssh_cons: connection reuse timeout.. let's open a new one again");    
                 //TODO - how can I abort the open request?
             } else {
-                console.debug("other thread still connecting.. waiting");
+                console.debug("ssh_cons: other thread still connecting.. waiting");
                 return setTimeout(()=>{
                     exports.get_ssh_connection(resource, opts, cb);
                 }, 1000);
             }
         } else {
-            //TODO - let's see if we can reduce the ssh related issues without this
-            //test the old connection to make sure it still works.. if not, open a new one
-            //console.log("testing old connection")
-            /*
-            let to = setTimeout(()=>{
-                to = null;
-                console.error("timeout while checking old connection.. assuming it's dead");
-                old.end();
-                delete ssh_conns[id];
-                exports.get_ssh_connection(resource, opts, cb);
-            }, 1000*10);
-
-            //use the real connection (not queued.. as we don't want to wait for queue for this)
-            old.connection.exec("true", (err, stream)=>{
-                if(!to) return; //already timed out
-                clearTimeout(to);
-                if(err) {
-                    console.error(err);
-                    console.debug(new Date(), "old connection doesn't work anymore.. reconnecting in 20 seconds");
-                    old.end();
-                    delete ssh_conns[id];
-                    setTimeout(()=>{
-                        exports.get_ssh_connection(resource, opts, cb);
-                    }, 1000*20);
-                } else {
-                    cb(null, old);
-                }
-            });
-            */
+            //reuse and reduce
+            console.log("ssh_cons reusing", id);
             cb(null, old);
             return;
         }
@@ -241,7 +214,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
     //open new connection
     let connection_timeout = setTimeout(()=>{
         connection_timeout = null;
-        console.error("ssh connection timeout...");
+        console.error("ssh_cons: ssh connection timeout...");
         if(cb) cb("ssh connection timeout");
         cb = null;
     }, 1000*30);
@@ -251,7 +224,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         if(!connection_timeout) return; //already timed out
         clearTimeout(connection_timeout);
 
-        console.log("ssh connection ready .. creating connecitonQueuer %s", id);
+        console.log("ssh_cons: ssh connection ready .. creating connecitonQueuer %s", id);
         const connq = new ConnectionQueuer(conn, {maxChannels: 6});
         ssh_conns[id] = connq; //cache
         connq.connected = new Date();
@@ -264,11 +237,11 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         }
     });
     conn.on('end', ()=>{
-        console.log("ssh socket disconnected", id);
+        console.log("ssh_cons: ssh socket disconnected", id);
         delete ssh_conns[id];
     });
     conn.on('close', ()=>{
-        console.log("ssh socket closed", id);
+        console.log("ssh_cons: ssh socket closed", id);
         delete ssh_conns[id];
     });
 
@@ -277,7 +250,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
         if(!connection_timeout) return; //already timed out (don't care about this error anymore)
         clearTimeout(connection_timeout);
 
-        console.error("ssh connectionn error(%s) .. %s", err, id);
+        console.error("ssh_cons ssh connectionn error(%s) .. %s", err, id);
         delete ssh_conns[id];
         //we want to return connection error to caller, but error could fire after ready event is called. 
         //like timeout, or abnormal disconnect, etc..  need to prevent calling cb twice!
@@ -287,7 +260,7 @@ exports.get_ssh_connection = function(resource, opts, cb) {
 
     exports.decrypt_resource(resource);
     //https://github.com/mscdex/ssh2#client-methods
-    console.log("connecting ssh", id)
+    console.log("ssh_cons connecting ssh", id)
     conn.connect(Object.assign({
         host: hostname,
         username: resource.config.username,
@@ -496,7 +469,11 @@ exports.report_ssh = function() {
         console.debug(k, "created on", c.create_date, "connecting", c.connecting);
     }
     */
-
+    console.log("debug-- dumping ssh_conns keys");
+    console.dir(Object.keys(ssh_conns));
+    console.log("debug-- dumping sftp_conns keys");
+    console.dir(Object.keys(sftp_conns));
+    
     return {
         ssh_cons: Object.keys(ssh_conns).length,
         sftp_cons: Object.keys(sftp_conns).length,

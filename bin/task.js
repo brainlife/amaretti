@@ -57,6 +57,11 @@ setInterval(()=>{
     }
 }, 1000*5);
 
+console.log(`
+------------------- amaretti (pid: ${process.pid}) ----------------------
+${new Date().toString()}
+`);
+
 db.init(function(err) {
     if(err) throw err;
     console.debug("db-initialized");
@@ -912,12 +917,12 @@ function start_task(task, resource, considered, cb) {
                 console.log("loading taskproduct", ids);
                 db.Taskproduct.find({task_id: {$in: ids}}).then(products=>{
                     //merge product info to config inputs
-                    console.log(JSON.stringify(products, null, 4));
+                    //console.log(JSON.stringify(products, null, 4));
                     task.config._inputs.forEach(input=>{
                         const product = products.find(p=>p.task_id == input.task_id);
                         if(!product) return;
                         if(!product.product) return; //TODO why does this happen?
-                        console.log("handling", input, product.product);
+                        //console.log("handling", input, product.product);
 
                         if(!input.meta) input.meta = {};
                         if(!input.tags) input.tags = [];
@@ -937,7 +942,7 @@ function start_task(task, resource, considered, cb) {
                         if(p.datatype_tags) input.datatype_tags = 
                             Array.from(new Set([...input.datatype_tags, ...p.datatype_tags]));
                         input._productMerged = true;
-                        console.log("megedd", p, input);
+                        //console.log("megedd", p, input);
                     });
                     next();
                 });

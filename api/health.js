@@ -70,6 +70,7 @@ exports.health_check = function() {
 exports.get_reports = function(cb) { 
     redis_client.keys("health.amaretti.*", (err, keys)=>{
         if(err) return cb(err);
+        if(!keys.length) return cb(null, {});
         redis_client.mget(keys, (err, _reports)=>{
             if(err) return cb(err);
             var reports = {}; 

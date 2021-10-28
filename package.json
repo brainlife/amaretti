@@ -17,15 +17,14 @@
   "author": "Soichi Hayashi <hayashis@iu.edu>",
   "dependencies": {
     "amqp": "^0.2.7",
-    "async": "^3.2.1",
-    "axios": "^0.21.4",
+    "async": "^3.2.2",
+    "axios": "^0.24.0",
     "body-parser": "^1.19.0",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "deepmerge": "^4.2.2",
     "express": "^4.17.1",
     "express-jwt": "^6.1.0",
-    "express-winston": "^3.4.0",
     "hpss": "0.0.20",
     "jsonwebtoken": "^8.5.1",
     "mime": "^2.5.2",
@@ -37,7 +36,7 @@
     "request": "^2.88.2",
     "request-promise-native": "^1.0.9",
     "simple-statistics": "^6.1.1",
-    "ssh2": "^1.1.0",
+    "ssh2": "^1.5.0",
     "ssh2-multiplexer": "github:soichih/ssh2-multiplexer",
     "sshpk": "^1.16.1",
     "sshpk-agent": "^1.8.1",
@@ -48,8 +47,7 @@
   "devDependencies": {
     "coveralls": "^3.1.1",
     "istanbul": "^0.4.4",
-    "mocha": "^5.0.5",
-    "supertest": "^3.4.2"
+    "mocha": "^9"
   },
   "license": "MIT"
 }

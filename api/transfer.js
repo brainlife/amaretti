@@ -202,7 +202,12 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     let cmd = "timeout 630 rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
                     console.debug(cmd);
                     conn.exec(cmd, (err, stream)=>{
-                        if(err) return next(err);
+                        if(err) {
+                            console.error(err);
+                            agent.kill();
+                            conn.end();
+                            return next(err);
+                        }
                         let errors = "";
                         let progress_date = new Date();
                         let first = true;

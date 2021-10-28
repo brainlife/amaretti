@@ -1136,11 +1136,11 @@ router.get('/samples/:appId', async (req, res, next)=>{
     const today = new Date();
     let queryDate = new Date();
     queryDate.setDate(-365);
+
     const samples = [];
     while(queryDate < today) {
         const endDate = new Date(queryDate);
         endDate.setDate(queryDate.getDate() + 1);
-        //console.log("querying for", req.params.appId, "on", queryDate, endDate);
         const sample = await db.Task.findOne({
             finish_date: { $gte: queryDate, $lt: endDate },
             "config._app": req.params.appId,
@@ -1150,6 +1150,8 @@ router.get('/samples/:appId', async (req, res, next)=>{
         queryDate = endDate;
     }
     /*
+    //mongo's $match does something really weird with follow_task_id and it becomes very slow
+    //even if I remove follow_task_id, it's still too slow to be useful
     const samples = await db.Task.aggregate([
         {   
             $match: {
