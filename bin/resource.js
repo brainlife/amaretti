@@ -3,8 +3,6 @@
 
 //node
 const fs = require('fs');
-const path = require('path');
-const winston = require('winston');
 const async = require('async');
 const request = require('request');
 const redis = require('redis');
@@ -19,15 +17,11 @@ var rcon = null;
 
 db.init(function(err) {
     if(err) throw err;
-    rcon = redis.createClient(config.redis.port, config.redis.server);
-    rcon.on('error', err=>{throw err});
-    rcon.on('ready', ()=>{
-        console.log("connected to redis");
-        run_every10min();
-    });
-});
+    run();
 
-function report(resources, counts) {
+}, false); //don't connect to amqp
+
+async function report(resources, counts, cb) {
     const ssh = common.report_ssh();
     const report = {
         status: "ok",
@@ -53,17 +47,23 @@ function report(resources, counts) {
         report.messages.push("high ssh connections "+ssh.ssh_cons);
     }
 
-    console.log("---health report--- pid:", process.pid);
+    console.log("---reporting---");
     console.dir(report);
-    rcon.set("health.amaretti.resource."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
+    rcon = redis.createClient(config.redis.port, config.redis.server);
+    rcon.on('error', cb);
+    rcon.on('ready', ()=>{
+        console.log("connected to redis");
+        rcon.set("health.amaretti.resource."+process.env.HOSTNAME, JSON.stringify(report));
+        rcon.end(true);
+        cb(); 
+    });
 }
 
 //go through all registered resources and check for connectivity & smoke test
-function run_every10min() {
+function run() {
     db.Resource.find({
         active: true, 
         status: {$ne: "removed"},
-        //_id: "59ea931df82bb308c0197c3d", //debug
     }, function(err, resources) {
 
         var counts = {};
@@ -73,6 +73,7 @@ function run_every10min() {
                 //check resource status
                 next=>{
                     //TODO - should I add timeout?
+                    console.log("checking resource--------", resource._id, resource.name);
                     resource_lib.check(resource, function(err) {
                         //I don't care if someone's resource status is failing or not
                         
@@ -137,20 +138,20 @@ function run_every10min() {
                     });
                 },
 
-                //lastly.. save everything
                 next=>{
-                    //console.log(JSON.stringify(resource.stats, null, 4));
+                    console.log("saving resource");
                     resource.save(next);
                 }
                  
             ], next_resource);
-        }, err=>{
+        }, async err=>{
             if(err) console.error(err); //continue
             else console.debug("checked "+resources.length+" resources");
-            report(resources, counts);
 
-            console.debug("waiting for 10mins before running another check_resource");
-            setTimeout(run_every10min, 1000*60*10); //wait 10 minutes each check
+            report(resources, counts, err=>{
+                db.disconnect()
+                console.log("all done");
+            });
         });
     });
 }

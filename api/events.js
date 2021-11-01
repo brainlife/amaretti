@@ -1,11 +1,9 @@
 'use strict';
 
-const amqp = require('amqp');
-const winston = require('winston');
+const amqp = require('amqp'); //maybe I should switch to amqplib?
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 
 let conn;
@@ -18,17 +16,16 @@ let instance_ex;
 let resource_ex;
 
 exports.init = function(cb) {
-
     if(!config.events) {
-        logger.warn("events configuration missing - won't publish to amqp");
+        console.warn("events configuration missing - won't publish to amqp");
         return cb();
     }
 
-    //logger.info("attempting to connect to amqp..");
+    console.log("connecting to amqp");
     conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
     conn.on('ready', function() {
         connected = true;
-        logger.info("amqp connection ready.. creating exchanges");
+        console.log("amqp connection ready.. creating exchanges");
 
         conn.exchange("amaretti",
             {autoDelete: false, durable: true, type: 'topic', confirm: true}, function(ex) {
@@ -62,8 +59,8 @@ exports.init = function(cb) {
     });
     conn.on('error', function(err) {
         if(!connected) return;
-        logger.error("amqp connection error");
-        logger.error(err);
+        console.error("amqp connection error");
+        console.error(err);
         connected = false;
     });
 }
@@ -75,7 +72,8 @@ exports.disconnect = function(cb) {
     }
 
     //https://github.com/postwait/node-amqp/issues/462
-    conn.setImplOptions({reconnect: false}); 
+    console.log("disconnecting from amqp.. (amqp.discnnect()  oesn't release event loop..)");
+    conn.setImplOptions({reconnect: false}); //noeffect?
     conn.disconnect();
     connected = false;
     if(cb) cb();
@@ -84,11 +82,10 @@ exports.disconnect = function(cb) {
 function publish_or_log(ex, key, msg, cb) {
     if(!ex || !connected) {
         //if not connected, output to stdout..
-        logger.info(key);
-        logger.info(msg);
-        cb();
+        console.log(JSON.stringify(key, null, 4));
+        console.log(JSON.stringify(msg, null, 4));
+        if(cb) cb();
     } else {
-        //logger.debug("publishing", key);
         ex.publish(key, msg, {}, cb);
     }
 }
@@ -98,7 +95,7 @@ exports.task = function(task) {
 
     //get previous task status to see if status changed
     db.Taskevent.findOne({task_id: task._id}, 'status', {sort: {'date': -1}}).lean().exec((err, lastevent)=>{
-        if(err) return logger.error(err);
+        if(err) return console.error(err);
         let status_changed = false;
         if(!lastevent || lastevent.status != task.status) status_changed = true;
         if(status_changed) {
@@ -140,15 +137,7 @@ exports.instance = function(instance) {
     let group_id = instance.group_id||"na";
     let key = group_id+"."+instance._id;
     publish_or_log(instance_ex, key, instance);
-    /*
-    //some fields maybe populated (foreign keys are de-referenced)
-    //to normalize the field type, let's load the record from database
-    db.Instance.findById(instance._id, (err, _instance)=>{
-        publish_or_log(instance_ex, key, _instance);
-    });
-    */
 }
-
 
 //right now nobody receives resource update event as far as I know..
 exports.resource = function(resource) {

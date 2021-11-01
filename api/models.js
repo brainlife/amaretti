@@ -9,40 +9,45 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 
-//if(config.amaretti.debug) mongoose.set("debug", true);
-
-exports.init = function(cb) {
-    events.init(err=>{
-        if(err) return cb(err);
-        mongoose.connect(config.mongodb, {
-            //writeConcern: majority slows down things.. let's just read/write
-            //from primary only for now..
-            /*
-            //TODO - move to config
-            readPreference: 'nearest',
-            readConcern: {
-                //prevents read to grab stale data from secondary
-                //requires writeConcern to be set to "majority" also.
-                level: 'majority',
-            },
-            writeConcern: {
-                w: 'majority',
-            },
-            */
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        }, function(err) {
-            if(err) return cb(err);
-            //logger.info("connected to mongo");
-            cb();
-        });
-    });
+exports.init = async function(cb, connectEvent = true) {
+    if(connectEvent) {
+        console.log("connecting to amqp/events");
+        try {
+            await events.init();
+        } catch (err) {
+            return cb(err);
+        }
+    }
+    
+    console.log("connecting to mongodb");
+    mongoose.connect(config.mongodb, {
+        //writeConcern: majority slows down things.. let's just read/write
+        //from primary only for now..
+        /*
+        //TODO - move to config
+        readPreference: 'nearest',
+        readConcern: {
+            //prevents read to grab stale data from secondary
+            //requires writeConcern to be set to "majority" also.
+            level: 'majority',
+        },
+        writeConcern: {
+            w: 'majority',
+        },
+        */
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+    }, cb);
 }
 
 exports.disconnect = function(cb) {
-    logger.info("disconnecting mongo/event");
+    console.log("disconnecting mongo");
     mongoose.disconnect(err=>{
-        events.disconnect(cb);
+        if(err) throw err;
+        if(events.connected) {
+            console.log("disconnecting amqp/events");
+            events.disconnect(cb);
+        }
     });
 }
 

@@ -1,7 +1,4 @@
 
-//import { createRequire } from "module";
-//const require = createRequire(import.meta.url);
-
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -10,7 +7,7 @@ const async = require('async');
 const Client = require('ssh2').Client;
 const sshagent = require('sshpk-agent');
 const ConnectionQueuer = require('ssh2-multiplexer');
-const redis = require('redis');
+//const redis = require('redis');
 const request = require('request');
 const child_process = require('child_process');
 const ps = require('ps-node');
@@ -114,8 +111,10 @@ exports.create_sshagent = function(key, cb) {
 
 //connect to redis - used to store various shared caches
 //TODO who use this now?
+/*
 exports.redis = redis.createClient(config.redis.port, config.redis.server);
 exports.redis.on('error', err=>{throw err});
+*/
 
 exports.getworkdir = function(workflow_id, resource) {
     //var detail = config.resources[resource.resource_id];
