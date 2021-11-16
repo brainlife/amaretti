@@ -46,7 +46,6 @@ router.get('/', common.jwt(), function(req, res, next) {
     }
 
     //if(req.query.select) console.log("select:"+req.query.select);
-
     db.Task.find(find)
     .lean()
     .select(req.query.select)
@@ -1135,12 +1134,14 @@ router.get('/samples/:appId', async (req, res, next)=>{
     //start 1 year ago
     const today = new Date();
     let queryDate = new Date();
-    queryDate.setDate(-365);
+    queryDate.setDate(-365*2);
 
     const samples = [];
     while(queryDate < today) {
+        //advance 7 days at a time
         const endDate = new Date(queryDate);
-        endDate.setDate(queryDate.getDate() + 1);
+        endDate.setDate(queryDate.getDate() + 7);
+
         const sample = await db.Task.findOne({
             finish_date: { $gte: queryDate, $lt: endDate },
             "config._app": req.params.appId,

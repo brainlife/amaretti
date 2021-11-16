@@ -188,14 +188,29 @@ function check(cb) {
 function handle_housekeeping(task, cb) {
     //console.debug("houskeeping!");
     async.series([
+
+        //for validator (with follow_task_id) if the parent task is removed, we should mark the task as removed also
+        next=>{
+            if(!task.follow_task_id) return next();
+            db.Task.findById(task.follow_task_id).then(followTask=>{
+                if(!followTask) return next(); //just in case.
+                if(followTask.status != "removed") return next(); //nothing to do then
+
+                //remove validator if parent task is removed
+                console.log("parent task is removed. we need to remove this one also");
+                task.remove_date = new Date();
+                next();
+            });
+        },
+
         //check to see if taskdir still exists
         //TODO...
         //taskdir could *appear* to be gone if admin temporarily unmount the file system, or metadata server is slow, etc, etc..
         //I need to be really be sure that the directory is indeed removed before concluding that it is.
         //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
         //TODO..
-        //I need to sole this.. if task gets removed by resource, we need to mark the task as removed or dependending task
-        //will fail! For now, we can make sure that resource won't remove tasks for at least 25 days... Maybe we could make this
+        //I need to solve this.. if task gets removed by resource, we need to mark the task as removed or dependending task
+        //will fail! For now, we can make sure that resource won't remove tasks for at least 10 days... Maybe we could make this
         //number configurable for each task?
         next=>{
             //for now, let's only do this check if finish_date or fail_date is sufficiently old
@@ -283,7 +298,7 @@ function handle_housekeeping(task, cb) {
 
             //check for early remove specified by user
             var now = new Date();
-            if(task.remove_date && task.remove_date < now) {
+            if(task.remove_date && task.remove_date <= now) {
                 console.log("remove_date is set and task is passed the date");
                 need_remove = true;
             }
@@ -1238,6 +1253,8 @@ function cache_app(conn, service, branch, workdir, taskdir, commit_id, cb) {
         next=>{
             console.log("caching app %s", app_cache+".clone");
             const branchOpt = branch?("--branch "+branch):"";
+            const stdout = "";
+            const stderr = "";
             conn.exec("timeout 60 "+ 
                 "rm -rf "+app_cache+".clone && "+ 
                 "git clone --recurse-submodules --depth=1 "+branchOpt+" https://"+config.github.access_token+"@github.com/"+service+" "+app_cache+".clone && "+
@@ -1246,16 +1263,19 @@ function cache_app(conn, service, branch, workdir, taskdir, commit_id, cb) {
                 stream.on('close', function(code, signal) {
                     //TODO - should I remove the partially downloaded zip?
                     if(code === undefined) return next("connection terminated while caching app");
-                    else if(code) return next("failed to cache app .. code:"+code);
-                    else {
+                    else if(code) {
+                        return next("failed to cache app .. code:"+code+"\n"+stderr);
+                    } else {
                         console.debug("successfully cached app");
                         next();
                     }
                 })
                 .on('data', function(data) {
                     console.log(data.toString());
+                    stdout+=data.toString()
                 }).stderr.on('data', function(data) {
                     console.error(data.toString());
+                    stderr+=data.toString()
                 });
             });
         },
@@ -1334,36 +1354,6 @@ async function storeProduct(task, dirty_product) {
     if(!product) return;
 
     await db.Taskproduct.findOneAndUpdate({task_id: task._id}, {product}, {upsert: true});
-    
-    /*
-    //we want to ensure that product.json content
-    //gets applied before we poke child tasks.. it's also easier to update task config in amaretti.
-    //I need to merge the product.json on all of my deps config._inputs that's already submitted using this 
-    //task's output
-    console.log("updating child's config with product-------------------------------");
-    const childTasks = await db.Task.find({"deps_config.task": task._id});
-    for await (const child of childTasks) {
-        console.log("handling child", child.id);
-        console.dir(child.config);
-        if(!child.config._inputs) return; //staging job?
-        child.config._inputs.forEach(input=>{
-            if(input.task_id == task.id) {
-                console.log("handling input", input);
-                const p = product[input.subdir];
-                if(p) {
-                    if(p.meta) Object.assign(input.meta, p.meta);
-                    if(p.tags) input.tags = Array.from(new Set([...input.tags, ...p.tags]));
-                    if(p.datatype_tags) input.datatype_tags = Array.from(new Set([...input.datatype_tags, ...p.datatype_tags]));
-                }
-                console.log("updated to");
-                console.dir(input);
-            }
-        })
-        child.markModified("config");
-        await child.save();
-    }
-    console.log("updated all");
-    */
 }
 
 //counter to keep up with how many checks are performed in the last few minutes

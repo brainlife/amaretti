@@ -197,6 +197,6 @@ db.init(function(err) {
             */
         });
     });
-});
+}, false); //don't connect to amqp
 
 

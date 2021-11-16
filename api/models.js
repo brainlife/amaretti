@@ -9,6 +9,8 @@ const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 
+mongoose.set("debug", config.amaretti.debug);
+
 exports.init = async function(cb, connectEvent = true) {
     if(connectEvent) {
         console.log("connecting to amqp/events");

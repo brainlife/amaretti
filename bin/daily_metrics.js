@@ -76,6 +76,6 @@ db.init(async function(err) {
     await count_user(today); 
     await count_active_user(today); 
     db.disconnect();
-});
+}, false); //don't connect to amqp
 
 

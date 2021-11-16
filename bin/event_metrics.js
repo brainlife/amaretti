@@ -70,7 +70,8 @@ db.init(function(err) {
         },
     ], err=>{
         db.disconnect();
+        console.log("all done");
     });
-});
+}, false); //don't connect to event 
 
 
