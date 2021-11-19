@@ -120,6 +120,7 @@ router.get('/recent', common.jwt(), async (req, res, next)=>{
                    'status status_msg create_date request_date '+
                    'start_date finish_date fail_date resource_id ';
 
+    /*
     let current = await db.Task.find({
         service,
         status: {$in: ["requested", "running", "running_sync"]},
@@ -131,14 +132,31 @@ router.get('/recent', common.jwt(), async (req, res, next)=>{
     
     let recent = await db.Task.find({
         service,
-        status: {$in: ["finished", "failed", /*"removed"*/]},
+        status: {$in: ["finished", "failed"]},
     }).lean()
     .select(select)
     .sort({create_date: -1})
     .limit(20)
     .exec()
+    */
 
-    res.json({recent: [...current, ...recent]});
+    let recent = await db.Task.find({
+        service,
+        status: {$in: [
+            //for currently running
+            "requested", "running", "running_sync",
+
+            //for previous jobs
+            "finished", "failed", 
+        ]},
+    }).lean()
+    .select(select)
+    .sort({create_date: -1})
+    .limit(100)
+    .exec()
+
+    //res.json({current, recent});
+    res.json(recent);
 });
 
 

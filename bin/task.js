@@ -1253,8 +1253,8 @@ function cache_app(conn, service, branch, workdir, taskdir, commit_id, cb) {
         next=>{
             console.log("caching app %s", app_cache+".clone");
             const branchOpt = branch?("--branch "+branch):"";
-            const stdout = "";
-            const stderr = "";
+            let stdout = "";
+            let stderr = "";
             conn.exec("timeout 60 "+ 
                 "rm -rf "+app_cache+".clone && "+ 
                 "git clone --recurse-submodules --depth=1 "+branchOpt+" https://"+config.github.access_token+"@github.com/"+service+" "+app_cache+".clone && "+
