@@ -31,7 +31,7 @@ exports.amaretti = {
     globalGroup: 1,
 
     //show a bit more debug logging (like mongoose)
-    debug: true,
+    debug: false,
 }
 exports.wf = exports.amaretti; //deprecated (use amaretti)
 exports.sca = exports.amaretti; //deprecated (use amaretti)

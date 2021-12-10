@@ -84,7 +84,7 @@ router.get('/', common.jwt(), function(req, res, next) {
 
     let select = null; //select all by default
     if(req.query.select) select = req.query.select+" user_id"; //we need user_id at least
-    
+
     db.Resource.find(find)
     .select(select)
     .limit(req.query.limit || 100)
@@ -97,10 +97,11 @@ router.get('/', common.jwt(), function(req, res, next) {
 
         //add / remove a few more things
         resources.forEach(function(resource) {
-            //resource._detail = config.resources[resource.resource_id];
             resource.salts = undefined;
             resource._canedit = canedit(req.user, resource)
         });
+
+        //deprecate this..
         db.Resource.countDocuments(find).exec(function(err, count) {
             if(err) return next(err);
             res.json({resources: resources, count: count});
@@ -114,7 +115,8 @@ router.get('/', common.jwt(), function(req, res, next) {
  * @apiDescription              Return a best resource to run specified service using algorithm used by sca-wf-task
  *                              when it determines which resource to use for a task request
  *
- * @apiParam {String} [service] Name of service to run (like "soichih/sca-service-life")
+ * @apiParam {String} service   Name of service to run (like "soichih/sca-service-life")
+ * @apiParam {Number[]} gids    gids to query resources 
  * @apiHeader {String} authorization
  *                              A valid JWT token "Bearer: xxxxx"
  *
@@ -129,10 +131,20 @@ router.get('/', common.jwt(), function(req, res, next) {
  *                              }
  */
 router.get('/best', common.jwt(), (req, res, next)=>{
-    //console.debug("choosing best resource for service:"+req.query.service);
-    var query = {};
-    if(req.query.service) query.service = req.query.service;
-    resource_lib.select(req.user, query, (err, resource, score, considered)=>{
+    //create a fake task to query resource
+    const task = {
+        service: req.query.service,
+    };
+
+    //make sure user has access to requested gids
+    if(req.query.gids) task.gids = req.query.gids.map(gid=>parseInt(gid)).filter(gid=>{
+        if(gid == config.amaretti.globalGroup) return true; //user can select from public resource
+        if(req.user.gids.includes(gid)) return true; //group member can selec it
+        return false;
+    });
+
+    //if(req.query.service) task.service = req.query.service;
+    resource_lib.select(req.user, task, (err, resource, score, considered)=>{
         if(err) return next(err);
         if(!resource) return res.json({nomatch: true, considered});
         res.json({
@@ -242,6 +254,21 @@ router.put('/test/:id', common.jwt(), function(req, res, next) {
  * @apiSuccess {Object} Resource Object
  *
  */
+
+function getAdminGids(user) {
+    //pull out admin gids from req.user.gids (before null)
+    //TODO - we should store adminGids and memberGids separately in jwt, but I'd like to 
+    //gradually migrate. storing gids as well as admin/memberGids temporarily doubles the number
+    //of IDS to store, and it becomes too large for HTTP header. We should probably query 
+    //gids from the auth API each time.
+    const adminGids = [];
+    for(const gid of user.gids) {
+        if(gid === null) break;
+        adminGids.push(gid);
+    }
+    return adminGids;
+}
+
 router.put('/:id', common.jwt(), function(req, res, next) {
     var id = req.params.id;
     db.Resource.findOne({_id: id}, function(err, resource) {
@@ -249,24 +276,15 @@ router.put('/:id', common.jwt(), function(req, res, next) {
         if(!resource) return res.status(404).end();
         if(!canedit(req.user, resource)) return res.status(401).end();
 
-        //pull out admin gids from req.user.gids (before null)
-        //TODO - we should store adminGids and memberGids separately in jwt, but I'd like to 
-        //gradually migrate. storing gids as well as admin/memberGids temporarily doubles the number
-        //of IDS to store, and it becomes too large for HTTP header. We should probably query 
-        //gids from the auth API each time.
-        const adminGids = [];
-        for(const gid of req.user.gids) {
-            if(gid === null) break;
-            adminGids.push(gid);
-        }
-
-        //if(!is_admin(req.user)) delete resource.gids;
         //check to make sure requested gids are user's admin
         if(req.body.gids) {
+            const adminGids = getAdminGids(req.user);
             req.body.gids = req.body.gids.filter(gid=>{
-                if(resource.gids.includes(gid)) return true; //if already set, keep it
-                if(!resource.gids.includes(gid) && adminGids.includes(gid)) return true; //if adding new one, user must be member of it
-                if(gid == 1 && is_admin(req.user)) return true; //admin can add group:1
+                if(adminGids.includes(gid)) return true; //admin can add its own gid
+                if(gid == config.amaretti.globalGroup) {
+                    if(is_admin(req.user)) return true; //only admin can *add* global group
+                    if(resource.gids.includes(config.amaretti.globalGroup)) return true; //if already set, keep it
+                }
             });
         }
 
@@ -333,29 +351,28 @@ router.put('/:id', common.jwt(), function(req, res, next) {
  *      active: true }
  *
  */
+
 router.post('/', common.jwt(), function(req, res, next) {
 
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("resource.create")) 
         return next("you are not authorized to register new resource. please contact admin");
 
+    //check to make sure requested gids are user's admin
+    if(req.body.gids) {
+        const adminGids = getAdminGids(req.user);
+        req.body.gids = req.body.gids.filter(gid=>{
+            if(adminGids.includes(gid)) return true;
+            if(gid == config.amaretti.globalGroup && is_admin(req.user)) return true; //admin can *add* global group
+        });
+    }
+
     var resource = new db.Resource(req.body);
     resource.user_id = req.user.sub;
     delete resource._id; //sometimes client sets this to null.. it shouldn't, but let's be nice
 
-    //only admin can update gids (to share resources)
-    //if(!is_admin(req.user)) delete resource.gids;
-
-    //check to make sure user has access to specifid gids
-    if(req.body.gids) {
-        req.body.gids = req.body.gids.filter(gid=>{
-            if(req.user.adminGids.includes(gid)) return true; //user must be admin of it
-            if(gid == 1 && is_admin(req.user)) return true; //admin can add group:1
-        });
-    }
-
     //first save..
     resource.save().then(_resource=>{
-        //I have to save twice because we can't encrypt enc_ fields without _id set
+        //I have to save twice because we can't encrypt enc_ fields without _id set first
         common.encrypt_resource(_resource);
         _resource.markModified('config');
         return _resource.save();
@@ -452,7 +469,6 @@ router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
         if(err) return next(err);
         if(!resource) return res.status(404).end();
 
-        //if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
         if(!common.canUseResource(req.user, resource)) return res.status(401).send({messasge: "you can't access this resource"});
 
         //load usage graph
@@ -467,7 +483,7 @@ router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
             let data;
             if(json.length == 0) data = []; //maybe never run?
             else data = json[0].datapoints;
-            
+
             //aggregate graph into every few hours
             let window = 3600*3;
             let start = new Date();

@@ -37,27 +37,26 @@ exports.select = function(user, task, cb) {
     const find = {
         status: {$ne: "removed"},
         active: true,
+        /*
         "$or": [
 
-            //always add resource that user owns (private resource)
-            //TODO - what if user doesn't want to run there? I should do this on demand?
-            //we do want to include it for app detail page though
-            {user_id: user.sub}, 
+            //we don't want to use resource simply because user owns it.
+            //for locked down project that user want to be specific about which resource to use
+            //we don't want a owner of resource submit jobs and end up running the job somewhere
+            //{user_id: user.sub}, 
 
             {
                 gids: {"$in": task.gids||[1]}
             }, 
         ],
+        */
+        gids: {"$in": task.gids},
         'config.services.name': task.service,
     }
 
     db.Resource.find(find).lean().sort('create_date').exec((err, resources)=>{
         if(err) return cb(err);
         if(task.preferred_resource_id) console.info("user preferred_resource_id:"+task.preferred_resource_id);
-
-        console.log("available resources");
-        console.dir(resources);
-
         //select the best resource based on the task
         var best = null;
         var best_score = null;

@@ -503,10 +503,17 @@ exports.check_access = function(user, resource) {
 }
 */
 
+//this function determines if user can use the resource on *some* resource
+//this is not used to determine if the job can be submitted on this resource or not
+//that's done by resource.js by looking up the task.gids
 exports.canUseResource = function(user, resource) {
     const sub = user.sub.toString();
+
+    //ownwer/admin can access the resource
     if(resource.user_id == sub) return true;
     if(resource.admins.includes[sub]) return true;
+
+    //public resource can be used on any user/project
     if(resource.gids.includes(config.amaretti.globalGroup)) return true; 
 
     //find if user's gids intersects with gids specified in the resource
