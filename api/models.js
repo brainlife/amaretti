@@ -138,7 +138,10 @@ var resourceSchema = mongoose.Schema({
 
     envs: mongoose.Schema.Types.Mixed, //envs to inject for service execution (like HPSS_BEHIND_FIREWALL)
 
-    gids: [{type: Number}], //if set, these set of group can access this resource (only admin can set it)
+    //if set, these set of group can access this resource (only admin can set it)
+    //we allow resource owner to add gids of the projects that they are admins of
+    //so we need to only allow usage of resource on project that resource is shared on.
+    gids: [{type: Number}], 
 
     //current resource status
     status: String,
@@ -172,12 +175,16 @@ var taskSchema = mongoose.Schema({
     //user_id: {type: String, index: true},  //indexStats shows it's not used
     user_id: String,
 
-    //cache of req.user.gids at the time of task request.
-    //used by task handler to recreate the req.user to query resources that task can use to run.
-    //it can be re-queries from auth service, but this reduces the amount of auth service hit
+    //gids that should be used to look for available resource
+    //we used to just copy user.gids, but we want to be more specific so malicious resource owner
+    //won't force users to use their resources.
+    //this can also be used to not submit to public resource by not including 1
+    //this can also be used to add extra resource like warehouse(for archive) or groupanalysis
     gids: [{type: Number}], 
-    
-    //copy of group_id on instance record (should be the same as instance's group_id)
+
+    //noPublicResource: {type: Boolean, default: false }, //don't run on global resource
+
+    //copy of group_id on instance record (should be the same as instance's group_id) 
     _group_id: {type: Number, index: true}, 
 
     ////////////////////////////////////////////////////////////////////////////////////////
@@ -185,17 +192,17 @@ var taskSchema = mongoose.Schema({
 
     //workflow instance id
     instance_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Instance', index: true},
-    //github repo
-    service: String, // "soichih/sca-service-life"
+
+    service: String,  //github org/repo name
     service_branch: String, //master/main by default
     locked: Boolean, //if locked, the task can not be executed again (for app-noop let user upload data but not execute afterward)
 
     commit_id: String, //git commit id when the task was started
-       
+
     //TEXT INDEX field (below) to be searchable with text search
     name: String, 
     desc: String,  //TODO who uses this?
-  
+
     //resource to be selected if multiple resource is available and score ties
     preferred_resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource'},
 
@@ -208,8 +215,9 @@ var taskSchema = mongoose.Schema({
     config: mongoose.Schema.Types.Mixed, 
 
     //(deprecate this in favor of deps_config) task dependencies required to run the service 
+    //this needs to be here so we mongoose will return it for old task?
     deps: [ {type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true} ],
-    
+
     //extra task dependency config
     deps_config: [ {
         task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', index: true },
@@ -228,13 +236,13 @@ var taskSchema = mongoose.Schema({
     //this mainly exists to prevent jobs from getting stuck running, but also to stop tasks while it's being started.
     max_runtime: { type: Number, default: 1000*3600*24*7},
 
-    //TODO - I should probaly deprecate this. also.. app should handle its own retry if it's expecting things to fail
+    //TODO - what is this used for exactly? can't we query taskevent?
     run: {type: Number, default: 0 }, //number of time this task has been attempted to run
-    
+
     //retry: {type: Number, default: 0 }, //number of time this task should be re-tried. 0 means only run once.
 
     nice: Number, //nice-ness of this task can't be negative (except a paid user?)
-  
+
     ////////////////////////////////////////////////////////////////////////////////////////
     // fields set by sca-task 
 
@@ -263,13 +271,6 @@ var taskSchema = mongoose.Schema({
     //list of resources considered while selecting the resource
     _considered: mongoose.Schema.Types.Mixed,
     
-    /*
-    //TODO - deprecated by taskproduct
-    //content of product.json if generated
-    //if app creates mutiple datasets, it should contain an array of objects where each object corresponds to each output dataset
-    product: mongoose.Schema.Types.Mixed,
-    */
- 
     //next time sca-task should check this task again (unset to check immediately)
     //next_date: {type: Date, index: true}, //indexStats shows it's not used
     next_date: Date,
@@ -281,7 +282,8 @@ var taskSchema = mongoose.Schema({
     //
     // I wonder if we should deprecate these dates in favor of task events..
     //
-    //time when this task was last started - including being handled by start_task (doesn't mean the actually start time of pbs jobs)
+    //time when this task was last started - including being handled by start_task 
+    //(doesn't mean the actually start time of pbs jobs)
     start_date: Date,
 
     finish_date: Date, //time when this task was last finished
@@ -296,7 +298,8 @@ var taskSchema = mongoose.Schema({
 
     //experimental.............
     //number of times to tried to request (task will be marked as failed once it reaches certain number)
-    request_count: {type: Number, default: 0 },
+    //request_count: {type: Number, default: 0 },
+
 }, {minimize: false}); //don't let empty config({}) disappeare
 
 taskSchema.post('save', events.task);

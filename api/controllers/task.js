@@ -505,8 +505,9 @@ router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
 
+        if(task.user_id != req.user.sub.toString()) return next("you don't own this task");
         if(task.status != "finished") return next("you can only upload to finished service");
-        if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
+        if(!common.canUseResource(req.user, resource)) return next("Not authorized to access this resource");
         
         get_fullpath(task, resource, req.query.p, (err, fullpath)=>{
             if(err) return next(err);
@@ -531,15 +532,6 @@ router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
                             if(err) return next(err);
                             console.info("fullpath",fullpath);
                             sftp.createWriteStream(fullpath, (err, write_stream)=>{
-
-                                /*
-                                //just in case..
-                                req.on('close', ()=>{
-                                    console.error("request closed........ closing sftp stream also");
-                                    write_stream.close();
-                                });
-                                */
-
                                 var pipe = req.pipe(write_stream);
                                 pipe.on('close', function() {
                                     console.info("streaming closed");
@@ -605,10 +597,10 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
 
     find_resource(req, req.params.taskid, (err, task, resource)=>{
         if(err) return next(err);
-
+        if(task.user_id != req.user.sub.toString()) return next("you don't own this task");
         if(task.status != "finished") return next("you can only upload to finished service");
-        if(!common.check_access(req.user, resource)) return next("Not authorized to access this resource");
-    
+        if(!common.canUseResource(req.user, resource)) return next("Not authorized to access this resource");
+
         //req.file
         /*
         {
@@ -671,7 +663,7 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
                                         let cmd = "cd '"+path.dirname(fullpath).addSlashes()+"' && "+
                                             "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
                                             "rm '"+path.basename(fullpath).addSlashes()+"'";
-                                        
+
                                         conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
                                             //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
@@ -736,21 +728,18 @@ function mkdirp(conn, dir, cb) {
  *                              (won't override resource' max TTL).
  *                              (Please note that.. housekeeping will run at next_date.)
  * @apiParam {String} [max_runtime] Maximum runtime of job (in msec)
- * @apiParam {Number} [retry]   Number of time this task should be retried (0 by default)
+ * @apiParam {Number} [nice]    Niceness of the task
+ * @apiParam {Number[]} [gids]  gids to use to look for resource to submit (must be subset of user.gids)
+ *                              1 is always added unless noPublicResource is set
  * @apiParam {String} [follow_task_id]
  *                              Task ID to follow (admin only)
  * @apiParam {String} [preferred_resource_id]
  *                              resource that user prefers to run this service on 
  *                              (may or may not be chosen)
  * @apiParam {Object} [config]  Configuration to pass to the service (will be stored as config.json in task dir)
- * @apiParam {String[]} [deps]  (deprecated by deps_config) task IDs that this service depends on. This task will be executed as soon as
- *                              all dependency tasks are completed.
  * @apiParam {Object[]} [deps_config]  
  *                              task IDs that this service depends on. This task will be executed as soon as
  *                              all dependency tasks are completed.
- * @apiParam {String[]} [resource_deps] (deprecated?)
- *                              List of resource_ids where the access credential to be installed on ~/.sca/keys 
- *                              to allow access to the specified resource
  *
  * @apiHeader {String} authorization A valid JWT token "Bearer: xxxxx"
  * @apiSuccessExample {json} Success-Response:
@@ -783,11 +772,19 @@ router.post('/', common.jwt(), function(req, res, next) {
         task.config = req.body.config;
         task.remove_date = req.body.remove_date;
         task.max_runtime = req.body.max_runtime;
-        task.retry = req.body.retry;
+        task.preferred_resource_id = req.body.preferred_resource_id;
+        //task.retry = req.body.retry;
         if(req.body.nice && req.body.nice >= 0) task.nice = req.body.nice; //should be positive for now.
 
         if(task.name) task.name = task.name.trim();
 
+        //by default, only submit to public resource or resource shared for the project
+        task.gids = [1, instance.group_id];
+
+        //make sure user can only set gids that's authorized (1 is always allowed)
+        if(req.body.gids) task.gids = req.body.gids.filter(gid=>(gid == 1 || req.user.gids.includes(gid)));
+
+        /*
         //deps is deprecated, but might be used by old cli / existing tasks
         if(req.body.deps) {
             console.warn("req.body.deps set.. which is deprecated by deps_config");
@@ -799,6 +796,7 @@ router.post('/', common.jwt(), function(req, res, next) {
                 deps.push({task: dep});
             });
         }
+        */
 
         if(req.body.deps_config) {
             //dedupe while copying deps_config to task.deps_conf
@@ -826,19 +824,16 @@ router.post('/', common.jwt(), function(req, res, next) {
             //console.debug("task.deps_config", task.deps_config)
         }
 
-        //TODO - validate?
-        task.preferred_resource_id = req.body.preferred_resource_id;
-        task.resource_deps = req.body.resource_deps;
+        //task.resource_deps = req.body.resource_deps;
 
-        //others set by the API 
+        //others overridden by the API 
         task._group_id = instance.group_id; //copy
         task.status = "requested";
         task.request_date = new Date();
         task.status_msg = "Waiting to be processed by task handler";
 
         task.user_id = req.user.sub;
-        task.gids = req.user.gids;
-        
+
         //allow admin to override some fields
         if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
             if(req.body.user_id) task.user_id = req.body.user_id;
@@ -874,7 +869,7 @@ router.post('/', common.jwt(), function(req, res, next) {
                 db.Resource.findById(task.preferred_resource_id, (err, resource)=>{
                     if(err) return next_check(err);
                     if(!resource) return next_check("can't find preferred_resource_id:"+task.preferred_resource_id);
-                    if(!common.check_access(req.user, resource)) return next_check("can't access preferred_resource_id:"+task.preferred_resource_id);
+                    if(!common.canUseResource(req.user, resource)) return next_check("can't access preferred_resource_id:"+task.preferred_resource_id);
                     next_check();//ok
                 });
             },

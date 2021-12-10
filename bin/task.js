@@ -12,7 +12,6 @@ const request = require('request');
 const redis = require('redis');
 const winston = require('winston');
 const async = require('async');
-const Client = require('ssh2').Client;
 const deepmerge = require('deepmerge');
 const yargs = require('yargs');
 
@@ -1013,7 +1012,7 @@ function start_task(task, resource, considered, cb) {
                         stream.write("#!/bin/bash\n");
 
                         //write some debugging info
-                        stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+" of "+(task.retry+1)+")\n");
+                        stream.write("# task id        : "+task._id.toString()+" (run "+(task.run+1)+")\n");
                         var username = resource.config.username;//||resource_detail.username);
                         var hostname = resource.config.hostname;//||resource_detail.hostname);
                         stream.write("# resource       : "+resource.name+"\n"); //+" ("+resource_detail.name+")\n");

@@ -3,7 +3,6 @@
 //contrib
 const winston = require('winston');
 const async = require('async');
-const Client = require('ssh2').Client;
 const sshpk = require('sshpk');
 const ConnectionQueuer = require('ssh2-multiplexer');
 

@@ -480,9 +480,10 @@ exports.report_ssh = function() {
     }
 }
 
+/*
 exports.get_user_gids = function(user) {
-    var gids = user.gids||[];
-    gids = gids.concat(config.amaretti.global_groups);
+    const gids = user.gids||[];
+    gids = gids.push(config.amaretti.globalGroup);
     return gids;
 }
 
@@ -498,6 +499,23 @@ exports.check_access = function(user, resource) {
         });
         if(found) return true;
     }
+    return false;
+}
+*/
+
+exports.canUseResource = function(user, resource) {
+    const sub = user.sub.toString();
+    if(resource.user_id == sub) return true;
+    if(resource.admins.includes[sub]) return true;
+    if(resource.gids.includes(config.amaretti.globalGroup)) return true; 
+
+    //find if user's gids intersects with gids specified in the resource
+    let gidMatch = true;
+    resource.gids.forEach(gid=>{
+        if(user.gids.includes(gid)) gidMatch = true;
+    });
+    if(gidMatch) return true;
+
     return false;
 }
 

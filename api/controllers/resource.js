@@ -33,7 +33,6 @@ function mask_enc(resource) {
 }
 
 function is_admin(user) {
-    //if(user.scopes.sca && ~user.scopes.sca.indexOf("admin")) return true; //deprecate (use scopes.amaretti)
     if(user.scopes.amaretti && ~user.scopes.amaretti.indexOf("admin")) return true;
     return false;
 }
@@ -69,11 +68,12 @@ router.get('/', common.jwt(), function(req, res, next) {
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
     if(!is_admin(req.user) || find.user_id === undefined) {
-        //search only resource that user owns or shared with the user
-        var gids = req.user.gids||[];
-        gids = gids.concat(config.amaretti.global_groups);
+        //search only resource that user owns/admins or shared with the user
+        const gids = req.user.gids||[];
+        gids.push(config.amaretti.globalGroup);
         find["$or"] = [
-            {user_id: req.user.sub},
+            {user_id: req.user.sub.toString()},
+            {admins: req.user.sub.toString()},
             {gids: {"$in": gids}},
         ];
     } else if(find.user_id == null) {
@@ -83,10 +83,8 @@ router.get('/', common.jwt(), function(req, res, next) {
     }
 
     let select = null; //select all by default
-    if(req.query.select) {
-        select = req.query.select+" user_id";
-    }
-
+    if(req.query.select) select = req.query.select+" user_id"; //we need user_id at least
+    
     db.Resource.find(find)
     .select(select)
     .limit(req.query.limit || 100)
@@ -213,8 +211,8 @@ router.put('/test/:id', common.jwt(), function(req, res, next) {
     db.Resource.findOne({_id: id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
-        logger.info("testing resource:"+id);
+        //if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
+        if(!canedit(req.user, resource)) return res.status(401).send({message: "you have to have write access to check"});
         resource_lib.check(resource, function(err, ret) {
             if(err) return next(err);
             res.json(ret);
@@ -250,7 +248,27 @@ router.put('/:id', common.jwt(), function(req, res, next) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
         if(!canedit(req.user, resource)) return res.status(401).end();
-        if(!is_admin(req.user)) delete resource.gids;
+
+        //pull out admin gids from req.user.gids (before null)
+        //TODO - we should store adminGids and memberGids separately in jwt, but I'd like to 
+        //gradually migrate. storing gids as well as admin/memberGids temporarily doubles the number
+        //of IDS to store, and it becomes too large for HTTP header. We should probably query 
+        //gids from the auth API each time.
+        const adminGids = [];
+        for(const gid of req.user.gids) {
+            if(gid === null) break;
+            adminGids.push(gid);
+        }
+
+        //if(!is_admin(req.user)) delete resource.gids;
+        //check to make sure requested gids are user's admin
+        if(req.body.gids) {
+            req.body.gids = req.body.gids.filter(gid=>{
+                if(resource.gids.includes(gid)) return true; //if already set, keep it
+                if(!resource.gids.includes(gid) && adminGids.includes(gid)) return true; //if adding new one, user must be member of it
+                if(gid == 1 && is_admin(req.user)) return true; //admin can add group:1
+            });
+        }
 
         //need to decrypt first so that I can preserve previous values
         common.decrypt_resource(resource);
@@ -290,7 +308,7 @@ router.put('/:id', common.jwt(), function(req, res, next) {
  * @apiParam {String} [avatar]  Avatar URL
  * @apiParam {String} [hostname]  Hostname to override the resource base hostname
  * @apiParam {Object[]} [services] Array of name: and score: to add to the service provides on resource base
- * @apiParam {Number[]} [gids]  List of groups that can use this resource (only amaretti admin can enter this)
+ * @apiParam {Number[]} [gids]  List of groups that can use this resource (user must be admin of the group)
  * @apiParam {String[]} [admins]  List of subs who can administer this resource
  * @apiParam {Boolean} [active] Set true to enable resource
  *
@@ -325,7 +343,15 @@ router.post('/', common.jwt(), function(req, res, next) {
     delete resource._id; //sometimes client sets this to null.. it shouldn't, but let's be nice
 
     //only admin can update gids (to share resources)
-    if(!is_admin(req.user)) delete resource.gids;
+    //if(!is_admin(req.user)) delete resource.gids;
+
+    //check to make sure user has access to specifid gids
+    if(req.body.gids) {
+        req.body.gids = req.body.gids.filter(gid=>{
+            if(req.user.adminGids.includes(gid)) return true; //user must be admin of it
+            if(gid == 1 && is_admin(req.user)) return true; //admin can add group:1
+        });
+    }
 
     //first save..
     resource.save().then(_resource=>{
@@ -425,7 +451,9 @@ router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
     db.Resource.findOne({_id: req.params.resource_id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return res.status(404).end();
-        if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
+
+        //if(!common.check_access(req.user, resource)) return res.status(401).send({message: "can't access"});
+        if(!common.canUseResource(req.user, resource)) return res.status(401).send({messasge: "you can't access this resource"});
 
         //load usage graph
         let days = 30;
