@@ -855,11 +855,10 @@ router.post('/', common.jwt(), function(req, res, next) {
                 if(req.user.scopes.amaretti && ~req.user.scopes.amaretti.indexOf("admin")) {
                     return next_check();
                 }
-                    
-                //TODO is this safe if gids happens to contain undefined?
+
                 const gids = task.gids||[];
-                if(instance.user_id != task.user_id && !~gids.indexOf(instance.group_id)) {
-                    return next_check("don't have access to specified instance");
+                if(instance.user_id != req.user.sub && !req.user.gids.includes(instance.group_id)) {
+                    return next_check("don't have access to the instance:"+instance._id);
                 }
                 next_check();//ok
             },
