@@ -67,20 +67,19 @@ router.get('/', common.jwt(), function(req, res, next) {
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
-    if(!is_admin(req.user) || find.user_id === undefined) {
-        //search only resource that user owns/admins or shared with the user
-        const gids = req.user.gids||[];
-        gids.push(config.amaretti.globalGroup);
-        find["$or"] = [
-            {user_id: req.user.sub.toString()},
-            {admins: req.user.sub.toString()},
-            {gids: {"$in": gids}},
-        ];
-    } else if(find.user_id == null) {
+    //if(!is_admin(req.user) || find.user_id === undefined) {
+    const gids = req.user.gids||[];
+    gids.push(config.amaretti.globalGroup);
+    find["$or"] = [
+        {user_id: req.user.sub.toString()},
+        {admins: req.user.sub.toString()},
+        {gids: {"$in": gids}},
+    ];
+    /*} else if(find.user_id == null) {
         //admin can set it to null and remove user_id / gids filtering
         //html get method won't allow empty parameter, so by setting it to null, then I can replace with *undefined*
         delete find.user_id;
-    }
+    }*/
 
     let select = null; //select all by default
     if(req.query.select) select = req.query.select+" user_id"; //we need user_id at least
