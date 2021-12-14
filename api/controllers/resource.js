@@ -279,6 +279,7 @@ router.put('/:id', common.jwt(), function(req, res, next) {
         if(req.body.gids) {
             const adminGids = getAdminGids(req.user);
             req.body.gids = req.body.gids.filter(gid=>{
+                if(resource.gids.includes(gid)) return true; //if already set, keep it
                 if(adminGids.includes(gid)) return true; //admin can add its own gid
                 if(gid == config.amaretti.globalGroup) {
                     if(is_admin(req.user)) return true; //only admin can *add* global group
