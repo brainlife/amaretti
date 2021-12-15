@@ -255,14 +255,14 @@ router.put('/test/:id', common.jwt(), function(req, res, next) {
  */
 
 function getAdminGids(user) {
-    //pull out admin gids from req.user.gids (before null)
+    //pull out admin gids from req.user.gids (before 0)
     //TODO - we should store adminGids and memberGids separately in jwt, but I'd like to 
     //gradually migrate. storing gids as well as admin/memberGids temporarily doubles the number
     //of IDS to store, and it becomes too large for HTTP header. We should probably query 
     //gids from the auth API each time.
     const adminGids = [];
     for(const gid of user.gids) {
-        if(gid === null) break;
+        if(gid === 0) break;
         adminGids.push(gid);
     }
     return adminGids;

@@ -399,7 +399,7 @@ router.get('/download/:taskid/*', common.jwt({
 
     let p = req.query.p || req.params[0];
     console.info("/task/download/"+req.params.taskid+" "+p);
-    
+
     //sometime request gets canceled, and we need to know about it to prevent ssh connections to get stuck
     //only thrown if client terminates request (including no change?)
     let req_closed = false;
