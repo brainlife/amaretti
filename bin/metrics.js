@@ -50,8 +50,6 @@ function run(cb) {
         if(err) throw err;
         if(res.statusCode != "200") throw res.body;
 
-        //console.log(JSON.stringify(list, null, 4));
-        //convert list of service/resouce_id keys into various statistics
         let services = {};
         let resources = {};
         let users = {};
@@ -73,11 +71,14 @@ function run(cb) {
             }
         });
 
+        let resource_details = {};
+        let contact_details = {};
         let emits = {}; //key value to emit
-        async.parallel({
+
+        async.series([
 
             //pull resource detail
-            resource_details: next=>{
+            next=>{
                 /*
                 request.get({
                     url: "http://localhost:"+config.express.port+"/resource", json: true,
@@ -98,16 +99,15 @@ function run(cb) {
                 });
                 */
                 db.Resource.find({_id: {$in: Object.keys(resources)}}).then(resources=>{
-                    let resource_details = {};
                     resources.forEach(resource=>{
                         resource_details[resource._id] = resource;
                     });
-                    next(null, resource_details);
+                    next();
                 });
             },
 
             //pull contact details
-            contact_details: next=>{
+            next=>{
                 let uids = Object.keys(users).filter(i=>parseInt(i));
                 if(uids.length == 0) return next(null, {});
                 request.get({
@@ -121,15 +121,14 @@ function run(cb) {
                     headers: { authorization: "Bearer "+config.wf.jwt },
                 }, function(err, res, _contacts) {
                     if(err) return next(err);
-                    let contact_details = {};
                     _contacts.profiles.forEach(contact=>{
                         contact_details[contact.sub] = contact;
                     });
-                    next(null, contact_details);
+                    next();
                 });
             },
 
-            recent: next=>{
+            next=>{
                 //set 0 values for recently non-0 values
                 re.keys("amaretti.metric.*", (err, recs)=>{
                     if(err) return next(err);
@@ -142,7 +141,7 @@ function run(cb) {
                 });
             },
 
-        }, (err, results)=>{
+        ], err=>{
             //sensu keys that just popedup
             let newkeys = []; 
 
@@ -163,7 +162,7 @@ function run(cb) {
             //for .. "test.resource.azure-slurm1shared 1 1549643698"
             //this is mainly for admin/grafana view - to quickly see which resource is which.. use resource-id for pragramatic
             for(let resource_id in resources) {
-                let detail = results.resource_details[resource_id];
+                let detail = resource_details[resource_id];
                 if(!detail) {
                     console.error("no detail for", resource_id);
                 } else {
@@ -174,10 +173,10 @@ function run(cb) {
                     emits[sensu_key] = resources[resource_id];
                 }
             }
-          
+
             //for .. "test.resource.123456787 1 1549643698"
             for(let resource_id in resources) {
-                let detail = results.resource_details[resource_id];
+                let detail = resource_details[resource_id];
                 if(!detail) {
                     console.error("no detail for", resource_id);
                 } else {
@@ -191,7 +190,7 @@ function run(cb) {
 
             //for "test.users.hayashis 1 1549643698"
             for(let user_id in users) {
-                let user = results.contact_details[user_id];
+                let user = contact_details[user_id];
                 if(!user) {
                     console.error("no contact detail for", user_id);
                     continue
@@ -202,7 +201,7 @@ function run(cb) {
                 if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                 emits[sensu_key] = users[user_id];
             }
-        
+
             //now emit
             newkeys.forEach(key=>{
                 console.log(key+" 0 "+(time-1));
@@ -217,3 +216,4 @@ function run(cb) {
         });
     });
 }
+
