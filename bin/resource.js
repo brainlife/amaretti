@@ -76,11 +76,11 @@ function run() {
                     console.log("checking resource--------", resource._id, resource.name);
                     resource_lib.check(resource, function(err) {
                         //I don't care if someone's resource status is failing or not
-                        
+
                         //count status for health reporting.. (not sure what I will be using this for yet)
                         if(!counts[resource.status]) counts[resource.status] = 0;
                         counts[resource.status]++;
-                        
+
                         //deactivate resource if it's never been ok-ed for a week
                         var weekold = new Date();
                         weekold.setDate(weekold.getDate() - 7);
@@ -142,12 +142,11 @@ function run() {
                     console.log("saving resource");
                     resource.save(next);
                 }
-                 
+
             ], next_resource);
-        }, async err=>{
+        }, err=>{
             if(err) console.error(err); //continue
             else console.debug("checked "+resources.length+" resources");
-
             report(resources, counts, err=>{
                 db.disconnect()
                 console.log("all done");

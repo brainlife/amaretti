@@ -258,7 +258,7 @@ function check_ssh(resource, cb) {
         console.log("closing connection", resource.name);
         conn.end();
     }
-    
+
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.on('ready', function() {
         ready = true;
@@ -291,7 +291,6 @@ function check_ssh(resource, cb) {
                         if(code == 0) cb_once(null, "ok", out);
                         else cb_once(null, "failed", out);
                     }).on('data', function(data) {
-                        //console.log("data");
                         out += data;
                     }).stderr.on('data', function(data) {
                         console.log("stderr:"+data);
@@ -315,21 +314,18 @@ function check_ssh(resource, cb) {
     });
     conn.on('close', function() {
         console.debug("ssh connection closed");
-        if(!ready && cb) {
-            cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
-            cb = null;
+        if(!ready) {
+            cb_once(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
         }
     });
     conn.on('error', function(err) {
-        if(cb) cb(null, "failed", err.toString());
-        cb = null;
+        cb_once(null, "failed", err.toString());
     });
 
     //clone resource so that decrypted content won't leak out of here
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
     common.decrypt_resource(decrypted_resource);
     console.debug("check_ssh / decrypted");
-    //var detail = config.resources[resource.resource_id];
     try {
         conn.connect({
             host: resource.config.hostname,// || detail.hostname,
@@ -340,8 +336,7 @@ function check_ssh(resource, cb) {
             tryKeyboard: true, //needed by stampede2
         });
     } catch (err) {
-        if(cb) cb(null, "failed", err.toString());
-        cb = null;
+        cb_once(null, "failed", err.toString());
     }
 }
 
@@ -362,7 +357,6 @@ function check_iohost(resource, cb) {
         conn.end();
     }
 
-    
     //TODO - I think I should add timeout in case resource is down (default timeout is about 30 seconds?)
     conn.once('ready', function() {
         ready = true;
@@ -394,14 +388,12 @@ function check_iohost(resource, cb) {
 
     conn.on('close', function() {
         console.debug("ssh connection closed");
-        if(!ready && cb) {
-            cb(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
-            cb = null;
+        if(!ready) {
+            cb_once(null, "failed", "Connection closed before becoming ready.. probably in maintenance mode?");
         }
     });
     conn.on('error', function(err) {
-        if(cb) cb(null, "failed", err.toString());
-        cb = null;
+        cb_once(null, "failed", err.toString());
     });
 
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
@@ -413,8 +405,7 @@ function check_iohost(resource, cb) {
             privateKey: decrypted_resource.config.enc_ssh_private,
         });
     } catch (err) {
-        if(cb) cb(null, "failed", err.toString());
-        cb = null;
+        cb_once(null, "failed", err.toString());
     }
 }
 
