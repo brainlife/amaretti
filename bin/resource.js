@@ -1,30 +1,30 @@
 #!/usr/bin/env node
 'use strict';
 
-//node
 const fs = require('fs');
 const async = require('async');
 const request = require('request');
 const redis = require('redis');
 
-//mine
 const config = require('../config');
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
+
+const pkg = require('../package.json');
 
 var rcon = null;
 
 db.init(function(err) {
     if(err) throw err;
     run();
-
 }, false); //don't connect to amqp
 
 async function report(resources, counts, cb) {
     const ssh = common.report_ssh();
     const report = {
         status: "ok",
+        version: pkg.version,
         ssh,
         resources: resources.length,
         messages: [],
@@ -37,11 +37,12 @@ async function report(resources, counts, cb) {
         report.status = "failed";
         report.messages.push("no resource checked.. not registered?");
     }
-    
+
     if(ssh.max_channels > 5) {
         report.status = "failed";
         report.messages.push("high ssh channels "+ssh.max_channels);
     }
+
     if(ssh.ssh_cons > 20) {
         report.status = "failed";
         report.messages.push("high ssh connections "+ssh.ssh_cons);

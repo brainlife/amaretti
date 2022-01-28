@@ -915,14 +915,14 @@ router.post('/', common.jwt(), function(req, res, next) {
  *                                      (won't override resource' max TTL)
  *
  * @apiHeader {String} authorization    A valid JWT token "Bearer: xxxxx"
- * 
+ *
  * @apiSuccessExample {json} Success-Response:
  *     HTTP/1.1 200 OK
  *     {
  *         "message": "Task successfully re-requested",
  *         "task": {},
  *     }
- *                              
+ *
  */
 router.put('/rerun/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
@@ -938,7 +938,7 @@ router.put('/rerun/:task_id', common.jwt(), function(req, res, next) {
             //if rerun by non-admin, reset the user_id
             //if it's admin (like "warehouse"), let's keep the original user_id because it's most likely be done
             //by some administrative reason
-            task.user_id = req.user.sub; 
+            task.user_id = req.user.sub;
         }
 
         common.rerun_task(task, req.body.remove_date, err=>{
@@ -948,17 +948,17 @@ router.put('/rerun/:task_id', common.jwt(), function(req, res, next) {
             common.update_instance_status(task.instance_id, err=>{
                 if(err) console.error(err);
             });
-        }); 
+        });
     });
 });
 
 /**
- * @api {put} /task/poke/:taskid        Clear next_date 
+ * @api {put} /task/poke/:taskid        Clear next_date
  * @apiGroup Task
  * @apiDescription                      Clear next_date so that the task will be handled by task handler immediately
  *
  * @apiHeader {String} authorization    A valid JWT token "Bearer: xxxxx"
- *                              
+ *
  */
 router.put('/poke/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;

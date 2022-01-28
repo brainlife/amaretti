@@ -252,7 +252,7 @@ function check_ssh(resource, cb) {
             cb(err, status, message);
             cb = null;
         } else {
-            console.error("cb already called", err, status, message);
+            //console.error("cb already called", err, status, message);
         }
 
         console.log("closing connection", resource.name);
@@ -264,7 +264,7 @@ function check_ssh(resource, cb) {
         ready = true;
 
         //send test script
-        var workdir = common.getworkdir(null, resource);
+        const workdir = common.getworkdir(null, resource);
         let t1 = setTimeout(()=>{
             cb_once(null, "failed", "got ssh connection but sftp timeout");
             t1 = null;
@@ -274,13 +274,15 @@ function check_ssh(resource, cb) {
             clearTimeout(t1);
 
             if(err) return cb_once(err);
-            var to = setTimeout(()=>{
+            let to = setTimeout(()=>{
                 cb_once(null, "failed", "send test script timeout(10sec) - filesytem is offline?");
+                to = null;
             }, 10*1000); 
 
             let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
             let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
             writestream.on('close', ()=>{
+                if(!to) return; //timed out already
                 clearTimeout(to);
                 console.debug("resource_test.sh write stream closed - running resource_test.sh");
                 conn.exec('cd '+workdir+' && timeout 10 bash resource_test.sh', (err, stream)=>{
@@ -300,6 +302,7 @@ function check_ssh(resource, cb) {
             });
             writestream.on('error', err=>{
                 console.debug("resource_test.sh write stream errored");
+                if(!to) return; //timed out already
                 clearTimeout(to);
                 if(err) return cb_once(null, "failed", "failed to stream resource_test.sh");
             });
@@ -325,7 +328,7 @@ function check_ssh(resource, cb) {
     //clone resource so that decrypted content won't leak out of here
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
     common.decrypt_resource(decrypted_resource);
-    console.debug("check_ssh / decrypted");
+    //console.debug("check_ssh / decrypted");
     try {
         conn.connect({
             host: resource.config.hostname,// || detail.hostname,
@@ -350,7 +353,7 @@ function check_iohost(resource, cb) {
             cb(err, status, message);
             cb = null;
         } else {
-            console.error("cb already called", err, status, message);
+            //console.error("cb already called", err, status, message);
         }
 
         console.log("closing connection (iohsot)", resource.name);
@@ -361,17 +364,22 @@ function check_iohost(resource, cb) {
     conn.once('ready', function() {
         ready = true;
 
-        var workdir = common.getworkdir(null, resource);
+        const workdir = common.getworkdir(null, resource);
+        let t1 = setTimeout(()=>{
+            cb_once(null, "failed", "got io ssh connection but sftp timeout");
+            t1 = null;
+        }, 15*1000); //10 sec too short for osgconnect
         conn.sftp(function(err, sftp) {
-            if(err) return cb(err);
-            console.debug("reading dir "+workdir);
-            var to = setTimeout(()=>{
-                console.error("readdir timeout"); 
+            if(!t1) return; //timed out already
+            clearTimeout(t1);
+
+            if(err) return cb_once(err);
+            let to = setTimeout(()=>{
                 cb_once(null, "failed", "readdir timeout - filesytem is offline?");
-                to =null;
-            }, 3*1000); 
+                to = null;
+            }, 3*1000);
             sftp.opendir(workdir, function(err, stat) {
-                if(!to) returnl //timed out already
+                if(!to) return; //timed out already
                 clearTimeout(to);
 
                 if(err) return cb_once(null, "failed", "can't access workdir");
@@ -379,13 +387,10 @@ function check_iohost(resource, cb) {
                 //TODO - I should probably check to see if I can write to it
             });
         });
-
     });
-
     conn.on('end', function() {
         console.debug("ssh connection ended");
     });
-
     conn.on('close', function() {
         console.debug("ssh connection closed");
         if(!ready) {

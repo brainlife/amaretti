@@ -24,6 +24,8 @@ const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
+const pkg = require('../package.json');
+
 const argv = yargs
     .option('nonice', {
         alias: 't',
@@ -171,7 +173,7 @@ function check(cb) {
             //handle_requested split start_task which does its own task.save().
             //to prevent parallel save, I let the last save from handle_requested by start_task
             //so we should not save here.. 
-            if(skipSave) console.log("skipping task.save()---", skipSave);
+            //if(skipSave) console.log("skipping task.save()---", skipSave);
             if(!skipSave) await task.save();
 
             //if task status changed, update instance status also
@@ -815,6 +817,11 @@ function start_task(task, resource, considered, cb) {
                                     }); 
                                 }, err=>{
                                     delete resourceSyncCount[source_resource_id][task._id];
+
+                                    if(err) {
+                                        //failed to rsync.. let's fail the job 
+                                        return cb(err);
+                                    }
                                     
                                     //I have to wait to make sure task.save() in progress finish writing - before moving to
                                     //the next step - which may run task.save() immediately which causes
@@ -1369,6 +1376,7 @@ function health_check() {
     var ssh = common.report_ssh();
     var report = {
         status: "ok",
+        version: pkg.version,
         ssh,
         messages: [],
         date: new Date(),

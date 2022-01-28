@@ -37,7 +37,7 @@ function run_command(resource, cmd, next) {
 
 //all parameters must be safe
 exports.rsync_resource = function(source_resource, dest_resource, source_path, dest_path, subdirs, progress_cb, cb) {
-    console.log("rsync_resource.. get_ssh_connection");
+    //console.log("rsync_resource.. get_ssh_connection");
 
     let auth_sock;
     let agent;
@@ -88,7 +88,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
-            console.log("finding and removing broken symlink on source resource before rsync", source_path);
+            //console.log("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
                 if(err) return next(err); 
                 
@@ -198,8 +198,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     agentForward: true,
                 }, (err, conn)=>{
                     if(err) return next(err); 
-                    let cmd = "timeout 630 rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
-                    console.debug(cmd);
+                    //adding timeout 630 will somehow break data.bridges2.psc.edu (code 1)
+                    let cmd = "rsync --timeout 600 "+inexopts+" --progress -h -a -L --no-g -e \""+sshopts+"\" "+source+" "+dest_path;
                     conn.exec(cmd, (err, stream)=>{
                         if(err) {
                             console.error(err);
@@ -219,9 +219,10 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
 
                             if(code === undefined) return next("timedout while rsyncing");
                             else if(code) { 
+                                errors += "rsync exit code:"+code+"\n";
                                 console.error("On dest resource:"+dest_hostname+" < Failed to rsync content from source:"+source+" to local path:"+dest_path+" code:"+code);
                                 console.error(cmd);
-                                console.error(errors);
+                                //console.error(errors);
                                 next(errors);
                             } else {
                                 console.info("done! %d:%d", code, signal);

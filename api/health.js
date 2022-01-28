@@ -7,6 +7,8 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
+const pkg = require('../package.json');
+
 var redis_client = redis.createClient(config.redis.port, config.redis.server);
 redis_client.on('error', err=>{throw err});
 redis_client.on('ready', ()=>{
@@ -20,6 +22,7 @@ exports.health_check = function() {
     var ssh = common.report_ssh();
     var report = {
         status: "ok",
+        version: pkg.version,
         ssh,
         messages: [],
         date: new Date(),

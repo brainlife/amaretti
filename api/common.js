@@ -7,7 +7,6 @@ const async = require('async');
 const Client = require('ssh2').Client;
 const sshagent = require('sshpk-agent');
 const ConnectionQueuer = require('ssh2-multiplexer');
-//const redis = require('redis');
 const request = require('request');
 const child_process = require('child_process');
 const ps = require('ps-node');
@@ -17,51 +16,9 @@ const config = require('../config');
 const db = require('./models');
 const events = require('./events');
 
-/* patched on git@github.com:soichih/ssh2-multiplexer.git
-//override ConnectionQueuer for temporary exception catch fix
-ConnectionQueuer.prototype.start = function () {
-  var self = this;
-  if (!this.running) {
-    this.running = true;
-    this.interval = setInterval(function () {
-      if(self.counter > 0) {
-        var saux = self.queue.shift();
-        if (self.queue.length < 1) {
-          self.stop();
-        }
-        if (saux !== undefined) {
-          self.counter--;
-          try {
-              self.connection.exec(saux.cmd, saux.options, function (err, stream) {
-                if (err) {
-                  self.counter++;
-                } else {
-                  stream.on('exit', function (code, signal) {
-                    self.counter++;
-                  });
-                }
-                if (saux.callback !== undefined) {
-                  saux.callback(err, stream);
-                }
-              });
-          } catch (err) {
-            self.counter++;
-            console.error(err);
-            if (saux.callback !== undefined) {
-              saux.callback(err);
-            }
-          }
-        }
-      } else {
-        console.debug('Queueing...');
-      }
-    }, 100);
-  }
-};
-*/
-
 //http://locutus.io/php/strings/addslashes/
 //http://locutus.io/php/addslashes/
+//used in controllers/task.js
 String.prototype.addSlashes = function() {
   return this.replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0')
 }
@@ -572,7 +529,7 @@ exports.update_instance_status = function(instance_id, cb) {
 
         //find all tasks under this instance
         db.Task.find({
-            instance_id: instance._id, 
+            instance_id: instance._id,
             "config._tid": {$exists: 1}, //let's only count UI tasks
         })
         .sort({create_date: 1})
