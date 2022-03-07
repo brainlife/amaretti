@@ -66,12 +66,12 @@ router.get('/resource_usage', common.jwt(), function(req, res, next) {
 
     var find = {};
     if(req.query.find) find = JSON.parse(req.query.find);
-    
+
     //group by status and count
     db.Task.aggregate([
         {$match: find},
 
-        {   
+        {
             //TODO - working to switch to use walltime field
             $project: {
                 _walltime: {$subtract: ["$finish_date", "$start_date"]},
@@ -98,7 +98,7 @@ router.get('/resource_usage', common.jwt(), function(req, res, next) {
 //who uses this? (can I deprecate this?)
 router.get('/running', common.jwt(), function(req, res, next) {
     if(!req.user.scopes.amaretti || !~req.user.scopes.amaretti.indexOf("admin")) return next("admin only");
-    
+
     //group by status and count
     db.Task.aggregate([
         {$match: {status: "running"}},
@@ -120,26 +120,6 @@ router.get('/recent', common.jwt(), async (req, res, next)=>{
                    'status status_msg create_date request_date '+
                    'start_date finish_date fail_date resource_id ';
 
-    /*
-    let current = await db.Task.find({
-        service,
-        status: {$in: ["requested", "running", "running_sync"]},
-    }).lean()
-    .select(select)
-    .sort({create_date: -1})
-    .limit(30)
-    .exec()
-    
-    let recent = await db.Task.find({
-        service,
-        status: {$in: ["finished", "failed"]},
-    }).lean()
-    .select(select)
-    .sort({create_date: -1})
-    .limit(20)
-    .exec()
-    */
-
     let recent = await db.Task.find({
         service,
         status: {$in: [
@@ -155,7 +135,6 @@ router.get('/recent', common.jwt(), async (req, res, next)=>{
     .limit(100)
     .exec()
 
-    //res.json({current, recent});
     res.json(recent);
 });
 
@@ -237,7 +216,7 @@ function ls_resource(resource, _path, cb) {
                 }
             }, err=>{
                 if(err) return cb(err);
-                
+
                 //bit of standardization with ls_hpss
                 var ret = [];
                 files.forEach(function(file) {
@@ -263,7 +242,7 @@ function ls_resource(resource, _path, cb) {
 
                 cb(null, ret);
             });
-            
+
         });
     });
 }
@@ -334,7 +313,7 @@ function find_resource(req, taskid, cb) {
         //I can't put resource_id as it might not be in resource_ids (resource_id is where it ran last time?)
         //let resource_ids = [/*task.resource_id,*/ ...task.resource_ids.reverse()]; 
 
-	    //we want to access in reverse order so we try the latest resource first
+        //we want to access in reverse order so we try the latest resource first
         async.eachSeries(task.resource_ids.reverse(), (resource_id, next_resource)=>{
             db.Resource.findById(resource_id, (err, resource)=>{
                 if(err) return next_resource(err);
@@ -452,13 +431,12 @@ router.get('/download/:taskid/*', common.jwt({
                                     console.info("request close after pipe began.. closing stream");
                                     stream.close();
                                 });
-                                //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                 stream.pipe(res);
                             });
                         });
                     } else {
                         console.info("file.. streaming file via sftp", fullpath);
-                        
+
                         //npm-mime uses filename to guess mime type, so I can use this locally
                         //TODO - but not very accurate - it looks like too many files are marked as application/octet-stream
                         let ext = path.extname(fullpath);
@@ -544,8 +522,6 @@ router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
                                             "tar xzf '"+path.basename(fullpath).addSlashes()+"' && "+
                                             "rm '"+path.basename(fullpath).addSlashes()+"'";
 
-                                        //console.debug(cmd);
-                                        
                                         conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
                                             //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
@@ -601,19 +577,6 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
         if(task.status != "finished") return next("you can only upload to finished service");
         if(!common.canUseResource(req.user, resource)) return next("Not authorized to access this resource");
 
-        //req.file
-        /*
-        {
-          fieldname: 'file',
-          originalname: 'sub-OpenSciJan22_phasediff.nii.gz',
-          encoding: '7bit',
-          mimetype: 'application/gzip',
-          destination: '/tmp',
-          filename: '8af1174d9e1188fe9084de5d90b0ea75',
-          path: '/tmp/8af1174d9e1188fe9084de5d90b0ea75',
-          size: 223679
-        }
-        */
         let p = req.query.p||req.file.originalname;
         get_fullpath(task, resource, p, (err, fullpath)=>{
             if(err) return next(err);
@@ -642,14 +605,6 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
                             const readStream = fs.createReadStream(req.file.path);
                             sftp.createWriteStream(fullpath, (err, write_stream)=>{
 
-                                /*
-                                //just in case..
-                                readstream.on('close', ()=>{
-                                    console.error("request closed........ closing sftp stream also");
-                                    write_stream.close();
-                                });
-                                */
-
                                 var pipe = readStream.pipe(write_stream);
                                 pipe.on('close', function() {
                                     console.info("streaming closed.. removing uploaded file");
@@ -666,7 +621,6 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
 
                                         conn_q.exec("timeout 600 bash -c \""+cmd+"\"", (err, stream)=>{
                                             if(err) return next(err);
-                                            //common.set_conn_timeout(conn_q, stream, 1000*60*10); //should finish in 10 minutes right?
                                             stream.on('end', function() {
                                                 res.json({msg: "uploaded and untared"});
                                             });
@@ -748,7 +702,7 @@ function mkdirp(conn, dir, cb) {
  *         "message": "Task successfully registered",
  *         "task": {...},
  *     }
- *                              
+ *
  */
 router.post('/', common.jwt(), function(req, res, next) {
     if(!req.body.instance_id) return next("please specify instance_id");
@@ -760,7 +714,7 @@ router.post('/', common.jwt(), function(req, res, next) {
     //make sure user owns the workflow that this task has requested under
     db.Instance.findById(instance_id, function(err, instance) {
         if(!instance) return next("no such instance:"+instance_id);
-        
+
         const task = new db.Task();
 
         //TODO validate?
@@ -783,20 +737,6 @@ router.post('/', common.jwt(), function(req, res, next) {
 
         //make sure user can only set gids that's authorized (1 is always allowed)
         if(req.body.gids) task.gids = req.body.gids.filter(gid=>(gid == 1 || req.user.gids.includes(gid)));
-
-        /*
-        //deps is deprecated, but might be used by old cli / existing tasks
-        if(req.body.deps) {
-            console.warn("req.body.deps set.. which is deprecated by deps_config");
-            let deps = req.body.deps.filter(dep=>dep);//remove null
-
-            //migrate to deps_config
-            req.body.deps_config = [];
-            deps.forEach(dep=>{
-                deps.push({task: dep});
-            });
-        }
-        */
 
         if(req.body.deps_config) {
             //dedupe while copying deps_config to task.deps_conf
@@ -821,10 +761,7 @@ router.post('/', common.jwt(), function(req, res, next) {
                     task.deps_config.push(conf);
                 }
             });
-            //console.debug("task.deps_config", task.deps_config)
         }
-
-        //task.resource_deps = req.body.resource_deps;
 
         //others overridden by the API 
         task._group_id = instance.group_id; //copy
@@ -888,7 +825,7 @@ router.post('/', common.jwt(), function(req, res, next) {
             }
         ], err=>{
             if(err) return next(err);
-            
+
             //all good - now register!
             task.save((err, _task)=>{
                 if(err) return next(err);
@@ -1000,7 +937,7 @@ router.put('/poke/:task_id', common.jwt(), function(req, res, next) {
  *         "message": "Task successfully requested to stop",
  *         "task": {},
  *     }
- *                              
+ *
  */
 router.put('/stop/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
@@ -1032,11 +969,6 @@ router.put('/stop/:task_id', common.jwt(), function(req, res, next) {
         }
         task.save(function(err) {
             if(err) return next(err);
-            /*
-            common.progress(task.progress_key, {msg: 'Stop Requested'}, function() {
-                res.json({message: "Task successfully requested to stop", task: task});
-            });
-            */
             events.publish("task.stop."+(task._group_id||'ng')+"."+task.user_id+"."+task.instance_id+"."+task._id, {});
             res.json({message: "Task successfully requested to stop", task: task});
             common.update_instance_status(task.instance_id, err=>{
@@ -1062,7 +994,7 @@ router.put('/stop/:task_id', common.jwt(), function(req, res, next) {
  *     {
  *         "message": "Task successfully scheduled for removed",
  *     }
- *                              
+ *
  */
 router.delete('/:task_id', common.jwt(), function(req, res, next) {
     const task_id = req.params.task_id;
@@ -1162,30 +1094,7 @@ router.get('/samples/:appId', async (req, res, next)=>{
         if(sample) samples.push(sample); 
         queryDate = endDate;
     }
-    /*
-    //mongo's $match does something really weird with follow_task_id and it becomes very slow
-    //even if I remove follow_task_id, it's still too slow to be useful
-    const samples = await db.Task.aggregate([
-        {   
-            $match: {
-                finish_date: { $gt: new Date("2020-01-01")},
-                "config._app": req.params.appId,
-                follow_task_id: {$exists: false}, //don't include validator
-            },
-        },
-        {
-            $project: {
-                _id: 1,
-                service: 1,
-            },
-        },
-        {
-            $sample: {size: 1000},
-        },
-    ]);    
-    */
     console.log("done sampling", samples.length);
-    
     res.json(samples);
 });
 
