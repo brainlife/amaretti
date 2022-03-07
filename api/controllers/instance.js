@@ -119,7 +119,7 @@ router.put('/:instid', common.jwt(), function(req, res, next) {
  *
  */
 router.post('/', common.jwt(), function(req, res, next) {
-    var instance = new db.Instance({});
+    let instance = new db.Instance({});
     instance.name = req.body.name; //mainly used internally
     instance.desc = req.body.desc;
     instance.config = req.body.config;
