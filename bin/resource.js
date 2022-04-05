@@ -108,7 +108,6 @@ function run() {
                 //https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
                 //curl "http://10.0.0.10/render?target=dev.amaretti.resource-id.59ea931df82bb308c0197c3d&format=json&from=-1day&noNullPoints=true" | jq -r
                 next=>{
-                    //console.dir(config.metrics.api+"/render?target="+config.metrics.resource_prefix+"."+resource._id);
                     request.get({url: config.metrics.api+"/render", qs: {
                         target: config.metrics.resource_prefix+"."+resource._id,
                         from: "-3day",
@@ -129,7 +128,6 @@ function run() {
                         for(let d = min;d < max;d+=3600) {
                             let max_value = 0;
                             data.forEach(point=>{
-                                //if(d[1] > d && d[1] < d+3600 && d[0] > max_value) max_value = d[1];
                                 if(point[1] > d && point[1] < d+3600 && point[0] > max_value) max_value = point[0];
                             });
                             recent_job_counts.push([d, max_value]); 

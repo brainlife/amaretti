@@ -55,6 +55,7 @@ db.init(function(err) {
             });
         },
 
+        //TODO - users and user seems to be redundant.. can we drop either?
         async next=>{
             console.log("group events by service/user/status");
 
@@ -79,6 +80,7 @@ db.init(function(err) {
 
         },
 
+        //TODO - users and user seems to be redundant.. can we drop either?
         next=>{
             console.log("group by service and user count");
             db.Taskevent.aggregate([
@@ -98,6 +100,26 @@ db.init(function(err) {
                 next();
             });
         },
+
+        next=>{
+            console.log("group by service and _group_id");
+            db.Taskevent.aggregate([
+                {$match: { status: "requested" }},
+                //first aggregate by service/group
+                {$group: {_id: {service: "$service", groupId: "$_group_id"}, groups: {$sum: 1}}},
+                //then count to get distinct user
+                {$group: {_id: {service: "$_id.service"}, distinct: {$sum: 1}}}, 
+            ]).exec((err, groups)=>{
+                if(err) return next(err);
+                groups.forEach(group=>{
+                    if(group._id.service == null) return; //TODO why does this happen?
+                    service_info[group._id.service].groups = group.distinct;
+                    console.log("distinct", group._id.service, group.distinct);
+                });
+                next();
+            });
+        },
+
 
         /* not useful?
         next=>{

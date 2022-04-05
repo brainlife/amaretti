@@ -38,6 +38,7 @@ db.init(err=> {
                     return next_contact();
                 }
 
+                /*
                 let name = contact.fullname.split(" ");
                 let tags = [];
                 let rec = {
@@ -63,6 +64,9 @@ db.init(err=> {
 					console.dir(err.response.data);
 					next_contact();
 				});
+                */
+                console.log(contact, counts);
+                next_contact();
 
             });
         }, err=>{

@@ -388,11 +388,14 @@ var serviceinfoSchema = mongoose.Schema({
     }),
     */
 
-    //number of unique users who ran this service
+    //number of unique users who ran this service (redundant with user?)
     users: Number,
 
     //object keyed by sub and counts of finished and failed tasks
     user: mongoose.Schema.Types.Mixed,
+
+    //number of unique group (project) who ran this service
+    groups: Number,
 
     runtime_mean: Number,
     runtime_std: Number,
