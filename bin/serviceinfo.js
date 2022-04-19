@@ -12,6 +12,7 @@ const ss = require('simple-statistics');
 
 const config = require('../config');
 const db = require('../api/models');
+const { start } = require('repl');
 
 db.init(function(err) {
     if(err) throw err;
@@ -45,7 +46,6 @@ db.init(function(err) {
                         }
                     }
                     service_info[status._id.service].counts[status._id.status] = status.count;
-                    
                     //calculate success_rate
                     let finished = service_info[status._id.service].counts.finished;
                     let failed = service_info[status._id.service].counts.failed;
@@ -117,6 +117,68 @@ db.init(function(err) {
                     console.log("distinct", group._id.service, group.distinct);
                 });
                 next();
+            });
+        },
+
+        async next=>{
+
+            /* Get all service info */
+            db.Serviceinfo.find({}).exec((err,services)=>{
+                services.forEach(async(service)=>{
+                    let countData;
+                    if(!service.monthlyCounts || !service.monthlyCounts.length) {
+                        service.monthlyCounts = [];
+                        console.debug("No monthly count", service.service);
+                        //if no monthly count then add data from 2017
+                        // add if statement if current month and current year then stop
+                        for(let year = 2017; year <= 2022; year++){
+                            for(let month = 1; month <=12; month++){
+                                const start = new Date(year+"-"+month+"-01");
+                                const end = new Date(start);
+                                end.setMonth(end.getMonth()+1);
+                                countData = await db.Task.aggregate([
+                                    {$match: {
+                                        create_date: {$gte: start, $lt: end},
+                                        service: service.service
+                                    }},{
+                                        $group: {
+                                            _id: {service: "$service"},
+                                            count: {$sum: 1},
+                                            walltime: {$sum: "$runtime"}
+                                        }
+                                    }
+                                ]);
+                                if(!countData.length) service.monthlyCounts.push(undefined);
+                                else service.monthlyCounts.push(countData[0].count);
+                            }
+                        }
+                        console.error(service.service,service.monthlyCounts.length,countData);
+                        service.save();
+                    } else {
+                        /* i have to implement a check 
+                        if the month is already marked then updating it instead of pushing element 
+                        */
+                        console.log("exists monthly Count",service.service);
+                        const start = new Date();
+                        const end = new Date(start);
+                        start.setMonth(end.getMonth()-1);
+                        countData = await db.Task.aggregate([
+                            {$match: {
+                                create_date: {$gte: start, $lt: end},
+                                service: service.service
+                            }},{
+                                $group: {
+                                    _id: {service: "$service"},
+                                    count: {$sum: 1},
+                                    walltime: {$sum: "$runtime"}
+                                }
+                            }
+                        ]);
+                        if(!countData.length) service.monthlyCounts.push(undefined);
+                        else service.monthlyCounts.push(countData[0].count);
+                        service.save();
+                    }
+                })
             });
         },
 
