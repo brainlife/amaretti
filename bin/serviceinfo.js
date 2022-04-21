@@ -126,13 +126,15 @@ db.init(function(err) {
             db.Serviceinfo.find({}).exec((err,services)=>{
                 services.forEach(async(service)=>{
                     let countData;
+                    const currentDate = new Date();
                     if(!service.monthlyCounts || !service.monthlyCounts.length) {
                         service.monthlyCounts = [];
                         console.debug("No monthly count", service.service);
                         //if no monthly count then add data from 2017
                         // add if statement if current month and current year then stop
-                        for(let year = 2017; year <= 2022; year++){
+                        for(let year = 2017; year <= currentDate.getFullYear(); year++){
                             for(let month = 1; month <=12; month++){
+                                if(year == currentDate.getFullYear() && month > currentDate.getMonth()+1) break;
                                 const start = new Date(year+"-"+month+"-01");
                                 const end = new Date(start);
                                 end.setMonth(end.getMonth()+1);
@@ -162,6 +164,8 @@ db.init(function(err) {
                         const start = new Date();
                         const end = new Date(start);
                         start.setMonth(end.getMonth()-1);
+                        const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth())
+                        console.log(month_difference);
                         countData = await db.Task.aggregate([
                             {$match: {
                                 create_date: {$gte: start, $lt: end},
@@ -174,7 +178,14 @@ db.init(function(err) {
                                 }
                             }
                         ]);
+                        /* improve this conditional 
+                        first if index exists then update
+                        else push 
+                        if coundata null then push undefined
+                        */
                         if(!countData.length) service.monthlyCounts.push(undefined);
+                        /* it can be undefined */
+                        else if(service.monthlyCounts[month_difference-1] || service.monthlyCounts[month_difference-1] == undefined) service.monthlyCounts[month_difference-1] = countData[0].count;
                         else service.monthlyCounts.push(countData[0].count);
                         service.save();
                     }
