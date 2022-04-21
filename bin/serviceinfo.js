@@ -121,7 +121,6 @@ db.init(function(err) {
         },
 
         async next=>{
-
             /* Get all service info */
             db.Serviceinfo.find({}).exec((err,services)=>{
                 services.forEach(async(service)=>{
@@ -129,7 +128,6 @@ db.init(function(err) {
                     const currentDate = new Date();
                     if(!service.monthlyCounts || !service.monthlyCounts.length) {
                         service.monthlyCounts = [];
-                        console.debug("No monthly count", service.service);
                         //if no monthly count then add data from 2017
                         // add if statement if current month and current year then stop
                         for(let year = 2017; year <= currentDate.getFullYear(); year++){
@@ -154,18 +152,15 @@ db.init(function(err) {
                                 else service.monthlyCounts.push(countData[0].count);
                             }
                         }
-                        console.error(service.service,service.monthlyCounts.length,countData);
+                        console.log(service.service,service.monthlyCounts.length);
                         service.save();
                     } else {
-                        /* i have to implement a check 
-                        if the month is already marked then updating it instead of pushing element 
-                        */
+                        //if the month is already marked then updating it instead of pushing element 
                         console.log("exists monthly Count",service.service);
-                        const start = new Date();
+                        const start = currentDate;
                         const end = new Date(start);
                         start.setMonth(end.getMonth()-1);
-                        const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth())
-                        console.log(month_difference);
+                        const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth()) - 1;
                         countData = await db.Task.aggregate([
                             {$match: {
                                 create_date: {$gte: start, $lt: end},
@@ -178,15 +173,15 @@ db.init(function(err) {
                                 }
                             }
                         ]);
-                        /* improve this conditional 
-                        first if index exists then update
-                        else push 
-                        if coundata null then push undefined
-                        */
-                        if(!countData.length) service.monthlyCounts.push(undefined);
-                        /* it can be undefined */
-                        else if(service.monthlyCounts[month_difference-1] || service.monthlyCounts[month_difference-1] == undefined) service.monthlyCounts[month_difference-1] = countData[0].count;
-                        else service.monthlyCounts.push(countData[0].count);
+                       
+                       /* if index exists then update else push values*/
+                        if(service.monthlyCounts[month_difference] == undefined || service.monthlyCounts[month_difference]) {
+                            if(!countData.length) service.monthlyCounts[month_difference] = undefined;
+                            else service.monthlyCounts[month_difference] = countData[0].count; 
+                        } else {
+                            if(!countData.length) service.monthlyCounts.push(undefined);
+                            else service.monthlyCounts.push(countData[0].count); 
+                        }
                         service.save();
                     }
                 })
