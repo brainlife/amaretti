@@ -12,7 +12,6 @@ const ss = require('simple-statistics');
 
 const config = require('../config');
 const db = require('../api/models');
-const { start } = require('repl');
 
 db.init(function(err) {
     if(err) throw err;
@@ -123,13 +122,13 @@ db.init(function(err) {
         async next=>{
             /* Get all service info */
             db.Serviceinfo.find({}).exec((err,services)=>{
+                if(err) return next(err);
                 services.forEach(async(service)=>{
                     let countData;
                     const currentDate = new Date();
                     if(!service.monthlyCounts || !service.monthlyCounts.length) {
                         service.monthlyCounts = [];
                         //if no monthly count then add data from 2017
-                        // add if statement if current month and current year then stop
                         for(let year = 2017; year <= currentDate.getFullYear(); year++){
                             for(let month = 1; month <=12; month++){
                                 if(year == currentDate.getFullYear() && month > currentDate.getMonth()+1) break;
@@ -152,11 +151,10 @@ db.init(function(err) {
                                 else service.monthlyCounts.push(countData[0].count);
                             }
                         }
-                        console.log(service.service,service.monthlyCounts.length);
+                        // console.log(service.service,service.monthlyCounts.length);
                         service.save();
                     } else {
                         //if the month is already marked then updating it instead of pushing element 
-                        console.log("exists monthly Count",service.service);
                         const start = currentDate;
                         const end = new Date(start);
                         start.setMonth(end.getMonth()-1);
@@ -184,7 +182,7 @@ db.init(function(err) {
                         }
                         service.save();
                     }
-                })
+                });
             });
         },
 
