@@ -124,64 +124,41 @@ db.init(function(err) {
             db.Serviceinfo.find({}).exec((err,services)=>{
                 if(err) return next(err);
                 services.forEach(async(service)=>{
-                    let countData;
                     const currentDate = new Date();
-                    if(!service.monthlyCounts || !service.monthlyCounts.length) {
-                        service.monthlyCounts = [];
-                        //if no monthly count then add data from 2017
-                        for(let year = 2017; year <= currentDate.getFullYear(); year++){
-                            for(let month = 1; month <=12; month++){
-                                if(year == currentDate.getFullYear() && month > currentDate.getMonth()+1) break;
-                                const start = new Date(year+"-"+month+"-01");
-                                const end = new Date(start);
-                                end.setMonth(end.getMonth()+1);
-                                countData = await db.Task.aggregate([
-                                    {$match: {
-                                        create_date: {$gte: start, $lt: end},
-                                        service: service.service
-                                    }},{
-                                        $group: {
-                                            _id: {service: "$service"},
-                                            count: {$sum: 1},
-                                            walltime: {$sum: "$runtime"}
-                                        }
+                    let startDate = new Date(currentDate);
+                    if(!service.monthlyCounts || !service.monthlyCounts.length) startDate = new Date('2017-02-01');
+                    //2017-02-01 is January 2017
+                    for(let year = startDate.getFullYear(); year <= currentDate.getFullYear(); year++){
+                        for(let month = startDate.getMonth()+1 ; month <=12; month++){
+                            if(year == currentDate.getFullYear() && month > currentDate.getMonth()+1) break;
+                            const start = new Date(year+"-"+month+"-01");
+                            const end = new Date(start);
+                            end.setMonth(end.getMonth()+1);
+                            // console.log(start,end,year,start.getMonth());
+                            countData = await db.Task.aggregate([
+                                {$match: {
+                                    create_date: {$gte: start, $lt: end},
+                                    service: service.service
+                                }},{
+                                    $group: {
+                                        _id: {service: "$service"},
+                                        count: {$sum: 1},
+                                        walltime: {$sum: "$runtime"}
                                     }
-                                ]);
-                                if(!countData.length) service.monthlyCounts.push(undefined);
-                                else service.monthlyCounts.push(countData[0].count);
-                            }
-                        }
-                        // console.log(service.service,service.monthlyCounts.length);
-                        service.save();
-                    } else {
-                        //if the month is already marked then updating it instead of pushing element 
-                        const start = currentDate;
-                        const end = new Date(start);
-                        start.setMonth(end.getMonth()-1);
-                        const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth()) - 1;
-                        countData = await db.Task.aggregate([
-                            {$match: {
-                                create_date: {$gte: start, $lt: end},
-                                service: service.service
-                            }},{
-                                $group: {
-                                    _id: {service: "$service"},
-                                    count: {$sum: 1},
-                                    walltime: {$sum: "$runtime"}
                                 }
+                            ]);
+                            const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth()) - 1;
+                            if(service.monthlyCounts[month_difference] == undefined || service.monthlyCounts[month_difference]) {
+                                if(!countData.length) service.monthlyCounts[month_difference] = undefined;
+                                else service.monthlyCounts[month_difference] = countData[0].count; 
+                            } else {
+                                if(!countData.length) service.monthlyCounts.push(undefined);
+                                else service.monthlyCounts.push(countData[0].count); 
                             }
-                        ]);
-                       
-                       /* if index exists then update else push values*/
-                        if(service.monthlyCounts[month_difference] == undefined || service.monthlyCounts[month_difference]) {
-                            if(!countData.length) service.monthlyCounts[month_difference] = undefined;
-                            else service.monthlyCounts[month_difference] = countData[0].count; 
-                        } else {
-                            if(!countData.length) service.monthlyCounts.push(undefined);
-                            else service.monthlyCounts.push(countData[0].count); 
+                            // console.log(service.service,service.monthlyCounts,service.monthlyCounts.length);
                         }
-                        service.save();
                     }
+                    service.save();
                 });
             });
         },
