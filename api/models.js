@@ -402,6 +402,7 @@ var serviceinfoSchema = mongoose.Schema({
     success_rate: Number,
 
     readme_status: String, //I think I am going to deprecate this (by status/status_msg)
+    monthlyCounts: [Number] //
 });
 exports.Serviceinfo = mongoose.model('Serviceinfo', serviceinfoSchema);
 

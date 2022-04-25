@@ -45,7 +45,6 @@ db.init(function(err) {
                         }
                     }
                     service_info[status._id.service].counts[status._id.status] = status.count;
-                    
                     //calculate success_rate
                     let finished = service_info[status._id.service].counts.finished;
                     let failed = service_info[status._id.service].counts.failed;
@@ -117,6 +116,50 @@ db.init(function(err) {
                     console.log("distinct", group._id.service, group.distinct);
                 });
                 next();
+            });
+        },
+
+        async next=>{
+            /* Get all service info */
+            db.Serviceinfo.find({}).exec((err,services)=>{
+                if(err) return next(err);
+                services.forEach(async(service)=>{
+                    const currentDate = new Date();
+                    let startDate = new Date(currentDate);
+                    if(!service.monthlyCounts || !service.monthlyCounts.length) startDate = new Date('2017-02-01');
+                    //2017-02-01 is January 2017
+                    for(let year = startDate.getFullYear(); year <= currentDate.getFullYear(); year++){
+                        for(let month = startDate.getMonth()+1 ; month <=12; month++){
+                            if(year == currentDate.getFullYear() && month > currentDate.getMonth()+1) break;
+                            const start = new Date(year+"-"+month+"-01");
+                            const end = new Date(start);
+                            end.setMonth(end.getMonth()+1);
+                            // console.log(start,end,year,start.getMonth());
+                            countData = await db.Task.aggregate([
+                                {$match: {
+                                    create_date: {$gte: start, $lt: end},
+                                    service: service.service
+                                }},{
+                                    $group: {
+                                        _id: {service: "$service"},
+                                        count: {$sum: 1},
+                                        walltime: {$sum: "$runtime"}
+                                    }
+                                }
+                            ]);
+                            const month_difference = (end.getFullYear() - new Date('2017-01-01').getFullYear())*12 + (end.getMonth() - new Date('2017-01-01').getMonth()) - 1;
+                            if(service.monthlyCounts[month_difference] == undefined || service.monthlyCounts[month_difference]) {
+                                if(!countData.length) service.monthlyCounts[month_difference] = undefined;
+                                else service.monthlyCounts[month_difference] = countData[0].count; 
+                            } else {
+                                if(!countData.length) service.monthlyCounts.push(undefined);
+                                else service.monthlyCounts.push(countData[0].count); 
+                            }
+                            // console.log(service.service,service.monthlyCounts,service.monthlyCounts.length);
+                        }
+                    }
+                    service.save();
+                });
             });
         },
 
