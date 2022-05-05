@@ -70,7 +70,7 @@ db.init(function(err) {
 });
 
 //https://github.com/soichih/workflow/issues/15
-function set_nextdate(task) {
+function setNextDate(task) {
     switch(task.status) {
     case "failed":
     case "finished":
@@ -138,7 +138,7 @@ function check(cb) {
             task.deps_config = task.deps.map(dep=>{task: dep});
         }
 
-        set_nextdate(task);
+        setNextDate(task);
         _counts.tasks++;
         console.log("------- ", task._id.toString(), "user:", task.user_id, task.status, task.service, task.name);
         //console.log("request_date", task.request_date);
@@ -166,14 +166,13 @@ function check(cb) {
         }
 
         let previous_status = task.status;
-        task.handle_date = new Date(); //record the handle date
+        task.handle_date = new Date(); 
         handler(task, async (err, skipSave)=>{
             if(err) console.error(err); //continue
 
             //handle_requested split start_task which does its own task.save().
             //to prevent parallel save, I let the last save from handle_requested by start_task
             //so we should not save here.. 
-            //if(skipSave) console.log("skipping task.save()---", skipSave);
             if(!skipSave) await task.save();
 
             //if task status changed, update instance status also
@@ -341,7 +340,7 @@ function handle_housekeeping(task, cb) {
     });
 }
 
-function handle_requested(task, next) {
+async function handle_requested(task, next) {
 
     const now = new Date();
     let initialState = task.status;
@@ -352,13 +351,13 @@ function handle_requested(task, next) {
     //WARNING - don't run anything asynchrnous after checking for task.start_date before I save the task with new start_date 
     if(task.start_date) {
         let starting_for = now - task.start_date;
-        console.log("start_date is set", starting_for);
+        //console.log("start_date is set", starting_for);
         if(starting_for < 1000*60*30) {
             console.log("job seems to be still starting.. for "+starting_for);
             task.status_msg = "Job poked at "+now.toLocaleString()+" but job is still starting.. for "+starting_for/1000+"secs";
             return next();
         }
-        console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
+        //console.error("start_date is set on requested job, but it's been a while... guess it failed to start but didn't have start_date cleared.. proceeding?");
     } 
 
     //check if remove_date has  not been reached (maybe set by request_task_removal got overridden)
@@ -393,7 +392,7 @@ function handle_requested(task, next) {
         task.fail_date = new Date();
         return next();
     }
-    
+
     //fail the task if any dependency is removed
     if(removed_deps.length > 0) {
         console.debug("dependency removed.. failing this task");
@@ -402,7 +401,7 @@ function handle_requested(task, next) {
         task.fail_date = new Date();
         return next();
     }
-     
+
     //fail if requested for too long
     var reqtime = now - (task.request_date||task.create_date); //request_date may not be set for old task
     if(reqtime > 1000 * 3600*24*20) {
@@ -418,84 +417,85 @@ function handle_requested(task, next) {
         //when dependency finished, it should auto-poke this task. so it's okay for this to be long
         task.next_date = new Date(Date.now()+1000*3600*24); 
         return next();
-    }    
+    }
 
     //set start date before checking for resource_select to prevent this task from getting double processed
+    //also make sure we get correct count for running/starting task in score_resource
     task.status_msg = "Looking for resource";
     task.start_date = new Date();
-    task.save(err=>{
-        if(err) console.error(err);
+    await task.save()
 
-        let user = {
-            sub: task.user_id,
-            gids: task.gids,
-        }
-        _resource_select(user, task, function(err, resource, score, considered) {
-            if(err) return next(err);
-            if(!resource || resource.status == "removed") {
+    _resource_select({
+        //mock user object
+        sub: task.user_id,
+        gids: task.gids,
+    }, task, async (err, resource, score, considered)=>{
+        if(err) return next(err);
+        if(!resource || resource.status == "removed") {
 
-                //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
-                //this should make sure that no project will consume all available slots simply because the project
-                //submits tons of tasks..
-                //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
-                db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
+            //check again in N minutes where N is determined by the number of tasks the project is running (and requested)
+            //this should make sure that no project will consume all available slots simply because the project
+            //submits tons of tasks..
+            //TODO - another way to do this might be to find the max next_date and add +10 seconds to that?
+            db.Task.countDocuments({status: "running",  _group_id: task._group_id}, (err, running_count)=>{
+                if(err) return next(err);
+                db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
                     if(err) return next(err);
-                    db.Task.countDocuments({status: "requested",  _group_id: task._group_id}, (err, requested_count)=>{
-                        if(err) return next(err);
 
-                        //penalize projects that are running a lot of jobs already (15 seconds per job)
-                        //also add up to an hour for projects that has a lot of jobs requested (1 second each)
-                        let secs = (15*running_count)+Math.min(requested_count, 3600);
-                        secs = Math.max(secs, 15); //min 15 seconds
+                    //penalize projects that are running a lot of jobs already (15 seconds per job)
+                    //also add up to an hour for projects that has a lot of jobs requested (1 second each)
+                    let secs = (15*running_count)+Math.min(requested_count, 3600);
+                    secs = Math.max(secs, 15); //min 15 seconds
 
-                        console.log("can't find resource.. retry in %d secs -- running:%d group_id:%d(requested:%d)", secs, running_count, task._group_id, requested_count);
+                    console.log("can't find resource.. retry in %d secs -- running:%d group_id:%d(requested:%d)", secs, running_count, task._group_id, requested_count);
 
-                        task.status_msg = "No resource currently available to run this task.. waiting.. ";
-                        task.next_date = new Date(Date.now()+1000*secs);
-                        task.start_date = undefined; //reset start_date so it will be handled again later
-                        return next();
-                    });
-                });
-                return;
-            }
-
-            //ready to start it!
-            start_task(task, resource, considered, err=>{
-                if(err) {
-                    //permanently failed to start (or running_sync failed).. mark the task as failed
-                    console.error("start_task failed. taskid:", task._id.toString(), err);
-                    task.status = "failed";
-                    task.status_msg = err;
-                    task.fail_date = new Date();
-                } 
-
-                //shouldn't we do this in start_task?
-                task.resource_id = resource._id;
-                task.resource_ids.addToSet(resource._id);
-
-                //if we couldn't start (in case of retry), reset start_date so we can handle it later again
-                if(task.status == "requested") task.start_date = undefined;
-
-                //check() handles save/update_instance_status, but we are diverging here..
-                console.log(task.status_msg);
-                
-                task.save(err=>{
-                    if(err) console.error(err);
-
-                    //if status changes, then let's update instance status also
-                    if(task.status != initialState) {
-                        common.update_instance_status(task.instance_id, err=>{
-                            if(err) console.error(err);
-                        });
-                    }
+                    task.status_msg = "No resource currently available to run this task.. waiting.. ";
+                    task.next_date = new Date(Date.now()+1000*secs);
+                    task.start_date = undefined; //reset start_date so it will be handled again later
+                    return next();
                 });
             });
+            return;
+        }
 
-            //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
-            //start_task is designed to be able to run concurrently..
-            console.log("started task.. skiping save");
-            next(null, true); //skip saving to prevent parallel save with start_task
+        //we need to mark starting resource id so we don't over count while starting jobs
+        task.resource_id = resource._id;
+        await task.save();
+
+        //ready to start it! (THIS FORKS the handler)
+        start_task(task, resource, considered, err=>{
+            if(err) {
+                //permanently failed to start (or running_sync failed).. mark the task as failed
+                console.error("start_task failed. taskid:", task._id.toString(), err);
+                task.status = "failed";
+                task.status_msg = err;
+                task.fail_date = new Date();
+            } 
+
+            task.resource_ids.addToSet(resource._id);
+
+            //if we couldn't start (in case of retry), reset start_date so we can handle it later again
+            if(task.status == "requested") task.start_date = undefined;
+
+            //check() handles save/update_instance_status, but we are diverging here..
+            console.log(task.status_msg);
+
+            task.save(err=>{
+                if(err) console.error(err);
+
+                //if status changes, then let's update instance status also
+                if(task.status != initialState) {
+                    common.update_instance_status(task.instance_id, err=>{
+                        if(err) console.error(err);
+                    });
+                }
+            });
         });
+
+        //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
+        //start_task is designed to be able to run concurrently..
+        console.log("started task.. skiping save");
+        next(null, true); //skip saving to prevent parallel save with start_task
     });
 }
 
@@ -1044,7 +1044,7 @@ function start_task(task, resource, considered, cb) {
                         //it might be also handy to run app installed executable, but maybe it will do more harm than good?
                         //if we get rid of this, I need to have all apps register hooks like "start": "./start.sh". instead of just "start.sh"
                         stream.write("export PATH=$PATH:$PWD\n");
-                        
+
                         //report why the resource was picked
                         stream.write("\n# why was this resource chosen?\n");
                         considered.forEach(con=>{
@@ -1058,7 +1058,7 @@ function start_task(task, resource, considered, cb) {
                     });
                 });
             },
-            
+
             //finally, run the service!
             next=>{
                 if(service_detail.run) return next(); //some app uses run instead of start .. run takes precedence

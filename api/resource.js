@@ -34,35 +34,20 @@ exports.select = function(user, task, cb) {
         return;
     }
 
-    const find = {
+    //now let's start out by all the resources that user has access and app is enabled on
+    db.Resource.find({
         status: {$ne: "removed"},
         active: true,
-        /*
-        "$or": [
-
-            //we don't want to use resource simply because user owns it.
-            //for locked down project that user want to be specific about which resource to use
-            //we don't want a owner of resource submit jobs and end up running the job somewhere
-            //{user_id: user.sub}, 
-
-            {
-                gids: {"$in": task.gids||[1]}
-            }, 
-        ],
-        */
         gids: {"$in": task.gids},
         'config.services.name': task.service,
-    }
-
-    db.Resource.find(find).lean().sort('create_date').exec((err, resources)=>{
+    }).lean().sort('create_date').exec((err, resources)=>{
         if(err) return cb(err);
-        if(task.preferred_resource_id) console.info("user preferred_resource_id:"+task.preferred_resource_id);
+
         //select the best resource based on the task
         var best = null;
         var best_score = null;
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
-            //console.log("scoring "+resource.name);
             score_resource(user, resource, task, (err, score, detail)=>{
                 if(score === null) {
                     //not configured to run on this resource.. ignore
@@ -70,7 +55,6 @@ exports.select = function(user, task, cb) {
                     return next_resource();         
                 }
 
-                //let resource_detail = config.resources[resource.resource_id];
                 let consider = {
                     _id: resource._id, 
                     id: resource._id,  //deprecated.. use _id
@@ -159,19 +143,23 @@ function score_resource(user, resource, task, cb) {
         });
     }
     if(score === null)  return cb(null, null); //this resource doesn't know about this service..
-    //console.log("scoring", resource.name);
 
     let maxtask = resource.config.maxtask;
     if(maxtask === undefined) maxtask = 1; //backward compatibility
     if(maxtask == 0) return cb(null, null); //can't run here
 
     db.Task.countDocuments({
+        _id: {$ne: task._id}, //don't count myself waiting
         resource_id: resource._id, 
         $or: [
-            {status: "running"},
-            {status: "requested", start_date: {$exists: true}}, //starting..
+            {
+                status: "running",
+            },
+            {
+                status: "requested", 
+                start_date: {$exists: true},
+            }, //starting..
         ],
-        _id: {$ne: task._id}, //don't count myself waiting
     }, (err, running)=>{
         if(err) console.error(err);
 
