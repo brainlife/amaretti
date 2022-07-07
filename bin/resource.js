@@ -3,23 +3,22 @@
 
 const fs = require('fs');
 const async = require('async');
-const request = require('request');
-const redis = require('redis');
+const request = require('request'); //TODO replace with axios
+//const redis = require('redis');
 
 const config = require('../config');
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
 
-const pkg = require('../package.json');
-
-var rcon = null;
+const pkg = require('../api/package.json');
 
 db.init(function(err) {
     if(err) throw err;
     run();
 }, false); //don't connect to amqp
 
+/* we run this synchronously now via cron
 async function report(resources, counts, cb) {
     const ssh = common.report_ssh();
     const report = {
@@ -50,7 +49,7 @@ async function report(resources, counts, cb) {
 
     console.log("---reporting---");
     console.dir(report);
-    rcon = redis.createClient(config.redis.port, config.redis.server);
+    const rcon = redis.createClient(config.redis.port, config.redis.server);
     rcon.on('error', cb);
     rcon.on('ready', ()=>{
         console.log("connected to redis");
@@ -59,6 +58,7 @@ async function report(resources, counts, cb) {
         cb(); 
     });
 }
+*/
 
 //go through all registered resources and check for connectivity & smoke test
 function run() {
@@ -146,10 +146,14 @@ function run() {
         }, err=>{
             if(err) console.error(err); //continue
             else console.debug("checked "+resources.length+" resources");
+            /*
             report(resources, counts, err=>{
                 db.disconnect()
                 console.log("all done");
             });
+            */
+            db.disconnect()
+            console.log("all done");
         });
     });
 }
