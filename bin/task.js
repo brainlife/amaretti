@@ -24,7 +24,7 @@ const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
-const pkg = require('../package.json');
+const pkg = require('../api/package.json');
 
 const argv = yargs
     .option('nonice', {

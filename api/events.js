@@ -90,7 +90,6 @@ function publish_or_log(ex, key, msg, cb) {
     }
 }
 
-//deprecate this
 exports.task = function(task) {
 
     //get previous task status to see if status changed
@@ -113,7 +112,7 @@ exports.task = function(task) {
             });
             taskevent.save();
         }
-        
+
         //some fields are populated (foreign keys are de-referenced)
         //to normalize the field type, let's load the record from database
         //TODO - can't I just test to see if _id exists for those field and replace them with it?
@@ -151,3 +150,4 @@ exports.publish = (key, message, cb)=>{
     message.timestamp = (new Date().getTime())/1000; //it's crazy that amqp doesn't set this?
     publish_or_log(amaretti_ex, key, message, cb);
 }
+

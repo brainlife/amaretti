@@ -93,6 +93,9 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                 if(err) return next(err); 
                 
                 //https://unix.stackexchange.com/questions/34248/how-can-i-find-broken-symlinks
+                //If Osiris mount is temporarily down, this ends up removing the symlinks and when osiris
+                //comes back online, the staged path will remain removed. I wish there is a way to tell
+                //rsync to only copy things that it can copy..
                 conn.exec("timeout 30 find "+source_path+" -type l ! -exec test -e {} \\; -delete", (err, stream)=>{
                     if(err) return next(err);
                     stream.on('close', (code, signal)=>{

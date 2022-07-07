@@ -7,7 +7,7 @@ const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
-const pkg = require('../package.json');
+const pkg = require('./package.json');
 
 var redis_client = redis.createClient(config.redis.port, config.redis.server);
 redis_client.on('error', err=>{throw err});

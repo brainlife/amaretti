@@ -20,7 +20,7 @@ exports.init = async function(cb, connectEvent = true) {
             return cb(err);
         }
     }
-    
+
     console.log("connecting to mongodb");
     mongoose.connect(config.mongodb, {
         //writeConcern: majority slows down things.. let's just read/write
@@ -33,9 +33,7 @@ exports.init = async function(cb, connectEvent = true) {
             //requires writeConcern to be set to "majority" also.
             level: 'majority',
         },
-        writeConcern: {
-            w: 'majority',
-        },
+        writeConcern: { w: 'majority', },
         */
         useNewUrlParser: true,
         useUnifiedTopology: true,
@@ -258,8 +256,7 @@ var taskSchema = mongoose.Schema({
 
     status_msg: String,
 
-    //resource where the task is currently running (or was). It gets cleared if rerun
-    //resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource', index: true}, //accesses.ops is 0
+    //resource where the task is last run (or attempted to run)
     resource_id: {type: mongoose.Schema.Types.ObjectId, ref: 'Resource' },
 
     //resources where task dir exits (where it ran, or synced)
@@ -322,6 +319,16 @@ taskSchema.index({status: 1,  resource_ids: 1, next_date: 1});  //find task to b
 taskSchema.index({service: 1, status: 1, "config._tid": 1, user_id: 1, _group_id: 1, create_date: -1}); //dashboard task list
 //taskSchema.index({follow_task_id: 1 });
 taskSchema.index({finish_date: 1, "config._app": 1, follow_task_id: 1 }); //sample tasks for an app
+
+///////////////////////
+//
+// for finding validator (can't merge these 2 as it will cause "CannotIndexParallelArrays"
+//
+taskSchema.index({"deps_config.task": 1});
+taskSchema.index({service: 1, instance_id: 1, "config._outputs.id": 1 }); //still testing to see if this helps
+//
+///////////////////////
+
 
 exports.Task = mongoose.model('Task', taskSchema);
 
@@ -402,6 +409,8 @@ var serviceinfoSchema = mongoose.Schema({
     success_rate: Number,
 
     readme_status: String, //I think I am going to deprecate this (by status/status_msg)
+
+    //monthlyCount: [Number], //dheeraj still working on this?
 });
 exports.Serviceinfo = mongoose.model('Serviceinfo', serviceinfoSchema);
 
