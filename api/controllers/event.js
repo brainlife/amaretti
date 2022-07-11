@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 
 //mine
-const config = require('../../config');
+const config = require('../config');
 const common = require('../common');
 const db = require('../models');
 

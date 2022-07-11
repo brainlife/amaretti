@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const winston = require('winston');
 
 //mine
-const config = require('../config');
+const config = require('./config');
 const logger = winston.createLogger(config.logger.winston);
 const events = require('./events');
 

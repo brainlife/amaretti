@@ -6,7 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 
 //mine
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 const app = require('../api/server').app;
 

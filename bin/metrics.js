@@ -11,7 +11,7 @@ const winston = require('winston');
 const async = require('async');
 const redis = require('redis');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 
 const graphite_prefix = process.argv[2];
@@ -21,7 +21,7 @@ if(!graphite_prefix) {
 }
 
 //connect to redis - used to store previously non-0 data
-const re = redis.createClient(config.redis.port, config.redis.server);
+const re = redis.createClient(config.redis);
 
 //TODO - this has to match up between amaretti/bin/metrics and warehouse/api/controller querying for graphite daa
 function sensu_name(name) {

@@ -7,7 +7,7 @@ const request = require('request');
 const winston = require('winston');
 const async = require('async');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 
 const duration = 1000*60; //msec to pull taskevent - should match up with the frequency of the execution

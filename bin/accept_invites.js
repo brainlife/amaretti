@@ -3,7 +3,7 @@
 //run this via cron periodically to auto accept invites (maybe every 10 minutes?)
 
 const rp = require('request-promise-native');
-const config = require('../config/index.js');
+const config = require('../api/config');
 const async = require('async');
 
 async function run() {

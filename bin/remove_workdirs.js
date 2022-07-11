@@ -11,7 +11,7 @@ const async = require('async');
 const Client = require('ssh2').Client;
 
 //mine
-const config = require('../config');
+const config = require('../api/config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const common = require('../api/common');

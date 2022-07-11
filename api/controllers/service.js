@@ -10,7 +10,7 @@ const path = require('path');
 const mime = require('mime');
 
 //mine
-const config = require('../../config');
+const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');

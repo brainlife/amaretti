@@ -6,7 +6,7 @@ const async = require('async');
 const request = require('request'); //TODO replace with axios
 //const redis = require('redis');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
@@ -49,7 +49,7 @@ async function report(resources, counts, cb) {
 
     console.log("---reporting---");
     console.dir(report);
-    const rcon = redis.createClient(config.redis.port, config.redis.server);
+    const rcon = redis.createClient(config.redis);
     rcon.on('error', cb);
     rcon.on('ready', ()=>{
         console.log("connected to redis");

@@ -4,7 +4,7 @@ const async = require('async');
 const Client = require('ssh2').Client;
 const fs = require('fs');
 
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 const common = require('./common');
 

@@ -9,7 +9,7 @@ const mime = require('mime');
 const multer = require('multer');
 const fs = require('fs');
 
-const config = require('../../config');
+const config = require('../config');
 const db = require('../models');
 const events = require('../events');
 const common = require('../common');

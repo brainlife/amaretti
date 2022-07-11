@@ -7,7 +7,7 @@ const request = require('request'); //deprecate
 const axios = require('axios');
 
 //mine
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 const common = require('./common');
 

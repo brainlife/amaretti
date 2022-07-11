@@ -1,7 +1,7 @@
 'use strict';
 
 const axios = require('axios')
-const config = require('../config');
+const config = require('../api/config');
 
 let days = 30*100;
 const resource_id = "594c4d88cec9aa163acb9264";

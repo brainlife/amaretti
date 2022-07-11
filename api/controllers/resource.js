@@ -14,7 +14,7 @@ const mime = require('mime');
 const request = require('request');
 
 //mine
-const config = require('../../config');
+const config = require('../config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
@@ -374,7 +374,7 @@ router.post('/', common.jwt(), function(req, res, next) {
     resource.save().then(_resource=>{
         //I have to save twice because we can't encrypt enc_ fields without _id set first
         common.encrypt_resource(_resource);
-        _resource.markModified('config');
+        _resource.markModified('./config');
         return _resource.save();
     }).then(_final_resource=>{
         var resource = _final_resource.toObject();

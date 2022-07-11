@@ -9,7 +9,7 @@ const winston = require('winston');
 const async = require('async');
 const redis = require('redis');
 
-const config = require('../config');
+const config = require('./config');
 config.logger.winston.transports[0].level = 'error';
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');

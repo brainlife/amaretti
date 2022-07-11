@@ -12,7 +12,7 @@ const child_process = require('child_process');
 const ps = require('ps-node');
 const jwt = require('express-jwt');
 
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 const events = require('./events');
 
@@ -69,7 +69,7 @@ exports.create_sshagent = function(key, cb) {
 //connect to redis - used to store various shared caches
 //TODO who use this now?
 /*
-exports.redis = redis.createClient(config.redis.port, config.redis.server);
+exports.redis = redis.createClient(config.redis);
 exports.redis.on('error', err=>{throw err});
 */
 

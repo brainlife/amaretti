@@ -8,7 +8,7 @@ const fs = require('fs');
 const jsonwebtoken = require('jsonwebtoken');
 
 //mine
-const config = require('../../config');
+const config = require('../config');
 const db = require('../models');
 const common = require('../common');
 const events = require('../events');

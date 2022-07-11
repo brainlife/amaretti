@@ -7,7 +7,7 @@ const sshpk = require('sshpk');
 const ConnectionQueuer = require('ssh2-multiplexer');
 
 //mine
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 const common = require('../api/common');
 

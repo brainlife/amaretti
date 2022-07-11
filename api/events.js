@@ -3,7 +3,7 @@
 const amqp = require('amqp'); //maybe I should switch to amqplib?
 
 //mine
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 
 let conn;

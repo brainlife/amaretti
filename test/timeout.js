@@ -1,4 +1,4 @@
-const config = require('../config');
+const config = require('../api/config');
 const api_transfer = require('../api/transfer.js');
 const common = require('../api/common.js');
 const db = require('../api/models.js');

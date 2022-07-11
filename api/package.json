@@ -3,7 +3,7 @@
   "description": "Light weight inter-resource meta task orchestration service for ABCD compatible apps.",
   "scripts": {
     "test": "mocha --reporter spec",
-    "start": "node api/wf.js",
+    "start": "node wf.js",
     "apidoc": "apidoc -i api/ -o docs/apidoc/",
     "docs": "cd docs && bundle exec jekyll serve",
     "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*.js",

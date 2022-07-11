@@ -17,7 +17,7 @@ const yargs = require('yargs');
 
 const stripAnsi = require('strip-ansi');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 const common = require('../api/common');
 const _resource_select = require('../api/resource').select;
@@ -1447,7 +1447,7 @@ function health_check() {
     });
 }
 
-var rcon = redis.createClient(config.redis.port, config.redis.server);
+var rcon = redis.createClient(config.redis);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     console.log("staring health check");

@@ -12,7 +12,7 @@ const cors = require('cors');
 const expressJwt = require('express-jwt');
 
 //mine
-const config = require('../config');
+const config = require('./config');
 const db = require('./models');
 
 //init express

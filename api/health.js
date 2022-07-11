@@ -2,14 +2,14 @@
 const redis = require('redis');
 const winston = require('winston');
 
-const config = require('../config');
+const config = require('./config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('./models');
 const common = require('./common');
 
 const pkg = require('./package.json');
 
-var redis_client = redis.createClient(config.redis.port, config.redis.server);
+var redis_client = redis.createClient(config.redis);
 redis_client.on('error', err=>{throw err});
 redis_client.on('ready', ()=>{
     logger.info("connected to redis");
@@ -57,7 +57,7 @@ exports.health_check = function() {
                 report.messages.push('no instance from db');
             }
 
-            if(report.status != "ok") logger.error(report);
+            if(report.status != "ok") logger.error(JSON.stringify(report));
             
             //report to redis
             redis_client.set("health.amaretti.api."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));

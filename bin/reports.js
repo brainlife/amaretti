@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const axios = require('axios');
 const fs = require('fs');
 
-const config = require("../config");
+const config = require('../api/config');
 const db = require('../api/models');
 
 db.init(async err=>{

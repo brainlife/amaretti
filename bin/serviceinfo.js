@@ -10,7 +10,7 @@ const request = require('request');
 const async = require('async');
 const ss = require('simple-statistics');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 
 db.init(function(err) {

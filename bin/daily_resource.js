@@ -10,7 +10,7 @@ const request = require('request');
 const redis = require('redis');
 
 //mine
-const config = require('../config');
+const config = require('../api/config');
 const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const resource_lib = require('../api/resource');

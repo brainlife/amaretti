@@ -6,7 +6,7 @@ const fs = require('fs');
 const redis = require('redis');
 const jsonwebtoken = require('jsonwebtoken');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 const common = require('../api/common');
 

@@ -2,12 +2,12 @@
 const winston = require('winston');
 const async = require('async');
 
-const config = require('../config');
+const config = require('../api/config');
 const db = require('../api/models');
 const redis = require('redis');
 //const common = require('../api/common');
 
-const rcon = redis.createClient(config.redis.port, config.redis.server);
+const rcon = redis.createClient(config.redis);
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     console.log("removing health.amaretti.*");

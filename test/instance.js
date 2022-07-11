@@ -6,7 +6,7 @@ var assert = require('assert');
 var fs = require('fs');
 
 //mine
-var config = require('../config');
+var config = require('../api/config');
 var db = require('../api/models');
 var app = require('../api/server').app;
 
