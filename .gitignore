@@ -16,6 +16,6 @@ config/wf.key
 config/*.secret
 config/github.access_token
 config/mailchimp.key
-docker/config
+docker/config/api/*.jwt
 docs/_site
 docs/Gemfile.lock
