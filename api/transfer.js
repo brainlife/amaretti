@@ -1,7 +1,5 @@
 'use strict';
 
-//contrib
-const winston = require('winston');
 const async = require('async');
 const sshpk = require('sshpk');
 const ConnectionQueuer = require('ssh2-multiplexer');

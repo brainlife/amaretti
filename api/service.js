@@ -1,7 +1,5 @@
 'use strict';
 
-//contrib
-const winston = require('winston');
 const async = require('async');
 const request = require('request'); //deprecate
 const axios = require('axios');
