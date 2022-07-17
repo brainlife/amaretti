@@ -7,7 +7,6 @@ const child_process = require('child_process');
 //contrib
 const express = require('express');
 const router = express.Router();
-const winston = require('winston');
 const async = require('async');
 const path = require('path');
 const mime = require('mime');
@@ -15,7 +14,6 @@ const request = require('request');
 
 //mine
 const config = require('../../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
 const resource_lib = require('../resource');
@@ -411,7 +409,7 @@ router.delete('/:id', common.jwt(), function(req, res, next) {
 
 //(admin only) allow other service (warehouse) to directly access storage resource's data
 router.get('/archive/download/:id/*', common.jwt(), function(req, res, next) {
-    logger.debug("requested");
+    console.debug("requested");
     if(!is_admin(req.user)) return next("admin only");
     let path = req.params[0];
 
@@ -419,29 +417,29 @@ router.get('/archive/download/:id/*', common.jwt(), function(req, res, next) {
     //only thrown if client terminates request (including no change?)
     let req_closed = false;
     req.on('close', ()=>{
-        logger.debug("req/close");
+        console.debug("req/close");
         req_closed = true;
     });
 
-    logger.debug("loading resource detail"+req.params.id);
+    console.debug("loading resource detail"+req.params.id);
     db.Resource.findOne({_id: req.params.id}, function(err, resource) {
         if(err) return next(err);
         if(!resource) return next("no such resource");
         if(!resource.envs || !resource.envs.BRAINLIFE_ARCHIVE) return next("BRAINLIFE_ARCHIVE ENV param is not set");
-        logger.debug("opening sftp connection to resource");
+        console.debug("opening sftp connection to resource");
         if(req_closed) return next("request already closed.. bailing 1");
         common.get_sftp_connection(resource, function(err, sftp) {
             if(err) return next(err);
-            logger.debug("opening sftp connection to resource");
+            console.debug("opening sftp connection to resource");
             if(req_closed) return next("request already closed.. bailing 2");
             const fullpath = resource.envs.BRAINLIFE_ARCHIVE+"/"+path;
-            logger.debug("using fullpath %s", fullpath);
+            console.debug("using fullpath %s", fullpath);
             sftp.createReadStream(fullpath, (err, stream)=>{
                 if(err) return next(err);
                 //in case user terminates in the middle.. read stream doesn't raise any event!
                 if(req_closed) return stream.close();
                 req.on('close', ()=>{
-                    logger.info("request closed........ closing sftp stream also");
+                    console.info("request closed........ closing sftp stream also");
                     stream.close();
                 });
                 stream.pipe(res);

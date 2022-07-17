@@ -2,13 +2,12 @@
 
 const express = require('express');
 const router = express.Router();
-const winston = require('winston');
 const request = require('request');
 //const redis = require('redis');
 
 //mine
 const config = require('../../config');
-const logger = winston.createLogger(config.logger.winston);
+//const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
 const transfer = require('../transfer'); //for health
@@ -44,7 +43,7 @@ router.get('/health', function(req, res, next) {
                 messages.push(service+" is stale max:"+(report.maxage||1000*120));
             }
         }  
-        if(status != "ok") logger.error(JSON.stringify({messages, reports}, null, 4));
+        if(status != "ok") console.error(JSON.stringify({messages, reports}, null, 4));
         res.json({status, messages, reports});
     });
 });

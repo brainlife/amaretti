@@ -1,8 +1,8 @@
 'use strict';
 
 const fs = require('fs');
-const { createLogger, format, transports } = require('winston');
-const { combine, timestamp, label, prettyPrint } = format;
+//const { createLogger, format, transports } = require('winston');
+//const { combine, timestamp, label, prettyPrint } = format;
 
 exports.instances = process.env.instances||1;
 exports.instance_id = process.env.NODE_APP_INSTANCE||0;
@@ -85,6 +85,7 @@ exports.progress = {
 
 exports.resources = require('./resources');
 
+/*
 exports.logger = {
     winston: {
         //hide headers which may contain jwt
@@ -99,7 +100,7 @@ exports.logger = {
             }),
         ),
 
-        requestWhitelist: ['url', /*'headers',*/ 'method', 'httpVersion', 'originalUrl', 'query'],
+        requestWhitelist: ['url', 'method', 'httpVersion', 'originalUrl', 'query'],
         exceptionHandlers: [
             new transports.Console(),
         ],
@@ -122,6 +123,7 @@ exports.logger = {
         ]
     }
 }
+*/
 
 /*
 exports.multer = {
