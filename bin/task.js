@@ -8,7 +8,6 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const request = require('request');
 const redis = require('redis');
 const winston = require('winston');
 const async = require('async');

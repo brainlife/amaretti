@@ -5,13 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const request = require('request');
-const winston = require('winston');
 const async = require('async');
 const redis = require('redis');
 
 const config = require('../config');
-config.logger.winston.transports[0].level = 'error';
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 
 const mongoose = require("mongoose");
