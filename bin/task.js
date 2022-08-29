@@ -1370,6 +1370,7 @@ let low_check = 0;
 let serviceStarted = new Date();
 
 function health_check() {
+    console.log("checking health..");
 
     var ssh = common.report_ssh();
     var report = {
@@ -1445,10 +1446,14 @@ function health_check() {
     });
 }
 
-var rcon = redis.createClient(config.redis.port, config.redis.server);
-rcon.on('error', err=>{throw err});
-rcon.on('ready', ()=>{
+//var rcon = redis.createClient(config.redis.port, config.redis.server);
+//rcon.on('error', err=>{throw err});
+/*
+common.redisClient.on('ready', ()=>{
     console.log("staring health check");
     setInterval(health_check, 1000*120);
 });
+*/
+
+setInterval(health_check, 1000*120);
 

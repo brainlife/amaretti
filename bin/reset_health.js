@@ -5,7 +5,9 @@ const config = require('../config');
 const db = require('../api/models');
 const redis = require('redis');
 
-const rcon = redis.createClient(config.redis.port, config.redis.server);
+//TODO use common's?
+const rcon = redis.createClient(config.redis);
+
 rcon.on('error', err=>{throw err});
 rcon.on('ready', ()=>{
     console.log("removing health.amaretti.*");
