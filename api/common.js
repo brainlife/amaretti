@@ -2,7 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const winston = require('winston');
 const async = require('async');
 const Client = require('ssh2').Client;
 const sshagent = require('sshpk-agent');
@@ -11,6 +10,7 @@ const request = require('request');
 const child_process = require('child_process');
 const ps = require('ps-node');
 const jwt = require('express-jwt');
+const redis = require('redis');
 
 const config = require('../config');
 const db = require('./models');
@@ -66,12 +66,14 @@ exports.create_sshagent = function(key, cb) {
     }, 1500);
 }
 
+exports.redisClient = redis.createClient(config.redis);
+exports.redisClient.on('error', console.error);
+
 //connect to redis - used to store various shared caches
-//TODO who use this now?
-/*
-exports.redis = redis.createClient(config.redis.port, config.redis.server);
-exports.redis.on('error', err=>{throw err});
-*/
+exports.connectRedis = async function(cb) {
+    await exports.redisClient.connect();
+    if(cb) cb();
+}
 
 exports.getworkdir = function(workflow_id, resource) {
     //var detail = config.resources[resource.resource_id];
@@ -565,9 +567,6 @@ exports.update_instance_status = function(instance_id, cb) {
                 console.error(JSON.stringify(counts, null, 4));
             }
 
-            //let status_changed = false;
-            //if(instance.status != newstatus) status_changed = true;
-            
             //create task summary
             if(!instance.config) instance.config = {};
             instance.config.counts = counts; //TODO - counts can be deduced from summary.. but instance/count api uses this 
@@ -578,7 +577,7 @@ exports.update_instance_status = function(instance_id, cb) {
                 //some task doesn't have _tid set... for somereason
                 if(!task.config) task.config = {};
                 if(!task.config._tid) task.config._tid = 0;
-                
+
                 instance.config.summary.push({
                     tid: task.config._tid,
                     task_id: task._id, 
@@ -593,11 +592,7 @@ exports.update_instance_status = function(instance_id, cb) {
             instance.update_date = new Date();
             instance.save(cb);
 
-            //console.debug("updating instance status");
-            //console.debug(JSON.stringify(instance.config, null, 4));
-
             let instance_o = instance.toObject();
-            //instance_o._status_changed = status_changed;
             events.instance(instance_o);
         });
     });

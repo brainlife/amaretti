@@ -313,16 +313,25 @@ function check_ssh(resource, cb) {
         cb_once(null, "failed", err.toString());
     });
 
+
     //clone resource so that decrypted content won't leak out of here
     var decrypted_resource = JSON.parse(JSON.stringify(resource));
     common.decrypt_resource(decrypted_resource);
-    //console.debug("check_ssh / decrypted");
+
+    /*
+    console.debug("check_ssh - connecting ssh");
+    console.debug(resource.config.hostname);
+    console.debug(resource.config.username);
+    */
+
     try {
         conn.connect({
             host: resource.config.hostname,// || detail.hostname,
             username: resource.config.username,
             privateKey: decrypted_resource.config.enc_ssh_private,
+
             //debug: console.debug,
+
             //no need to set keepaliveInterval(in millisecond) because checking resource should take less than a second
             tryKeyboard: true, //needed by stampede2
         });

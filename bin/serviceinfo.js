@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
-//populate serviceinfos collection by parsing Taskevent collection
-
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const winston = require('winston');
 const request = require('request');
 const async = require('async');
 const ss = require('simple-statistics');
@@ -120,28 +117,6 @@ db.init(function(err) {
             });
         },
 
-
-        /* not useful?
-        next=>{
-            console.log("loading README.md");
-            async.eachOfSeries(service_info, (v, k, next_service)=>{
-                //github doesn't support ?token= access with githubusercontent.. https://github.com/rgrove/rawgit/issues/44#issuecomment-60269961
-                let url = "https://raw.githubusercontent.com/"+k+"/master/README.md";
-                request(url, {
-                }, (err, res)=>{
-                    let status = "ok";
-                    if(err) status = err.toString();
-                    else if(res.statusCode != 200) status = "no README.md";
-                    else if(!res.body) status = "empty";
-                    else if(res.body.length < 1000) status = "too short";
-                    service_info[k].readme_status = status;
-                    //console.log(k, status);
-                    next_service();
-                });
-            }, next);
-        },
-        */
-
         next=>{
             async.eachOfSeries(service_info, (v, k, next_service)=>{
                 console.log("analying average runtime from the most recent 100 finishes for...", k);
@@ -154,7 +129,6 @@ db.init(function(err) {
                     }
 
                     let runtimes = [];
-                    //console.log("analyzing finish_event", finish_events);
                     async.eachSeries(finish_events, (finish_event, next_finish_event)=>{
                         //find when it started running for tha task
                         db.Taskevent.findOne({
@@ -173,12 +147,6 @@ db.init(function(err) {
                         });
                     }, err=>{
                         if(err) return next_service(err);
-                        /*
-                        if(runtimes.length == 0) {
-                            console.log("no runtime info");
-                            return next_service();
-                        }
-                        */
                         service_info[k].runtime_mean = ss.mean(runtimes);
                         service_info[k].runtime_std = ss.standardDeviation(runtimes);
                         //console.dir(service_info[k]);

@@ -9,7 +9,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const redis = require('redis');
-const winston = require('winston');
 const async = require('async');
 const deepmerge = require('deepmerge');
 const yargs = require('yargs');
@@ -23,7 +22,7 @@ const _resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
-const pkg = require('../api/package.json');
+const pkg = require('../package.json');
 
 const argv = yargs
     .option('nonice', {

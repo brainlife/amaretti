@@ -4,61 +4,26 @@
 const fs = require('fs');
 const async = require('async');
 const request = require('request'); //TODO replace with axios
-//const redis = require('redis');
 
 const config = require('../config');
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
 
-const pkg = require('../api/package.json');
+const pkg = require('../package.json');
 
+console.log("connecting to db");
 db.init(function(err) {
     if(err) throw err;
-    run();
-}, false); //don't connect to amqp
 
-/* we run this synchronously now via cron
-async function report(resources, counts, cb) {
-    const ssh = common.report_ssh();
-    const report = {
-        status: "ok",
-        version: pkg.version,
-        ssh,
-        resources: resources.length,
-        messages: [],
-        counts,
-        date: new Date(),
-        maxage: 1000*60*60,
-    }
+    console.log("connecting to redis");
+    common.connectRedis(err=>{
+        if(err) return cb(err);
 
-    if(resources.length == 0) {
-        report.status = "failed";
-        report.messages.push("no resource checked.. not registered?");
-    }
-
-    if(ssh.max_channels > 5) {
-        report.status = "failed";
-        report.messages.push("high ssh channels "+ssh.max_channels);
-    }
-
-    if(ssh.ssh_cons > 20) {
-        report.status = "failed";
-        report.messages.push("high ssh connections "+ssh.ssh_cons);
-    }
-
-    console.log("---reporting---");
-    console.dir(report);
-    const rcon = redis.createClient(config.redis.port, config.redis.server);
-    rcon.on('error', cb);
-    rcon.on('ready', ()=>{
-        console.log("connected to redis");
-        rcon.set("health.amaretti.resource."+process.env.HOSTNAME, JSON.stringify(report));
-        rcon.end(true);
-        cb(); 
+        console.log("running resource check");
+        run();
     });
-}
-*/
+}, false); //don't connect to amqp
 
 //go through all registered resources and check for connectivity & smoke test
 function run() {
@@ -143,16 +108,15 @@ function run() {
                 }
 
             ], next_resource);
-        }, err=>{
+        }, async err=>{
             if(err) console.error(err); //continue
             else console.debug("checked "+resources.length+" resources");
-            /*
-            report(resources, counts, err=>{
-                db.disconnect()
-                console.log("all done");
-            });
-            */
+
             db.disconnect()
+            
+            console.log("disconnecting redis");
+            await common.redisClient.quit();
+
             console.log("all done");
         });
     });

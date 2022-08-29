@@ -3,11 +3,8 @@
 const express = require('express');
 const router = express.Router();
 const request = require('request');
-//const redis = require('redis');
 
-//mine
 const config = require('../../config');
-//const logger = winston.createLogger(config.logger.winston);
 const db = require('../models');
 const common = require('../common');
 const transfer = require('../transfer'); //for health
@@ -22,7 +19,6 @@ const health = require('../health');
  * @apiSuccess {String} status 'ok' or 'failed'
  */
 router.get('/health', function(req, res, next) {
-    //logger.debug("healgh api");    
     health.get_reports((err, reports)=>{
         if(err) return next(err);
         var status = "ok";
@@ -43,7 +39,7 @@ router.get('/health', function(req, res, next) {
                 messages.push(service+" is stale max:"+(report.maxage||1000*120));
             }
         }  
-        if(status != "ok") console.error(JSON.stringify({messages, reports}, null, 4));
+        //if(status != "ok") console.error(JSON.stringify({messages, reports}, null, 4));
         res.json({status, messages, reports});
     });
 });

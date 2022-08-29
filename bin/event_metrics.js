@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const request = require('request');
-const winston = require('winston');
 const async = require('async');
 
 const config = require('../config');

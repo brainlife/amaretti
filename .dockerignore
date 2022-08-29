@@ -6,5 +6,5 @@ barn
 config
 ui/config.js
 docker/config
-node_modules
 ssh-agent.sock
+**/node_modules

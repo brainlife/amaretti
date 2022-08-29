@@ -1,8 +1,6 @@
-//node
 const fs = require('fs');
 const path = require('path');
 
-//contrib
 const express = require('express');
 const morgan = require('morgan');
 const bodyParser = require('body-parser');
@@ -11,9 +9,10 @@ const cors = require('cors');
 
 const expressJwt = require('express-jwt');
 
-//mine
 const config = require('../config');
 const db = require('./models');
+const common = require('./common');
+const health = require('./health');
 
 //init express
 const app = express();
@@ -37,6 +36,7 @@ app.use(function(err, req, res, next) {
 
     //log this error
     console.log(err);
+
     if(err.name) switch(err.name) {
     case "UnauthorizedError":
         console.log(req.headers); //dump headers for debugging purpose..
@@ -58,10 +58,20 @@ exports.app = app;
 exports.start = function(cb) {
     var port = process.env.PORT || config.express.port || '8081';
     var host = process.env.HOST || config.express.host || 'localhost';
+    console.log("connecting to db");
     db.init(function(err) {
         if(err) return cb(err);
-        app.listen(port, host, function() {
-            console.log("workflow/api service:%s running on %s:%d in %s mode", process.pid, host, port, app.settings.env);
+        console.log("connecting to redis");
+        common.connectRedis(err=>{
+            if(err) return cb(err);
+
+            app.listen(port, host, function() {
+                console.log("amaretti api (pid:%s) running on %s:%d in %s mode", process.pid, host, port, app.settings.env);
+            });
+
+            health.health_check();
+            setInterval(health.health_check, 1000*60); //post health status every minutes
+
         });
     });
 }

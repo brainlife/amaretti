@@ -4,14 +4,12 @@
 //node
 const fs = require('fs');
 const path = require('path');
-const winston = require('winston');
 const async = require('async');
 const request = require('request');
 const redis = require('redis');
 
 //mine
 const config = require('../config');
-const logger = winston.createLogger(config.logger.winston);
 const db = require('../api/models');
 const resource_lib = require('../api/resource');
 const common = require('../api/common');
@@ -82,8 +80,8 @@ db.init(function(err) {
                  
             ], next_resource);
         }, err=>{
-            if(err) logger.error(err); //continue
-            else logger.debug("checked "+resources.length+" resources");
+            if(err) console.error(err); //continue
+            else console.debug("checked "+resources.length+" resources");
             console.log("all done");
             db.disconnect(()=>{
                 process.exit(0);

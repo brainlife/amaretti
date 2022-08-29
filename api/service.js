@@ -98,8 +98,8 @@ function do_loaddetail(service_name, branch, cb) {
             let url = 'https://api.github.com/repos/'+service_name;
             axios.get(url, {
                 headers: {
+                    'User-Agent': 'brainlife/amaretti',
                     'Authorization': 'token '+config.github.access_token,
-                    'User-Agent': 'brainlife/amaretti'
                 } 
             //}, function(err, _res, git) {
             }).then(res=>{

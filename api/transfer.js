@@ -129,15 +129,15 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         next=>{
             
             //run rsync (pull from source - use io_hostname if available)
-            var source_resource_detail = config.resources[source_resource.resource_id];
-            var source_hostname = source_resource.config.io_hostname || source_resource.config.hostname || source_resource_detail.hostname;
+            //var source_resource_detail = config.resources[source_resource.resource_id];
+            const source_hostname = source_resource.config.io_hostname || source_resource.config.hostname;// || source_resource_detail.hostname;
             
             //-o ConnectTimeout=120
             //TODO need to investigate why I need these -o options on q6>karst transfer
             //var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey";
             //wranger can't rsync from tacc with PreferredAuthentications=publickey
-            var sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
-            var source = source_resource.config.username+"@"+source_hostname+":"+source_path+"/";
+            const sshopts = "ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no";
+            const source = source_resource.config.username+"@"+source_hostname+":"+source_path+"/";
             
             //-v writes output to stderr.. even though it's not error..
             //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
@@ -153,8 +153,8 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             //--info-progress2 is only available for newer rsync..
             //can't use timeout command as this might get executed on io only node
             //we need to use dest_resource's io_hostname if available
-            var dest_resource_detail = config.resources[dest_resource.resource_id];
-            var dest_hostname = dest_resource.config.io_hostname||dest_resource.config.hostname||dest_resource_detail.hostname;
+            //var dest_resource_detail = config.resources[dest_resource.resource_id];
+            const dest_hostname = dest_resource.config.io_hostname||dest_resource.config.hostname;//||dest_resource_detail.hostname;
             //console.log("ssh to %s", dest_hostname);
 
             //include/exclude options - by default, copy everything except .*

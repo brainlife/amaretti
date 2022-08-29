@@ -16,7 +16,6 @@ exports.init = async function(cb, connectEvent = true) {
         }
     }
 
-    console.log("connecting to mongodb");
     mongoose.connect(config.mongodb, {
         //writeConcern: majority slows down things.. let's just read/write
         //from primary only for now..

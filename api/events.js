@@ -82,7 +82,7 @@ exports.disconnect = function(cb) {
 function publish_or_log(ex, key, msg, cb) {
     if(!ex || !connected) {
         //if not connected, output to stdout..
-        console.log(JSON.stringify(key, null, 4));
+        console.log("----------- no amqp ------------------", key);
         console.log(JSON.stringify(msg, null, 4));
         if(cb) cb();
     } else {
