@@ -1432,7 +1432,7 @@ function health_check() {
         console.debug(JSON.stringify(report, null, 4));
 
         //send report
-        rcon.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
+        common.redisClient.set("health.amaretti.task."+process.env.HOSTNAME+"-"+process.pid, JSON.stringify(report));
 
         if(report.queue_size > 0 && _counts.checks == 0) {
             console.error("not checking anymore.. the loop died? killing.");
