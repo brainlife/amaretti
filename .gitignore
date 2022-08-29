@@ -11,8 +11,8 @@ logs
 config/index.js
 config/resources.js
 config/*.jwt
-config/wf.pub
-config/wf.key
+config/*.pub
+config/*.key
 config/*.secret
 config/github.access_token
 config/mailchimp.key
