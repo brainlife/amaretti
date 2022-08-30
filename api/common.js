@@ -67,10 +67,11 @@ exports.create_sshagent = function(key, cb) {
 }
 
 exports.redisClient = redis.createClient(config.redis);
-exports.redisClient.on('error', console.error);
+exports.redisClient.on('error', console.error); //needed for reconnect?
 
 //connect to redis - used to store various shared caches
 exports.connectRedis = async function(cb) {
+    console.log("connecting to redis");
     await exports.redisClient.connect();
     if(cb) cb();
 }

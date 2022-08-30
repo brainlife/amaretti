@@ -63,8 +63,11 @@ ${new Date().toString()}
 
 db.init(function(err) {
     if(err) throw err;
-    console.debug("db-initialized");
-    check(); //start check loop
+    common.connectRedis(err=>{
+        if(err) throw err;
+        console.debug("db-initialized");
+        check(); //start check loop
+    });
 });
 
 //https://github.com/soichih/workflow/issues/15
