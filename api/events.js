@@ -22,7 +22,7 @@ exports.init = function(cb) {
     }
 
     console.log("connecting to amqp");
-    conn = amqp.createConnection(config.events.amqp, {reconnectBackoffTime: 1000*10});
+    conn = amqp.createConnection(config.events.amqp); //reconnect by default
     conn.on('ready', function() {
         connected = true;
         console.log("amqp connection ready.. creating exchanges");
@@ -57,12 +57,7 @@ exports.init = function(cb) {
             cb = null;
         }
     });
-    conn.on('error', function(err) {
-        if(!connected) return;
-        console.error("amqp connection error");
-        console.error(err);
-        connected = false;
-    });
+    conn.on('error', console.error);
 }
 
 exports.disconnect = function(cb) {
