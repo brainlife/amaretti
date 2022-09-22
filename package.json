@@ -16,6 +16,7 @@
   },
   "author": "Soichi Hayashi <hayashis@iu.edu>",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.29.0",
     "amqp": "^0.2.7",
     "async": "^3.2.4",
     "axios": "^0.27.2",

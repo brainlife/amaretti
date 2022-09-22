@@ -14,9 +14,9 @@ const config = require('../config');
 const db = require('../api/models');
 const common = require('../api/common');
 
+console.debug("connecting to db");
 db.init(function(err) {
     if(err) throw err;
-    console.debug("db-initialized");
     check(); 
 }, false);
 

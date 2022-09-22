@@ -73,7 +73,6 @@ function run() {
                 //https://graphite-api.readthedocs.io/en/latest/api.html#the-render-api-render
                 //curl "http://10.0.0.10/render?target=dev.amaretti.resource-id.59ea931df82bb308c0197c3d&format=json&from=-1day&noNullPoints=true" | jq -r
 
-
                 /* TODO - I need to pull this from influxdb instead of graphite
                 next=>{
                     request.get({url: config.metrics.api+"/render", qs: {
@@ -117,7 +116,7 @@ function run() {
             else console.debug("checked "+resources.length+" resources");
 
             db.disconnect()
-            
+
             console.log("disconnecting redis");
             await common.redisClient.quit();
 

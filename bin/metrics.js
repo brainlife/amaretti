@@ -12,15 +12,11 @@ const redis = require('redis');
 
 const config = require('../config');
 const db = require('../api/models');
+const common = require('../api/common');
+const influx = require('@influxdata/influxdb-client');
 
-const graphite_prefix = process.argv[2];
-if(!graphite_prefix) {
-    console.error("usage: metrics.js <graphite_prefix>");
-    process.exit(1);
-}
-
-//connect to redis - used to store previously non-0 data
-const re = redis.createClient(config.redis.port, config.redis.server);
+let graphite_prefix = process.argv[2];
+if(!graphite_prefix) graphite_prefix = "dev";
 
 //TODO - this has to match up between amaretti/bin/metrics and warehouse/api/controller querying for graphite daa
 function sensu_name(name) {
@@ -32,17 +28,21 @@ function sensu_name(name) {
 
 db.init(err=>{
     if(err) throw err;
-    run(err=>{
-        if(err) throw err;
-        db.disconnect();
+    common.connectRedis(err=>{
+        run(err=>{
+            if(err) throw err;
+            common.redisClient.quit();
+            db.disconnect();
+        });
     });
 }, false); //connectEvent = false
 
 function run(cb) {
     //I can just load this directly from mongo.. but to be consistent 
     //with what user sees (via API) let's pull it from API..
+    console.log("querying running jobs");
     request.get({
-        url: "http://localhost:"+config.express.port+"/admin/services/running",
+        url: "http://0.0.0.0:"+config.express.port+"/admin/services/running",
         json: true,
         headers: { authorization: "Bearer "+config.amaretti.jwt },
     }, function(err, res, list) {
@@ -78,25 +78,6 @@ function run(cb) {
 
             //pull resource detail
             next=>{
-                /*
-                request.get({
-                    url: "http://localhost:"+config.express.port+"/resource", json: true,
-                    qs: {
-                        find: JSON.stringify({
-                            _id: {$in: Object.keys(resources)},
-                            user_id: null, //admin can do this to bypass user id filtering
-                        }),
-                    },
-                    headers: { authorization: "Bearer "+config.wf.jwt },
-                }, function(err, res, _resources) {
-                    console.error(_resources);
-                    let resource_details = {};
-                    _resources.resources.forEach(resource=>{
-                        resource_details[resource._id] = resource;
-                    });
-                    next(err, resource_details);
-                });
-                */
                 db.Resource.find({_id: {$in: Object.keys(resources)}}).then(resources=>{
                     resources.forEach(resource=>{
                         resource_details[resource._id] = resource;
@@ -127,16 +108,13 @@ function run(cb) {
                 });
             },
 
-            next=>{
+            async next=>{
                 //set 0 values for recently non-0 values
-                re.keys("amaretti.metric.*", (err, recs)=>{
-                    if(err) return next(err);
-                    recs.forEach(rec=>{
-                        //grab all the path after amaretti.metric.
-                        let path = rec.split(".").slice(2).join(".");
-                        emits[path] = 0;
-                    });
-                    next();
+                const keys = await common.redisClient.hVals("amaretti.metric.*");
+                keys.forEach(key=>{
+                    //grab all the path after amaretti.metric.
+                    let path = key.split(".").slice(2).join(".");
+                    emits[path] = 0;
                 });
             },
 
@@ -144,18 +122,24 @@ function run(cb) {
             //sensu keys that just popedup
             let newkeys = []; 
 
-            //output gathered data in sensu format
-            const time = Math.round(new Date().getTime()/1000);
+            const today = new Date();
+            const time = Math.round(today.getTime()/1000);
+            const writeApi = new influx.InfluxDB(config.influxdb.connection)
+                .getWriteApi(config.influxdb.org, config.influxdb.bucket, 'ns')
+            writeApi.useDefaultTags({location: config.influxdb.location})
+            const point = new influx.Point("amaretti");
+            point.timestamp(today);
 
             //for .. "dev.amaretti.service.brain-life-app-life 0 1549643698"
             for(let service in services) {
-                let safe_name = sensu_name(service);
-                let sensu_key = graphite_prefix+".service."+safe_name;
-                re.set('amaretti.metric.'+sensu_key, 1);
-                re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
+                const safe_name = sensu_name(service);
+                const sensu_key = graphite_prefix+".service."+safe_name;
+                common.redisClient.set('amaretti.metric.'+sensu_key, 1);
+                common.redisClient.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
 
                 if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                 emits[sensu_key] = services[service];
+                point.intField("service."+safe_name, services[service]);
             }
 
             //for .. "test.resource.azure-slurm1shared 1 1549643698"
@@ -165,11 +149,13 @@ function run(cb) {
                 if(!detail) {
                     console.error("no detail for", resource_id);
                 } else {
-                    let sensu_key = graphite_prefix+".resource."+sensu_name(detail.name);
-                    re.set('amaretti.metric.'+sensu_key, 1);
-                    re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
+                    const safe_name = sensu_name(detail.name);
+                    const sensu_key = graphite_prefix+".resource."+safe_name;
+                    common.redisClient.set('amaretti.metric.'+sensu_key, 1);
+                    common.redisClient.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                     if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                     emits[sensu_key] = resources[resource_id];
+                    point.intField("resource."+safe_name, resources[resource_id]);
                 }
             }
 
@@ -179,11 +165,12 @@ function run(cb) {
                 if(!detail) {
                     console.error("no detail for", resource_id);
                 } else {
-                    let sensu_key = graphite_prefix+".resource-id."+resource_id
-                    re.set('amaretti.metric.'+sensu_key, 1);
-                    re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
+                    const sensu_key = graphite_prefix+".resource-id."+resource_id
+                    common.redisClient.set('amaretti.metric.'+sensu_key, 1);
+                    common.redisClient.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                     if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                     emits[sensu_key] = resources[resource_id];
+                    point.intField("resource-id."+resource_id, resources[resource_id]);
                 }
             }
 
@@ -194,22 +181,27 @@ function run(cb) {
                     console.error("no contact detail for", user_id);
                     continue
                 } 
-                let sensu_key = graphite_prefix+".users."+user.username.replace(/\./g, '_');
-                re.set('amaretti.metric.'+sensu_key, 1);
-                re.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
+                const safe_name = user.username.replace(/\./g, '_');
+                const sensu_key = graphite_prefix+".users."+safe_name;
+                common.redisClient.set('amaretti.metric.'+sensu_key, 1);
+                common.redisClient.expire('amaretti.metric.'+sensu_key, 60*30); //expire in 30 minutes
                 if(emits[sensu_key] === undefined) newkeys.push(sensu_key);
                 emits[sensu_key] = users[user_id];
+                point.intField("user."+safe_name, users[user_id]);
             }
 
             //now emit
             newkeys.forEach(key=>{
                 console.log(key+" 0 "+(time-1));
             });
+
             for(var key in emits) {
                 console.log(key+" "+emits[key]+" "+time);
             }
 
-            re.end(true);
+            writeApi.writePoint(point);
+            writeApi.close();
+
 
             cb();
         });

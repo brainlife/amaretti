@@ -8,20 +8,25 @@ const async = require('async');
 
 const config = require('../config');
 const db = require('../api/models');
+const influx = require('@influxdata/influxdb-client');
 
 const duration = 1000*60; //msec to pull taskevent - should match up with the frequency of the execution
 
-const graphite_prefix = process.argv[2];
-if(!graphite_prefix) {
-    console.error("usage: metrics.js <graphite_prefix>");
-    process.exit(1);
-}
+let graphite_prefix = process.argv[2];
+if(!graphite_prefix) graphite_prefix = "dev";
 
 db.init(function(err) {
     if(err) throw err;
 
     //grab recent events
     let recent = new Date();
+
+    const writeApi = new influx.InfluxDB(config.influxdb.connection)
+        .getWriteApi(config.influxdb.org, config.influxdb.bucket, 'ns')
+    writeApi.useDefaultTags({location: config.influxdb.location})
+    const point = new influx.Point("amaretti");
+    point.timestamp(recent);
+
     recent.setTime(recent.getTime()-duration);
     async.series([
         next=>{
@@ -46,6 +51,7 @@ db.init(function(err) {
                 const time = Math.round(new Date().getTime()/1000);
                 for(let status in counts) {
                     console.log(graphite_prefix+".events.status."+status+" "+counts[status]+" "+time);
+                    point.intField("event_status."+status, counts[status]);
                 }
                 next();
             });
@@ -64,10 +70,14 @@ db.init(function(err) {
                 if(err) return next(err);
                 const time = Math.round((new Date()).getTime()/1000);
                 console.log(graphite_prefix+".task.queuesize "+count+" "+time);
+                point.intField("task_queuesize", count);
                 next();
             });
         },
     ], err=>{
+        writeApi.writePoint(point);
+        writeApi.close();
+
         db.disconnect();
         console.log("all done");
     });

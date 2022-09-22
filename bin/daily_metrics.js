@@ -1,24 +1,14 @@
 #!/usr/bin/env node
 
-//node
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-const request = require('request');
-const async = require('async');
-const redis = require('redis');
-
 const config = require('../config');
 const db = require('../api/models');
+const influx = require('@influxdata/influxdb-client');
 
 const mongoose = require("mongoose");
 mongoose.set("debug", false); //suppress log
 
-const graphite_prefix = process.argv[2];
-if(!graphite_prefix) {
-    console.error("usage: metrics.js <graphite_prefix>");
-    process.exit(1);
-}
+let graphite_prefix = process.argv[2];
+if(!graphite_prefix) graphite_prefix = "dev";
 
 let ignored_service = [
     //old services..
@@ -36,7 +26,7 @@ function count_tasks(d) {
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".task.count "+count+" "+time);
-            resolve();
+            resolve(count);
         });
     });
 }
@@ -49,7 +39,7 @@ function count_active_user(d) {
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".user.active "+users.length+" "+time);
-            resolve();
+            resolve(users.length);
         });
     });
 }
@@ -61,7 +51,7 @@ function count_user(d) {
             if(err) return reject(err);
             const time = Math.round(d.getTime()/1000);
             console.log(graphite_prefix+".user.total "+users.length+" "+time);
-            resolve();
+            resolve(users.length);
         });
     });
 }
@@ -69,9 +59,17 @@ function count_user(d) {
 db.init(async function(err) {
     if(err) throw err;
     let today = new Date();
-    await count_tasks(today); 
-    await count_user(today); 
-    await count_active_user(today); 
+    const writeApi = new influx.InfluxDB(config.influxdb.connection)
+        .getWriteApi(config.influxdb.org, config.influxdb.bucket, 'ns')
+    writeApi.useDefaultTags({location: config.influxdb.location})
+    const point = new influx.Point("amaretti");
+    point.timestamp(today);
+    point.intField("tasks", await count_tasks(today));
+    point.intField("user", await count_user(today));
+    point.intField("active_user", await count_active_user(today));
+    writeApi.writePoint(point);
+    writeApi.close();
+
     db.disconnect();
 }, false); //don't connect to amqp
 

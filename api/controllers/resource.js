@@ -470,6 +470,7 @@ router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
         if(!common.canUseResource(req.user, resource)) return res.status(401).send({messasge: "you can't access this resource"});
 
         //load usage graph
+        //TODO - needs to be switched to use influxdb
         let days = 30;
         request.get({url: config.metrics.api+"/render", qs: {
             target: config.metrics.resource_prefix+"."+req.params.resource_id,
