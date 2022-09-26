@@ -33,7 +33,7 @@ exports.sca = exports.amaretti; //deprecated (use amaretti)
 
 //used to use github api (like service.js)
 //obtain it from https://github.com/settings/tokens (
-exports.github = { access_token: fs.readFileSync(__dirname+'/github.access_token', 'ascii').trim()};
+//exports.github = { access_token: fs.readFileSync(__dirname+'/github.access_token', 'ascii').trim()};
 
 exports.metrics = {
     resource_prefix: "dev.amaretti.resource-id",
