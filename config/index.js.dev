@@ -9,7 +9,7 @@ exports.instance_id = process.env.NODE_APP_INSTANCE||0;
 
 //used to post/poll health status from various services
 //also to store various time sensitive cache data
-exports.redis = { url: "redis://brainlife_redis_1" };
+exports.redis = { url: "redis://brainlife_redis" };
 
 exports.amaretti = {
     auth_pubkey: fs.readFileSync(__dirname+'/auth.pub', 'ascii').trim(),
@@ -42,7 +42,7 @@ exports.metrics = {
 
 exports.influxdb = {
     connection: {
-        url: "http://brainlife_influxdb_1:8086",
+        url: "http://brainlife_influxdb:8086",
         token: "mydevtoken",
     },
     org: "brainlife",
@@ -59,14 +59,14 @@ exports.mailchimp = {
 
 exports.events = {
     amqp: {
-        url: "amqp://guest:guest@brainlife_rabbitmq_1:5672/brainlife"
+        url: "amqp://guest:guest@brainlife_rabbitmq:5672/brainlife"
     },
 
     exchange: "wf", //used as prefix for full exchange name.. (should be renamed to amaretti?)
 }
 
 exports.api = {
-    auth: "http://brainlife_auth-api_1:8080",
+    auth: "http://brainlife_auth-api:8080",
 }
 
 exports.test = {
@@ -78,7 +78,7 @@ exports.test = {
     }
 }
 
-exports.mongodb = "mongodb://brainlife_mongodb_1/amaretti";
+exports.mongodb = "mongodb://brainlife_mongodb/amaretti";
 
 exports.express = {
     host: "0.0.0.0",
