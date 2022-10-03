@@ -9,6 +9,12 @@ const config = require('../config');
 const db = require('./models');
 const common = require('./common');
 
+const headers = {};
+if(config.github) {
+	headers['User-Agent'] = 'brainlife/amaretti';
+	headers['Authorization'] = 'token '+config.github.access_token;
+}
+
 var _details_cache = {};
 exports.loaddetail = function(service_name, branch, cb) {
     var cache = _details_cache[service_name];
@@ -96,12 +102,7 @@ function do_loaddetail(service_name, branch, cb) {
         next=>{
             console.debug("loading repo detail");
             let url = 'https://api.github.com/repos/'+service_name;
-            axios.get(url, {
-                headers: {
-                    'User-Agent': 'brainlife/amaretti',
-                    'Authorization': 'token '+config.github.access_token,
-                } 
-            //}, function(err, _res, git) {
+            axios.get(url, { headers, }, function(err, _res, git) {
             }).then(res=>{
                 console.log("github api called (repos)", url, res.status);
                 check_headers(res.headers);
@@ -122,10 +123,7 @@ function do_loaddetail(service_name, branch, cb) {
             //then load package.json (don't need api key?)
             console.debug("loading package.json");
             var url = 'https://raw.githubusercontent.com/'+service_name+'/'+branch+'/package.json';
-            axios.get(url, { headers: {
-                'User-Agent': 'brainlife/amaretti',
-                'Authorization': 'token '+config.github.access_token,
-            }}).then(res=>{
+            axios.get(url, { headers }).then(res=>{
                 console.log("github api called (package.json)", url, res.status);
                 check_headers(res.headers);
                 let pkg = res.data;
@@ -182,24 +180,14 @@ function do_load_sha(service_name, branch, cb) {
 
     //lookup as branch
     let url = 'https://api.github.com/repos/'+service_name+'/git/refs/heads/'+branch;
-    axios.get(url, {
-        headers: {
-            'User-Agent': 'brainlife/amaretti',
-            'Authorization': 'token '+config.github.access_token,
-        }
-    }).then(res=>{
+    axios.get(url, { headers, }).then(res=>{
         console.log("github api called (refs/head):", url, res.status);
         check_headers(res.headers);
         cb(null, res.data.object);
     }).catch(err=>{
         //lookup as tags
         let url2 = 'https://api.github.com/repos/'+service_name+'/git/refs/tags/'+branch;
-        axios.get(url2, {
-            headers: {
-                'User-Agent': 'brainlife/amaretti',
-                'Authorization': 'token '+config.github.access_token,
-            }
-        }).then(res=>{
+        axios.get(url2, { headers, }).then(res=>{
             console.log("github api called (refs/tags):", url2, res.status);
             check_headers(res.headers);
             cb(null, res.data.object);
