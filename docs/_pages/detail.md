@@ -13,7 +13,7 @@ Modern science is complicated by the size of the data set, the complexity of the
 
 ## About Amaretti
 
-Amaretti is a meta processing managment system to orchestrate data and computation execution across multiple compute resources and architectures (e.g., clouds and high-performance computing). Its purpose is to reduce the users' burden for data,  software and computating management, to facilitate data-intensive research and accelerate discovery. Please see [About Amaretti](/) for basic overview.
+Amaretti is a meta processing management system to orchestrate data and computation execution across multiple compute resources and architectures (e.g., clouds and high-performance computing). Its purpose is to reduce the users' burden for data,  software and computating management, to facilitate data-intensive research and accelerate discovery. Please see [About Amaretti](/) for basic overview.
 
 ## Trusted Applications on trusted resources
 
@@ -23,7 +23,7 @@ We currently only allow administrator to share resources. By sharing resource wi
 
 ## Tasks
 
-Tasks are the atomic unit of computational work executed on various compute resources. It could be a `job` for batch systems, or a `vanilla process` running on a vanilla VM. Amaretti tasks are kept track of by assigment of a process ID.
+Tasks are the atomic unit of computational work executed on various compute resources. It could be a `job` for batch systems, or a `vanilla process` running on a vanilla VM. Amaretti tasks are kept track of by assignment of a process ID.
 
 ## Service
 
@@ -37,7 +37,7 @@ Amaretti provides workflow capability by creating dependencies between tasks. Ta
 
 `Resource` is a remote computing resource where Amaretti can ssh and create workdir / git clone specified service and launch ABCD hook scripts to `start`, `stop`, and `monitor`. It could be a single VM, a head node of a large HPC cluster, or submit node for distributed HTC clusters like Open Science Grid.
 
-In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criterias (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
+In Amaretti, each task within the `instance` can run on different resources, and if a `service` is enabled on multiple resources Amaretti would pick the best resource based on variety of decision criteria (see below). The same workflow might, therefore, run on different set of resources each time the workflow is executed. 
 
 ## ABCD the Apps specification. 
 
@@ -213,7 +213,7 @@ Amaretti handles requested tasks simply by going through all currently active ta
 
 For newly requested tasks, task handler first updates the `next_date` to 1 hour in the future by default, and  it then tries to initialize and start the task. If it fails to start the task for whatever the reason, the same task will automatically handled in 1 hour. If it succeeds to start the task, `next_date` will be set so that the status of the task will be immediately checked for the first time.
 
-Amaretti must deal with variety of remote resources with unforseen sets of possible error conditions that we can not determine if it is temporal or permanent. We could implement a similar system using Message Queue or 3rd party scheduling libraries, however, our simple task handling approach has so far allowed us with enough error resilience / failover capabilities, and with adequate task handling throughput. 
+Amaretti must deal with variety of remote resources with unforeseen sets of possible error conditions that we can not determine if it is temporal or permanent. We could implement a similar system using Message Queue or 3rd party scheduling libraries, however, our simple task handling approach has so far allowed us with enough error resilience / failover capabilities, and with adequate task handling throughput. 
 
 ## Task Versioning
 

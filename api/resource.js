@@ -263,7 +263,7 @@ function check_ssh(resource, cb) {
 
             if(err) return cb_once(err);
             let to = setTimeout(()=>{
-                cb_once(null, "failed", "send test script timeout(10sec) - filesytem is offline?");
+                cb_once(null, "failed", "send test script timeout(10sec) - filesystem is offline?");
                 to = null;
             }, 10*1000); 
 
@@ -372,7 +372,7 @@ function check_iohost(resource, cb) {
 
             if(err) return cb_once(err);
             let to = setTimeout(()=>{
-                cb_once(null, "failed", "readdir timeout - filesytem is offline?");
+                cb_once(null, "failed", "readdir timeout - filesystem is offline?");
                 to = null;
             }, 3*1000);
             sftp.opendir(workdir, function(err, stat) {
@@ -417,7 +417,7 @@ exports.stat = async function(resource, cb) {
     try {
         //get execution history counts for each service 
         let data = await db.Taskevent.aggregate()
-            .match({resource_id: resource._id, status: {$in: ["running", "finished", "failed"]}}) //reuqested doesn't get resource_id
+            .match({resource_id: resource._id, status: {$in: ["running", "finished", "failed"]}}) //requested doesn't get resource_id
             .group({_id: {service: '$service', status: '$status'}, count: {$sum: 1}}).exec()
         let total = {};
         let services = {};

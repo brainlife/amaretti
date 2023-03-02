@@ -950,7 +950,7 @@ router.put('/stop/:task_id', common.jwt(), function(req, res, next) {
         }
 
         //TODO - _handled is deprecated, but I should still make sure that the task isn't currently handled? but how?
-        //if(task._handled) return next("The task is currently handled by sca-task serivce. Please wait..");
+        //if(task._handled) return next("The task is currently handled by sca-task service. Please wait..");
 
         switch(task.status) {
         case "running":

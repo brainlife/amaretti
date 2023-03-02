@@ -187,7 +187,7 @@ function check(cb) {
 }
 
 function handle_housekeeping(task, cb) {
-    //console.debug("houskeeping!");
+    //console.debug("housekeeping!");
     async.series([
 
         //for validator (with follow_task_id) if the parent task is removed, we should mark the task as removed also
@@ -349,7 +349,7 @@ async function handle_requested(task, next) {
     //requested jobs are handled asynchronously.. (start_date will be set while being handled)
     //if some api reset next_date, it could get reprocessed while it's starting up
     //so we need to bail if this is the cause
-    //WARNING - don't run anything asynchrnous after checking for task.start_date before I save the task with new start_date 
+    //WARNING - don't run anything asynchronous after checking for task.start_date before I save the task with new start_date 
     if(task.start_date) {
         let starting_for = now - task.start_date;
         //console.log("start_date is set", starting_for);
@@ -495,7 +495,7 @@ async function handle_requested(task, next) {
 
         //Don't wait for start_task to finish.. could take a while to start.. (especially rsyncing could take a while).. 
         //start_task is designed to be able to run concurrently..
-        console.log("started task.. skiping save");
+        console.log("started task.. skipping save");
         next(null, true); //skip saving to prevent parallel save with start_task
     });
 }
@@ -650,7 +650,7 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 1: //finished
-                            //I am not sure if I have enough use cases to warrent the automatical retrieval of product.json to task..
+                            //I am not sure if I have enough use cases to warrant the automatic retrieval of product.json to task..
                             console.debug("finished!");
                             load_product(taskdir, resource, async (err, product)=>{
                                 if(err) {
@@ -661,7 +661,7 @@ function handle_running(task, next) {
                                     next();
                                 } else {
                                     task.finish_date = new Date();
-                                    if(!task.start_date) task.start_date = task.create_date; //shoudn't happen, but it does sometimes.
+                                    if(!task.start_date) task.start_date = task.create_date; //shouldn't happen, but it does sometimes.
                                     task.runtime = task.finish_date.getTime() - task.start_date.getTime();
                                     task.status = "finished";
                                     task.status_msg = "Successfully completed in "+(task.runtime/(1000*60)).toFixed(2)+" mins on "+resource.name;
@@ -678,7 +678,7 @@ function handle_running(task, next) {
                             task.fail_date = new Date();
                             poke_next(task, next);
                             break;
-                        case 3: //status temporarly unknown
+                        case 3: //status temporarily unknown
                             //TODO - I should mark the job as failurer if it's been a long time since last good status output
                             //of 3 stries and out?
                             console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name, task.instance_id+"/"+task._id);
@@ -1357,7 +1357,7 @@ async function storeProduct(task, dirty_product) {
                 });
             }
 
-            product = deepmerge(product, follow_product.product); //TODO shouldn't product have precidence over follow_product?
+            product = deepmerge(product, follow_product.product); //TODO shouldn't product have precedence over follow_product?
         }
     }
     if(!product) return;

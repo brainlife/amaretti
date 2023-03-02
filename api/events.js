@@ -50,7 +50,7 @@ exports.init = function(cb) {
         //
         /////////////////////////////////////////////////////////////
 
-        //I am not sure if ready event fires everytime it reconnects.. (find out!) 
+        //I am not sure if ready event fires every time it reconnects.. (find out!) 
         //so let's clear cb() once I call it
         if(cb) {
             cb();

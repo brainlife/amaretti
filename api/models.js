@@ -283,7 +283,7 @@ var taskSchema = mongoose.Schema({
     fail_date: Date, //time when this task was last failed
     update_date: Date, //time when this task was last updated (only used by put api?)
     request_date: Date, //time when this task was requested (!=create_date if re-requested)
-    remove_date: Date, //date when the task dir should be removed (if not requested or running) - if not set, will be remved after 25 days
+    remove_date: Date, //date when the task dir should be removed (if not requested or running) - if not set, will be removed after 25 days
 
     handle_date: {type: Date, default: Date.now }, //last time this task was handled by task handler
 

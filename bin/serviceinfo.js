@@ -130,7 +130,7 @@ db.init(function(err) {
 
                     let runtimes = [];
                     async.eachSeries(finish_events, (finish_event, next_finish_event)=>{
-                        //find when it started running for tha task
+                        //find when it started running for that task
                         db.Taskevent.findOne({
                             service: k, 
                             status: {$in: ["running", "running_sync"]}, 

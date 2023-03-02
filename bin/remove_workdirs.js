@@ -54,7 +54,7 @@ function remove(task) {
         let old = new Date();
         old.setMonth(-6);
         if(task.create_date < old) {
-            console.debug("task was created very long time ago.. but still trying to remove workdir.. probably the resource used disappeard and got stuck.. clearing");
+            console.debug("task was created very long time ago.. but still trying to remove workdir.. probably the resource used disappeared and got stuck.. clearing");
             task.resource_ids = [];
             return resolve();
         }

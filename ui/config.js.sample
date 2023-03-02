@@ -6,11 +6,11 @@ angular.module('app.config', [])
     title: 'Dev1 Workflow Service',
     api: '../api/amaretti',
 
-    //shared servive api and ui urls (for menus and stuff)
+    //shared service api and ui urls (for menus and stuff)
     profile_api: '../api/profile',
     profile_url: '../profile',
 
-    //shared servive api and ui urls (for menus and stuff)
+    //shared service api and ui urls (for menus and stuff)
     shared_api: '../api/shared',
     shared_url: '../shared',
     
