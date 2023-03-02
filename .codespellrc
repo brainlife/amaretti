@@ -1,3 +1,4 @@
 [codespell]
 skip = .git,*.pdf,*.svg,package-lock.json,*.min.js,vendor,.sass-cache,locales,ui-text.yml
-ignore-words-list = keypair,nd,nin
+# hsi - server name
+ignore-words-list = keypair,nd,nin,hsi
