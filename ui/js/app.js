@@ -258,7 +258,7 @@ function(appconf, $http, serverconf, toaster, jwtHelper) {
         });
     }
 
-    //find available resources that mathces criteria (empty means no match)
+    //find available resources that matches criteria (empty means no match)
     function find(criteria) {
         return getall().then(function() {
             var matches = [];
@@ -267,7 +267,7 @@ function(appconf, $http, serverconf, toaster, jwtHelper) {
                 matches.push(resource); 
             });
 
-            //TODO sort the mathces so that the best resource goes to [0]
+            //TODO sort the matches so that the best resource goes to [0]
             return matches;
         }); 
     }

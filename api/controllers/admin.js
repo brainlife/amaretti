@@ -32,7 +32,7 @@ router.get('/services/running', common.jwt(), function(req, res, next) {
                 {status: "running"},
 
                 //also include requests that are currently getting started - so that we don't undercount tasks
-                //while deciding how many are commited to run on various resources
+                //while deciding how many are committed to run on various resources
                 {status: "requested", start_date: {$exists: true}}, 
             ]
         }},

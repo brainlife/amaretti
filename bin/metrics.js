@@ -18,7 +18,7 @@ const influx = require('@influxdata/influxdb-client');
 let graphite_prefix = process.argv[2];
 if(!graphite_prefix) graphite_prefix = "dev";
 
-//TODO - this has to match up between amaretti/bin/metrics and warehouse/api/controller querying for graphite daa
+//TODO - this has to match up between amaretti/bin/metrics and warehouse/api/controller querying for graphite data
 function sensu_name(name) {
     name = name.toLowerCase();
     name = name.replace(/[_.@$#\/]/g, "-");

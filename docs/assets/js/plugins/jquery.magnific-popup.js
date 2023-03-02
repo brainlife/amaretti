@@ -1527,7 +1527,7 @@ $.magnificPopup.registerModule('zoom', {
 			}
 		},
 
-		// Get element postion relative to viewport
+		// Get element position relative to viewport
 		_getOffset: function(isLarge) {
 			var el;
 			if(isLarge) {

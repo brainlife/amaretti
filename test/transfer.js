@@ -14,7 +14,7 @@ db.init(async err=>{
     let dest_resource = await db.Resource.findById("59cbc0603199680e9d12a8ff");//js-slurm2
     let dest_path = "/tmp/test";
 
-    transfer.rsync_resource(src_resource, dest_resource, src_path, dest_path, cb=>{ console.log("progres.."); }, err=>{
+    transfer.rsync_resource(src_resource, dest_resource, src_path, dest_path, cb=>{ console.log("progress.."); }, err=>{
         if(err) throw err;
         console.log("done");
     });

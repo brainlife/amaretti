@@ -20,7 +20,7 @@ exports.loaddetail = function(service_name, branch, cb) {
     var cache = _details_cache[service_name];
     var now = new Date();
     if(cache) {
-        //check for expiriation
+        //check for expiration
         var age = new Date() - cache.date;
         if(age > 1000*60*10) { //10 minutes
             //expired
@@ -155,7 +155,7 @@ exports.get_sha = function(service_name, branch, cb) {
     var cache = _sha_cache[name];
     var now = new Date();
     if(cache) {
-        //check for expiriation
+        //check for expiration
         var age = new Date() - cache.date;
         if(age > 1000*10) { //cache for 10 seconds 
             //expired
