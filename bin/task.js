@@ -650,7 +650,7 @@ function handle_running(task, next) {
                             next();
                             break;
                         case 1: //finished
-                            //I am not sure if I have enough use cases to warrent the automatical retrieval of product.json to task..
+                            //I am not sure if I have enough use cases to warrant the automatic retrieval of product.json to task..
                             console.debug("finished!");
                             load_product(taskdir, resource, async (err, product)=>{
                                 if(err) {
@@ -678,7 +678,7 @@ function handle_running(task, next) {
                             task.fail_date = new Date();
                             poke_next(task, next);
                             break;
-                        case 3: //status temporarly unknown
+                        case 3: //status temporarily unknown
                             //TODO - I should mark the job as failurer if it's been a long time since last good status output
                             //of 3 stries and out?
                             console.error("couldn't determine the job state. could be an issue with status script on resource:%s", resource.name, task.instance_id+"/"+task._id);
