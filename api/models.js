@@ -35,12 +35,12 @@ exports.init = async function(cb, connectEvent = true) {
 }
 
 exports.disconnect = function(cb) {
-    console.log("disconnecting mongo");
     mongoose.disconnect(err=>{
         if(err) throw err;
         if(events.connected) {
-            console.log("disconnecting amqp/events");
             events.disconnect(cb);
+        } else {
+          cb && cb();
         }
     });
 }
