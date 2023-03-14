@@ -6,8 +6,8 @@ sidebar:
   nav: "docs"
 ---
 
-### [Soichi Hayashi](mailto:hayashis@iu.edu) (Software Engineer)
+### Brainlife Support Team: support@brainlife.io
 
-### [Franco Pestilli](mailto:frakkopesto@gmail.com) (Brain-Life PI)
+### Franco Pestilli, Brainlife PI: pestilli@utexas.edu
 
 

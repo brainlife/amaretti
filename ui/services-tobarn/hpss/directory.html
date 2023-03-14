@@ -20,7 +20,7 @@
 </div>
 <!--children-->
 <ul class="sca-step-hpss-children slide-down" ng-if="item.open" ng-init="parent = item">
-    <p class="text-muted" ng-if="item.children.legth == 0">(empty)</p>
+    <p class="text-muted" ng-if="item.children.length == 0">(empty)</p>
     <li ng-repeat="item in item.children">
         <ng-include src="'services/hpss/directory.html'" ng-if="item.directory"></ng-include>
         <ng-include src="'services/hpss/file.html'" ng-if="!item.directory && !item.next"></ng-include>

@@ -9,7 +9,7 @@ comments: true
 
 ## Dependencies
 
-Amaretti requires following depenencies - at minimum. 
+Amaretti requires following dependencies - at minimum. 
 
 * MongoDB 
 * Redis (mainly used to store health status from various microservices)
@@ -29,7 +29,7 @@ You can install all of these component with Docker. Please read README on each s
 
 ### Configuration
 
-TODO. Exaplain how to create config.
+TODO. Explain how to create config.
 
 ### Install Amaretti
 

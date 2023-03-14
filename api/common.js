@@ -113,7 +113,7 @@ exports.encrypt_resource = function(resource) {
 }
 
 //decrypt all config parameter that starts with enc_
-//TODO crypto could throw execption - but none of the client are handling it.. 
+//TODO crypto could throw exception - but none of the client are handling it.. 
 exports.decrypt_resource = function(resource) {
     if(resource.decrypted) {
         console.log("resource already decrypted");
@@ -469,7 +469,7 @@ exports.check_access = function(user, resource) {
 exports.canUseResource = function(user, resource) {
     const sub = user.sub.toString();
 
-    //ownwer/admin can access the resource
+    //owner/admin can access the resource
     if(resource.user_id == sub) return true;
     if(resource.admins.includes[sub]) return true;
 
@@ -625,7 +625,7 @@ exports.rerun_task = function(task, remove_date, cb) {
             //TODO - rerunning task with active deps might not be always bad - if the tasks are in different resource.
             //let's not veto this completely.. I need to think more
             console.log("rerunning task with active deps - it might make the deps fail");
-            //return cb("Can't rerun this task as it has dependent tasks that are currrently running.");
+            //return cb("Can't rerun this task as it has dependent tasks that are currently running.");
         }
 
         //all good! let's proceed with rerunning

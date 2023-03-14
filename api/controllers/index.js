@@ -56,7 +56,7 @@ router.use('/taskevent', require('./taskevent'));
 //use (get) /resource/type instead
 router.get('/config', common.jwt({credentialsRequired: false}), function(req, res) {
     var conf = {
-        resources: config.resources, //resoruce types
+        resources: config.resources, //resource types
     };
     res.json(conf);
 });

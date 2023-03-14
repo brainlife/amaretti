@@ -73,7 +73,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                     console.debug("source_path", source_path, source_id);
                     console.debug("dest_path", dest_path, dest_id);
                     if(dest_id == source_id) {  
-                        console.log("it *looks* like source filesytem is the same as dest filesytem.. skipping sync");
+                        console.log("it *looks* like source filesystem is the same as dest filesystem.. skipping sync");
                         return cb(); //we are all done!
                     }
                     next();
@@ -84,7 +84,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
         //cleanup broken symlinks on source resource
         //also check for infinite loop
         next=>{
-            //we are using rsync -L to derefernce symlink, which would fail if link is broken. so this is an ugly 
+            //we are using rsync -L to dereference symlink, which would fail if link is broken. so this is an ugly 
             //workaround for rsync not being forgivng..
             //console.log("finding and removing broken symlink on source resource before rsync", source_path);
             common.get_ssh_connection(source_resource, {}, (err, conn)=>{
@@ -106,7 +106,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
                             if(err) return next(err);
                             stream.on('close', (code, signal)=>{
                                 if(code === undefined) return next("connection closed while detecting infinite sym loop");
-                                else if(code) return next("filesytem loop detected");
+                                else if(code) return next("filesystem loop detected");
                                 next();
                             })
                             .on('data', data=>{
@@ -140,7 +140,7 @@ exports.rsync_resource = function(source_resource, dest_resource, source_path, d
             const source = source_resource.config.username+"@"+source_hostname+":"+source_path+"/";
             
             //-v writes output to stderr.. even though it's not error..
-            //-L is to follow symlinks (addtionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
+            //-L is to follow symlinks (additionally) --safe-links is desirable, but it will not transfer inter task/instance symlinks
             //-e opts is for ssh
             //-h is to make it human readable
             

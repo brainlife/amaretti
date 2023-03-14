@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#This script will be copied to each resource everytime resource checker test resource status and used to test the resource
+#This script will be copied to each resource every time resource checker test resource status and used to test the resource
 
 #check for common binaries
 which git >/dev/null
