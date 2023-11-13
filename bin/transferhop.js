@@ -1,5 +1,4 @@
 const { Client } = require('ssh2');
-const scpClient = require('scp2');
 
 const ssh = new Client();
 
