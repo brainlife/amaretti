@@ -11,6 +11,7 @@ const os = require('os');
 const redis = require('redis');
 const async = require('async');
 const deepmerge = require('deepmerge');
+const axios = require('axios');
 const yargs = require('yargs');
 
 const stripAnsi = require('strip-ansi');
@@ -18,7 +19,7 @@ const stripAnsi = require('strip-ansi');
 const config = require('../config');
 const db = require('../api/models');
 const common = require('../api/common');
-const _resource_select = require('../api/resource').select;
+const resource_select = require('../api/resource').select;
 const _transfer = require('../api/transfer');
 const _service = require('../api/service');
 
@@ -426,10 +427,27 @@ async function handle_requested(task, next) {
     task.start_date = new Date();
     await task.save()
 
-    _resource_select({
+    let scopes = [];
+    try {
+      const res = await axios.get(
+        `${config.api.auth}/user/${task.user_id}`,
+        {
+          headers: {
+            authorization: "Bearer " + config.amaretti.jwt
+          }
+        }
+      );
+      const user = res.data;
+      scopes = user.scopes;
+    } catch (error) {
+      console.error(error);
+    }
+
+    resource_select({
         //mock user object
         sub: task.user_id,
         gids: task.gids,
+        scopes: scopes,
     }, task, async (err, resource, score, considered)=>{
         if(err) return next(err);
         if(!resource || resource.status == "removed") {

@@ -20,7 +20,7 @@ db.init(err=> {
                 active: true,
                 'profile.private.notification.newsletter_general': true,
             }),
-            limit: 5000, //TODO unsustainable?
+            limit: 6000, //TODO unsustainable?
         },
         headers: { authorization: "Bearer "+config.wf.jwt },
     }, function(err, res, data) {

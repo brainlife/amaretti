@@ -31,8 +31,7 @@ function mask_enc(resource) {
 }
 
 function is_admin(user) {
-    if(user.scopes.amaretti && ~user.scopes.amaretti.indexOf("admin")) return true;
-    return false;
+    return user.scopes.amaretti && user.scopes.amaretti.includes("admin");
 }
 
 function canedit(user, resource) {
@@ -65,45 +64,41 @@ router.get('/', common.jwt(), function(req, res, next) {
     if(req.query.limit) req.query.limit = parseInt(req.query.limit);
     if(req.query.skip) req.query.skip = parseInt(req.query.skip);
 
-    //if(!is_admin(req.user) || find.user_id === undefined) {
-    const gids = req.user.gids||[];
-    gids.push(config.amaretti.globalGroup);
-    find["$or"] = [
-        {user_id: req.user.sub.toString()},
-        {admins: req.user.sub.toString()},
-        {gids: {"$in": gids}},
-    ];
-    /*} else if(find.user_id == null) {
-        //admin can set it to null and remove user_id / gids filtering
-        //html get method won't allow empty parameter, so by setting it to null, then I can replace with *undefined*
-        delete find.user_id;
-    }*/
+    if(!is_admin(req.user)) {
+      const gids = req.user.gids || [];
+      find["$or"] = [
+          {user_id: req.user.sub.toString()},
+          {admins: req.user.sub.toString()},
+          {gids: {"$in": gids}},
+          {gids: {"$in": [config.amaretti.globalGroup]}, active: true}, // only active public resources
+      ];
+    }
 
     let select = null; //select all by default
     if(req.query.select) select = req.query.select+" user_id"; //we need user_id at least
 
     db.Resource.find(find)
-    .select(select)
-    .limit(req.query.limit || 100)
-    .skip(req.query.skip || 0)
-    .sort(req.query.sort)
-    .lean()
-    .exec(function(err, resources) {
-        if(err) return next(err);
-        resources.forEach(mask_enc);
+      .select(select)
+      .limit(req.query.limit || 100)
+      .skip(req.query.skip || 0)
+      .sort(req.query.sort)
+      .lean()
+      .exec(function(err, resources) {
+          if(err) return next(err);
+          resources.forEach(mask_enc);
 
-        //add / remove a few more things
-        resources.forEach(function(resource) {
-            resource.salts = undefined;
-            resource._canedit = canedit(req.user, resource)
-        });
+          //add / remove a few more things
+          resources.forEach(function(resource) {
+              resource.salts = undefined;
+              resource._canedit = canedit(req.user, resource)
+          });
 
-        //deprecate this..
-        db.Resource.countDocuments(find).exec(function(err, count) {
-            if(err) return next(err);
-            res.json({resources: resources, count: count});
-        });
-    });
+          //deprecate this..
+          db.Resource.countDocuments(find).exec(function(err, count) {
+              if(err) return next(err);
+              res.json({resources: resources, count: count});
+          });
+      });
 });
 
 /**
@@ -134,11 +129,13 @@ router.get('/best', common.jwt(), (req, res, next)=>{
     };
 
     //make sure user has access to requested gids
-    if(req.query.gids) task.gids = req.query.gids.map(gid=>parseInt(gid)).filter(gid=>{
-        if(gid == config.amaretti.globalGroup) return true; //user can select from public resource
-        if(req.user.gids.includes(gid)) return true; //group member can selec it
-        return false;
-    });
+    if(req.query.gids) {
+        task.gids = req.query.gids.map(gid=>parseInt(gid)).filter(gid=>{
+            if(gid == config.amaretti.globalGroup) return true; //user can select from public resource
+            if(req.user.gids.includes(gid)) return true; //group member can selec it
+            return false;
+        });
+    }
 
     //if(req.query.service) task.service = req.query.service;
     resource_lib.select(req.user, task, (err, resource, score, considered)=>{

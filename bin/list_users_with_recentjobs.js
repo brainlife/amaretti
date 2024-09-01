@@ -31,7 +31,7 @@ function list_users(cb) {
                 find: JSON.stringify({
                     sub: {$in: user_ids},
                 }),
-                limit: 5000, //TODO unsustainable?
+                limit: 6000, //TODO unsustainable?
             },
             headers: { authorization: "Bearer "+config.wf.jwt },
         }, function(err, res, _contacts) {

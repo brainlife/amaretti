@@ -34,13 +34,23 @@ exports.select = function(user, task, cb) {
         return;
     }
 
+    const isAdmin = (user.scopes?.amaretti || []).includes('admin');
+    const isPreferred = !!task.preferred_resource_id;
+
+    const query = {
+      status: {$ne: "removed"},
+      active: true,
+      gids: {"$in": task.gids},
+      'config.services.name': task.service,
+    };
+
+    if (isAdmin && isPreferred) {
+      delete query['config.services.name'];
+      delete query.active;
+    }
+
     //now let's start out by all the resources that user has access and app is enabled on
-    db.Resource.find({
-        status: {$ne: "removed"},
-        active: true,
-        gids: {"$in": task.gids},
-        'config.services.name': task.service,
-    }).lean().sort('create_date').exec((err, resources)=>{
+    db.Resource.find(query).lean().sort('create_date').exec((err, resources)=>{
         if(err) return cb(err);
 
         //select the best resource based on the task
@@ -49,11 +59,6 @@ exports.select = function(user, task, cb) {
         var considered = [];
         async.eachSeries(resources, (resource, next_resource)=>{
             score_resource(user, resource, task, (err, score, detail)=>{
-                if(score === null) {
-                    //not configured to run on this resource.. ignore
-                    //console.log("no score produced for "+resource.name);
-                    return next_resource();         
-                }
 
                 let consider = {
                     _id: resource._id, 
@@ -75,33 +80,54 @@ exports.select = function(user, task, cb) {
 
                     owner: resource.user_id,
                 };
+
+                const isResourcePreferred = task.preferred_resource_id && task.preferred_resource_id == resource._id.toString();
+                const isPrivate = resource.gids.length === 0;
+                const hasScore = score > 0;
+                const isResourceOk = resource.status === 'ok';
+                const hasTaskDependency = ~dep_resource_ids.indexOf(resource._id.toString());
+
+                if (isAdmin && isResourcePreferred) {
+                    consider.detail.msg += "admin override";
+                    considered.push(consider);
+                    best_score = consider.score;
+                    best = resource;
+                    return next_resource("admin override");
+                }
+
+                if (score === null) {
+                    //not configured to run on this resource.. ignore
+                    //console.log("no score produced for "+resource.name);
+                    return next_resource();
+                }
+
                 considered.push(consider);
 
-                if(resource.status != 'ok') {
+                if (!isResourceOk) {
                     consider.detail.msg += "resource status is not ok";
                     return next_resource();
                 }
 
                 //if score is 0, assume it's disabled..
-                if(score === 0) {
+                if (!hasScore) {
                     consider.detail.msg+="score is set to 0.. not running here";
                     return next_resource();
                 }
 
                 //+5 if resource is listed in dep
-                if(~dep_resource_ids.indexOf(resource._id.toString())) {
+                if (hasTaskDependency) {
                     consider.detail.msg+="resource listed in deps/resource_ids.. +5\n";
                     consider.score = score+5;
                 }
                 
                 //+10 if it's private resource
-                if(resource.gids.length == 0) {
+                if (isPrivate) {
                     consider.detail.msg+="private resource.. +10\n";
                     consider.score = score+10;
                 }
                 
                 //+15 score if it's preferred by user (TODO need to make sure this still works)
-                if(task.preferred_resource_id && task.preferred_resource_id == resource._id.toString()) {
+                if (isResourcePreferred) {
                     consider.detail.msg+="user prefers this.. +15\n";
                     consider.score = score+15;
                 }
@@ -116,6 +142,9 @@ exports.select = function(user, task, cb) {
                 next_resource();
             });
         }, err=>{
+            if (err === "admin override") {
+              err = null;
+            }
             //for debugging
             if(best) {
                 console.debug("best resource chosen:"+best._id+" name:"+best.name+" with score:"+best_score);
@@ -235,6 +264,8 @@ function check_ssh(resource, cb) {
     var conn = new Client();
     var ready = false;
 
+    const workdir = common.getworkdir(null, resource);
+
     function cb_once(err, status, message) {
         if(cb) {
             cb(err, status, message);
@@ -251,30 +282,34 @@ function check_ssh(resource, cb) {
     conn.on('ready', function() {
         ready = true;
 
-        //send test script
-        const workdir = common.getworkdir(null, resource);
         let t1 = setTimeout(()=>{
             cb_once(null, "failed", "got ssh connection but sftp timeout");
             t1 = null;
         }, 15*1000); //10 sec too short for osgconnect
+
         conn.sftp((err, sftp)=>{
             if(!t1) return; //timed out already
             clearTimeout(t1);
 
             if(err) return cb_once(err);
-            let to = setTimeout(()=>{
-                cb_once(null, "failed", "send test script timeout(10sec) - filesystem is offline?");
-                to = null;
-            }, 10*1000); 
 
-            let readstream = fs.createReadStream(__dirname+"/resource_test.sh");
-            let writestream = sftp.createWriteStream(workdir+"/resource_test.sh");
+            let to = setTimeout(()=>{
+                cb_once(null, "failed", "send test script timeout(60sec) - filesystem is offline?");
+                to = null;
+            }, 60*1000); 
+
+            let readstream = fs.createReadStream(__dirname + "/resource_test.sh");
+            let writestream = sftp.createWriteStream(workdir + "/resource_test.sh");
+
             writestream.on('close', ()=>{
                 if(!to) return; //timed out already
                 clearTimeout(to);
                 console.debug("resource_test.sh write stream closed - running resource_test.sh");
                 conn.exec('cd '+workdir+' && timeout 10 bash resource_test.sh', (err, stream)=>{
-                    if (err) return cb_once(err);
+                    if (err) {
+                      clearTimeout(to);
+                      return cb_once(err);
+                    }
                     var out = "";
                     stream.on('close', function(code, signal) {
                         console.debug(out);
@@ -290,6 +325,7 @@ function check_ssh(resource, cb) {
             });
             writestream.on('error', err=>{
                 console.debug("resource_test.sh write stream errored");
+                console.debug(err);
                 if(!to) return; //timed out already
                 clearTimeout(to);
                 if(err) return cb_once(null, "failed", "failed to stream resource_test.sh");
@@ -315,8 +351,13 @@ function check_ssh(resource, cb) {
 
 
     //clone resource so that decrypted content won't leak out of here
-    var decrypted_resource = JSON.parse(JSON.stringify(resource));
-    common.decrypt_resource(decrypted_resource);
+    let decrypted_resource;
+    if (resource.decrypted) {
+      decrypted_resource = resource;
+    } else {
+      decrypted_resource = JSON.parse(JSON.stringify(resource));
+      common.decrypt_resource(decrypted_resource);
+    }
 
     /*
     console.debug("check_ssh - connecting ssh");
@@ -339,6 +380,8 @@ function check_ssh(resource, cb) {
         cb_once(null, "failed", err.toString());
     }
 }
+
+exports.check_ssh = check_ssh;
 
 //TODO this is too similar to common.js:ssh_command... can we refactor?
 function check_iohost(resource, cb) {
@@ -374,7 +417,7 @@ function check_iohost(resource, cb) {
             let to = setTimeout(()=>{
                 cb_once(null, "failed", "readdir timeout - filesystem is offline?");
                 to = null;
-            }, 3*1000);
+            }, 3*10000);
             sftp.opendir(workdir, function(err, stat) {
                 if(!to) return; //timed out already
                 clearTimeout(to);
