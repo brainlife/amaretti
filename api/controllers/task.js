@@ -514,7 +514,7 @@ router.post('/upload/:taskid', common.jwt(), function(req, res, next) {
                                 pipe.on('close', function() {
                                     console.info("streaming closed");
 
-                                    //this is an undocumented feature to exlode uploade tar.gz
+                                    //this is an undocumented feature to exlode upload tar.gz
                                     if(req.query.untar) {
 
                                         //is this secure enough?
@@ -610,7 +610,7 @@ router.post('/upload2/:taskid', common.jwt(), upload.single('file'), function(re
                                     console.info("streaming closed.. removing uploaded file");
                                     fs.unlinkSync(req.file.path);
 
-                                    //this is an undocumented feature to exlode uploade tar.gz
+                                    //this is an undocumented feature to exlode upload tar.gz
                                     if(req.query.untar) {
                                         console.info("tar xzf-ing");
 

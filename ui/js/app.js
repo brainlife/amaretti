@@ -386,7 +386,7 @@ function(appconf, $http, $timeout, toaster) {
             function reload_task() {
                 return $http.get(appconf.api+"/task/"+scope.task._id)
                 .then(function(res) {
-                    //update without chainging parent reference so that change will be visible via workflow
+                    //update without changing parent reference so that change will be visible via workflow
                     for(var k in res.data) {
                         scope.task[k] = res.data[k];
                     } 
@@ -422,7 +422,7 @@ function(appconf, $http, $timeout, toaster) {
                 return $http.put(appconf.api+"/task/rerun/"+scope.task._id)
                 .then(function(res) {
                     toaster.success(res.data.message);
-                    //update without chainging parent reference so that change will be visible via workflow
+                    //update without changing parent reference so that change will be visible via workflow
                     //console.dir(res.data);
                     for(var k in res.data.task) {
                         scope.task[k] = res.data.task[k];
