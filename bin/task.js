@@ -210,7 +210,7 @@ function handle_housekeeping(task, cb) {
         //I need to be really be sure that the directory is indeed removed before concluding that it is.
         //To do that, we either need to count the number of times it *appears* to be removed, or do something clever.
         //TODO..
-        //I need to solve this.. if task gets removed by resource, we need to mark the task as removed or dependending task
+        //I need to solve this.. if task gets removed by resource, we need to mark the task as removed or depending task
         //will fail! For now, we can make sure that resource won't remove tasks for at least 10 days... Maybe we could make this
         //number configurable for each task?
         next=>{
