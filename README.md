@@ -8,7 +8,7 @@ Amaretti is a light-weight, cross-resource, multi-user task orchestration servic
 For more information, please read [Amaretti Doc](https://brainlife.github.io/amaretti/)
 
 ### Authors
-- Soichi Hayashi (hayashis@iu.edu)
+- Soichi Hayashi
 
 ### Contributors
 - Franco Pestilli (pestilli@utexas.edu)
