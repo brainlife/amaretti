@@ -119,7 +119,7 @@ db.init(function(err) {
 
         next=>{
             async.eachOfSeries(service_info, (v, k, next_service)=>{
-                console.log("analying average runtime from the most recent 100 finishes for...", k);
+                console.log("analyzing average runtime from the most recent 100 finishes for...", k);
                 db.Taskevent.find({service: k, status: "finished"})
                 .sort('-date').select('date task_id').limit(100).exec((err, finish_events)=>{
                     if(err) return next_service(err);

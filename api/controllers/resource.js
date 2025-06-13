@@ -464,7 +464,7 @@ router.get('/usage/:resource_id', common.jwt(), (req, res, next)=>{
         if(err) return next(err);
         if(!resource) return res.status(404).end();
 
-        if(!common.canUseResource(req.user, resource)) return res.status(401).send({messasge: "you can't access this resource"});
+        if(!common.canUseResource(req.user, resource)) return res.status(401).send({message: "you can't access this resource"});
 
         //load usage graph
         //TODO - needs to be switched to use influxdb
