@@ -26,6 +26,12 @@ brainlife.io is publicly funded, and for the sustainability of the project, it i
 [![NSF-ACI-1916518](https://img.shields.io/badge/NSF_ACI-1916518-blue.svg)](https://nsf.gov/awardsearch/showAward?AWD_ID=1916518)
 [![NSF-IIS-1912270](https://img.shields.io/badge/NSF_IIS-1912270-blue.svg)](https://nsf.gov/awardsearch/showAward?AWD_ID=1912270)
 
+### Sponsorship Acknowledgement
+
+We gratefully acknowledge the support of the AWS Open Data Program for providing S3 storage resources to brainlife.io.
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/93/Amazon_Web_Services_Logo.svg/1280px-Amazon_Web_Services_Logo.svg.png" width="200" >
+
 ### Citations
 We kindly ask that you cite the following articles when publishing papers and code using this code.
 
