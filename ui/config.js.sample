@@ -17,7 +17,7 @@ angular.module('app.config', [])
     progress_api: '../api/progress',
     progress_url: '../progress',
 
-    //authentcation service API to refresh token, etc.
+    //authentication service API to refresh token, etc.
     auth_api: '../api/auth',
     //authentication service URL to jump if user needs to login
     auth_url: '../auth',

@@ -298,7 +298,7 @@ taskSchema.post('findOneAndRemove', events.task);
 taskSchema.post('remove', events.task);
 
 taskSchema.index({status: 1, _group_id: 1});  //counting number of tasks per group
-taskSchema.index({user_id: 1, _group_id: 1});  //for rule hanler to find task that belongs to a user
+taskSchema.index({user_id: 1, _group_id: 1});  //for rule handler to find task that belongs to a user
 taskSchema.index({'config._outputs.id': 1});  //to look for app-stage that staged specific dataset (dataset.vue) 
 //taskSchema.index({project: 1, removed: 1}); //for task aggregate $math and group by subject/datatype
 //taskSchema.index({ "_group_id": 1, "finish_date": 1, "resource_id": 1, "service": 1, "start_date": 1 }); //total walltime

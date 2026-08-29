@@ -1,4 +1,6 @@
 [codespell]
-skip = .git,*.pdf,*.svg,package-lock.json,*.min.js,vendor,.sass-cache,locales,ui-text.yml
-# hsi - server name
-ignore-words-list = keypair,nd,nin,hsi
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+skip = .git*,*.svg,package-lock.json,*.css,*.min.*,.codespellrc,vendor,_data,.sass-cache,locales,*.scss
+check-hidden = true
+ignore-regex = \$nin\b
+ignore-words-list = hsi
