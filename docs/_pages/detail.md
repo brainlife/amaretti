@@ -81,14 +81,14 @@ For a web application, user typically interacts with JWT token in following orde
 
 1. User visits authentication service UI (login form) and enters login credentials (such as user/pass) and authentication service authenticates.
 2. If authentication is successful, service will generate the JWT token and user receives the token. Token is usually stored on user's browser through cookie or localStorage. 
-3. User then make request for application that truest the JWT issued by the authentication service. User usually sets `authentication: Bearer` header with their API request
-4. Application receives the API request and token from the user. Application verify the token by decrypting the token using authentication's public key (using JWT's client libraries). If the token is valid, it uses information stored on the token (user ID, authorization settings, etc) and proceed to fulfill the API request.
+3. User then make request for application using the JWT issued by the authentication service. User usually sets `authentication: Bearer` header with their API request
+4. Application receives the API request and token from the user. Application verifies the token by decrypting the token using authentication's public key (using JWT's client libraries). If the token is valid, it uses information stored on the token (user ID, authorization settings, etc) and proceed to fulfill the API request.
 
 ### Auth-E-ntication through JWT
 
-JWT token allows us to perform stateless authentication of user; eliminating a need to query authentication service to validate the token and/or query user authorization every time user makes a API call. This removes the authentication service as SPOF (single-point-of-failurer) and allows us to easily scale our API servers while reducing latency for each API calls. In fact, the only time authentication service is needed is when user tries to login to our system. Once logged in, users are immune to the outage caused by authentication service to certain extent. Similarity to oauth2 token, JWT tokens are meant to be refreshed periodically (once a hour) by contacting the authentication service with old token and receive a new token.
+JWT token allows us to perform stateless authentication of user; eliminating a need to query authentication service to validate the token and/or query user authorization every time user makes an API call. This removes the authentication service as SPOF (single-point-of-failurer) and allows us to easily scale our API servers while reducing latency for each API calls. In fact, the only time authentication service is needed is when user tries to login to our system. Once logged in, users are immune to the outage caused by authentication service to certain extent. Similarity to oauth2 token, JWT tokens are meant to be refreshed periodically (once a hour) by contacting the authentication service with old token and receive a new token.
 
-> Setting the short expiration date for JWT token minimizes the risk of a token misused or authorization granted when it shouldn't.
+> Setting the short expiration date for JWT token minimizes the risk of a token being misused or authorization granted when it shouldn't.
 
 ### Auth-O-rization through JWT
 
